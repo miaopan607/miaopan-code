@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@opencode-ai/tui",
-  "version": "1.17.18",
+  "name": "@miaopan-code/tui",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -48,10 +48,10 @@
     "./component/register-spinner": "./src/component/register-spinner.ts"
   },
   "dependencies": {
-    "@opencode-ai/core": "workspace:*",
-    "@opencode-ai/plugin": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
+    "@miaopan-code/core": "workspace:*",
+    "@miaopan-code/plugin": "workspace:*",
+    "@miaopan-code/sdk": "workspace:*",
+    "@miaopan-code/ui": "workspace:*",
     "@opentui/core": "catalog:",
     "@opentui/keymap": "catalog:",
     "@opentui/solid": "catalog:",

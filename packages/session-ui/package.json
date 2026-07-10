@@ -1,6 +1,6 @@
 {
-  "name": "@opencode-ai/session-ui",
-  "version": "1.17.18",
+  "name": "@miaopan-code/session-ui",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -35,9 +35,9 @@
   },
   "dependencies": {
     "@kobalte/core": "catalog:",
-    "@opencode-ai/core": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
+    "@miaopan-code/core": "workspace:*",
+    "@miaopan-code/sdk": "workspace:*",
+    "@miaopan-code/ui": "workspace:*",
     "@pierre/diffs": "catalog:",
     "@shikijs/stream": "catalog:",
     "@shikijs/transformers": "3.9.2",

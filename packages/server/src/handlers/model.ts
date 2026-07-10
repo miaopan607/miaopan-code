@@ -1,4 +1,4 @@
-import { Catalog } from "@opencode-ai/core/catalog"
+import { Catalog } from "@miaopan-code/core/catalog"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Api } from "../api"

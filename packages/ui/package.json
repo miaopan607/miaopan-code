@@ -1,11 +1,11 @@
 {
-  "name": "@opencode-ai/ui",
-  "version": "1.17.18",
+  "name": "@miaopan-code/ui",
+  "version": "0.1.0",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anomalyco/opencode.git",
+    "url": "git+https://github.com/miaopan607/miaopan-code.git",
     "directory": "packages/ui"
   },
   "publishConfig": {

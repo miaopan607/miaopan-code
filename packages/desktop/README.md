@@ -1,6 +1,6 @@
-# OpenCode Desktop
+# miaopan-code Desktop
 
-The OpenCode Desktop app, built with Electron.
+The miaopan-code Desktop app, built with Electron.
 
 ## Development
 

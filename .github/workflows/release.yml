@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Validate version
+        run: test "v$(node -p \"require('./packages/miaopan-code/package.json').version\")" = "$GITHUB_REF_NAME"
+      - name: Build CLI
+        run: bun --cwd packages/miaopan-code run build
+        env:
+          MIAOPAN_CODE_VERSION: ${{ github.ref_name }}
+          MIAOPAN_CODE_CHANNEL: release
+      - name: Build VSIX
+        working-directory: sdks/vscode
+        run: npx @vscode/vsce package --no-git-tag-version --no-update-package-json --no-dependencies -o dist/miaopan-code.vsix
+      - name: Package licenses and checksums
+        run: |
+          cp LICENSE NOTICE packages/miaopan-code/dist/
+          sha256sum packages/miaopan-code/dist/*.{zip,tar.gz} sdks/vscode/dist/miaopan-code.vsix schemas/config.json schemas/tui.json > SHA256SUMS
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes packages/miaopan-code/dist/*.zip packages/miaopan-code/dist/*.tar.gz packages/miaopan-code/dist/LICENSE packages/miaopan-code/dist/NOTICE sdks/vscode/dist/miaopan-code.vsix schemas/config.json schemas/tui.json SHA256SUMS

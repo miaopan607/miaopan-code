@@ -1,18 +1,18 @@
 export * from "./client.js"
 export * from "./server.js"
 
-import { createOpencodeClient } from "./client.js"
-import { createOpencodeServer } from "./server.js"
+import { createMiaopanCodeClient } from "./client.js"
+import { createMiaopanCodeServer } from "./server.js"
 import type { ServerOptions } from "./server.js"
 
 export * as data from "./data.js"
 
-export async function createOpencode(options?: ServerOptions) {
-  const server = await createOpencodeServer({
+export async function createMiaopanCode(options?: ServerOptions) {
+  const server = await createMiaopanCodeServer({
     ...options,
   })
 
-  const client = createOpencodeClient({
+  const client = createMiaopanCodeClient({
     baseUrl: server.url,
   })
 

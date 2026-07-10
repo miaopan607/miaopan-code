@@ -1,10 +1,10 @@
-import { DialogBody, DialogHeader, DialogTitle, DialogV2 } from "@opencode-ai/ui/v2/dialog-v2"
-import { Icon } from "@opencode-ai/ui/v2/icon"
-import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { ScrollView } from "@opencode-ai/ui/scroll-view"
-import { Tag } from "@opencode-ai/ui/v2/badge-v2"
-import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { DialogBody, DialogHeader, DialogTitle, DialogV2 } from "@miaopan-code/ui/v2/dialog-v2"
+import { Icon } from "@miaopan-code/ui/v2/icon"
+import { ProviderIcon } from "@miaopan-code/ui/provider-icon"
+import { ScrollView } from "@miaopan-code/ui/scroll-view"
+import { Tag } from "@miaopan-code/ui/v2/badge-v2"
+import { TooltipV2 } from "@miaopan-code/ui/v2/tooltip-v2"
+import { useDialog } from "@miaopan-code/ui/context/dialog"
 import { createMemo, onCleanup, onMount, type Component, For, Show } from "solid-js"
 import { useLocal } from "@/context/local"
 import { popularProviders, useProviders } from "@/hooks/use-providers"
@@ -27,7 +27,7 @@ export const DialogSelectModelUnpaidV2: Component<{ model?: ModelState }> = (pro
     return c ? `${c.provider.id}:${c.id}` : undefined
   })
   const isFree = (item: ReturnType<ModelState["list"]>[number]) =>
-    item.provider.id === "opencode" && (!item.cost || item.cost.input === 0)
+    item.provider.id === "miaopan-code" && (!item.cost || item.cost.input === 0)
 
   const openProviders = (provider?: string) => {
     void import("./dialog-connect-provider").then((x) => {
@@ -130,15 +130,15 @@ export const DialogSelectModelUnpaidV2: Component<{ model?: ModelState }> = (pro
                       >
                         <ProviderIcon id={provider.id} class="size-4 shrink-0 text-v2-icon-icon-muted" />
                         <span class="min-w-0 truncate">{provider.name}</span>
-                        <Show when={provider.id === "opencode"}>
+                        <Show when={provider.id === "miaopan-code"}>
                           <span class="min-w-0 truncate text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-muted [font-family:Inter,var(--font-family-sans)] [font-variation-settings:'slnt'_0]">
-                            {language.t("dialog.provider.opencode.tagline")}
+                            {language.t("dialog.provider.miaopanCode.tagline")}
                           </span>
                           <Tag class="shrink-0">{language.t("dialog.provider.tag.recommended")}</Tag>
                         </Show>
-                        <Show when={provider.id === "opencode-go"}>
+                        <Show when={provider.id === "miaopanCode-go"}>
                           <span class="min-w-0 truncate text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-muted [font-family:Inter,var(--font-family-sans)] [font-variation-settings:'slnt'_0]">
-                            {language.t("dialog.provider.opencodeGo.tagline")}
+                            {language.t("dialog.provider.miaopanCodeGo.tagline")}
                           </span>
                           <Tag class="shrink-0">{language.t("dialog.provider.tag.recommended")}</Tag>
                         </Show>

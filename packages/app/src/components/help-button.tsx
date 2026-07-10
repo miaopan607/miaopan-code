@@ -1,5 +1,5 @@
-import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
+import { Icon as IconV2 } from "@miaopan-code/ui/v2/icon"
+import { IconButtonV2 } from "@miaopan-code/ui/v2/icon-button-v2"
 import { createSignal, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Drawer, DrawerClose, DrawerContent } from "@/components/ui/drawer"
@@ -31,14 +31,14 @@ const triggerClass =
 const showPopover = () => true
 
 export function HelpButton() {
-  if (import.meta.env.VITE_OPENCODE_CHANNEL !== "dev") return null
+  if (import.meta.env.VITE_MIAOPAN_CODE_CHANNEL !== "dev") return null
 
   const platform = usePlatform()
 
   return (
     <a
-      href="https://opencode.ai"
-      aria-label="Open the OpenCode website"
+      href="https://github.com/miaopan607/miaopan-code"
+      aria-label="Open the MiaopanCode website"
       data-component="icon-button-v2"
       data-size="large"
       class={`${triggerClass} fixed bottom-5 right-5 z-50 flex items-center justify-center`}
@@ -54,7 +54,7 @@ export function HelpButton() {
 
 // can remove this after the tabs rollout has been out for a while
 export function TabsInfoPopup() {
-  if (import.meta.env.VITE_OPENCODE_CHANNEL !== "dev") return null
+  if (import.meta.env.VITE_MIAOPAN_CODE_CHANNEL !== "dev") return null
 
   const [state, setState] = persisted(Persist.global("tabsInfoPopup"), createStore({ dismissed: false }))
   // setState({ dismissed: false }) // for testing
@@ -132,7 +132,7 @@ export function TabsInfoPopup() {
             Introducing Tabs Navigation.
           </p>
           <p class="w-full flex-1 text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-base">
-            We've introduced tabs as the primary navigation in OpenCode. Your most important session are now pinned at
+            We've introduced tabs as the primary navigation in MiaopanCode. Your most important session are now pinned at
             the top of your screen at all times. No more hunting through menus or losing your place mid-session. Switch
             contexts instantly, pick up exactly where you left off, and keep your focus where it belongs: on the
             sessions.

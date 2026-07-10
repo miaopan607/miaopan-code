@@ -1,13 +1,13 @@
 import { createMemo, createSignal, createUniqueId, Show } from "solid-js"
 import { createQuery } from "@tanstack/solid-query"
-import { Tabs } from "@opencode-ai/ui/tabs"
-import { Icon } from "@opencode-ai/ui/icon"
+import { Tabs } from "@miaopan-code/ui/tabs"
+import { Icon } from "@miaopan-code/ui/icon"
 import {
   SessionFilePanelV2,
   SessionFilePanelV2Empty,
   SessionFilePanelV2Title,
-} from "@opencode-ai/session-ui/v2/session-file-panel-v2"
-import { SessionReviewV2Sidebar, SessionReviewV2SidebarToggle } from "@opencode-ai/session-ui/v2/session-review-v2"
+} from "@miaopan-code/session-ui/v2/session-file-panel-v2"
+import { SessionReviewV2Sidebar, SessionReviewV2SidebarToggle } from "@miaopan-code/session-ui/v2/session-review-v2"
 import FileTree, { type Kind } from "@/components/file-tree"
 import { useFile } from "@/context/file"
 import { useLanguage } from "@/context/language"
