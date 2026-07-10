@@ -3,6 +3,7 @@ import { $ } from "bun"
 import pkg from "../package.json"
 import { Script } from "@miaopan-code/script"
 import { fileURLToPath } from "url"
+import { readdir } from "fs/promises"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 const packageName = "@miaopan/code"
@@ -29,11 +30,11 @@ async function publish(dir: string, name: string, version: string) {
 }
 
 const binaries = await Promise.all(
-  Array.from(new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" }))
-    .filter((file) => file !== `${pkg.name}/package.json`)
-    .map(async (file) => {
-      const binary = await Bun.file(`./dist/${file}`).json()
-      return { dir: file.replace("/package.json", ""), name: binary.name, version: binary.version }
+  (await readdir("./dist", { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && entry.name !== pkg.name)
+    .map(async (entry) => {
+      const binary = await Bun.file(`./dist/${entry.name}/package.json`).json()
+      return { dir: entry.name, name: binary.name, version: binary.version }
     }),
 )
 if (binaries.length === 0) throw new Error("No platform packages found. Run the build first.")
