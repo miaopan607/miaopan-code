@@ -35,8 +35,7 @@ const args = hideBin(process.argv)
 function show(out: string) {
   const text = out.trimStart()
   if (!text.startsWith("miaopanCode ")) {
-    process.stderr.write(UI.logo() + EOL + EOL)
-    process.stderr.write(text + EOL)
+    process.stderr.write(text + "\n")
     return
   }
   process.stderr.write(out)

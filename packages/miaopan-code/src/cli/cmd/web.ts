@@ -43,8 +43,6 @@ export const WebCommand = effectCmd({
     const opts = yield* resolveNetworkOptions(args)
     const server = yield* Effect.promise(() => Server.listen(opts))
     UI.empty()
-    UI.println(UI.logo("  "))
-    UI.empty()
 
     if (opts.hostname === "0.0.0.0") {
       // Show localhost for local access
