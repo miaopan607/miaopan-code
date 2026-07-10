@@ -2578,7 +2578,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
         role: "assistant",
         providerOptions: {
           openai: { itemId: "msg_root" },
-          miaopanCode: { itemId: "msg_opencode" },
+          miaopanCode: { itemId: "msg_miaopan_code" },
           extra: { itemId: "msg_extra" },
         },
         content: [
@@ -2587,7 +2587,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
             text: "Hello",
             providerOptions: {
               openai: { itemId: "msg_openai_part" },
-              miaopanCode: { itemId: "msg_opencode_part" },
+              miaopanCode: { itemId: "msg_miaopan_code_part" },
               extra: { itemId: "msg_extra_part" },
             },
           },
@@ -2598,10 +2598,10 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
     const result = ProviderTransform.message(msgs, miaopanCodeModel, { store: false }) as any[]
 
     expect(result[0].providerOptions?.openai?.itemId).toBe("msg_root")
-    expect(result[0].providerOptions?.miaopanCode?.itemId).toBe("msg_opencode")
+    expect(result[0].providerOptions?.miaopanCode?.itemId).toBe("msg_miaopan_code")
     expect(result[0].providerOptions?.extra?.itemId).toBe("msg_extra")
     expect(result[0].content[0].providerOptions?.openai?.itemId).toBe("msg_openai_part")
-    expect(result[0].content[0].providerOptions?.miaopanCode?.itemId).toBe("msg_opencode_part")
+    expect(result[0].content[0].providerOptions?.miaopanCode?.itemId).toBe("msg_miaopan_code_part")
     expect(result[0].content[0].providerOptions?.extra?.itemId).toBe("msg_extra_part")
   })
 

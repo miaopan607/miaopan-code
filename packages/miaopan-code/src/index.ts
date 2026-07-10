@@ -71,7 +71,6 @@ const cli = yargs(args)
     Heap.start()
 
     process.env.AGENT = "1"
-    process.env.OPENCODE = "1"
     process.env.MIAOPAN_CODE_PID = String(process.pid)
   })
   .usage("")

@@ -131,7 +131,6 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
       pnpm: "pnpm uninstall -g @miaopan/code",
       bun: "bun remove -g @miaopan/code",
       yarn: "yarn global remove @miaopan/code",
-      brew: "brew uninstall miaopanCode",
       choco: "choco uninstall miaopanCode",
       scoop: "scoop uninstall miaopanCode",
     }
@@ -182,7 +181,6 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
       pnpm: ["pnpm", "uninstall", "-g", "@miaopan/code"],
       bun: ["bun", "remove", "-g", "@miaopan/code"],
       yarn: ["yarn", "global", "remove", "@miaopan/code"],
-      brew: ["brew", "uninstall", "miaopan-code"],
       choco: ["choco", "uninstall", "miaopan-code"],
       scoop: ["scoop", "uninstall", "miaopan-code"],
     }

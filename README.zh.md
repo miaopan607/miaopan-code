@@ -53,8 +53,6 @@ curl -fsSL https://github.com/miaopan607/miaopan-code/install | bash
 npm i -g @miaopan/code@latest           # 也可使用 bun/pnpm/yarn
 scoop install miaopan-code             # Windows
 choco install miaopan-code             # Windows
-brew install anomalyco/tap/miaopan-code # macOS 和 Linux（推荐，始终保持最新）
-brew install miaopan-code              # macOS 和 Linux（官方 brew formula，更新频率较低）
 sudo pacman -S miaopan-code            # Arch Linux (Stable)
 paru -S miaopan-code-bin               # Arch Linux (Latest from AUR)
 mise use -g miaopan-code               # 任意系统

@@ -30,7 +30,7 @@ const tools: readonly ToolFixture[] = [
   {
     icon: "✱",
     label:
-      'Grep "OPENCODE.*DB|database|sqlite|drizzle|dev.*db|data.*dir|xdg|APPDATA" in packages/miaopan-code/src (151 matches)',
+      'Grep "MIAOPAN_CODE.*DB|database|sqlite|drizzle|dev.*db|data.*dir|xdg|APPDATA" in packages/miaopan-code/src (151 matches)',
   },
   {
     icon: "✱",

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "opencode",
+      "name": "miaopan-code",
       "dependencies": {
         "@miaopan-code/script": "workspace:*",
         "@miaopan-code/sdk": "workspace:*",

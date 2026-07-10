@@ -1,8 +1,8 @@
-miaopan-code is a derivative work of OpenCode.
+Third-party notice
 
-Upstream source: https://github.com/anomalyco/opencode
+This software includes portions derived from OpenCode.
+Source: https://github.com/anomalyco/opencode
 Imported release: v1.17.18 (commit b1fc8113948b518835c2a39ece49553cffe9b30c)
-
 Copyright (c) 2025 opencode
 
 The original MIT license text is retained verbatim in LICENSE and must be
