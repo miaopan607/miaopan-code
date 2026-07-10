@@ -23,6 +23,7 @@ jobs:
         run: bun run --cwd packages/miaopan-code build
         env:
           MIAOPAN_CODE_CHANNEL: latest
+          MIAOPAN_CODE_RELEASE: "1"
       - name: Publish npm packages
         run: bun run --cwd packages/miaopan-code ./script/publish.ts
         env:
