@@ -18,7 +18,6 @@ import defaultSoundPath from "./assets/audio/bip-bop-01.mp3" with { type: "file"
 import questionSoundPath from "./assets/audio/bip-bop-03.mp3" with { type: "file" }
 import permissionSoundPath from "./assets/audio/staplebops-06.mp3" with { type: "file" }
 import errorSoundPath from "./assets/audio/nope-03.mp3" with { type: "file" }
-import doneSoundPath from "./assets/audio/bip-bop-01.mp3" with { type: "file" }
 import subagentDoneSoundPath from "./assets/audio/yup-01.mp3" with { type: "file" }
 
 type FocusState = "unknown" | "focused" | "blurred"
@@ -52,7 +51,7 @@ const BUILTIN_PACK: RegisteredSoundPack = {
     question: questionSoundPath,
     permission: permissionSoundPath,
     error: errorSoundPath,
-    done: doneSoundPath,
+    done: defaultSoundPath,
     subagent_done: subagentDoneSoundPath,
   },
 }
@@ -81,34 +80,36 @@ function clampVolume(volume: number) {
 }
 
 function soundVolume(input: TuiAttentionNotifyInput, config: Pick<TuiConfig.Resolved, "attention">) {
-  if (!config.attention.sound) return
-  if (input.sound === false) return
-  if (input.sound === undefined) return clampVolume(config.attention.volume)
-  if (input.sound === true) return clampVolume(config.attention.volume)
-  return clampVolume(input.sound.volume ?? config.attention.volume)
+  if (!config.attention.sound || input.sound === false) return undefined
+  return clampVolume(
+    input.sound === undefined || input.sound === true
+      ? config.attention.volume
+      : (input.sound.volume ?? config.attention.volume),
+  )
 }
 
 function normalizePack(pack: TuiAttentionSoundPack): RegisteredSoundPack | undefined {
   const id = pack.id.trim()
-  if (!id) return
-  return {
-    id,
-    name: pack.name?.trim() || undefined,
-    builtin: false,
-    sounds: Object.fromEntries(
-      Object.entries(pack.sounds).filter(
-        (item): item is [TuiAttentionSoundName, string] =>
-          Schema.is(AttentionSoundName)(item[0]) && typeof item[1] === "string" && item[1].trim().length > 0,
-      ),
-    ),
-  }
+  return id
+    ? {
+        id,
+        name: pack.name?.trim() || undefined,
+        builtin: false,
+        sounds: Object.fromEntries(
+          Object.entries(pack.sounds).filter(
+            (item): item is [TuiAttentionSoundName, string] =>
+              Schema.is(AttentionSoundName)(item[0]) && typeof item[1] === "string" && item[1].trim().length > 0,
+          ),
+        ),
+      }
+    : undefined
 }
 
 function focusSkip(when: TuiAttentionWhen, focus: FocusState) {
-  if (when === "always") return
+  if (when === "always") return undefined
   if (focus === "unknown") return "focus_unknown"
   if (when === "blurred" && focus === "focused") return "focused"
-  if (when === "focused" && focus === "blurred") return "blurred"
+  return when === "focused" && focus === "blurred" ? "blurred" : undefined
 }
 
 export function createTuiAttention(input: {
@@ -151,17 +152,13 @@ export function createTuiAttention(input: {
   async function playSound(name: TuiAttentionSoundName, volume: number) {
     try {
       for (const file of soundCandidates(name)) {
-        const current = await audio.loadSoundFile(file).catch((error) => {
-          console.debug("failed to load attention sound", { file, error })
-          return null
-        })
+        const current = await audio.loadSoundFile(file).catch(() => null)
         if (disposed) return false
         if (current == null) continue
         if (audio.play(current, { volume }) != null) return true
       }
       return false
-    } catch (error) {
-      console.debug("failed to play attention sound", { error })
+    } catch {
       return false
     }
   }
@@ -186,8 +183,7 @@ export function createTuiAttention(input: {
                   message,
                   normalizeText(request.title, DEFAULT_TITLE, TITLE_LIMIT),
                 )
-              } catch (error) {
-                console.debug("failed to trigger attention notification", { error })
+              } catch {
                 return false
               }
             })()
@@ -209,8 +205,7 @@ export function createTuiAttention(input: {
           notification,
           sound,
         }
-      } catch (error) {
-        console.debug("failed to handle attention notification", { error })
+      } catch {
         return {
           ok: false,
           notification: false,

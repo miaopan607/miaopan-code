@@ -13,7 +13,6 @@
     "upgrade-opentui": "bun run script/upgrade-opentui.ts",
     "postinstall": "bun run --cwd packages/core fix-node-pty",
     "prepare": "husky",
-    "random": "echo 'Random script'",
     "test": "echo 'do not run tests from root' && exit 1"
   },
   "workspaces": {
@@ -72,10 +71,8 @@
     "turbo": "2.10.2"
   },
   "dependencies": {
-    "@miaopan-code/plugin": "workspace:*",
     "@miaopan-code/script": "workspace:*",
-    "@miaopan-code/sdk": "workspace:*",
-    "typescript": "catalog:"
+    "@miaopan-code/sdk": "workspace:*"
   },
   "repository": {
     "type": "git",
