@@ -13,8 +13,8 @@ bun --cwd packages/miaopan-code run build
 
 ## 文档与支持
 
-- 英文和中文文档位于 `packages/web/src/content/docs/`。
-- 问题和功能请求请提交到 [GitHub Issues](https://github.com/miaopan607/miaopan-code/issues)。
+运行 `miaopan-code --help` 查看 CLI 命令；`miaopan-code serve` 启动 API Server，默认行为进入 TUI。
+问题和功能请求请提交到 [GitHub Issues](https://github.com/miaopan607/miaopan-code/issues)。
 
 ## 许可证与来源
 

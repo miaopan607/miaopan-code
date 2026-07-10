@@ -9,7 +9,7 @@ values directly.
 Kit and Aidan want provider-specific LLM behavior to move out of miaopan-code's AI
 SDK transform path and into `packages/llm` where possible. The goal is not a big
 generic transform layer; the goal is small composable route definitions backed by
-recorded golden tests.
+deterministic protocol tests.
 
 Things to keep testing against:
 

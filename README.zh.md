@@ -39,7 +39,7 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![miaopan-code Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://github.com/miaopan607/miaopan-code)
+miaopan-code 提供终端 CLI/TUI 和 API Server。
 
 ---
 
@@ -63,24 +63,6 @@ nix run nixpkgs#miaopan-code           # 或用 github:miaopan607/miaopan-code �
 
 > [!TIP]
 > 安装前请先移除 0.1.x 之前的旧版本。
-
-### 桌面应用程序 (BETA)
-
-miaopan-code 也提供桌面版应用。可直接从 [发布页 (releases page)](https://github.com/miaopan607/miaopan-code/releases) 或 [github.com/miaopan607/miaopan-code/download](https://github.com/miaopan607/miaopan-code/download) 下载。
-
-| 平台                  | 下载文件                           |
-| --------------------- | ---------------------------------- |
-| macOS (Apple Silicon) | `miaopan-code-desktop-mac-arm64.dmg`   |
-| macOS (Intel)         | `miaopan-code-desktop-mac-x64.dmg`     |
-| Windows               | `miaopan-code-desktop-windows-x64.exe` |
-| Linux                 | `.deb`、`.rpm` 或 AppImage         |
-
-```bash
-# macOS (Homebrew Cask)
-brew install --cask miaopan-code-desktop
-# Windows (Scoop)
-scoop bucket add extras; scoop install extras/miaopan-code-desktop
-```
 
 #### 安装目录
 

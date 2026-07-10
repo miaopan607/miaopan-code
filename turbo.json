@@ -17,17 +17,5 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "@miaopan-code/app#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@miaopan-code/ui#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    },
-    "@miaopan-code/session-ui#test": {
-      "dependsOn": ["^build"],
-      "outputs": []
-    }
   }
 }

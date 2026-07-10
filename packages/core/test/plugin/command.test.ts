@@ -9,7 +9,7 @@ import { location } from "../fixture/location"
 import { testEffect } from "../lib/effect"
 import { host } from "./host"
 
-const directory = AbsolutePath.make("/repo/packages/app")
+const directory = AbsolutePath.make("/repo/project")
 const project = AbsolutePath.make("/repo")
 const locationLayer = Layer.succeed(
   Location.Service,

@@ -42,9 +42,6 @@
             miaopan-code = final.callPackage ./nix/miaopan-code.nix {
               inherit node_modules;
             };
-            miaopan-code-desktop = final.callPackage ./nix/desktop.nix {
-              inherit miaopan-code;
-            };
           };
       };
 
@@ -59,9 +56,6 @@
           default = miaopan-code;
           miaopan-code = pkgs.callPackage ./nix/miaopan-code.nix {
             inherit node_modules;
-          };
-          miaopan-code-desktop = pkgs.callPackage ./nix/desktop.nix {
-            inherit miaopan-code;
           };
           # Updater derivation with fakeHash - build fails and reveals correct hash
           node_modules_updater = node_modules.override {

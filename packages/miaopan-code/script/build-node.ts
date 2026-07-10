@@ -23,9 +23,6 @@ await Bun.build({
     MIAOPAN_CODE_MODELS_DEV: generated.modelsData,
     MIAOPAN_CODE_CHANNEL: `'${Script.channel}'`,
   },
-  files: {
-    "miaopanCode-web-ui.gen.ts": "",
-  },
 })
 
 console.log("Build complete")

@@ -8,7 +8,7 @@ Create a small workspace package that vendors the Drizzle `effect-sqlite` adapte
 
 ## Package Shape
 
-Add a package similar in style to `packages/http-recorder`:
+Add a focused workspace package with the same small, explicit surface as the other infrastructure packages:
 
 - `packages/effect-drizzle-sqlite/package.json`
 - `packages/effect-drizzle-sqlite/src/index.ts`

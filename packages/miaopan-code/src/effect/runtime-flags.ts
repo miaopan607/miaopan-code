@@ -17,7 +17,6 @@ export class Service extends ConfigService.Service<Service>()("@miaopan-code/Run
   autoShare: bool("MIAOPAN_CODE_AUTO_SHARE"),
   pure: bool("MIAOPAN_CODE_PURE"),
   disableDefaultPlugins: bool("MIAOPAN_CODE_DISABLE_DEFAULT_PLUGINS"),
-  disableEmbeddedWebUi: bool("MIAOPAN_CODE_DISABLE_EMBEDDED_WEB_UI"),
   disableExternalSkills: bool("MIAOPAN_CODE_DISABLE_EXTERNAL_SKILLS"),
   disableLspDownload: bool("MIAOPAN_CODE_DISABLE_LSP_DOWNLOAD"),
   disableClaudeCodePrompt: Config.all({

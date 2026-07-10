@@ -26,7 +26,6 @@ describe("RuntimeFlags", () => {
             MIAOPAN_CODE_PURE: "true",
             MIAOPAN_CODE_DISABLE_DEFAULT_PLUGINS: "true",
             MIAOPAN_CODE_AUTO_SHARE: "true",
-            MIAOPAN_CODE_DISABLE_EMBEDDED_WEB_UI: "true",
             MIAOPAN_CODE_DISABLE_EXTERNAL_SKILLS: "true",
             MIAOPAN_CODE_DISABLE_LSP_DOWNLOAD: "true",
             MIAOPAN_CODE_EXPERIMENTAL: "true",
@@ -34,7 +33,7 @@ describe("RuntimeFlags", () => {
             MIAOPAN_CODE_ENABLE_PARALLEL: "true",
             MIAOPAN_CODE_ENABLE_EXPERIMENTAL_MODELS: "true",
             MIAOPAN_CODE_ENABLE_QUESTION_TOOL: "true",
-            MIAOPAN_CODE_CLIENT: "desktop",
+            MIAOPAN_CODE_CLIENT: "cli",
           }),
         ),
       )
@@ -42,7 +41,6 @@ describe("RuntimeFlags", () => {
       expect(flags.pure).toBe(true)
       expect(flags.autoShare).toBe(true)
       expect(flags.disableDefaultPlugins).toBe(true)
-      expect(flags.disableEmbeddedWebUi).toBe(true)
       expect(flags.disableExternalSkills).toBe(true)
       expect(flags.disableLspDownload).toBe(true)
       expect(flags.disableClaudeCodePrompt).toBe(false)
@@ -61,7 +59,7 @@ describe("RuntimeFlags", () => {
       expect(flags.experimentalIconDiscovery).toBe(true)
       expect(flags.experimentalNativeLlm).toBe(false)
       expect(flags.experimentalWebSockets).toBe(false)
-      expect(flags.client).toBe("desktop")
+      expect(flags.client).toBe("cli")
     }),
   )
 
@@ -108,7 +106,6 @@ describe("RuntimeFlags", () => {
       expect(flags.pure).toBe(false)
       expect(flags.autoShare).toBe(false)
       expect(flags.disableDefaultPlugins).toBe(true)
-      expect(flags.disableEmbeddedWebUi).toBe(false)
       expect(flags.disableExternalSkills).toBe(false)
       expect(flags.disableLspDownload).toBe(false)
       expect(flags.disableClaudeCodePrompt).toBe(false)
@@ -326,7 +323,7 @@ describe("RuntimeFlags", () => {
               MIAOPAN_CODE_EXPERIMENTAL: "true",
               MIAOPAN_CODE_ENABLE_EXA: "true",
               MIAOPAN_CODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS: "1234",
-              MIAOPAN_CODE_CLIENT: "desktop",
+              MIAOPAN_CODE_CLIENT: "cli",
             }),
           ),
         ),
@@ -334,7 +331,6 @@ describe("RuntimeFlags", () => {
 
       expect(flags.pure).toBe(false)
       expect(flags.disableDefaultPlugins).toBe(false)
-      expect(flags.disableEmbeddedWebUi).toBe(false)
       expect(flags.disableExternalSkills).toBe(false)
       expect(flags.disableLspDownload).toBe(false)
       expect(flags.disableClaudeCodePrompt).toBe(false)

@@ -1,6 +1,6 @@
 - To regenerate the legacy JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
-- After changing the public Protocol or Server `HttpApi`, run `bun run generate` from `packages/client`. Do not edit `src/generated` or `src/generated-effect` directly.
-- Keep runtime dependencies directed from Schema to Core and Protocol, then from Core and Protocol to Server. Client runtime code may depend on Schema and Protocol but never Core or Server; `sdk-next` composes Client, Core, and Server.
+- After changing the public Protocol or Server `HttpApi`, regenerate the legacy SDK with `./packages/sdk/js/script/build.ts`. Do not edit generated SDK output directly.
+- Keep runtime dependencies directed from Schema to Core and Protocol, then from Core and Protocol to Server. The generated SDK remains independent of Core and Server; the CLI composes the SDK, Core, and Server.
 - The default branch in this repo is `dev`.
 - Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
 
@@ -14,7 +14,7 @@ Examples: `session-recovery`, `fix-scroll-state`, `regenerate-sdk`.
 
 Use conventional commit-style messages and PR titles: `type(scope): summary`.
 
-Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes are optional; use the affected package or area when helpful, e.g. `core`, `miaopan-code`, `tui`, `app`, `desktop`, `sdk`, or `plugin`.
+Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes are optional; use the affected package or area when helpful, e.g. `core`, `miaopan-code`, `tui`, `sdk`, or `plugin`.
 
 Examples: `fix(tui): simplify thinking toggle styling`, `docs: update contributing guide`, `chore(sdk): regenerate types`.
 

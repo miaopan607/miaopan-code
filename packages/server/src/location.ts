@@ -28,10 +28,10 @@ export function response<A, E, R>(data: Effect.Effect<A, E, R>) {
 
 function ref(request: HttpServerRequest.HttpServerRequest): Location.Ref {
   const query = new URL(request.url, "http://localhost").searchParams
-  const workspaceID = query.get("location[workspace]") || request.headers["x-miaopanCode-workspace"]
+  const workspaceID = query.get("location[workspace]") || request.headers["x-miaopancode-workspace"]
   const directory =
     query.get("location[directory]") ||
-    (request.headers["x-miaopanCode-directory"] ? decode(request.headers["x-miaopanCode-directory"]) : process.cwd())
+    (request.headers["x-miaopancode-directory"] ? decode(request.headers["x-miaopancode-directory"]) : process.cwd())
   return Location.Ref.make({
     directory: AbsolutePath.make(directory),
     workspaceID: workspaceID ? WorkspaceV2.ID.make(workspaceID) : undefined,

@@ -225,26 +225,6 @@ Options:
       --cors         additional domains to allow for CORS                      [array] [default: []]"
 `;
 
-exports[`opencode CLI help-text snapshots every documented command emits stable help text: opencode web --help 1`] = `
-"opencode web
-
-start opencode server and open web interface
-
-Options:
-  -h, --help         show help                                                             [boolean]
-  -v, --version      show version number                                                   [boolean]
-      --print-logs   print logs to stderr                                                  [boolean]
-      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure         run without external plugins                                          [boolean]
-      --port         port to listen on                                         [number] [default: 0]
-      --hostname     hostname to listen on                           [string] [default: "127.0.0.1"]
-      --mdns         enable mDNS service discovery (defaults hostname to 0.0.0.0)
-                                                                          [boolean] [default: false]
-      --mdns-domain  custom domain name for mDNS service (default: opencode.local)
-                                                                [string] [default: "opencode.local"]
-      --cors         additional domains to allow for CORS                      [array] [default: []]"
-`;
-
 exports[`opencode CLI help-text snapshots every documented command emits stable help text: opencode models --help 1`] = `
 "opencode models [provider]
 
@@ -620,4 +600,639 @@ Options:
       --print-logs  print logs to stderr                                                   [boolean]
       --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
       --pure        run without external plugins                                           [boolean]"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode acp --help 1`] = `
+"miaopan-code acp
+
+start ACP (Agent Client Protocol) server
+
+Options:
+  -h, --help         show help                                                             [boolean]
+  -v, --version      show version number                                                   [boolean]
+      --print-logs   print logs to stderr                                                  [boolean]
+      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         run without external plugins                                          [boolean]
+      --port         port to listen on                                         [number] [default: 0]
+      --hostname     hostname to listen on                           [string] [default: "127.0.0.1"]
+      --mdns         enable mDNS service discovery (defaults hostname to 0.0.0.0)
+                                                                          [boolean] [default: false]
+      --mdns-domain  custom domain name for mDNS service (default: miaopanCode.local)
+                                                             [string] [default: "miaopanCode.local"]
+      --cors         additional domains to allow for CORS                      [array] [default: []]
+      --cwd          working directory [string] [default: "<HOME>"]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp --help 1`] = `
+"miaopan-code mcp
+
+manage MCP (Model Context Protocol) servers
+
+Commands:
+  miaopan-code mcp add [name]     add an MCP server
+  miaopan-code mcp list           list MCP servers and their status                    [aliases: ls]
+  miaopan-code mcp auth [name]    authenticate with an OAuth-enabled MCP server
+  miaopan-code mcp logout [name]  remove OAuth credentials for an MCP server
+  miaopan-code mcp debug <name>   debug OAuth connection for an MCP server
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode attach --help 1`] = `
+"miaopan-code attach <url>
+
+attach to a running miaopanCode server
+
+Positionals:
+  url  http://localhost:4096                                                     [string] [required]
+
+Options:
+  -h, --help          show help                                                            [boolean]
+  -v, --version       show version number                                                  [boolean]
+      --print-logs    print logs to stderr                                                 [boolean]
+      --log-level     log level                 [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure          run without external plugins                                         [boolean]
+      --dir           directory to run in                                                   [string]
+  -c, --continue      continue the last session                                            [boolean]
+  -s, --session       session id to continue                                                [string]
+      --fork          fork the session when continuing (use with --continue or --session)  [boolean]
+  -p, --password      basic auth password (defaults to MIAOPAN_CODE_SERVER_PASSWORD)        [string]
+  -u, --username      basic auth username (defaults to MIAOPAN_CODE_SERVER_USERNAME or
+                      'miaopan-code')                                                       [string]
+      --mini          start the minimal interactive interface             [boolean] [default: false]
+      --no-replay     disable mini session history replay on resume and after resize       [boolean]
+      --replay-limit  cap visible mini replay to the newest N messages                      [number]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode run --help 1`] = `
+"miaopan-code run [message..]
+
+run miaopanCode with a message
+
+Positionals:
+  message  message to send                                                     [array] [default: []]
+
+Options:
+  -h, --help         show help                                                             [boolean]
+  -v, --version      show version number                                                   [boolean]
+      --print-logs   print logs to stderr                                                  [boolean]
+      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         run without external plugins                                          [boolean]
+      --command      the command to run, use message for args                               [string]
+  -c, --continue     continue the last session                                             [boolean]
+  -s, --session      session id to continue                                                 [string]
+      --fork         fork the session before continuing (requires --continue or --session) [boolean]
+      --share        share the session                                                     [boolean]
+  -m, --model        model to use in the format of provider/model                           [string]
+      --agent        agent to use                                                           [string]
+      --format       format: default (formatted) or json (raw JSON events)
+                                          [string] [choices: "default", "json"] [default: "default"]
+  -f, --file         file(s) to attach to message                                            [array]
+      --title        title for the session (uses truncated prompt if no value provided)     [string]
+      --attach       attach to a running miaopanCode server (e.g., http://localhost:4096)   [string]
+  -p, --password     basic auth password (defaults to MIAOPAN_CODE_SERVER_PASSWORD)         [string]
+  -u, --username     basic auth username (defaults to MIAOPAN_CODE_SERVER_USERNAME or
+                     'miaopan-code')                                                        [string]
+      --dir          directory to run in, path on remote server if attaching                [string]
+      --port         port for the local server (defaults to random port if no value provided)
+                                                                                            [number]
+      --variant      model variant (provider-specific reasoning effort, e.g., high, max, minimal)
+                                                                                            [string]
+      --thinking     show thinking blocks                                                  [boolean]
+  -i, --interactive  run in direct interactive split-footer mode          [boolean] [default: false]
+      --auto         auto-approve permissions that are not explicitly denied (dangerous!)
+                                                                          [boolean] [default: false]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode debug --help 1`] = `
+"miaopan-code debug
+
+debugging and troubleshooting tools
+
+Commands:
+  miaopan-code debug config        show resolved configuration
+  miaopan-code debug lsp           LSP debugging utilities
+  miaopan-code debug rg            ripgrep debugging utilities
+  miaopan-code debug file          file system debugging utilities
+  miaopan-code debug scrap         list all known projects
+  miaopan-code debug skill         list all available skills
+  miaopan-code debug snapshot      snapshot debugging utilities
+  miaopan-code debug startup       print startup timing
+  miaopan-code debug agent <name>  show agent configuration details
+  miaopan-code debug v2            debug v2 catalog and built-in plugins
+  miaopan-code debug info          show debug information
+  miaopan-code debug paths         show global paths (data, config, cache, state)
+  miaopan-code debug wait          wait indefinitely (for debugging)
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers --help 1`] = `
+"miaopan-code providers
+
+manage AI providers and credentials
+
+Commands:
+  miaopan-code providers list               list providers and credentials             [aliases: ls]
+  miaopan-code providers login [url]        log in to a provider
+  miaopan-code providers logout [provider]  log out from a configured provider
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode agent --help 1`] = `
+"miaopan-code agent
+
+manage agents
+
+Commands:
+  miaopan-code agent create  create a new agent
+  miaopan-code agent list    list all available agents
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode upgrade --help 1`] = `
+"miaopan-code upgrade [target]
+
+upgrade miaopanCode to the latest or a specific version
+
+Positionals:
+  target  version to upgrade to, for ex '0.1.48' or 'v0.1.48'                               [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+  -m, --method      installation method to use
+                          [string] [choices: "curl", "npm", "pnpm", "bun", "brew", "choco", "scoop"]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode uninstall --help 1`] = `
+"miaopan-code uninstall
+
+uninstall miaopanCode and remove all related files
+
+Options:
+  -h, --help         show help                                                             [boolean]
+  -v, --version      show version number                                                   [boolean]
+      --print-logs   print logs to stderr                                                  [boolean]
+      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         run without external plugins                                          [boolean]
+  -c, --keep-config  keep configuration files                             [boolean] [default: false]
+  -d, --keep-data    keep session data and snapshots                      [boolean] [default: false]
+      --dry-run      show what would be removed without removing          [boolean] [default: false]
+  -f, --force        skip confirmation prompts                            [boolean] [default: false]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode serve --help 1`] = `
+"miaopan-code serve
+
+starts a headless miaopanCode server
+
+Options:
+  -h, --help         show help                                                             [boolean]
+  -v, --version      show version number                                                   [boolean]
+      --print-logs   print logs to stderr                                                  [boolean]
+      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         run without external plugins                                          [boolean]
+      --port         port to listen on                                         [number] [default: 0]
+      --hostname     hostname to listen on                           [string] [default: "127.0.0.1"]
+      --mdns         enable mDNS service discovery (defaults hostname to 0.0.0.0)
+                                                                          [boolean] [default: false]
+      --mdns-domain  custom domain name for mDNS service (default: miaopanCode.local)
+                                                             [string] [default: "miaopanCode.local"]
+      --cors         additional domains to allow for CORS                      [array] [default: []]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode models --help 1`] = `
+"miaopan-code models [provider]
+
+list all available models
+
+Positionals:
+  provider  provider ID to filter models by                                                 [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --verbose     use more verbose model output (includes metadata like costs)           [boolean]
+      --refresh     refresh the models cache from models.dev                               [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode stats --help 1`] = `
+"miaopan-code stats
+
+show token usage and cost statistics
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --days        show stats for the last N days (default: all time)                      [number]
+      --tools       number of tools to show (default: all)                                  [number]
+      --models      show model statistics (default: hidden). Pass a number to show top N, otherwise
+                    shows all
+      --project     filter by project (default: all projects, empty string: current project)[string]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode export --help 1`] = `
+"miaopan-code export [sessionID]
+
+export session data as JSON
+
+Positionals:
+  sessionID  session id to export                                                           [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --sanitize    redact sensitive transcript and file data                              [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode import --help 1`] = `
+"miaopan-code import <file>
+
+import session data from JSON file or URL
+
+Positionals:
+  file  path to JSON file or share URL                                           [string] [required]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode github --help 1`] = `
+"miaopan-code github
+
+manage GitHub agent
+
+Commands:
+  miaopan-code github install  install the GitHub agent
+  miaopan-code github run      run the GitHub agent
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode pr --help 1`] = `
+"miaopan-code pr <number>
+
+fetch and checkout a GitHub PR branch, then run miaopanCode
+
+Positionals:
+  number  PR number to checkout                                                  [number] [required]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode session --help 1`] = `
+"miaopan-code session
+
+manage sessions
+
+Commands:
+  miaopan-code session list                list sessions
+  miaopan-code session delete <sessionID>  delete a session
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode plugin --help 1`] = `
+"miaopan-code plugin <module>
+
+install plugin and update config
+
+Positionals:
+  module  npm module name                                                        [string] [required]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+  -g, --global      install in global config                              [boolean] [default: false]
+  -f, --force       replace existing plugin version                       [boolean] [default: false]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode db --help 1`] = `
+"miaopan-code db
+
+database tools
+
+Commands:
+  miaopan-code db [query]     open an interactive sqlite3 shell or run a query             [default]
+  miaopan-code db path        print the database path
+
+Positionals:
+  query  SQL query to execute                                                               [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --format      Output format                 [string] [choices: "json", "tsv"] [default: "tsv"]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp list --help 1`] = `
+"miaopan-code mcp list
+
+list MCP servers and their status
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp add --help 1`] = `
+"miaopan-code mcp add [name]
+
+add an MCP server
+
+Positionals:
+  name  name of the MCP server                                                              [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --url         URL for a remote MCP server                                             [string]
+      --env         environment variable for a local MCP server (KEY=VALUE)                  [array]
+      --header      HTTP header for a remote MCP server (KEY=VALUE)                          [array]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp auth --help 1`] = `
+"miaopan-code mcp auth [name]
+
+authenticate with an OAuth-enabled MCP server
+
+Commands:
+  miaopan-code mcp auth list  list OAuth-capable MCP servers and their auth status     [aliases: ls]
+
+Positionals:
+  name  name of the MCP server                                                              [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp logout --help 1`] = `
+"miaopan-code mcp logout [name]
+
+remove OAuth credentials for an MCP server
+
+Positionals:
+  name  name of the MCP server                                                              [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers list --help 1`] = `
+"miaopan-code providers list
+
+list providers and credentials
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers login --help 1`] = `
+"miaopan-code providers login [url]
+
+log in to a provider
+
+Positionals:
+  url  miaopanCode auth provider                                                            [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+  -p, --provider    provider id or name to log in to (skips provider selection)             [string]
+  -m, --method      login method label (skips method selection)                             [string]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers logout --help 1`] = `
+"miaopan-code providers logout [provider]
+
+log out from a configured provider
+
+Positionals:
+  provider  provider id or name to log out from                                             [string]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode agent create --help 1`] = `
+"miaopan-code agent create
+
+create a new agent
+
+Options:
+  -h, --help                  show help                                                    [boolean]
+  -v, --version               show version number                                          [boolean]
+      --print-logs            print logs to stderr                                         [boolean]
+      --log-level             log level         [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure                  run without external plugins                                 [boolean]
+      --path                  directory path to generate the agent file                     [string]
+      --description           what the agent should do                                      [string]
+      --mode                  agent mode            [string] [choices: "all", "primary", "subagent"]
+      --permissions, --tools  comma-separated list of permissions to allow (default: all).
+                              Available: "bash, read, edit, glob, grep, webfetch, task, todowrite,
+                              websearch, lsp, skill"                                        [string]
+  -m, --model                 model to use in the format of provider/model                  [string]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode agent list --help 1`] = `
+"miaopan-code agent list
+
+list all available agents
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode session list --help 1`] = `
+"miaopan-code session list
+
+list sessions
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+  -n, --max-count   limit to N most recent sessions                                         [number]
+      --format      output format             [string] [choices: "table", "json"] [default: "table"]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode session delete --help 1`] = `
+"miaopan-code session delete <sessionID>
+
+delete a session
+
+Positionals:
+  sessionID  session ID to delete                                                [string] [required]
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode github install --help 1`] = `
+"miaopan-code github install
+
+install the GitHub agent
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode github run --help 1`] = `
+"miaopan-code github run
+
+run the GitHub agent
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+      --event       GitHub mock event to run the agent for                                  [string]
+      --token       GitHub personal access token (github_pat_********)                      [string]
+"
+`;
+
+exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode db path --help 1`] = `
+"miaopan-code db path
+
+print the database path
+
+Options:
+  -h, --help        show help                                                              [boolean]
+  -v, --version     show version number                                                    [boolean]
+      --print-logs  print logs to stderr                                                   [boolean]
+      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        run without external plugins                                           [boolean]
+"
 `;

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { FileSystem, Integration, Permission, Project, Reference, Session, Workspace } from "../src"
 import { EventManifest } from "../src/event-manifest"
-import { IdeEvent } from "../src/ide-event"
 import { SessionEvent } from "../src/session-event"
 import { SessionTodo } from "../src/session-todo"
 import { SessionV1 } from "../src/session-v1"
@@ -41,7 +40,6 @@ describe("public event manifest", () => {
     expect(Permission.Event.Definitions).toEqual([Permission.Event.Asked, Permission.Event.Replied])
     expect(Reference.Event.Definitions).toEqual([Reference.Event.Updated])
     expect(EventManifest.Latest.has("ide.installed")).toBe(false)
-    expect(IdeEvent.Definitions).toEqual([IdeEvent.Installed])
     expect(EventManifest.Definitions.slice(40, 43)).toEqual([
       SessionV1.Event.PartDelta,
       SessionV1.Event.Diff,

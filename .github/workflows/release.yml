@@ -28,16 +28,11 @@ jobs:
         run: bun run --cwd packages/miaopan-code ./script/publish.ts
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Build VSIX
-        working-directory: sdks/vscode
-        run: |
-          bun install --frozen-lockfile
-          bun x @vscode/vsce package --no-git-tag-version --no-update-package-json --no-dependencies -o dist/miaopan-code.vsix
       - name: Package licenses and checksums
         run: |
           cp LICENSE NOTICE packages/miaopan-code/dist/
-          sha256sum packages/miaopan-code/dist/*.{zip,tar.gz} sdks/vscode/dist/miaopan-code.vsix schemas/config.json schemas/tui.json > SHA256SUMS
+          sha256sum packages/miaopan-code/dist/*.{zip,tar.gz} schemas/config.json schemas/tui.json > SHA256SUMS
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes packages/miaopan-code/dist/*.zip packages/miaopan-code/dist/*.tar.gz packages/miaopan-code/dist/LICENSE packages/miaopan-code/dist/NOTICE sdks/vscode/dist/miaopan-code.vsix schemas/config.json schemas/tui.json SHA256SUMS
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes packages/miaopan-code/dist/*.zip packages/miaopan-code/dist/*.tar.gz packages/miaopan-code/dist/LICENSE packages/miaopan-code/dist/NOTICE schemas/config.json schemas/tui.json SHA256SUMS

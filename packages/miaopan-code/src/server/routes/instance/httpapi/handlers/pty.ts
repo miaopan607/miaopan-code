@@ -143,7 +143,10 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
 
     const connectToken = Effect.fn("PtyHttpApi.connectToken")(function* (ctx: { params: { ptyID: PtyID } }) {
       const request = yield* HttpServerRequest.HttpServerRequest
-      if (request.headers[PTY_CONNECT_TOKEN_HEADER] !== PTY_CONNECT_TOKEN_HEADER_VALUE || !validOrigin(request, cors))
+      if (
+        request.headers[PTY_CONNECT_TOKEN_HEADER.toLowerCase()] !== PTY_CONNECT_TOKEN_HEADER_VALUE ||
+        !validOrigin(request, cors)
+      )
         return yield* new ApiError.PtyForbiddenError({ message: "Invalid PTY connect token request" })
       yield* get(ctx)
       return yield* tickets.issue({ ptyID: ctx.params.ptyID, ...(yield* ticketScope) })

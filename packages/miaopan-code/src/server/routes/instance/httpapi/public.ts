@@ -75,7 +75,7 @@ const QueryParameterSchemas: Record<string, OpenApiSchema> = {
 
 const LegacyComponentDescriptions: Record<string, string> = {
   LogLevel: "Log level",
-  ServerConfig: "Server configuration for miaopanCode serve and web commands",
+  ServerConfig: "Server configuration for miaopanCode serve command",
   LayoutConfig: "@deprecated Always uses stretch layout.",
 }
 

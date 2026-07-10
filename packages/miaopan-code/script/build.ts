@@ -22,34 +22,6 @@ const baselineFlag = process.argv.includes("--baseline")
 const skipInstall = process.argv.includes("--skip-install")
 const sourcemapsFlag = process.argv.includes("--sourcemaps")
 const plugin = createSolidTransformPlugin()
-const skipEmbedWebUi = process.argv.includes("--skip-embed-web-ui")
-
-const createEmbeddedWebUIBundle = async () => {
-  console.log(`Building Web UI to embed in the binary`)
-  const appDir = path.join(import.meta.dirname, "../../app")
-  const dist = path.join(appDir, "dist")
-  await $`MIAOPAN_CODE_CHANNEL=${Script.channel} bun run --cwd ${appDir} build`
-  const files = (await Array.fromAsync(new Bun.Glob("**/*").scan({ cwd: dist })))
-    .map((file) => file.replaceAll("\\", "/"))
-    .filter((file) => !file.endsWith(".map"))
-    .sort()
-  const imports = files.map((file, i) => {
-    const spec = path.relative(dir, path.join(dist, file)).replaceAll("\\", "/")
-    return `import file_${i} from ${JSON.stringify(spec.startsWith(".") ? spec : `./${spec}`)} with { type: "file" };`
-  })
-  const entries = files.map((file, i) => `  ${JSON.stringify(file)}: file_${i},`)
-  return [
-    `// Import all files as file_$i with type: "file"`,
-    ...imports,
-    `// Export with original mappings`,
-    `export default {`,
-    ...entries,
-    `}`,
-  ].join("\n")
-}
-
-const embeddedFileMap = skipEmbedWebUi ? null : await createEmbeddedWebUIBundle()
-
 const allTargets: {
   os: string
   arch: "arm64" | "x64"
@@ -185,8 +157,7 @@ for (const item of targets) {
       execArgv: [`--user-agent=miaopan-code/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
-    files: embeddedFileMap ? { "miaopanCode-web-ui.gen.ts": embeddedFileMap } : {},
-    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["miaopanCode-web-ui.gen.ts"] : [])],
+    entrypoints: ["./src/index.ts", parserWorker, workerPath],
     define: {
       FFF_LIBC: JSON.stringify(item.abi === "musl" ? "musl" : "gnu"),
       MIAOPAN_CODE_VERSION: `'${Script.version}'`,

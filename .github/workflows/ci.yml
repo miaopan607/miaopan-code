@@ -17,5 +17,10 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - run: bun --cwd packages/miaopan-code typecheck
       - run: bun --cwd packages/core typecheck
-      - run: bun --cwd packages/app typecheck
-      - run: bun --cwd packages/web build
+      - run: bun --cwd packages/tui typecheck
+      - run: bun --cwd packages/llm typecheck
+      - run: bun --cwd packages/plugin typecheck
+      - run: bun --cwd packages/protocol typecheck
+      - run: bun --cwd packages/schema typecheck
+      - run: bun --cwd packages/server typecheck
+      - run: bun --cwd packages/sdk/js typecheck
