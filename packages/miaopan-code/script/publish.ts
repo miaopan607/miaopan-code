@@ -28,16 +28,14 @@ async function publish(dir: string, name: string, version: string) {
   await $`bun publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
 }
 
-const binaries = await Array.fromAsync(new Bun.Glob("*/package.json").scan({ cwd: "./dist" }))
-  .then((files) => files.filter((file) => file !== `${pkg.name}/package.json`))
-  .then(async (files) =>
-    Promise.all(
-      files.map(async (file) => {
-        const binary = await Bun.file(`./dist/${file}`).json()
-        return { dir: file.replace("/package.json", ""), name: binary.name, version: binary.version }
-      }),
-    ),
-  )
+const binaries = await Promise.all(
+  Array.from(new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" }))
+    .filter((file) => file !== `${pkg.name}/package.json`)
+    .map(async (file) => {
+      const binary = await Bun.file(`./dist/${file}`).json()
+      return { dir: file.replace("/package.json", ""), name: binary.name, version: binary.version }
+    }),
+)
 if (binaries.length === 0) throw new Error("No platform packages found. Run the build first.")
 
 const version = binaries[0].version
