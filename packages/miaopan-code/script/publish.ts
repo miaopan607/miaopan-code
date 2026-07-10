@@ -5,6 +5,8 @@ import { Script } from "@miaopan-code/script"
 import { fileURLToPath } from "url"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
+const packageName = "@miaopan/code"
+const dryRun = process.argv.includes("--dry-run")
 process.chdir(dir)
 
 async function published(name: string, version: string) {
@@ -12,202 +14,70 @@ async function published(name: string, version: string) {
 }
 
 async function publish(dir: string, name: string, version: string) {
-  // GitHub artifact downloads can drop the executable bit, and Docker uses the
-  // unpacked dist binaries directly rather than the published tarball.
   if (process.platform !== "win32") await $`chmod -R 755 .`.cwd(dir)
   if (await published(name, version)) {
     console.log(`already published ${name}@${version}`)
     return
   }
+  await $`find . -maxdepth 1 -type f -name '*.tgz' -delete`.cwd(dir)
   await $`bun pm pack`.cwd(dir)
-  await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
+  if (dryRun) {
+    await $`bun publish *.tgz --access public --tag ${Script.channel} --dry-run`.cwd(dir)
+    return
+  }
+  await $`bun publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
 }
 
-const binaries: Record<string, string> = {}
-for (const filepath of new Bun.Glob("*/package.json").scanSync({ cwd: "./dist" })) {
-  const pkg = await Bun.file(`./dist/${filepath}`).json()
-  binaries[pkg.name] = pkg.version
-}
-console.log("binaries", binaries)
-const version = Object.values(binaries)[0]
+const binaries = await Array.fromAsync(new Bun.Glob("*/package.json").scan({ cwd: "./dist" }))
+  .then((files) => files.filter((file) => file !== `${pkg.name}/package.json`))
+  .then(async (files) =>
+    Promise.all(
+      files.map(async (file) => {
+        const binary = await Bun.file(`./dist/${file}`).json()
+        return { dir: file.replace("/package.json", ""), name: binary.name, version: binary.version }
+      }),
+    ),
+  )
+if (binaries.length === 0) throw new Error("No platform packages found. Run the build first.")
 
-await $`mkdir -p ./dist/${pkg.name}`
+const version = binaries[0].version
+if (binaries.some((binary) => binary.version !== version)) throw new Error("Platform package versions must match.")
+
 await $`mkdir -p ./dist/${pkg.name}/bin`
 await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
 await Bun.file(`./dist/${pkg.name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
+await Bun.file(`./dist/${pkg.name}/NOTICE`).write(await Bun.file("../../NOTICE").text())
 await Bun.file(`./dist/${pkg.name}/bin/${pkg.name}.exe`).write(
   [
-    `echo "Error: ${pkg.name}-ai's postinstall script was not run." >&2`,
+    `echo "Error: ${packageName}'s postinstall script was not run." >&2`,
     'echo "" >&2',
     'echo "This occurs when using --ignore-scripts during installation, or when using a" >&2',
     'echo "package manager like pnpm that does not run postinstall scripts by default." >&2',
     'echo "" >&2',
     'echo "To fix this, run the postinstall script manually:" >&2',
-    `echo "  cd node_modules/${pkg.name}-ai && node postinstall.mjs" >&2`,
+    `echo "  cd node_modules/${packageName} && node postinstall.mjs" >&2`,
     'echo "" >&2',
-    `echo "Or reinstall ${pkg.name}-ai without the --ignore-scripts flag." >&2`,
+    `echo "Or reinstall ${packageName} without the --ignore-scripts flag." >&2`,
     "exit 1",
     "",
   ].join("\n"),
 )
-
 await Bun.file(`./dist/${pkg.name}/package.json`).write(
   JSON.stringify(
     {
-      name: pkg.name + "-ai",
-      bin: {
-        [pkg.name]: `./bin/${pkg.name}.exe`,
-      },
-      scripts: {
-        postinstall: "node ./postinstall.mjs",
-      },
-      version: version,
+      name: packageName,
+      bin: { [pkg.name]: `./bin/${pkg.name}.exe` },
+      scripts: { postinstall: "node ./postinstall.mjs" },
+      version,
       license: pkg.license,
       os: ["darwin", "linux", "win32"],
       cpu: ["arm64", "x64"],
-      optionalDependencies: binaries,
+      optionalDependencies: Object.fromEntries(binaries.map((binary) => [binary.name, binary.version])),
     },
     null,
     2,
   ),
 )
 
-const tasks = Object.entries(binaries).map(async ([name]) => {
-  await publish(`./dist/${name}`, name, binaries[name])
-})
-await Promise.all(tasks)
-await publish(`./dist/${pkg.name}`, `${pkg.name}-ai`, version)
-
-const image = "ghcr.io/miaopan607/miaopan-code"
-const platforms = "linux/amd64,linux/arm64"
-const tags = [`${image}:${version}`, `${image}:${Script.channel}`]
-const tagFlags = tags.flatMap((t) => ["-t", t])
-
-// registries
-if (!Script.preview) {
-  await $`docker buildx build --platform ${platforms} ${tagFlags} --push .`
-  // Calculate SHA values
-  const arm64Sha = await $`sha256sum ./dist/miaopanCode-linux-arm64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
-  const x64Sha = await $`sha256sum ./dist/miaopanCode-linux-x64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
-  const macX64Sha = await $`sha256sum ./dist/miaopanCode-darwin-x64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
-  const macArm64Sha = await $`sha256sum ./dist/miaopanCode-darwin-arm64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
-
-  const [pkgver, _subver = ""] = Script.version.split(/(-.*)/, 2)
-
-  // arch
-  const binaryPkgbuild = [
-    "# Maintainer: dax",
-    "# Maintainer: adam",
-    "",
-    "pkgname='miaopanCode-bin'",
-    `pkgver=${pkgver}`,
-    `_subver=${_subver}`,
-    "options=('!debug' '!strip')",
-    "pkgrel=1",
-    "pkgdesc='The AI coding agent built for the terminal.'",
-    "url='https://github.com/miaopan607/miaopan-code'",
-    "arch=('aarch64' 'x86_64')",
-    "license=('MIT')",
-    "provides=('miaopan-code')",
-    "conflicts=('miaopan-code')",
-    "depends=('ripgrep')",
-    "",
-    `source_aarch64=("\${pkgname}_\${pkgver}_aarch64.tar.gz::https://github.com/miaopan607/miaopan-code/releases/download/v\${pkgver}\${_subver}/miaopanCode-linux-arm64.tar.gz")`,
-    `sha256sums_aarch64=('${arm64Sha}')`,
-
-    `source_x86_64=("\${pkgname}_\${pkgver}_x86_64.tar.gz::https://github.com/miaopan607/miaopan-code/releases/download/v\${pkgver}\${_subver}/miaopanCode-linux-x64.tar.gz")`,
-    `sha256sums_x86_64=('${x64Sha}')`,
-    "",
-    "package() {",
-    '  install -Dm755 ./miaopanCode "${pkgdir}/usr/bin/miaopanCode"',
-    "}",
-    "",
-  ].join("\n")
-
-  for (const [pkg, pkgbuild] of [["miaopanCode-bin", binaryPkgbuild]]) {
-    for (let i = 0; i < 30; i++) {
-      try {
-        await $`rm -rf ./dist/aur-${pkg}`
-        await $`git clone ssh://aur@aur.archlinux.org/${pkg}.git ./dist/aur-${pkg}`
-        await $`cd ./dist/aur-${pkg} && git checkout master`
-        await Bun.file(`./dist/aur-${pkg}/PKGBUILD`).write(pkgbuild)
-        await $`cd ./dist/aur-${pkg} && makepkg --printsrcinfo > .SRCINFO`
-        await $`cd ./dist/aur-${pkg} && git add PKGBUILD .SRCINFO`
-        if ((await $`cd ./dist/aur-${pkg} && git diff --cached --quiet`.nothrow()).exitCode === 0) break
-        await $`cd ./dist/aur-${pkg} && git commit -m "Update to v${Script.version}"`
-        await $`cd ./dist/aur-${pkg} && git push`
-        break
-      } catch {
-        continue
-      }
-    }
-  }
-
-  // Homebrew formula
-  const homebrewFormula = [
-    "# typed: false",
-    "# frozen_string_literal: true",
-    "",
-    "# This file was generated by GoReleaser. DO NOT EDIT.",
-    "class MiaopanCode < Formula",
-    `  desc "The AI coding agent built for the terminal."`,
-    `  homepage "https://github.com/miaopan607/miaopan-code"`,
-    `  version "${Script.version.split("-")[0]}"`,
-    "",
-    `  depends_on "ripgrep"`,
-    "",
-    "  on_macos do",
-    "    if Hardware::CPU.intel?",
-    `      url "https://github.com/miaopan607/miaopan-code/releases/download/v${Script.version}/miaopanCode-darwin-x64.zip"`,
-    `      sha256 "${macX64Sha}"`,
-    "",
-    "      def install",
-    '        bin.install "miaopan-code"',
-    "      end",
-    "    end",
-    "    if Hardware::CPU.arm?",
-    `      url "https://github.com/miaopan607/miaopan-code/releases/download/v${Script.version}/miaopanCode-darwin-arm64.zip"`,
-    `      sha256 "${macArm64Sha}"`,
-    "",
-    "      def install",
-    '        bin.install "miaopan-code"',
-    "      end",
-    "    end",
-    "  end",
-    "",
-    "  on_linux do",
-    "    if Hardware::CPU.intel? and Hardware::CPU.is_64_bit?",
-    `      url "https://github.com/miaopan607/miaopan-code/releases/download/v${Script.version}/miaopanCode-linux-x64.tar.gz"`,
-    `      sha256 "${x64Sha}"`,
-    "      def install",
-    '        bin.install "miaopan-code"',
-    "      end",
-    "    end",
-    "    if Hardware::CPU.arm? and Hardware::CPU.is_64_bit?",
-    `      url "https://github.com/miaopan607/miaopan-code/releases/download/v${Script.version}/miaopanCode-linux-arm64.tar.gz"`,
-    `      sha256 "${arm64Sha}"`,
-    "      def install",
-    '        bin.install "miaopan-code"',
-    "      end",
-    "    end",
-    "  end",
-    "end",
-    "",
-    "",
-  ].join("\n")
-
-  const token = process.env.GITHUB_TOKEN
-  if (!token) {
-    console.error("GITHUB_TOKEN is required to update homebrew tap")
-    process.exit(1)
-  }
-  const tap = `https://x-access-token:${token}@github.com/anomalyco/homebrew-tap.git`
-  await $`rm -rf ./dist/homebrew-tap`
-  await $`git clone ${tap} ./dist/homebrew-tap`
-  await Bun.file("./dist/homebrew-tap/miaopanCode.rb").write(homebrewFormula)
-  await $`cd ./dist/homebrew-tap && git add miaopanCode.rb`
-  if ((await $`cd ./dist/homebrew-tap && git diff --cached --quiet`.nothrow()).exitCode !== 0) {
-    await $`cd ./dist/homebrew-tap && git commit -m "Update to v${Script.version}"`
-    await $`cd ./dist/homebrew-tap && git push`
-  }
-}
+await Promise.all(binaries.map((binary) => publish(`./dist/${binary.dir}`, binary.name, binary.version)))
+await publish(`./dist/${pkg.name}`, packageName, version)

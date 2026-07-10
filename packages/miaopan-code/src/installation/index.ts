@@ -197,7 +197,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
         for (const check of checks) {
           const output = yield* check.command()
           const installedName =
-            check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "miaopan-code" : "miaopan-code-ai"
+            check.name === "brew" || check.name === "choco" || check.name === "scoop" ? "miaopan-code" : "@miaopan/code"
           if (output.includes(installedName)) {
             return check.name
           }
@@ -227,7 +227,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
         if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
           const response = yield* httpOk.execute(
             HttpClientRequest.get(
-              `${yield* NpmConfig.registry(process.cwd())}/miaopan-code-ai/${InstallationChannel}`,
+              `${yield* NpmConfig.registry(process.cwd())}/@miaopan%2fcode/${InstallationChannel}`,
             ).pipe(HttpClientRequest.acceptJson),
           )
           const data = yield* HttpClientResponse.schemaBodyJson(NpmPackage)(response)
@@ -269,13 +269,13 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
             upgradeResult = yield* upgradeCurl(target)
             break
           case "npm":
-            upgradeResult = yield* run(["npm", "install", "-g", `miaopan-code-ai@${target}`])
+            upgradeResult = yield* run(["npm", "install", "-g", `@miaopan/code@${target}`])
             break
           case "pnpm":
-            upgradeResult = yield* run(["pnpm", "install", "-g", `miaopan-code-ai@${target}`])
+            upgradeResult = yield* run(["pnpm", "install", "-g", `@miaopan/code@${target}`])
             break
           case "bun":
-            upgradeResult = yield* run(["bun", "install", "-g", `miaopan-code-ai@${target}`])
+            upgradeResult = yield* run(["bun", "install", "-g", `@miaopan/code@${target}`])
             break
           case "brew": {
             const formula = yield* getBrewFormula()

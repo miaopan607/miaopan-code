@@ -137,6 +137,7 @@ const targets = singleFlag
 await $`rm -rf dist`
 
 const binaries: Record<string, string> = {}
+const binaryDirs: string[] = []
 if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
@@ -212,11 +213,15 @@ for (const item of targets) {
   }
 
   await $`rm -rf ./dist/${name}/bin/tui`
+  await Bun.file(`dist/${name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
+  await Bun.file(`dist/${name}/NOTICE`).write(await Bun.file("../../NOTICE").text())
+  const packageName = `@miaopan/${name.replace("miaopan-code", "code")}`
   await Bun.file(`dist/${name}/package.json`).write(
     JSON.stringify(
       {
-        name,
+        name: packageName,
         version: Script.version,
+        license: pkg.license,
         preferUnplugged: true,
         os: [item.os],
         cpu: [item.arch],
@@ -226,15 +231,16 @@ for (const item of targets) {
       2,
     ),
   )
-  binaries[name] = Script.version
+  binaries[packageName] = Script.version
+  binaryDirs.push(name)
 }
 
 if (Script.release) {
-  for (const key of Object.keys(binaries)) {
-    if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
+  for (const name of binaryDirs) {
+    if (name.includes("linux")) {
+      await $`tar -czf ../../${name}.tar.gz *`.cwd(`dist/${name}/bin`)
     } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
+      await $`zip -r ../../${name}.zip *`.cwd(`dist/${name}/bin`)
     }
   }
   await $`gh release upload v${Script.version} ./dist/*.zip ./dist/*.tar.gz --clobber --repo ${process.env.GH_REPO}`

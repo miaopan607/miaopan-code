@@ -129,10 +129,10 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string> = {
-      npm: "npm uninstall -g miaopan-code-ai",
-      pnpm: "pnpm uninstall -g miaopan-code-ai",
-      bun: "bun remove -g miaopan-code-ai",
-      yarn: "yarn global remove miaopan-code-ai",
+      npm: "npm uninstall -g @miaopan/code",
+      pnpm: "pnpm uninstall -g @miaopan/code",
+      bun: "bun remove -g @miaopan/code",
+      yarn: "yarn global remove @miaopan/code",
       brew: "brew uninstall miaopanCode",
       choco: "choco uninstall miaopanCode",
       scoop: "scoop uninstall miaopanCode",
@@ -180,10 +180,10 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   if (method !== "curl" && method !== "unknown") {
     const cmds: Record<string, string[]> = {
-      npm: ["npm", "uninstall", "-g", "miaopan-code-ai"],
-      pnpm: ["pnpm", "uninstall", "-g", "miaopan-code-ai"],
-      bun: ["bun", "remove", "-g", "miaopan-code-ai"],
-      yarn: ["yarn", "global", "remove", "miaopan-code-ai"],
+      npm: ["npm", "uninstall", "-g", "@miaopan/code"],
+      pnpm: ["pnpm", "uninstall", "-g", "@miaopan/code"],
+      bun: ["bun", "remove", "-g", "@miaopan/code"],
+      yarn: ["yarn", "global", "remove", "@miaopan/code"],
       brew: ["brew", "uninstall", "miaopan-code"],
       choco: ["choco", "uninstall", "miaopan-code"],
       scoop: ["scoop", "uninstall", "miaopan-code"],
