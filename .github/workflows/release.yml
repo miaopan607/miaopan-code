@@ -24,12 +24,14 @@ jobs:
         env:
           MIAOPAN_CODE_CHANNEL: latest
       - name: Publish npm packages
-        run: bun --cwd packages/miaopan-code run script/publish.ts
+        run: bun run --cwd packages/miaopan-code ./script/publish.ts
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Build VSIX
         working-directory: sdks/vscode
-        run: npx @vscode/vsce package --no-git-tag-version --no-update-package-json --no-dependencies -o dist/miaopan-code.vsix
+        run: |
+          bun install --frozen-lockfile
+          bun x @vscode/vsce package --no-git-tag-version --no-update-package-json --no-dependencies -o dist/miaopan-code.vsix
       - name: Package licenses and checksums
         run: |
           cp LICENSE NOTICE packages/miaopan-code/dist/
