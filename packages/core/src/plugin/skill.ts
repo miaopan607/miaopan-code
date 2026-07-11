@@ -7,8 +7,8 @@ import { Effect } from "effect"
 import { Config } from "../config"
 import { AbsolutePath } from "../schema"
 import { SkillV2 } from "../skill"
-import customizeMiaopanCodeContent from "./skill/customize-miaopanCode.md" with { type: "text" }
-import customizeMiaopanCodeZhCNContent from "./skill/customize-miaopanCode.zh-CN.md" with { type: "text" }
+import customizeMiaopanCodeContent from "./skill/customize-miaopanCode.en.md" with { type: "text" }
+import customizeMiaopanCodeZhCNContent from "./skill/customize-miaopanCode.md" with { type: "text" }
 import { t } from "../i18n"
 
 export const CustomizeMiaopanCodeContent = customizeMiaopanCodeContent
