@@ -74,6 +74,12 @@ function part(part: SessionV1.Part): SessionV1.Part {
         text: redact("text", part.id, part.text),
         metadata: data("text-metadata", part.id, part.metadata),
       }
+    case "plan":
+      return {
+        ...part,
+        text: redact("plan", part.id, part.text),
+        metadata: data("plan-metadata", part.id, part.metadata),
+      }
     case "reasoning":
       return {
         ...part,

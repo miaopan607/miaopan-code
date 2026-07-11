@@ -1,5 +1,5 @@
-<system-reminder>
-Your operational mode has changed from plan to build.
-You are no longer in read-only mode.
-You are permitted to make file changes, run shell commands, and utilize your arsenal of tools as needed.
-</system-reminder>
+# Collaboration Mode: Build
+
+Any previous Plan mode instructions are no longer active. You may now implement the user's request, edit files, run commands, and complete verification.
+
+The active agent changes only when the client selects another agent. User requests and tool descriptions do not change the active agent by themselves. The built-in primary agents are Build and Plan.

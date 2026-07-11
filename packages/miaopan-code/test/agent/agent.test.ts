@@ -70,22 +70,21 @@ it.instance("build agent has correct default properties", () =>
   }),
 )
 
-it.instance("plan agent denies edits except .miaopanCode/plans/*", () =>
+it.instance("plan agent denies all edits", () =>
   Effect.gen(function* () {
     const plan = yield* load((svc) => svc.get("plan"))
     expect(plan).toBeDefined()
     // Wildcard is denied
     expect(evalPerm(plan, "edit")).toBe("deny")
-    // But specific path is allowed
-    expect(Permission.evaluate("edit", ".miaopanCode/plans/foo.md", plan!.permission).action).toBe("allow")
+    expect(Permission.evaluate("edit", ".miaopanCode/plans/foo.md", plan!.permission).action).toBe("deny")
   }),
 )
 
-it.instance("plan agent denies the general subagent by default", () =>
+it.instance("plan agent can delegate while child sessions remain read-only", () =>
   Effect.gen(function* () {
     const plan = yield* load((svc) => svc.get("plan"))
     expect(plan).toBeDefined()
-    expect(Permission.evaluate("task", "general", plan!.permission).action).toBe("deny")
+    expect(Permission.evaluate("task", "general", plan!.permission).action).toBe("allow")
     expect(Permission.evaluate("task", "explore", plan!.permission).action).toBe("allow")
     expect(Permission.evaluate("task", "custom", plan!.permission).action).toBe("allow")
   }),

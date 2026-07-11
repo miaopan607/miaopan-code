@@ -18,6 +18,7 @@ const lifecycle = testEffect(Layer.mergeAll(questionLayer, testInstanceStoreLaye
 const askEffect = Effect.fn("QuestionTest.ask")(function* (input: {
   sessionID: SessionID
   questions: ReadonlyArray<Question.Info>
+  autoResolutionMs?: number
   tool?: Question.Tool
 }) {
   const question = yield* Question.Service
@@ -115,6 +116,31 @@ it.instance(
       expect(pending[0].questions).toEqual(questions)
       yield* rejectAll
       expect((yield* Fiber.await(fiber))._tag).toBe("Failure")
+    }),
+  { git: true },
+)
+
+it.instance(
+  "ask - auto resolves unanswered questions after the configured timeout",
+  () =>
+    Effect.gen(function* () {
+      const result = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        autoResolutionMs: 10,
+        questions: [
+          {
+            question: "Optional context?",
+            header: "Context",
+            options: [
+              { label: "Yes", description: "Provide context" },
+              { label: "No", description: "Continue without it" },
+            ],
+          },
+        ],
+      })
+
+      expect(result).toEqual([[]])
+      expect(yield* listEffect).toEqual([])
     }),
   { git: true },
 )

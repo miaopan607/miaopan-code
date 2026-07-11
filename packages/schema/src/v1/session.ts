@@ -115,6 +115,18 @@ export const TextPart = Schema.Struct({
 }).annotate({ identifier: "TextPart" })
 export type TextPart = Types.DeepMutable<Schema.Schema.Type<typeof TextPart>>
 
+export const PlanPart = Schema.Struct({
+  ...partBase,
+  type: Schema.Literal("plan"),
+  text: Schema.String,
+  time: Schema.Struct({
+    start: NonNegativeInt,
+    end: Schema.optional(NonNegativeInt),
+  }),
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+}).annotate({ identifier: "PlanPart" })
+export type PlanPart = Types.DeepMutable<Schema.Schema.Type<typeof PlanPart>>
+
 export const ReasoningPart = Schema.Struct({
   ...partBase,
   type: Schema.Literal("reasoning"),
@@ -356,6 +368,7 @@ export type User = Types.DeepMutable<Schema.Schema.Type<typeof User>>
 
 export const Part = Schema.Union([
   TextPart,
+  PlanPart,
   SubtaskPart,
   ReasoningPart,
   FilePart,
@@ -370,6 +383,7 @@ export const Part = Schema.Union([
 ]).annotate({ discriminator: "type", identifier: "Part" })
 export type Part =
   | TextPart
+  | PlanPart
   | SubtaskPart
   | ReasoningPart
   | FilePart

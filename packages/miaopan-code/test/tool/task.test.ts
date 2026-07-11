@@ -25,6 +25,7 @@ import { testEffect } from "../lib/effect"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { t } from "@miaopan-code/core/i18n"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { Permission } from "../../src/permission"
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -67,14 +68,14 @@ function defer<T>() {
   return { promise, resolve }
 }
 
-const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned") {
+const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned", agent = "build") {
   const session = yield* Session.Service
-  const chat = yield* session.create({ title })
+  const chat = yield* session.create({ title, agent })
   const user = yield* session.updateMessage({
     id: MessageID.ascending(),
     role: "user",
     sessionID: chat.id,
-    agent: "build",
+    agent,
     model: ref,
     time: { created: Date.now() },
   })
@@ -83,8 +84,8 @@ const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned") {
     role: "assistant",
     parentID: user.id,
     sessionID: chat.id,
-    mode: "build",
-    agent: "build",
+    mode: agent,
+    agent,
     cost: 0,
     path: { cwd: "/tmp", root: "/tmp" },
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
@@ -253,6 +254,43 @@ describe("tool.task", () => {
       expect(result.output).toContain(`<task id="${child.id}" state="completed">`)
       expect(seen?.sessionID).toBe(child.id)
       expect(seen?.variant).toBe("xhigh")
+    }),
+  )
+
+  it.instance("plan mode reapplies read-only restrictions when resuming a task session", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "plan")
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Existing child",
+        permission: Permission.fromConfig({ edit: "allow" }),
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "plan",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const resumed = yield* sessions.get(child.id)
+      expect(resumed.metadata?.collaboration_mode).toBe("plan")
+      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("deny")
     }),
   )
 

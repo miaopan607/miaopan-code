@@ -31,7 +31,6 @@ import type { SQL } from "drizzle-orm"
 import { PartTable, SessionTable } from "@miaopan-code/core/session/sql"
 import { ProjectTable } from "@miaopan-code/core/project/sql"
 import { MessageV2 } from "./message-v2"
-import type { InstanceContext } from "../project/instance-context"
 import { InstanceState } from "@/effect/instance-state"
 import { Snapshot } from "@/snapshot"
 import { ProjectV2 } from "@miaopan-code/core/project"
@@ -39,7 +38,6 @@ import { WorkspaceV2 } from "@miaopan-code/core/workspace"
 import { SessionID, MessageID, PartID } from "./schema"
 
 import type { Provider } from "@/provider/provider"
-import { Global } from "@miaopan-code/core/global"
 import { Effect, Layer, Option, Context, Schema, Types } from "effect"
 import { NonNegativeInt, optional } from "@miaopan-code/core/schema"
 import { RuntimeFlags } from "@/effect/runtime-flags"
@@ -328,13 +326,6 @@ export const Event = {
   Deleted: SessionV1.Event.Deleted,
   Diff: SessionV1.Event.Diff,
   Error: SessionV1.Event.Error,
-}
-
-export function plan(input: { slug: string; time: { created: number } }, instance: InstanceContext) {
-  const base = instance.project.vcs
-    ? path.join(instance.worktree, ".miaopanCode", "plans")
-    : path.join(Global.Path.data, "plans")
-  return path.join(base, [input.time.created, input.slug].join("-") + ".md")
 }
 
 export const getUsage = (input: { model: Provider.Model; usage: Usage; metadata?: ProviderMetadata }) => {

@@ -35,8 +35,6 @@ import SESSION_KIMI_EN from "../session/prompt/kimi.txt"
 import SESSION_KIMI_ZH_CN from "../session/prompt/kimi.zh-CN.txt"
 import SESSION_META_EN from "../session/prompt/meta.txt"
 import SESSION_META_ZH_CN from "../session/prompt/meta.zh-CN.txt"
-import SESSION_PLAN_EN from "../session/prompt/plan.txt"
-import SESSION_PLAN_ZH_CN from "../session/prompt/plan.zh-CN.txt"
 import SESSION_PLAN_MODE_EN from "../session/prompt/plan-mode.txt"
 import SESSION_PLAN_MODE_ZH_CN from "../session/prompt/plan-mode.zh-CN.txt"
 import SESSION_TRINITY_EN from "../session/prompt/trinity.txt"
@@ -51,10 +49,8 @@ import TOOL_GREP_EN from "../tool/grep.txt"
 import TOOL_GREP_ZH_CN from "../tool/grep.zh-CN.txt"
 import TOOL_LSP_EN from "../tool/lsp.txt"
 import TOOL_LSP_ZH_CN from "../tool/lsp.zh-CN.txt"
-import TOOL_PLAN_ENTER_EN from "../tool/plan-enter.txt"
-import TOOL_PLAN_ENTER_ZH_CN from "../tool/plan-enter.zh-CN.txt"
-import TOOL_PLAN_EXIT_EN from "../tool/plan-exit.txt"
-import TOOL_PLAN_EXIT_ZH_CN from "../tool/plan-exit.zh-CN.txt"
+import TOOL_REQUEST_USER_INPUT_EN from "../tool/request-user-input.txt"
+import TOOL_REQUEST_USER_INPUT_ZH_CN from "../tool/request-user-input.zh-CN.txt"
 import TOOL_QUESTION_EN from "../tool/question.txt"
 import TOOL_QUESTION_ZH_CN from "../tool/question.zh-CN.txt"
 import TOOL_READ_EN from "../tool/read.txt"
@@ -93,7 +89,6 @@ export const messages = {
   "session.gpt": { "zh-CN": SESSION_GPT_ZH_CN, en: SESSION_GPT_EN },
   "session.kimi": { "zh-CN": SESSION_KIMI_ZH_CN, en: SESSION_KIMI_EN },
   "session.meta": { "zh-CN": SESSION_META_ZH_CN, en: SESSION_META_EN },
-  "session.plan": { "zh-CN": SESSION_PLAN_ZH_CN, en: SESSION_PLAN_EN },
   "session.plan_mode": { "zh-CN": SESSION_PLAN_MODE_ZH_CN, en: SESSION_PLAN_MODE_EN },
   "session.trinity": { "zh-CN": SESSION_TRINITY_ZH_CN, en: SESSION_TRINITY_EN },
   "tool.apply_patch": { "zh-CN": TOOL_APPLY_PATCH_ZH_CN, en: TOOL_APPLY_PATCH_EN },
@@ -101,8 +96,7 @@ export const messages = {
   "tool.glob": { "zh-CN": TOOL_GLOB_ZH_CN, en: TOOL_GLOB_EN },
   "tool.grep": { "zh-CN": TOOL_GREP_ZH_CN, en: TOOL_GREP_EN },
   "tool.lsp": { "zh-CN": TOOL_LSP_ZH_CN, en: TOOL_LSP_EN },
-  "tool.plan_enter": { "zh-CN": TOOL_PLAN_ENTER_ZH_CN, en: TOOL_PLAN_ENTER_EN },
-  "tool.plan_exit": { "zh-CN": TOOL_PLAN_EXIT_ZH_CN, en: TOOL_PLAN_EXIT_EN },
+  "tool.request_user_input": { "zh-CN": TOOL_REQUEST_USER_INPUT_ZH_CN, en: TOOL_REQUEST_USER_INPUT_EN },
   "tool.question": { "zh-CN": TOOL_QUESTION_ZH_CN, en: TOOL_QUESTION_EN },
   "tool.read": { "zh-CN": TOOL_READ_ZH_CN, en: TOOL_READ_EN },
   "tool.shell": { "zh-CN": TOOL_SHELL_ZH_CN, en: TOOL_SHELL_EN },

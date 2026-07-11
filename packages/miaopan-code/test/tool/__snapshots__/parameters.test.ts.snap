@@ -464,3 +464,80 @@ exports[`tool parameters JSON Schema (wire shape) write 1`] = `
   "type": "object",
 }
 `;
+
+exports[`tool parameters JSON Schema (wire shape) request_user_input 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "autoResolutionMs": {
+      "description": "可选自动处理等待时间，范围为 60000 至 240000 毫秒",
+      "maximum": 240000,
+      "minimum": 60000,
+      "type": "integer",
+    },
+    "questions": {
+      "description": "要显示的一至三个问题，优先只问一个",
+      "items": {
+        "properties": {
+          "header": {
+            "description": "界面中显示的不超过 12 个字符的短标题",
+            "maxLength": 12,
+            "minLength": 1,
+            "type": "string",
+          },
+          "id": {
+            "description": "用于映射答案的稳定 snake_case 标识符",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string",
+          },
+          "options": {
+            "description": "提供 2 至 3 个互斥选项；推荐项放在首位，不要添加“其他”选项",
+            "items": {
+              "properties": {
+                "description": {
+                  "description": "用一句简短说明描述选择该项的影响或取舍",
+                  "minLength": 1,
+                  "type": "string",
+                },
+                "label": {
+                  "description": "面向用户的简短选项标签（1 至 5 个词）",
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string",
+                },
+              },
+              "required": [
+                "label",
+                "description",
+              ],
+              "type": "object",
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "type": "array",
+          },
+          "question": {
+            "description": "向用户显示的单句问题",
+            "minLength": 1,
+            "type": "string",
+          },
+        },
+        "required": [
+          "id",
+          "header",
+          "question",
+          "options",
+        ],
+        "type": "object",
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "type": "array",
+    },
+  },
+  "required": [
+    "questions",
+  ],
+  "type": "object",
+}
+`;

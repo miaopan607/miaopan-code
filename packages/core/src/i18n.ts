@@ -315,7 +315,6 @@ export const messages = {
     "zh-CN": "计划位于 {{plan}}，现已批准；你可以编辑文件并执行计划",
     en: "The plan at {{plan}} has been approved, you can now edit files. Execute the plan",
   },
-  "tool.switch_build": { "zh-CN": "正在切换到构建代理", en: "Switching to build agent" },
   "tool.build_wait": {
     "zh-CN": "用户已批准切换到构建代理。请等待后续指示。",
     en: "User approved switching to build agent. Wait for further instructions.",
@@ -361,10 +360,6 @@ export const messages = {
   "tool.description.lsp": {
     "zh-CN": "与 LSP 服务器交互以获取代码智能功能。",
     en: "Interact with Language Server Protocol (LSP) servers to get code intelligence features.",
-  },
-  "tool.description.plan_exit": {
-    "zh-CN": "完成规划阶段并准备退出规划代理。",
-    en: "Use this tool when you have completed the planning phase and are ready to exit plan agent.",
   },
   "tool.description.code_mode": {
     "zh-CN": "运行可访问已连接 MCP 工具的受限编排脚本。",
@@ -1518,7 +1513,6 @@ export const messages = {
   "cli.run.batch_count": { "zh-CN": "批处理 {{count}} 个工具", en: "Batch {{count}} tool(s)" },
   "cli.run.task_title": { "zh-CN": "{{type}} 任务", en: "{{type}} Task" },
   "cli.run.agent_label": { "zh-CN": "{{type}} 代理", en: "{{type}} Agent" },
-  "cli.run.switch_build": { "zh-CN": "正在切换到构建代理", en: "Switching to build agent" },
   "cli.run.patch_created": { "zh-CN": "# 已创建 {{path}}", en: "# Created {{path}}" },
   "cli.run.patch_deleted": { "zh-CN": "# 已删除 {{path}}", en: "# Deleted {{path}}" },
   "cli.run.patch_moved": { "zh-CN": "# 已移动 {{from}} → {{to}}", en: "# Moved {{from}} -> {{to}}" },
@@ -5308,18 +5302,6 @@ export const messages = {
     "zh-CN": "[已省略 {{count}} 张图像{{suffix}}：无法缩放到图像大小限制以下。]",
     en: "[{{count}} image{{suffix}} omitted: could not be resized below the image size limit.]",
   },
-  "prompt.plan_exists_execute": {
-    "zh-CN": "计划文件存在于 {{path}}。你应执行其中定义的计划",
-    en: "A plan file exists at {{path}}. You should execute on the plan defined within it",
-  },
-  "prompt.plan_exists_edit": {
-    "zh-CN": "计划文件已存在于 {{path}}。你可以读取它，并使用 edit 工具进行增量编辑。",
-    en: "A plan file already exists at {{path}}. You can read it and make incremental edits using the edit tool.",
-  },
-  "prompt.plan_missing_create": {
-    "zh-CN": "尚不存在计划文件。你应使用 write 工具在 {{path}} 创建计划。",
-    en: "No plan file exists yet. You should create your plan at {{path}} using the write tool.",
-  },
   "tool.truncate.task_hint": {
     "zh-CN":
       "工具调用成功，但输出已截断。完整输出已保存到：{{file}}\n使用 Task 工具让 explore 代理通过 Grep 和 Read（带 offset/limit）处理此文件。不要自行读取整个文件——请委派以节省上下文。",
@@ -5350,6 +5332,47 @@ export const messages = {
   "acp.login_label": { "zh-CN": "MiaopanCode 登录", en: "MiaopanCode Login" },
   "acp.prompt_failed": { "zh-CN": "MiaopanCode 提示失败", en: "MiaopanCode prompt failed" },
   "question.user_dismissed": { "zh-CN": "用户关闭了此问题", en: "The user dismissed this question" },
+  "request_user_input.option_label": { "zh-CN": "面向用户的简短选项标签（1 至 5 个词）", en: "User-facing label (1-5 words)" },
+  "request_user_input.option_description": {
+    "zh-CN": "用一句简短说明描述选择该项的影响或取舍",
+    en: "One short sentence explaining the impact or tradeoff",
+  },
+  "request_user_input.id": { "zh-CN": "用于映射答案的稳定 snake_case 标识符", en: "Stable snake_case identifier for mapping answers" },
+  "request_user_input.header": { "zh-CN": "界面中显示的不超过 12 个字符的短标题", en: "Short UI header of at most 12 characters" },
+  "request_user_input.question": { "zh-CN": "向用户显示的单句问题", en: "Single-sentence question shown to the user" },
+  "request_user_input.options": {
+    "zh-CN": "提供 2 至 3 个互斥选项；推荐项放在首位，不要添加“其他”选项",
+    en: "Provide 2-3 mutually exclusive choices, recommended first, without an Other option",
+  },
+  "request_user_input.questions": { "zh-CN": "要显示的一至三个问题，优先只问一个", en: "One to three questions to show; prefer one" },
+  "request_user_input.auto_resolution": {
+    "zh-CN": "可选自动处理等待时间，范围为 60000 至 240000 毫秒",
+    en: "Optional auto-resolution window from 60000 to 240000 milliseconds",
+  },
+  "request_user_input.root_only": { "zh-CN": "request_user_input 只能由根 Plan 代理使用", en: "request_user_input can only be used by the root Plan agent" },
+  "request_user_input.duplicate_id": { "zh-CN": "request_user_input 的问题 ID 必须唯一", en: "request_user_input question IDs must be unique" },
+  "plan.proposed_title": { "zh-CN": "拟定方案", en: "Proposed Plan" },
+  "plan.implementation_title": { "zh-CN": "要实施这个计划吗？", en: "Implement this plan?" },
+  "plan.implementation_current": { "zh-CN": "是，在当前上下文实施", en: "Yes, implement in this context" },
+  "plan.implementation_current_description": {
+    "zh-CN": "切换到 Build 并在当前会话中开始编码。",
+    en: "Switch to Build and start coding in the current session.",
+  },
+  "plan.implementation_fresh": { "zh-CN": "是，新建上下文并实施", en: "Yes, use a fresh context" },
+  "plan.implementation_fresh_description": {
+    "zh-CN": "创建一个只携带此计划的新会话。",
+    en: "Create a new session containing only this plan.",
+  },
+  "plan.implementation_stay": { "zh-CN": "否，留在 Plan 模式", en: "No, stay in Plan mode" },
+  "plan.implementation_stay_description": {
+    "zh-CN": "继续与模型完善计划。",
+    en: "Continue refining the plan with the model.",
+  },
+  "plan.implement_message": { "zh-CN": "实施该计划。", en: "Implement the plan." },
+  "plan.fresh_message": {
+    "zh-CN": "上一位代理生成了以下计划以完成用户任务。请在新的上下文中实施该计划，将其视为用户意图的依据；按需重新读取文件，并完成实现和验证。\n\n{{plan}}",
+    en: "A previous agent produced the plan below to accomplish the user's task. Implement it in a fresh context, treat it as the source of user intent, re-read files as needed, and complete implementation and verification.\n\n{{plan}}",
+  },
   "mcp.status_authenticated": { "zh-CN": "已认证", en: "authenticated" },
   "mcp.status_expired": { "zh-CN": "已过期", en: "expired" },
   "mcp.status_not_authenticated": { "zh-CN": "未认证", en: "not authenticated" },

@@ -38,6 +38,7 @@ export function provider(model: Provider.Model, language: Language = "zh-CN") {
 
 export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
+  readonly collaboration: (agent: Agent.Info, planMode?: boolean) => Effect.Effect<string | undefined>
   readonly skills: (agent: Agent.Info) => Effect.Effect<string | undefined>
   readonly mcp: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
 }
@@ -53,6 +54,15 @@ const layer = Layer.effect(
     const config = yield* Config.Service
 
     return Service.of({
+      collaboration: Effect.fn("SystemPrompt.collaboration")(function* (agent: Agent.Info, planMode?: boolean) {
+        const language = (yield* config.get()).language
+        if (agent.name === "plan" || planMode) {
+          return `<collaboration_mode>\n${PromptI18n.text(language, "session.plan_mode")}\n</collaboration_mode>`
+        }
+        if (agent.name === "build") {
+          return `<collaboration_mode>\n${PromptI18n.text(language, "session.build_switch")}\n</collaboration_mode>`
+        }
+      }),
       environment: Effect.fn("SystemPrompt.environment")(function* (model: Provider.Model) {
         const ctx = yield* InstanceState.context
         const language = (yield* config.get()).language

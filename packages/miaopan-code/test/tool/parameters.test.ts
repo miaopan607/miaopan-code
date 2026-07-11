@@ -15,8 +15,8 @@ import { Parameters as Glob } from "../../src/tool/glob"
 import { Parameters as Grep } from "../../src/tool/grep"
 import { Parameters as Invalid } from "../../src/tool/invalid"
 import { Parameters as Lsp } from "../../src/tool/lsp"
-import { Parameters as Plan } from "../../src/tool/plan"
 import { Parameters as Question } from "../../src/tool/question"
+import { Parameters as RequestUserInput } from "../../src/tool/request-user-input"
 import { Parameters as Read } from "../../src/tool/read"
 import { Parameters as Shell } from "../../src/tool/shell"
 import { Parameters as Skill } from "../../src/tool/skill"
@@ -43,8 +43,8 @@ describe("tool parameters", () => {
     test("grep", () => expect(toJsonSchema(Grep)).toMatchSnapshot())
     test("invalid", () => expect(toJsonSchema(Invalid)).toMatchSnapshot())
     test("lsp", () => expect(toJsonSchema(Lsp)).toMatchSnapshot())
-    test("plan", () => expect(toJsonSchema(Plan)).toMatchSnapshot())
     test("question", () => expect(toJsonSchema(Question)).toMatchSnapshot())
+    test("request_user_input", () => expect(toJsonSchema(RequestUserInput)).toMatchSnapshot())
     test("read", () => expect(toJsonSchema(Read)).toMatchSnapshot())
     test("skill", () => expect(toJsonSchema(Skill)).toMatchSnapshot())
     test("task", () => expect(toJsonSchema(Task)).toMatchSnapshot())
@@ -189,12 +189,6 @@ describe("tool parameters", () => {
     })
   })
 
-  describe("plan", () => {
-    test("accepts empty object", () => {
-      expect(parse(Plan, {})).toEqual({})
-    })
-  })
-
   describe("question", () => {
     test("accepts questions array", () => {
       const parsed = parse(Question, {
@@ -211,6 +205,46 @@ describe("tool parameters", () => {
     })
     test("rejects missing questions", () => {
       expect(accepts(Question, {})).toBe(false)
+    })
+  })
+
+  describe("request_user_input", () => {
+    const input = {
+      questions: [
+        {
+          id: "implementation_context",
+          header: "Implement",
+          question: "Where should the plan be implemented?",
+          options: [
+            { label: "Current", description: "Use the current context." },
+            { label: "New", description: "Use a new context." },
+          ],
+        },
+      ],
+    }
+
+    test("accepts one to three structured questions", () => {
+      expect(parse(RequestUserInput, input)).toEqual(input)
+    })
+
+    test("rejects invalid ids and option counts", () => {
+      expect(
+        accepts(RequestUserInput, {
+          questions: [{ ...input.questions[0], id: "Invalid-ID" }],
+        }),
+      ).toBe(false)
+      expect(
+        accepts(RequestUserInput, {
+          questions: [{ ...input.questions[0], options: input.questions[0].options.slice(0, 1) }],
+        }),
+      ).toBe(false)
+    })
+
+    test("bounds auto resolution to one through four minutes", () => {
+      expect(accepts(RequestUserInput, { ...input, autoResolutionMs: 60_000 })).toBe(true)
+      expect(accepts(RequestUserInput, { ...input, autoResolutionMs: 240_000 })).toBe(true)
+      expect(accepts(RequestUserInput, { ...input, autoResolutionMs: 59_999 })).toBe(false)
+      expect(accepts(RequestUserInput, { ...input, autoResolutionMs: 240_001 })).toBe(false)
     })
   })
 

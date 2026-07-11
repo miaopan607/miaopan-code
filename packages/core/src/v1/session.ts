@@ -21,6 +21,7 @@ export {
   OutputFormatText,
   Part,
   PartID,
+  PlanPart,
   PatchPart,
   Range,
   ReasoningPart,

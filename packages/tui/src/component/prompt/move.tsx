@@ -112,7 +112,9 @@ export function usePromptMove(input: { projectID: () => string | undefined; sess
       .map((message) =>
         [
           message.role + ":",
-          ...(sync.data.part[message.id] ?? []).flatMap((part) => (part.type === "text" ? [part.text] : [])),
+          ...(sync.data.part[message.id] ?? []).flatMap((part) =>
+            part.type === "text" || part.type === "plan" ? [part.text] : [],
+          ),
         ].join(" "),
       )
     return [session?.title, ...messages].filter(Boolean).join("\n") || undefined

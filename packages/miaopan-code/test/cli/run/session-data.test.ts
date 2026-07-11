@@ -81,6 +81,22 @@ function reasoning(input: { id: string; messageID: string; text: string; time?: 
   }
 }
 
+function plan(input: { id: string; messageID: string; text: string; time?: Record<string, number> }) {
+  return {
+    type: "message.part.updated",
+    properties: {
+      part: {
+        id: input.id,
+        messageID: input.messageID,
+        sessionID: "session-1",
+        type: "plan",
+        text: input.text,
+        ...(input.time ? { time: input.time } : {}),
+      },
+    },
+  }
+}
+
 function delta(messageID: string, partID: string, value: string) {
   return {
     type: "message.part.delta",
@@ -112,6 +128,18 @@ function tool(input: { id: string; messageID: string; tool: string; state: Recor
 }
 
 describe("run session data", () => {
+  test("renders completed plan parts as assistant output", () => {
+    const data = reduce(createSessionData(), assistant("msg-plan")).data
+    const out = reduce(
+      data,
+      plan({ id: "plan-1", messageID: "msg-plan", text: "# Plan", time: { start: 1, end: 2 } }),
+    )
+
+    expect(out.commits).toEqual([
+      expect.objectContaining({ kind: "assistant", text: "# Plan", partID: "plan-1" }),
+    ])
+  })
+
   test("buffers delayed assistant text until the role is known", () => {
     let data = createSessionData()
     data = reduce(data, delta("msg-1", "txt-1", "hello")).data

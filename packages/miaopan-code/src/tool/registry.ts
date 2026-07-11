@@ -1,10 +1,10 @@
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { httpClient } from "@miaopan-code/core/effect/app-node-platform"
 import { Ripgrep } from "@miaopan-code/core/ripgrep"
-import { PlanExitTool } from "./plan"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 import { Session } from "@/session/session"
 import { QuestionTool } from "./question"
+import { RequestUserInputTool } from "./request-user-input"
 import { ShellTool } from "./shell"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
@@ -101,9 +101,9 @@ const layer = Layer.effect(
     const task = yield* TaskTool
     const read = yield* ReadTool
     const question = yield* QuestionTool
+    const requestUserInput = yield* RequestUserInputTool
     const todo = yield* TodoWriteTool
     const lsptool = yield* LspTool
-    const plan = yield* PlanExitTool
     const createGoal = yield* CreateGoalTool
     const getGoal = yield* GetGoalTool
     const updateGoal = yield* UpdateGoalTool
@@ -224,8 +224,8 @@ const layer = Layer.effect(
           skill: Tool.init(skilltool),
           patch: Tool.init(patchtool),
           question: Tool.init(question),
+          requestUserInput: Tool.init(requestUserInput),
           lsp: Tool.init(lsptool),
-          plan: Tool.init(plan),
           createGoal: Tool.init(createGoal),
           getGoal: Tool.init(getGoal),
           updateGoal: Tool.init(updateGoal),
@@ -237,6 +237,7 @@ const layer = Layer.effect(
           builtin: [
             tool.invalid,
             ...(questionEnabled ? [tool.question] : []),
+            ...(questionEnabled ? [tool.requestUserInput] : []),
             tool.shell,
             tool.read,
             tool.glob,
@@ -254,7 +255,6 @@ const layer = Layer.effect(
             tool.updateGoal,
             ...(tool.execute ? [tool.execute] : []),
             ...(flags.experimentalLspTool ? [tool.lsp] : []),
-            ...(flags.experimentalPlanMode && flags.client === "cli" ? [tool.plan] : []),
           ],
           task: tool.task,
           read: tool.read,
@@ -296,6 +296,8 @@ const layer = Layer.effect(
 
     const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (input) {
       const filtered = (yield* all()).filter((tool) => {
+        if (tool.id === RequestUserInputTool.id) return input.agent.name === "plan"
+        if (tool.id === QuestionTool.id) return input.agent.name !== "plan"
         if (tool.id === WebSearchTool.id) {
           return webSearchEnabled(input.providerID, { exa: flags.enableExa, parallel: flags.enableParallel })
         }

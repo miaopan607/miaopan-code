@@ -1,0 +1,1 @@
+Request user input for one to three short questions and wait for the response. Use autoResolutionMs only for useful but non-blocking questions; omit it when an explicit answer is required. This tool is available only to the root Plan agent.

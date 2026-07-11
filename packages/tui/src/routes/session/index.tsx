@@ -34,6 +34,8 @@ import type {
   ToolPart,
   UserMessage,
   TextPart,
+  PlanPart as PlanPartData,
+  QuestionRequest,
   ReasoningPart,
   SessionStatus,
 } from "@miaopan/sdk/v2"
@@ -240,8 +242,12 @@ export function Session() {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.question[x.id] ?? [])
   })
-  const visible = createMemo(() => !session()?.parentID && permissions().length === 0 && questions().length === 0)
-  const disabled = createMemo(() => permissions().length > 0 || questions().length > 0)
+  const [pendingPlan, setPendingPlan] = createSignal<{ messageID: string; text: string }>()
+  let handledPlanID: string | undefined
+  const visible = createMemo(
+    () => !session()?.parentID && permissions().length === 0 && questions().length === 0 && !pendingPlan(),
+  )
+  const disabled = createMemo(() => permissions().length > 0 || questions().length > 0 || !!pendingPlan())
 
   const pending = createMemo(() => {
     const completed = messages().findLast((x) => x.role === "assistant" && x.time.completed)?.id
@@ -325,21 +331,11 @@ export function Session() {
     })
   })
 
-  let lastSwitch: string | undefined = undefined
   event.on("message.part.updated", (evt) => {
     const part = evt.properties.part
-    if (part.type !== "tool") return
-    if (part.sessionID !== route.sessionID) return
-    if (part.state.status !== "completed") return
-    if (part.id === lastSwitch) return
-
-    if (part.tool === "plan_exit") {
-      local.agent.set("build")
-      lastSwitch = part.id
-    } else if (part.tool === "plan_enter") {
-      local.agent.set("plan")
-      lastSwitch = part.id
-    }
+    if (part.type !== "plan" || part.sessionID !== route.sessionID || part.time.end === undefined) return
+    if (handledPlanID === part.messageID) return
+    setPendingPlan({ messageID: part.messageID, text: part.text })
   })
 
   let seeded = false
@@ -393,7 +389,9 @@ export function Session() {
         const parts = sync.data.part[message.id]
         if (!parts || !Array.isArray(parts)) return false
 
-        return parts.some((part) => part && part.type === "text" && !part.synthetic && !part.ignored)
+        return parts.some(
+          (part) => part && (part.type === "plan" || (part.type === "text" && !part.synthetic && !part.ignored)),
+        )
       })
       .sort((a, b) => a.y - b.y)
 
@@ -430,6 +428,104 @@ export function Session() {
   }
 
   const local = useLocal()
+
+  const planQuestion = createMemo<QuestionRequest | undefined>(() => {
+    const plan = pendingPlan()
+    if (!plan) return
+    const assistant = messages().find((message) => message.id === plan.messageID)
+    if (assistant?.role !== "assistant" || assistant.agent !== "plan" || !assistant.time.completed) return
+    if (messages().at(-1)?.id !== assistant.id) return
+    if (sync.data.session_status[route.sessionID]?.type !== "idle") return
+    if (permissions().length > 0 || questions().length > 0) return
+    return {
+      id: `plan_${plan.messageID}`,
+      sessionID: route.sessionID,
+      questions: [
+        {
+          header: i18n.t("plan.proposed_title"),
+          question: i18n.t("plan.implementation_title"),
+          custom: false,
+          multiple: false,
+          options: [
+            {
+              label: i18n.t("plan.implementation_current"),
+              description: i18n.t("plan.implementation_current_description"),
+            },
+            {
+              label: i18n.t("plan.implementation_fresh"),
+              description: i18n.t("plan.implementation_fresh_description"),
+            },
+            {
+              label: i18n.t("plan.implementation_stay"),
+              description: i18n.t("plan.implementation_stay_description"),
+            },
+          ],
+        },
+      ],
+    }
+  })
+
+  function finishPlanPrompt(messageID: string) {
+    handledPlanID = messageID
+    setPendingPlan()
+  }
+
+  function implementPlan() {
+    const plan = pendingPlan()
+    if (!plan || !prompt) return
+    finishPlanPrompt(plan.messageID)
+    local.agent.set("build")
+    prompt.set({ input: i18n.t("plan.implement_message"), parts: [] })
+    setTimeout(() => prompt?.submit(), 0)
+  }
+
+  async function implementPlanFresh() {
+    const plan = pendingPlan()
+    const model = local.model.current()
+    const current = session()
+    if (!plan || !model || !current) return
+    const created = await sdk.client.session.create(
+      {
+        directory: current.directory,
+        workspace: current.workspaceID,
+        agent: "build",
+        model: {
+          providerID: model.providerID,
+          id: model.modelID,
+          variant: local.model.variant.current(),
+        },
+      },
+      { throwOnError: true },
+    )
+    await sdk.client.session.prompt(
+      {
+        sessionID: created.data.id,
+        ...model,
+        agent: "build",
+        model,
+        variant: local.model.variant.current(),
+        parts: [{ type: "text", text: i18n.t("plan.fresh_message", { plan: plan.text }) }],
+      },
+      { throwOnError: true },
+    )
+    finishPlanPrompt(plan.messageID)
+    local.agent.set("build")
+    navigate({ type: "session", sessionID: created.data.id })
+  }
+
+  function answerPlanQuestion(answers: string[][]) {
+    const answer = answers[0]?.[0]
+    if (answer === i18n.t("plan.implementation_current")) {
+      implementPlan()
+      return
+    }
+    if (answer === i18n.t("plan.implementation_fresh")) {
+      void implementPlanFresh().catch(toast.error)
+      return
+    }
+    const plan = pendingPlan()
+    if (plan) finishPlanPrompt(plan.messageID)
+  }
 
   function enterChild(sessionID: string) {
     navigate({
@@ -919,7 +1015,7 @@ export function Session() {
         }
 
         const parts = sync.data.part[lastAssistantMessage.id] ?? []
-        const textParts = parts.filter((part) => part.type === "text")
+        const textParts = parts.filter((part) => part.type === "text" || part.type === "plan")
         if (textParts.length === 0) {
           toast.show({ message: i18n.t("session.no_text_parts"), variant: "error" })
           dialog.clear()
@@ -1332,6 +1428,18 @@ export function Session() {
                     directory={sync.session.get(questions()[0].sessionID)?.directory}
                   />
                 </Show>
+                <Show when={permissions().length === 0 && questions().length === 0 && planQuestion()}>
+                  {(request) => (
+                    <QuestionPrompt
+                      request={request()}
+                      onReply={answerPlanQuestion}
+                      onReject={() => {
+                        const plan = pendingPlan()
+                        if (plan) finishPlanPrompt(plan.messageID)
+                      }}
+                    />
+                  )}
+                </Show>
                 <Show when={session()?.parentID}>
                   <SubagentFooter />
                 </Show>
@@ -1513,7 +1621,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const handleCopy = () => {
     if (renderer.getSelection()?.getSelectedText()) return
     const text = props.parts
-      .filter((part): part is TextPart => part.type === "text")
+      .filter((part): part is TextPart | PlanPartData => part.type === "text" || part.type === "plan")
       .map((part) => part.text)
       .join("\n")
       .trim()
@@ -1642,6 +1750,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
 const PART_MAPPING = {
   text: TextPart,
+  plan: PlanPart,
   tool: ToolPart,
   reasoning: ReasoningPart,
 }
@@ -1775,6 +1884,45 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
           fg={theme.markdownText}
           bg={theme.background}
         />
+      </box>
+    </Show>
+  )
+}
+
+function PlanPart(props: { part: PlanPartData }) {
+  const ctx = use()
+  const i18n = useI18n()
+  const { theme, syntax } = useTheme()
+  return (
+    <Show when={props.part.text.trim()}>
+      <box
+        ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
+        border={["left"]}
+        borderColor={theme.accent}
+        backgroundColor={theme.backgroundPanel}
+        paddingLeft={2}
+        paddingRight={2}
+        paddingTop={1}
+        paddingBottom={1}
+        marginTop={1}
+        flexShrink={0}
+        customBorderChars={SplitBorder.customBorderChars}
+      >
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          {i18n.t("plan.proposed_title")}
+        </text>
+        <box paddingTop={1}>
+          <markdown
+            syntaxStyle={syntax()}
+            streaming={true}
+            internalBlockMode="top-level"
+            content={props.part.text.trim()}
+            tableOptions={{ style: "grid" }}
+            conceal={ctx.conceal()}
+            fg={theme.markdownText}
+            bg={theme.backgroundPanel}
+          />
+        </box>
       </box>
     </Show>
   )

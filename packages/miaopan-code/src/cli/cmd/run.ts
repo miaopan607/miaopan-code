@@ -436,12 +436,7 @@ export const RunCommand = effectCmd({
               pattern: "*",
             },
             {
-              permission: "plan_enter",
-              action: "deny",
-              pattern: "*",
-            },
-            {
-              permission: "plan_exit",
+              permission: "request_user_input",
               action: "deny",
               pattern: "*",
             },
@@ -745,8 +740,8 @@ export const RunCommand = effectCmd({
                 if (emit("step_finish", { part })) continue
               }
 
-              if (part.type === "text" && part.time?.end) {
-                if (emit("text", { part })) continue
+              if ((part.type === "text" || part.type === "plan") && part.time?.end) {
+                if (emit(part.type, { part })) continue
                 const text = part.text.trim()
                 if (!text) continue
                 if (!process.stdout.isTTY) {

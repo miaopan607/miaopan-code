@@ -54,6 +54,7 @@ export interface Interface {
   readonly ask: (input: {
     sessionID: SessionID
     questions: ReadonlyArray<Info>
+    autoResolutionMs?: number
     tool?: Tool
   }) => Effect.Effect<ReadonlyArray<Answer>, RejectedError>
   readonly reply: (input: {
@@ -93,6 +94,7 @@ const layer = Layer.effect(
     const ask = Effect.fn("Question.ask")(function* (input: {
       sessionID: SessionID
       questions: ReadonlyArray<Info>
+      autoResolutionMs?: number
       tool?: Tool
     }) {
       const pending = (yield* InstanceState.get(state)).pending
@@ -111,7 +113,24 @@ const layer = Layer.effect(
       yield* events.publish(Event.Asked, info)
 
       return yield* Effect.ensuring(
-        Deferred.await(deferred),
+        input.autoResolutionMs === undefined
+          ? Deferred.await(deferred)
+          : Effect.raceFirst(
+              Deferred.await(deferred),
+              Effect.sleep(input.autoResolutionMs).pipe(
+                Effect.andThen(
+                  Effect.gen(function* () {
+                    const answers = input.questions.map(() => [] as string[])
+                    yield* events.publish(Event.Replied, {
+                      sessionID: input.sessionID,
+                      requestID: id,
+                      answers,
+                    })
+                    return answers
+                  }),
+                ),
+              ),
+            ),
         Effect.sync(() => {
           pending.delete(id)
         }),

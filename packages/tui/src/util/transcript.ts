@@ -83,7 +83,7 @@ export function formatAssistantHeader(
 }
 
 export function formatPart(part: Part, options: TranscriptOptions): string {
-  if (part.type === "text" && !part.synthetic) {
+  if (part.type === "plan" || (part.type === "text" && !part.synthetic)) {
     return `${part.text}\n\n`
   }
 

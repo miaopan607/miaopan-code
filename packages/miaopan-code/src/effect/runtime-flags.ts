@@ -43,7 +43,6 @@ export class Service extends ConfigService.Service<Service>()("@miaopan-code/Run
   experimentalLspTy: bool("MIAOPAN_CODE_EXPERIMENTAL_LSP_TY"),
   experimentalLspTool: enabledByExperimental("MIAOPAN_CODE_EXPERIMENTAL_LSP_TOOL"),
   experimentalOxfmt: enabledByExperimental("MIAOPAN_CODE_EXPERIMENTAL_OXFMT"),
-  experimentalPlanMode: enabledByExperimental("MIAOPAN_CODE_EXPERIMENTAL_PLAN_MODE"),
   experimentalCodeMode: enabledByExperimental("MIAOPAN_CODE_EXPERIMENTAL_CODE_MODE"),
   experimentalEventSystem: enabledByExperimental("MIAOPAN_CODE_EXPERIMENTAL_EVENT_SYSTEM"),
   experimentalWorkspaces: enabledByExperimental("MIAOPAN_CODE_EXPERIMENTAL_WORKSPACES"),

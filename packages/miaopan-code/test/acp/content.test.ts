@@ -193,6 +193,12 @@ describe("acp content conversion", () => {
 })
 
 describe("acp replay conversion", () => {
+  test("replays plan parts as assistant text", () => {
+    expect(partsToContentChunks([{ type: "plan", text: "# Plan" }])).toEqual([
+      { content: { type: "text", text: "# Plan" } },
+    ])
+  })
+
   test("replays text audience annotations", () => {
     expect(partsToContentChunks([{ type: "text", text: "cached", synthetic: true }])).toEqual([
       {

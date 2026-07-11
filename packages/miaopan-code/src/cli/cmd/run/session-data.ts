@@ -999,7 +999,7 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
       }
     }
 
-    if (part.type !== "text" && part.type !== "reasoning") {
+    if (part.type !== "text" && part.type !== "plan" && part.type !== "reasoning") {
       return out(data, commits)
     }
 
@@ -1007,7 +1007,7 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
       return out(data, commits)
     }
 
-    const kind = part.type === "text" ? "assistant" : "reasoning"
+    const kind = part.type === "reasoning" ? "reasoning" : "assistant"
     if (typeof part.messageID === "string") {
       data.msg.set(part.id, part.messageID)
     }

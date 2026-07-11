@@ -15,6 +15,7 @@ import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@miaopan-code/core/database/database"
 import { t, type Language } from "@miaopan-code/core/i18n"
+import { Permission } from "../permission"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -107,39 +108,48 @@ export const TaskTool = Tool.define(
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
       const parent = yield* sessions.get(ctx.sessionID)
+      const planMode = parent.agent === "plan" || parent.metadata?.collaboration_mode === "plan"
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,
+        planMode,
       })
-      const childToolDenies = [
-        ...(next.permission.some((rule) => rule.permission === "todowrite")
-          ? []
-          : [{ permission: "todowrite" as const, pattern: "*" as const, action: "deny" as const }]),
-        ...(next.permission.some((rule) => rule.permission === id)
-          ? []
-          : [{ permission: id, pattern: "*" as const, action: "deny" as const }]),
-        ...(cfg.experimental?.primary_tools?.map((permission) => ({
+      const primaryToolDenies =
+        cfg.experimental?.primary_tools?.map((permission) => ({
           permission,
           pattern: "*" as const,
           action: "deny" as const,
-        })) ?? []),
+        })) ?? []
+      const childSessionPermission = [
+        ...childPermission,
+        ...primaryToolDenies.filter(
+          (deny) =>
+            !childPermission.some(
+              (rule) =>
+                rule.permission === deny.permission && rule.pattern === deny.pattern && rule.action === deny.action,
+            ),
+        ),
       ]
+      if (session && planMode) {
+        yield* sessions.setPermission({
+          sessionID: session.id,
+          permission: Permission.merge(session.permission ?? [], childSessionPermission),
+        })
+        if (session.metadata?.collaboration_mode !== "plan") {
+          yield* sessions.setMetadata({
+            sessionID: session.id,
+            metadata: { ...session.metadata, collaboration_mode: "plan" },
+          })
+        }
+      }
       const nextSession =
         session ??
         (yield* sessions.create({
           parentID: ctx.sessionID,
           title: params.description + ToolI18n.text(ctx, "tool.task.subagent_suffix", { name: next.name }),
           agent: next.name,
-          permission: [
-            ...childPermission,
-            ...childToolDenies.filter(
-              (deny) =>
-                !childPermission.some(
-                  (rule) =>
-                    rule.permission === deny.permission && rule.pattern === deny.pattern && rule.action === deny.action,
-                ),
-            ),
-          ],
+          metadata: planMode ? { collaboration_mode: "plan" } : undefined,
+          permission: childSessionPermission,
         }))
 
       const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(

@@ -147,7 +147,7 @@ export class Subscription {
         messageId: part.messageID,
         partId: part.id,
         partType: part.type,
-        role: part.type === "reasoning" ? "assistant" : undefined,
+        role: part.type === "reasoning" || part.type === "plan" ? "assistant" : undefined,
         ignored: part.type === "text" ? part.ignored : undefined,
         toolCallId: part.type === "tool" ? part.callID : undefined,
         metadata: "metadata" in part ? part.metadata : undefined,

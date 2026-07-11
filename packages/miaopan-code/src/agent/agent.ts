@@ -121,8 +121,7 @@ const layer = Layer.effect(
             ...Object.fromEntries(whitelistedDirs.map((dir) => [dir, "allow"])),
           },
           question: "deny",
-          plan_enter: "deny",
-          plan_exit: "deny",
+          request_user_input: "deny",
           // mirrors github.com/github/gitignore Node.gitignore pattern for .env files
           read: {
             "*": "allow",
@@ -133,6 +132,14 @@ const layer = Layer.effect(
         })
 
         const user = Permission.fromConfig(cfg.permission ?? {})
+        const plan = Permission.fromConfig({
+          request_user_input: "allow",
+          question: "deny",
+          todowrite: "deny",
+          create_goal: "deny",
+          update_goal: "deny",
+          edit: { "*": "deny" },
+        })
 
         const agents: Record<string, Info> = {
           build: {
@@ -143,7 +150,6 @@ const layer = Layer.effect(
               defaults,
               Permission.fromConfig({
                 question: "allow",
-                plan_enter: "allow",
               }),
               user,
             ),
@@ -154,25 +160,7 @@ const layer = Layer.effect(
             name: "plan",
             description: t(cfg.language, "agent.plan_description"),
             options: {},
-            permission: Permission.merge(
-              defaults,
-              Permission.fromConfig({
-                question: "allow",
-                plan_exit: "allow",
-                task: {
-                  general: "deny",
-                },
-                external_directory: {
-                  [path.join(Global.Path.data, "plans", "*")]: "allow",
-                },
-                edit: {
-                  "*": "deny",
-                  [path.join(".miaopanCode", "plans", "*.md")]: "allow",
-                  [path.relative(ctx.worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
-                },
-              }),
-              user,
-            ),
+            permission: Permission.merge(defaults, user, plan),
             mode: "primary",
             native: true,
           },
@@ -288,6 +276,10 @@ const layer = Layer.effect(
           item.steps = value.steps ?? item.steps
           item.options = mergeDeep(item.options, value.options ?? {})
           item.permission = Permission.merge(item.permission, Permission.fromConfig(value.permission ?? {}))
+        }
+
+        if (agents.plan) {
+          agents.plan.permission = Permission.merge(agents.plan.permission, plan)
         }
 
         // Ensure Truncate.GLOB is allowed unless explicitly configured

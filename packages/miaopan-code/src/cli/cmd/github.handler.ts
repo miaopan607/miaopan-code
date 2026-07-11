@@ -866,7 +866,7 @@ export const githubRun = Effect.fn("Cli.github.run")(function* (args: { event?: 
             printEvent(color, tool, title)
           }
 
-          if (part.type === "text") {
+          if (part.type === "text" || part.type === "plan") {
             text = part.text
 
             if (part.time?.end) {

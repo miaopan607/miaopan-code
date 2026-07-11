@@ -65,7 +65,7 @@ export function DialogMessage(props: {
 
             const parts = sync.data.part[msg.id]
             const text = parts.reduce((agg, part) => {
-              if (part.type === "text" && !part.synthetic) {
+              if (part.type === "plan" || (part.type === "text" && !part.synthetic)) {
                 agg += part.text
               }
               return agg

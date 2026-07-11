@@ -26,6 +26,7 @@ import { isRecord } from "@/util/record"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Database } from "@miaopan-code/core/database/database"
 import { Usage, type LLMEvent } from "@miaopan-code/llm"
+import { ProposedPlan } from "./proposed-plan"
 
 const DOOM_LOOP_THRESHOLD = 3
 export type Result = "compact" | "stop" | "continue"
@@ -71,7 +72,8 @@ interface ProcessorContext extends Input {
   snapshot: string | undefined
   blocked: boolean
   needsCompaction: boolean
-  currentText: SessionV1.TextPart | undefined
+  currentText: SessionV1.TextPart | SessionV1.PlanPart | undefined
+  proposedPlan: ProposedPlan.Parser | undefined
   reasoningMap: Record<string, SessionV1.ReasoningPart>
 }
 
@@ -112,6 +114,7 @@ const layer = Layer.effect(
         blocked: false,
         needsCompaction: false,
         currentText: undefined,
+        proposedPlan: undefined,
         reasoningMap: {},
       }
       let aborted = false
@@ -214,6 +217,57 @@ const layer = Layer.effect(
         ctx.reasoningMap[reasoningID].time = { ...ctx.reasoningMap[reasoningID].time, end: Date.now() }
         yield* session.updatePart(ctx.reasoningMap[reasoningID])
         delete ctx.reasoningMap[reasoningID]
+      })
+
+      const finishText = Effect.fn("SessionProcessor.finishText")(function* () {
+        if (!ctx.currentText) return
+        if (ctx.currentText.type === "text") {
+          ctx.currentText.text = (yield* plugin.trigger(
+            "experimental.text.complete",
+            {
+              sessionID: ctx.sessionID,
+              messageID: ctx.assistantMessage.id,
+              partID: ctx.currentText.id,
+            },
+            { text: ctx.currentText.text },
+          )).text
+        }
+        const end = Date.now()
+        ctx.currentText.time = { start: ctx.currentText.time?.start ?? end, end }
+        yield* session.updatePart(ctx.currentText)
+        ctx.currentText = undefined
+      })
+
+      const appendText = Effect.fn("SessionProcessor.appendText")(function* (
+        segment: ProposedPlan.Segment,
+        metadata?: Record<string, unknown>,
+      ) {
+        if (ctx.currentText?.type !== segment.type) {
+          yield* finishText()
+          const base = {
+            id: PartID.ascending(),
+            messageID: ctx.assistantMessage.id,
+            sessionID: ctx.assistantMessage.sessionID,
+            text: "",
+            time: { start: Date.now() },
+            metadata,
+          }
+          ctx.currentText =
+            segment.type === "plan"
+              ? ({ ...base, type: "plan" } satisfies SessionV1.PlanPart)
+              : ({ ...base, type: "text" } satisfies SessionV1.TextPart)
+          yield* session.updatePart(ctx.currentText)
+        }
+        if (!ctx.currentText) return
+        ctx.currentText.text += segment.text
+        if (metadata) ctx.currentText.metadata = metadata
+        yield* session.updatePartDelta({
+          sessionID: ctx.currentText.sessionID,
+          messageID: ctx.currentText.messageID,
+          partID: ctx.currentText.id,
+          field: "text",
+          delta: segment.text,
+        })
       })
 
       const ensureToolCall = Effect.fn("SessionProcessor.ensureToolCall")(function* (input: {
@@ -490,51 +544,26 @@ const layer = Layer.effect(
           }
 
           case "text-start":
-            ctx.currentText = {
-              id: PartID.ascending(),
-              messageID: ctx.assistantMessage.id,
-              sessionID: ctx.assistantMessage.sessionID,
-              type: "text",
-              text: "",
-              time: { start: Date.now() },
-              metadata: value.providerMetadata,
-            }
-            yield* session.updatePart(ctx.currentText)
+            ctx.proposedPlan = ctx.assistantMessage.agent === "plan" ? new ProposedPlan.Parser() : undefined
             return
 
           case "text-delta":
-            if (!ctx.currentText) return
-            ctx.currentText.text += value.text
-            if (value.providerMetadata) ctx.currentText.metadata = value.providerMetadata
-            yield* session.updatePartDelta({
-              sessionID: ctx.currentText.sessionID,
-              messageID: ctx.currentText.messageID,
-              partID: ctx.currentText.id,
-              field: "text",
-              delta: value.text,
-            })
+            yield* Effect.forEach(
+              ctx.proposedPlan?.push(value.text) ?? [{ type: "text" as const, text: value.text }],
+              (segment) => appendText(segment, value.providerMetadata),
+              { discard: true },
+            )
             return
 
           case "text-end":
-            if (!ctx.currentText) return
-            // oxlint-disable-next-line no-self-assign -- reactivity trigger
-            ctx.currentText.text = ctx.currentText.text
-            ctx.currentText.text = (yield* plugin.trigger(
-              "experimental.text.complete",
-              {
-                sessionID: ctx.sessionID,
-                messageID: ctx.assistantMessage.id,
-                partID: ctx.currentText.id,
-              },
-              { text: ctx.currentText.text },
-            )).text
-            {
-              const end = Date.now()
-              ctx.currentText.time = { start: ctx.currentText.time?.start ?? end, end }
-            }
-            if (value.providerMetadata) ctx.currentText.metadata = value.providerMetadata
-            yield* session.updatePart(ctx.currentText)
-            ctx.currentText = undefined
+            yield* Effect.forEach(
+              ctx.proposedPlan?.finish() ?? [],
+              (segment) => appendText(segment, value.providerMetadata),
+              { discard: true },
+            )
+            if (value.providerMetadata && ctx.currentText) ctx.currentText.metadata = value.providerMetadata
+            yield* finishText()
+            ctx.proposedPlan = undefined
             return
 
           case "finish":
@@ -558,12 +587,9 @@ const layer = Layer.effect(
           ctx.snapshot = undefined
         }
 
-        if (ctx.currentText) {
-          const end = Date.now()
-          ctx.currentText.time = { start: ctx.currentText.time?.start ?? end, end }
-          yield* session.updatePart(ctx.currentText)
-          ctx.currentText = undefined
-        }
+        yield* Effect.forEach(ctx.proposedPlan?.finish() ?? [], (segment) => appendText(segment), { discard: true })
+        ctx.proposedPlan = undefined
+        yield* finishText()
 
         for (const part of Object.values(ctx.reasoningMap)) {
           const end = Date.now()
@@ -642,6 +668,7 @@ const layer = Layer.effect(
         return yield* Effect.gen(function* () {
           yield* Effect.gen(function* () {
             ctx.currentText = undefined
+            ctx.proposedPlan = undefined
             ctx.reasoningMap = {}
             yield* status.set(ctx.sessionID, { type: "busy" })
             const stream = llm.stream(streamInput)

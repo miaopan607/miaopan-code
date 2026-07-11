@@ -56,7 +56,10 @@ type CompletedCompaction = {
 
 function summaryText(message: SessionV1.WithParts) {
   const text = message.parts
-    .filter((part): part is SessionV1.TextPart => part.type === "text" && !part.synthetic)
+    .filter(
+      (part): part is SessionV1.TextPart | SessionV1.PlanPart =>
+        part.type === "plan" || (part.type === "text" && !part.synthetic),
+    )
     .map((part) => part.text.trim())
     .filter(Boolean)
     .join("\n\n")
@@ -117,7 +120,10 @@ function buildBriefHistory(input: {
             : "",
         assistant_final_output:
           final?.parts
-            .filter((part): part is SessionV1.TextPart => part.type === "text" && !part.synthetic && !part.ignored)
+            .filter(
+              (part): part is SessionV1.TextPart | SessionV1.PlanPart =>
+                part.type === "plan" || (part.type === "text" && !part.synthetic && !part.ignored),
+            )
             .map((part) => part.text)
             .join("\n\n") ?? "",
         modified_files: [

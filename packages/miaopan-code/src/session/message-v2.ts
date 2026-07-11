@@ -295,6 +295,13 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
             ...(differentModel ? {} : { providerMetadata: part.metadata }),
           })
         }
+        if (part.type === "plan") {
+          assistantMessage.parts.push({
+            type: "text",
+            text: `<proposed_plan>\n${part.text}${part.text.endsWith("\n") ? "" : "\n"}</proposed_plan>`,
+            ...(differentModel ? {} : { providerMetadata: part.metadata }),
+          })
+        }
         if (part.type === "step-start")
           assistantMessage.parts.push({
             type: "step-start",

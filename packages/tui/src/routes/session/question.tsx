@@ -12,7 +12,12 @@ import { useI18n } from "../../context/i18n"
 
 const QUESTION_MODE = "question"
 
-export function QuestionPrompt(props: { request: QuestionRequest; directory?: string }) {
+export function QuestionPrompt(props: {
+  request: QuestionRequest
+  directory?: string
+  onReply?: (answers: QuestionAnswer[]) => void
+  onReject?: () => void
+}) {
   const sdk = useSDK()
   const { theme } = useTheme()
   const renderer = useRenderer()
@@ -47,8 +52,11 @@ export function QuestionPrompt(props: { request: QuestionRequest; directory?: st
     return store.answers[store.tab]?.includes(value) ?? false
   })
 
-  function submit() {
-    const answers = questions().map((_, i) => store.answers[i] ?? [])
+  function reply(answers: QuestionAnswer[]) {
+    if (props.onReply) {
+      props.onReply(answers)
+      return
+    }
     void sdk.client.question.reply({
       requestID: props.request.id,
       directory: props.directory,
@@ -56,7 +64,15 @@ export function QuestionPrompt(props: { request: QuestionRequest; directory?: st
     })
   }
 
+  function submit() {
+    reply(questions().map((_, i) => store.answers[i] ?? []))
+  }
+
   function reject() {
+    if (props.onReject) {
+      props.onReject()
+      return
+    }
     void sdk.client.question.reject({
       requestID: props.request.id,
       directory: props.directory,
@@ -73,11 +89,7 @@ export function QuestionPrompt(props: { request: QuestionRequest; directory?: st
       setStore("custom", inputs)
     }
     if (single()) {
-      void sdk.client.question.reply({
-        requestID: props.request.id,
-        directory: props.directory,
-        answers: [[answer]],
-      })
+      reply([[answer]])
       return
     }
     setStore("tab", store.tab + 1)

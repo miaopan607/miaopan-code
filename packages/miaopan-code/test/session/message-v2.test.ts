@@ -113,6 +113,30 @@ function basePart(messageID: string, id: string) {
 }
 
 describe("session.message-v2.toModelMessage", () => {
+  test("replays plan parts with proposed plan tags", async () => {
+    const messageID = "m-plan"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: assistantInfo(messageID, "m-user"),
+        parts: [
+          {
+            ...basePart(messageID, "p1"),
+            type: "plan",
+            text: "# Plan\n\n- Implement it\n",
+            time: { start: 1, end: 2 },
+          },
+        ] as SessionV1.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model)).toStrictEqual([
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "<proposed_plan>\n# Plan\n\n- Implement it\n</proposed_plan>" }],
+      },
+    ])
+  })
+
   test("filters out messages with no parts", async () => {
     const input: SessionV1.WithParts[] = [
       {

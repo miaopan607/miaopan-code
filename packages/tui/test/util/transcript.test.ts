@@ -142,6 +142,18 @@ describe("transcript", () => {
       expect(result).toBe("")
     })
 
+    test("formats plan parts", () => {
+      const part: Part = {
+        id: "part_1",
+        sessionID: "ses_123",
+        messageID: "msg_123",
+        type: "plan",
+        text: "# Proposed plan",
+        time: { start: 1000, end: 2000 },
+      }
+      expect(formatPart(part, options)).toBe("# Proposed plan\n\n")
+    })
+
     test("formats reasoning when thinking enabled", () => {
       const part: Part = {
         id: "part_1",

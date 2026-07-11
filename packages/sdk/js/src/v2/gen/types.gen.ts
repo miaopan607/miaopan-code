@@ -392,6 +392,21 @@ export type TextPart = {
   }
 }
 
+export type PlanPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "plan"
+  text: string
+  time: {
+    start: number
+    end?: number
+  }
+  metadata?: {
+    [key: string]: unknown
+  }
+}
+
 export type SubtaskPart = {
   id: string
   sessionID: string
@@ -626,6 +641,7 @@ export type CompactionPart = {
 
 export type Part =
   | TextPart
+  | PlanPart
   | SubtaskPart
   | ReasoningPart
   | FilePart

@@ -631,8 +631,8 @@ export const {
                     if (tracker.parts.has(part.id)) return current ? [current] : []
                     if (
                       current &&
-                      (part.type === "text" || part.type === "reasoning") &&
-                      (current.type === "text" || current.type === "reasoning") &&
+                      (part.type === "text" || part.type === "reasoning" || part.type === "plan") &&
+                      (current.type === "text" || current.type === "reasoning" || current.type === "plan") &&
                       part.text.length === 0 &&
                       current.text.length > 0
                     ) {

@@ -22,6 +22,10 @@ export type ReplayPart =
       type: "reasoning"
       text: string
     }
+  | {
+      type: "plan"
+      text: string
+    }
 
 export function promptContentToParts(content: readonly ContentBlock[]): PromptPart[] {
   return content.flatMap(contentBlockToParts)
@@ -138,6 +142,7 @@ export function partToContentChunks(part: ReplayPart): ContentChunk[] {
       return filePartToContentChunks(part)
 
     case "reasoning":
+    case "plan":
       if (!part.text) return []
       return [
         {

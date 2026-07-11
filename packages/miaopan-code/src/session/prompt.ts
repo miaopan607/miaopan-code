@@ -55,7 +55,6 @@ import { ProviderV2 } from "@miaopan-code/core/provider"
 import { eq } from "drizzle-orm"
 import { SessionTable } from "@miaopan-code/core/session/sql"
 import { SessionGoal } from "@miaopan-code/core/session/goal"
-import { SessionReminders } from "./reminders"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@miaopan-code/llm"
 import { escapeHtml } from "@/util/html"
@@ -1227,13 +1226,6 @@ const layer = Layer.effect(
           }
           const maxSteps = agent.steps ?? Infinity
           const isLastStep = step >= maxSteps
-          msgs = yield* SessionReminders.apply({ messages: msgs, agent, session }).pipe(
-            Effect.provideService(RuntimeFlags.Service, flags),
-            Effect.provideService(FSUtil.Service, fsys),
-            Effect.provideService(Session.Service, sessions),
-            Effect.provideService(Config.Service, config),
-          )
-
           const msg: SessionV1.Assistant = {
             id: MessageID.ascending(),
             parentID: lastUser.id,
@@ -1311,7 +1303,8 @@ const layer = Layer.effect(
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
             const language = (yield* config.get()).language
-            const [skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
+            const [collaboration, skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
+              sys.collaboration(agent, session.metadata?.collaboration_mode === "plan"),
               sys.skills(agent),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
@@ -1323,6 +1316,7 @@ const layer = Layer.effect(
               ...instructions,
               ...(mcpInstructions ? [mcpInstructions] : []),
               ...(skills ? [skills] : []),
+              ...(collaboration ? [collaboration] : []),
             ]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(t(language, "prompt.structured_output_system"))
