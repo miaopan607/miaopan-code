@@ -47,6 +47,16 @@ export const makeConfigApi = (language?: Language) =>
               description: t(language, "config_providers_description"),
             }),
           ),
+          HttpApiEndpoint.post("refreshProviders", `${root}/providers/refresh`, {
+            query: WorkspaceRoutingQuery,
+            success: described(Provider.ConfigProvidersResult, t(language, "response_provider_list")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "config.providers.refresh",
+              summary: t(language, "config_providers_refresh"),
+              description: t(language, "config_providers_refresh_description"),
+            }),
+          ),
         )
         .annotateMerge(
           OpenApi.annotations({

@@ -23,6 +23,8 @@ import type {
   ConfigGetErrors,
   ConfigGetResponses,
   ConfigProvidersErrors,
+  ConfigProvidersRefreshErrors,
+  ConfigProvidersRefreshResponses,
   ConfigProvidersResponses,
   ConfigUpdateErrors,
   ConfigUpdateResponses,
@@ -1417,6 +1419,42 @@ export class Event extends HeyApiClient {
   }
 }
 
+export class Providers extends HeyApiClient {
+  /**
+   * 刷新配置提供商
+   *
+   * 重新读取当前目录配置并刷新 AI 提供商和模型列表。
+   */
+  public refresh<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ConfigProvidersRefreshResponses,
+      ConfigProvidersRefreshErrors,
+      ThrowOnError
+    >({
+      url: "/config/providers/refresh",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Config2 extends HeyApiClient {
   /**
    * 获取配置
@@ -1513,6 +1551,11 @@ export class Config2 extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _providers?: Providers
+  get providers2(): Providers {
+    return (this._providers ??= new Providers({ client: this.client }))
   }
 }
 

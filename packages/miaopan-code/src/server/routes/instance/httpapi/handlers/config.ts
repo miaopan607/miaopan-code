@@ -22,13 +22,24 @@ export const configHandlers = HttpApiBuilder.group(InstanceHttpApi, "config", (h
     })
 
     const providers = Effect.fn("ConfigHttpApi.providers")(function* () {
-      const providers = yield* providerSvc.list()
-      return {
-        providers: Object.values(providers).map(Provider.toPublicInfo),
-        default: Provider.defaultModelIDs(providers),
-      }
+      return configProvidersResult(yield* providerSvc.list())
     })
 
-    return handlers.handle("get", get).handle("update", update).handle("providers", providers)
+    const refreshProviders = Effect.fn("ConfigHttpApi.refreshProviders")(function* () {
+      return configProvidersResult(yield* providerSvc.refresh())
+    })
+
+    return handlers
+      .handle("get", get)
+      .handle("update", update)
+      .handle("providers", providers)
+      .handle("refreshProviders", refreshProviders)
   }),
 )
+
+function configProvidersResult(providers: Record<string, Provider.Info>) {
+  return {
+    providers: Object.values(providers).map(Provider.toPublicInfo),
+    default: Provider.defaultModelIDs(providers),
+  }
+}

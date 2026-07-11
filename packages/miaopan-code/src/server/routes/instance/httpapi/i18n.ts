@@ -180,6 +180,11 @@ const messages = {
     "zh-CN": "获取所有已配置 AI 提供商及其默认模型。",
     en: "Get a list of all configured AI providers and their default models.",
   },
+  config_providers_refresh: { "zh-CN": "刷新配置提供商", en: "Refresh config providers" },
+  config_providers_refresh_description: {
+    "zh-CN": "重新读取当前目录配置并刷新 AI 提供商和模型列表。",
+    en: "Reload the current directory configuration and refresh the AI provider and model list.",
+  },
   config_routes: { "zh-CN": "实验性 HttpApi 配置路由。", en: "Experimental HttpApi config routes." },
   workspace_adapters: { "zh-CN": "列出工作区适配器", en: "List workspace adapters" },
   workspace_adapters_description: {
