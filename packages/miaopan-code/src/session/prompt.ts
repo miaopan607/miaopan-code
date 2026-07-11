@@ -9,6 +9,7 @@ import { SessionRevert } from "./revert"
 import { Session } from "./session"
 import { Agent } from "../agent/agent"
 import { Provider } from "@/provider/provider"
+import { Review } from "@/review"
 
 import { type Tool as AITool, tool, jsonSchema } from "ai"
 import type { JSONSchema7 } from "@ai-sdk/provider"
@@ -302,6 +303,7 @@ const layer = Layer.effect(
         prompt: task.prompt,
         description: task.description,
         subagent_type: task.agent,
+        task_id: task.taskID,
         command: task.command,
       }
       yield* plugin.trigger(
@@ -435,6 +437,23 @@ const layer = Layer.effect(
 
       if (!task.command) return
 
+      const cfg = yield* config.get()
+      if (Review.isBuiltinCommand(task.command, cfg)) {
+        const reviewOutput = result?.metadata?.reviewOutput
+        if (typeof reviewOutput === "string") {
+          yield* sessions.updatePart({
+            id: PartID.ascending(),
+            messageID: assistantMessage.id,
+            sessionID,
+            type: "text",
+            text: reviewOutput,
+          } satisfies SessionV1.TextPart)
+        }
+        assistantMessage.finish = "stop"
+        yield* sessions.updateMessage(assistantMessage)
+        return true
+      }
+
       const summaryUserMsg: SessionV1.User = {
         id: MessageID.ascending(),
         sessionID,
@@ -449,7 +468,7 @@ const layer = Layer.effect(
         messageID: summaryUserMsg.id,
         sessionID,
         type: "text",
-        text: t((yield* config.get()).language, "prompt.summarize_task_output"),
+        text: t(cfg.language, "prompt.summarize_task_output"),
         synthetic: true,
       } satisfies SessionV1.TextPart)
     })
@@ -1187,7 +1206,8 @@ const layer = Layer.effect(
           const task = tasks.pop()
 
           if (task?.type === "subtask") {
-            yield* handleSubtask({ task, model, lastUser, sessionID, session, msgs })
+            const stop = yield* handleSubtask({ task, model, lastUser, sessionID, session, msgs })
+            if (stop) break
             continue
           }
 
@@ -1440,6 +1460,17 @@ const layer = Layer.effect(
         throw error
       }
       const agentName = cmd.agent ?? input.agent
+      const cfg = yield* config.get()
+      const continueReview = input.arguments.trim() === "continue" && Review.isBuiltinCommand(input.command, cfg)
+      const interruptedReview = continueReview
+        ? yield* sessions
+            .findMessage(input.sessionID, (message) => interruptedReviewSessionID(message) !== undefined)
+            .pipe(Effect.orDie, Effect.map(Option.getOrUndefined))
+        : undefined
+      const taskID = interruptedReview ? interruptedReviewSessionID(interruptedReview) : undefined
+      if (continueReview && typeof taskID !== "string") {
+        throw new NamedError.Unknown({ message: t(cfg.language, "review.no_interrupted") })
+      }
 
       const raw = input.arguments.match(argsRegex) ?? []
       const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
@@ -1460,7 +1491,9 @@ const layer = Layer.effect(
         return args[argIndex]
       })
       const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
-      let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
+      let template = continueReview
+        ? t(cfg.language, "review.continue_prompt")
+        : withArgs.replaceAll("$ARGUMENTS", input.arguments)
 
       if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
         template = template + "\n\n" + input.arguments
@@ -1520,6 +1553,7 @@ const layer = Layer.effect(
               agent: agent.name,
               description: cmd.description ?? "",
               command: input.command,
+              taskID: typeof taskID === "string" ? SessionID.make(taskID) : undefined,
               model: { providerID: taskModel.providerID, modelID: taskModel.modelID },
               prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
             },
@@ -1670,6 +1704,15 @@ export function createStructuredOutputTool(input: {
 const bashRegex = /!`([^`]+)`/g
 // Match [Image N] as single token, quoted strings, or non-space sequences
 const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi
+
+function interruptedReviewSessionID(message: SessionV1.WithParts) {
+  const part = message.parts.findLast(
+    (part) => part.type === "tool" && part.tool === TaskTool.id && part.state.status === "error",
+  )
+  if (part?.type !== "tool" || part.state.status !== "error" || part.state.input.command !== "review") return
+  const sessionID = part.state.metadata?.sessionId
+  return typeof sessionID === "string" ? sessionID : undefined
+}
 const placeholderRegex = /\$(\d+)/g
 const quoteTrimRegex = /^["']|["']$/g
 

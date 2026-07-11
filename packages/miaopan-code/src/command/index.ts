@@ -68,7 +68,10 @@ const layer = Layer.effect(
       const bridge = yield* EffectBridge.make()
       const commands: Record<string, Info> = {}
       const initialize = PromptI18n.text(cfg.language, "command.initialize")
-      const review = PromptI18n.text(cfg.language, "command.review")
+      const review = PromptI18n.text(
+        cfg.language,
+        cfg.review_mode === "opencode" ? "command.review" : "command.codex_review",
+      )
       const goal = PromptI18n.text(cfg.language, "command.goal")
 
       commands[Default.INIT] = {
