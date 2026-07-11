@@ -29,7 +29,7 @@
 
 有效类型为 `feat`、`fix`、`docs`、`chore`、`refactor` 和 `test`。scope 可选；如果有帮助，请使用受影响的包或领域，例如 `core`、`miaopan-code`、`tui`、`sdk` 或 `plugin`。
 
-示例：`fix(tui): simplify thinking toggle styling`、`docs: update contributing guide`、`chore(sdk): regenerate types`。
+提交消息写中文。
 
 ## 代码风格
 
