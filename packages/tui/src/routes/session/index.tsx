@@ -1470,12 +1470,30 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const local = useLocal()
   const { theme } = useTheme()
   const sync = useSync()
+  const clipboard = useClipboard()
+  const toast = useToast()
+  const renderer = useRenderer()
+  const [copyHover, setCopyHover] = createSignal(false)
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
   const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
 
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
   })
+
+  const handleCopy = () => {
+    if (renderer.getSelection()?.getSelectedText()) return
+    const text = props.parts
+      .filter((part): part is TextPart => part.type === "text")
+      .map((part) => part.text)
+      .join("\n")
+      .trim()
+    if (!text || !clipboard.write) return
+    clipboard
+      .write(text)
+      .then(() => toast.show({ message: i18n.t("tui.copied_to_clipboard"), variant: "success" }))
+      .catch(() => toast.show({ message: i18n.t("session.copy_failed"), variant: "error" }))
+  }
 
   const duration = createMemo(() => {
     if (!final()) return 0
@@ -1546,8 +1564,14 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
       </Show>
       <Switch>
         <Match when={props.last || final() || props.message.error?.name === "MessageAbortedError"}>
-          <box ref={(el: BoxRenderable) => alwaysSeparate.add(el)} paddingLeft={3}>
-            <text marginTop={1}>
+          <box
+            ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
+            paddingLeft={3}
+            flexDirection="row"
+            justifyContent="space-between"
+            marginTop={1}
+          >
+            <text>
               <span
                 style={{
                   fg:
@@ -1567,6 +1591,11 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                 <span style={{ fg: theme.textMuted }}> · {t(Locale.language(), "tui.interrupted")}</span>
               </Show>
             </text>
+            <Show when={props.message.time.completed}>
+              <box onMouseOver={() => setCopyHover(true)} onMouseOut={() => setCopyHover(false)} onMouseUp={handleCopy}>
+                <text fg={copyHover() ? theme.text : theme.textMuted}>⎘ {i18n.t("tui.copy")}</text>
+              </box>
+            </Show>
           </box>
         </Match>
       </Switch>
