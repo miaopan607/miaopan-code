@@ -250,7 +250,7 @@ Options:
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode stats --help 1`] = `
 "miaopan-code stats
 
-显示令牌使用量和费用统计
+显示 Token 使用量和费用统计
 
 Options:
   -h, --help        显示帮助                                                               [boolean]

@@ -194,7 +194,7 @@ export const messages = {
   "cli.npm_module": { "zh-CN": "npm 模块名称", en: "npm module name" },
   "cli.global_config": { "zh-CN": "安装到全局配置", en: "install in global config" },
   "cli.replace_plugin": { "zh-CN": "替换现有插件版本", en: "replace existing plugin version" },
-  "cli.stats": { "zh-CN": "显示令牌使用量和费用统计", en: "show token usage and cost statistics" },
+  "cli.stats": { "zh-CN": "显示 Token 使用量和费用统计", en: "show token usage and cost statistics" },
   "cli.stats_days": {
     "zh-CN": "显示最近 N 天的统计（默认：全部时间）",
     en: "show stats for the last N days (default: all time)",
@@ -2211,11 +2211,11 @@ export const messages = {
     en: "Enable pruning of old tool outputs (default: false)",
   },
   "config.v1.prune_threshold": {
-    "zh-CN": "触发旧工具输出清理的令牌阈值",
+    "zh-CN": "触发旧工具输出清理的 Token 阈值",
     en: "Token threshold for pruning old tool outputs",
   },
   "config.v1.compaction_turns": {
-    "zh-CN": "压缩后逐字保留的最近轮次令牌最大数量",
+    "zh-CN": "压缩后逐字保留的最近轮次 Token 最大数量",
     en: "Maximum number of tokens from recent turns to preserve verbatim after compaction",
   },
   "config.v1.preserve_brief_history": {
@@ -2223,7 +2223,7 @@ export const messages = {
     en: "Preserve each turn's original user input, final assistant output, and modified files alongside the model summary after compaction (default: false)",
   },
   "config.v1.compaction_buffer": {
-    "zh-CN": "压缩令牌缓冲区，为避免溢出预留足够窗口",
+    "zh-CN": "压缩 Token 缓冲区，为避免溢出预留足够窗口",
     en: "Token buffer for compaction. Leaves enough window to avoid overflow during compaction.",
   },
   "config.v1.batch_tool": { "zh-CN": "启用批处理工具", en: "Enable the batch tool" },
@@ -3442,7 +3442,7 @@ export const messages = {
   "sidebar.brand": { "zh-CN": "淼畔 Code", en: "淼畔 Code" },
   "sidebar.todo": { "zh-CN": "待办", en: "Todo" },
   "sidebar.context": { "zh-CN": "上下文", en: "Context" },
-  "sidebar.tokens": { "zh-CN": "令牌", en: "tokens" },
+  "sidebar.tokens": { "zh-CN": "Token", en: "tokens" },
   "sidebar.used": { "zh-CN": "已使用", en: "used" },
   "sidebar.spent": { "zh-CN": "已花费", en: "spent" },
   "sidebar.lsp_disabled": { "zh-CN": "LSP 已禁用", en: "LSPs are disabled" },
@@ -3753,7 +3753,7 @@ export const messages = {
   "github.response": { "zh-CN": "响应：", en: "Response:" },
   "github.images": { "zh-CN": "图片", en: "Images" },
   "stats.overview": { "zh-CN": "概览", en: "OVERVIEW" },
-  "stats.cost_tokens": { "zh-CN": "费用与令牌", en: "COST & TOKENS" },
+  "stats.cost_tokens": { "zh-CN": "费用与 Token", en: "COST & TOKENS" },
   "stats.model_usage": { "zh-CN": "模型使用量", en: "MODEL USAGE" },
   "stats.tool_usage": { "zh-CN": "工具使用量", en: "TOOL USAGE" },
   "stats.current_project_required": {
@@ -3890,14 +3890,14 @@ export const messages = {
   "stats.days": { "zh-CN": "天数", en: "Days" },
   "stats.total_cost": { "zh-CN": "总费用", en: "Total Cost" },
   "stats.avg_cost_day": { "zh-CN": "日均费用", en: "Avg Cost/Day" },
-  "stats.avg_tokens_session": { "zh-CN": "平均令牌/会话", en: "Avg Tokens/Session" },
-  "stats.median_tokens_session": { "zh-CN": "令牌/会话中位数", en: "Median Tokens/Session" },
+  "stats.avg_tokens_session": { "zh-CN": "平均 Token/会话", en: "Avg Tokens/Session" },
+  "stats.median_tokens_session": { "zh-CN": "Token/会话中位数", en: "Median Tokens/Session" },
   "stats.input": { "zh-CN": "输入", en: "Input" },
   "stats.output": { "zh-CN": "输出", en: "Output" },
   "stats.cache_read": { "zh-CN": "缓存读取", en: "Cache Read" },
   "stats.cache_write": { "zh-CN": "缓存写入", en: "Cache Write" },
-  "stats.input_tokens": { "zh-CN": "输入令牌", en: "Input Tokens" },
-  "stats.output_tokens": { "zh-CN": "输出令牌", en: "Output Tokens" },
+  "stats.input_tokens": { "zh-CN": "输入 Token", en: "Input Tokens" },
+  "stats.output_tokens": { "zh-CN": "输出 Token", en: "Output Tokens" },
   "stats.cost": { "zh-CN": "费用", en: "Cost" },
   "error.models_hint": {
     "zh-CN": "尝试：`miaopanCode models` 列出可用模型",
