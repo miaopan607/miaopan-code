@@ -70,9 +70,9 @@ function View(props: { api: TuiPluginApi; sessionID: string }) {
         <span style={{ fg: theme().text }}>{path().name}</span>
       </text>
       <text fg={theme().textMuted}>
-        <span style={{ fg: theme().success }}>•</span> <b>{tr("sidebar.open")}</b>
+        <span style={{ fg: theme().success }}>•</span>{" "}
         <span style={{ fg: theme().text }}>
-          <b>{tr("tui.code")}</b>
+          <b>{tr("sidebar.brand")}</b>
         </span>{" "}
         <span>{props.api.app.version}</span>
       </text>

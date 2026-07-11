@@ -12,6 +12,13 @@ test("默认使用简体中文，并仅接受已支持的语言", () => {
   expect(t("en", "tui.switch_language")).toBe("Switch language")
 })
 
+test("品牌名不随界面语言翻译", () => {
+  expect(t("zh-CN", "sidebar.brand")).toBe("淼畔 Code")
+  expect(t("en", "sidebar.brand")).toBe("淼畔 Code")
+  expect(t("zh-CN", "tui.code")).toBe("代码")
+  expect(t("en", "tui.code")).toBe("Code")
+})
+
 test("两代配置都接受 language 字段", () => {
   expect(Schema.decodeUnknownSync(ConfigV1.Info)({ language: "zh-CN" }).language).toBe("zh-CN")
   expect(Schema.decodeUnknownSync(Config.Info)({ language: "en" }).language).toBe("en")

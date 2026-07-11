@@ -3387,7 +3387,7 @@ export const messages = {
     "zh-CN": "连接 75+ 个提供商以使用 Claude、GPT、Gemini 等其他模型",
     en: "Connect from 75+ providers to use other models, including Claude, GPT, Gemini etc",
   },
-  "sidebar.open": { "zh-CN": "开放", en: "Open" },
+  "sidebar.brand": { "zh-CN": "淼畔 Code", en: "淼畔 Code" },
   "sidebar.todo": { "zh-CN": "待办", en: "Todo" },
   "sidebar.context": { "zh-CN": "上下文", en: "Context" },
   "sidebar.tokens": { "zh-CN": "令牌", en: "tokens" },
