@@ -6,8 +6,12 @@ import { t } from "@miaopan-code/core/i18n"
 import { Locale } from "../../util/locale"
 
 const id = "internal:sidebar-context"
+const compactTokens = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
 
-function View(props: { api: TuiPluginApi; session_id: string }) {
+export function SidebarContextView(props: { api: TuiPluginApi; session_id: string }) {
   const tr = (key: Parameters<typeof t>[1]) => t(Locale.language(), key)
   const theme = () => props.api.theme.current
   const msg = createMemo(() => props.api.state.session.messages(props.session_id))
@@ -19,6 +23,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     if (!last) {
       return {
         tokens: 0,
+        context: null,
         percent: null,
       }
     }
@@ -26,9 +31,11 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
     const tokens =
       last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
     const model = props.api.state.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
+    const context = model?.limit.context && model.limit.context > 0 ? model.limit.context : null
     return {
       tokens,
-      percent: model?.limit.context ? Math.round((tokens / model.limit.context) * 100) : null,
+      context,
+      percent: context ? Math.round((tokens / context) * 100) : null,
     }
   })
 
@@ -37,9 +44,7 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
       <text fg={theme().text}>
         <b>{tr("sidebar.context")}</b>
       </text>
-      <text fg={theme().textMuted}>
-        {Locale.integer(state().tokens)} {tr("sidebar.tokens")}
-      </text>
+      <text fg={theme().textMuted}>{formatTokens(state().tokens, state().context)}</text>
       <text fg={theme().textMuted}>
         {state().percent ?? 0}% {tr("sidebar.used")}
       </text>
@@ -55,7 +60,7 @@ const tui: TuiPlugin = async (api) => {
     order: 100,
     slots: {
       sidebar_content(_ctx, props) {
-        return <View api={api} session_id={props.session_id} />
+        return <SidebarContextView api={api} session_id={props.session_id} />
       },
     },
   })
@@ -67,3 +72,9 @@ const plugin: BuiltinTuiPlugin = {
 }
 
 export default plugin
+
+export function formatTokens(tokens: number, context?: number | null) {
+  const used = compactTokens.format(tokens)
+  if (!context) return used
+  return `${used} / ${compactTokens.format(context)}`
+}
