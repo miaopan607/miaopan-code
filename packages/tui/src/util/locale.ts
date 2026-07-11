@@ -61,16 +61,8 @@ export function todayTimeOrDateTime(input: number): string {
 
 export function number(num: number): string {
   const language = currentLanguage()
-  if (language === "zh-CN") {
-    if (num >= 100000000) return t(language, "locale.hundred_million", { value: (num / 100000000).toFixed(1) })
-    if (num >= 10000) return t(language, "locale.ten_thousand", { value: (num / 10000).toFixed(1) })
-    return num.toString()
-  }
-  if (num >= 1000000) {
-    return t(language, "locale.hundred_million", { value: (num / 1000000).toFixed(1) })
-  } else if (num >= 1000) {
-    return t(language, "locale.ten_thousand", { value: (num / 1000).toFixed(1) })
-  }
+  if (num >= 1000000) return t(language, "locale.million", { value: (num / 1000000).toFixed(1) })
+  if (num >= 1000) return t(language, "locale.thousand", { value: (num / 1000).toFixed(1) })
   return num.toString()
 }
 
