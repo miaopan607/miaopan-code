@@ -946,6 +946,14 @@
           "description": "Model to use in the format of provider/model, eg anthropic/claude-2",
           "$ref": "https://models.dev/model-schema.json#/$defs/Model"
         },
+        "review_mode": {
+          "type": "string",
+          "enum": [
+            "codex",
+            "opencode"
+          ],
+          "description": "内建 /review 命令使用的审查后端；默认为 codex，也可设为 opencode"
+        },
         "small_model": {
           "type": "string",
           "description": "Small model to use for tasks like title generation in the format of provider/model",

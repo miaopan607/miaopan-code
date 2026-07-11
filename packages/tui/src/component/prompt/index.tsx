@@ -64,6 +64,8 @@ import { usePromptWorkspace } from "./workspace"
 import { usePromptMove } from "./move"
 import { readLocalAttachment } from "./local-attachment"
 import { useI18n } from "../../context/i18n"
+import { DialogReview } from "../dialog-review"
+import { isRecord } from "../../util/record"
 
 registerMiaopanCodeSpinner()
 
@@ -108,6 +110,11 @@ const DRAFT_RETENTION_MIN_CHARS = 20
 function randomIndex(count: number) {
   if (count <= 0) return 0
   return Math.floor(Math.random() * count)
+}
+
+function codexReviewMenu(config: unknown) {
+  if (!isRecord(config) || config.review_mode === "opencode") return false
+  return !isRecord(config.command) || !("review" in config.command)
 }
 
 function fadeColor(color: RGBA, alpha: number) {
@@ -985,6 +992,20 @@ export function Prompt(props: PromptProps) {
     if (trimmed === "exit" || trimmed === "quit" || trimmed === ":q") {
       void exit()
       return true
+    }
+    if (trimmed === "/review" && codexReviewMenu(sync.data.config)) {
+      dialog.replace(() => (
+        <DialogReview
+          directory={project.instance.directory() || process.cwd()}
+          onSelect={(arguments_) => {
+            const value = `/review ${arguments_}`
+            input.setText(value)
+            setStore("prompt", "input", value)
+            queueMicrotask(() => void submit())
+          }}
+        />
+      ))
+      return false
     }
     const selectedModel = local.model.current()
     if (!selectedModel) {

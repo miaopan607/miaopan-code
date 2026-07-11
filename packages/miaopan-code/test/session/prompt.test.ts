@@ -2379,6 +2379,32 @@ noLLMServer.instance(
 )
 
 noLLMServer.instance(
+  "review continue reports when no interrupted review exists",
+  () =>
+    Effect.gen(function* () {
+      const prompt = yield* SessionPrompt.Service
+      const sessions = yield* Session.Service
+      const session = yield* sessions.create({})
+      const exit = yield* prompt
+        .command({
+          sessionID: session.id,
+          command: "review",
+          arguments: "continue",
+        })
+        .pipe(Effect.exit)
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (!Exit.isFailure(exit)) return
+      const error = Cause.squash(exit.cause)
+      expect(NamedError.Unknown.isInstance(error)).toBe(true)
+      if (NamedError.Unknown.isInstance(error)) {
+        expect(error.data.message).toBe(t("zh-CN", "review.no_interrupted"))
+      }
+    }),
+  30_000,
+)
+
+noLLMServer.instance(
   "unknown command throws typed error with available names",
   () =>
     Effect.gen(function* () {

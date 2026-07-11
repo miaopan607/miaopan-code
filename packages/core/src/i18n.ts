@@ -2112,6 +2112,10 @@ export const messages = {
     "zh-CN": "格式为 provider/model 的模型，例如 anthropic/claude-2",
     en: "Model to use in the format of provider/model, eg anthropic/claude-2",
   },
+  "config.v1.review_mode": {
+    "zh-CN": "内建 /review 命令使用的审查后端；默认为 codex，也可设为 opencode",
+    en: "Review backend used by the built-in /review command; defaults to codex and can be set to opencode",
+  },
   "config.v1.small_model": {
     "zh-CN": "用于标题生成等任务的小模型，格式为 provider/model",
     en: "Small model to use for tasks like title generation in the format of provider/model",
@@ -4737,6 +4741,17 @@ export const messages = {
     "zh-CN": "审查更改 [commit|branch|pr]，默认为未提交更改",
     en: "review changes [commit|branch|pr], defaults to uncommitted",
   },
+  "review.comment": { "zh-CN": "审查意见：", en: "Review comment:" },
+  "review.full_comments": { "zh-CN": "完整审查意见：", en: "Full review comments:" },
+  "review.fallback": { "zh-CN": "审查器未返回可显示的结果。", en: "Reviewer failed to output a response." },
+  "review.continue_prompt": {
+    "zh-CN": "继续之前中断的代码审查。保留已有上下文和工具结果，完成审查并按要求返回最终 JSON。",
+    en: "Continue the interrupted code review. Preserve the existing context and tool results, complete the review, and return the required final JSON.",
+  },
+  "review.no_interrupted": {
+    "zh-CN": "当前会话没有可继续的中断审查。",
+    en: "There is no interrupted review to continue in this session.",
+  },
   "prompt.agent_build_system": {
     "zh-CN":
       "你是一个 AI 编码代理。请通过检查工作区、进行有针对性的更改，并根据配置的权限使用工具，帮助用户完成软件工程任务。",
@@ -5720,6 +5735,43 @@ export const messages = {
   "cli.run.not_answered": { "zh-CN": "未回答", en: "not answered" },
   "cli.run.select_all": { "zh-CN": "选择所有适用项", en: "select all that apply" },
   "cli.run.review": { "zh-CN": "检查", en: "Review" },
+  "cli.run.review_select": { "zh-CN": "选择审查目标", en: "Select a review target" },
+  "cli.run.review_uncommitted": { "zh-CN": "审查未提交的更改", en: "Review uncommitted changes" },
+  "cli.run.review_uncommitted_description": {
+    "zh-CN": "检查工作区、暂存区和未跟踪文件",
+    en: "Inspect working tree, staged, and untracked changes",
+  },
+  "cli.run.review_uncommitted_prompt": {
+    "zh-CN": "审查当前未提交的更改。",
+    en: "Review the current uncommitted changes.",
+  },
+  "cli.run.review_base_branch": { "zh-CN": "与基础分支比较", en: "Review against a base branch" },
+  "cli.run.review_base_branch_description": {
+    "zh-CN": "检查当前分支相对于所选分支的更改",
+    en: "Inspect changes on the current branch relative to a selected branch",
+  },
+  "cli.run.review_base_branch_prompt": {
+    "zh-CN": "审查当前分支相对于基础分支“{{branch}}”的更改。",
+    en: "Review the changes on the current branch against the base branch '{{branch}}'.",
+  },
+  "cli.run.review_commit": { "zh-CN": "审查某个提交", en: "Review a commit" },
+  "cli.run.review_commit_description": { "zh-CN": "从最近的提交中选择", en: "Choose from recent commits" },
+  "cli.run.review_commit_prompt": {
+    "zh-CN": "审查提交 {{commit}}（{{title}}）。",
+    en: "Review commit {{commit}} ({{title}}).",
+  },
+  "cli.run.review_custom": { "zh-CN": "自定义审查说明", en: "Custom review instructions" },
+  "cli.run.review_custom_description": {
+    "zh-CN": "输入要审查的内容和关注点",
+    en: "Describe what to review and what to focus on",
+  },
+  "cli.run.review_custom_placeholder": {
+    "zh-CN": "输入说明并按 Enter",
+    en: "Type instructions and press Enter",
+  },
+  "cli.run.review_select_branch": { "zh-CN": "选择基础分支", en: "Select a base branch" },
+  "cli.run.review_select_commit": { "zh-CN": "选择提交", en: "Select a commit" },
+  "cli.run.review_no_targets": { "zh-CN": "没有可用的审查目标", en: "No review targets available" },
   "cli.run.input_terminal_required": {
     "zh-CN": "--mini 需要可控制的终端作为输入",
     en: "--mini requires a controlling terminal for input",

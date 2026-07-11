@@ -35,6 +35,24 @@ const ref = {
   modelID: ModelV2.ID.make("test-model"),
 }
 
+const reviewOutput = {
+  findings: [
+    {
+      title: "[P1] Retry can loop",
+      body: "The retry guard is missing.",
+      confidence_score: 0.9,
+      priority: 1,
+      code_location: {
+        absolute_file_path: "/tmp/retry.ts",
+        line_range: { start: 4, end: 5 },
+      },
+    },
+  ],
+  overall_correctness: "patch is incorrect",
+  overall_explanation: "The retry path can loop forever.",
+  overall_confidence_score: 0.9,
+}
+
 const layer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   LayerNode.compile(
     LayerNode.group([
@@ -254,6 +272,75 @@ describe("tool.task", () => {
       expect(seen?.sessionID).toBe(child.id)
       expect(seen?.variant).toBe("xhigh")
     }),
+  )
+
+  it.instance(
+    "formats the built-in Codex review result before returning it",
+    () =>
+      Effect.gen(function* () {
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+        const result = yield* def.execute(
+          {
+            description: "review changes",
+            prompt: "review the current changes",
+            subagent_type: "general",
+            command: "review",
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: {
+              promptOps: stubOps({ text: JSON.stringify(reviewOutput) }),
+            },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+
+        expect(result.output).toContain("The retry path can loop forever.")
+        expect(result.output).toContain("/tmp/retry.ts:4-5")
+        expect(result.output).not.toContain('"findings"')
+        expect(result.metadata.reviewOutput).toContain("The retry path can loop forever.")
+        expect(result.metadata.reviewOutput).not.toContain("<task_result>")
+      }),
+  )
+
+  it.instance(
+    "leaves the configured OpenCode review result unchanged",
+    () =>
+      Effect.gen(function* () {
+        const { chat, assistant } = yield* seed()
+        const tool = yield* TaskTool
+        const def = yield* tool.init()
+        const raw = JSON.stringify(reviewOutput)
+        const result = yield* def.execute(
+          {
+            description: "review changes",
+            prompt: "review the current changes",
+            subagent_type: "general",
+            command: "review",
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: { promptOps: stubOps({ text: raw }) },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+
+        expect(result.output).toContain('"findings"')
+        expect(result.metadata.reviewOutput).toBeUndefined()
+      }),
+    { config: { review_mode: "opencode" } },
   )
 
   it.instance("execute asks by default and skips checks when bypassed", () =>

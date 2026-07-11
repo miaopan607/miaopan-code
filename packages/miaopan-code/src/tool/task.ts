@@ -15,6 +15,7 @@ import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@miaopan-code/core/database/database"
 import { t, type Language } from "@miaopan-code/core/i18n"
+import { Review } from "@/review"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -79,6 +80,7 @@ export const TaskTool = Tool.define(
       ctx: Tool.Context,
     ) {
       const cfg = yield* config.get()
+      const builtinReview = Review.isBuiltinCommand(params.command, cfg)
       const runInBackground = params.background === true
       if (runInBackground && !flags.experimentalBackgroundSubagents) {
         return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.background_disabled")))
@@ -158,6 +160,7 @@ export const TaskTool = Tool.define(
         parentSessionId: ctx.sessionID,
         sessionId: nextSession.id,
         model,
+        reviewOutput: undefined as string | undefined,
         ...(runInBackground ? { background: true } : {}),
       }
 
@@ -182,7 +185,9 @@ export const TaskTool = Tool.define(
           agent: next.name,
           parts,
         })
-        return result.parts.findLast((item) => item.type === "text")?.text ?? ""
+        const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
+        if (!builtinReview) return text
+        return Review.renderOutput(Review.parseOutput(text), language)
       })
 
       const inject = Effect.fn("TaskTool.injectBackgroundResult")(function* (
@@ -304,7 +309,10 @@ export const TaskTool = Tool.define(
               return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.task_cancelled")))
             return {
               title: params.description,
-              metadata,
+              metadata: {
+                ...metadata,
+                reviewOutput: builtinReview ? result?.output ?? "" : undefined,
+              },
               output: renderOutput({ sessionID: nextSession.id, state: "completed", text: result?.output ?? "" }),
             }
           }),

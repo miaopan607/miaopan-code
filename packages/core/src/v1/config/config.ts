@@ -75,6 +75,9 @@ export const Info = Schema.Struct({
   model: Schema.optional(Schema.String).annotate({
     description: zh("config.v1.model_format"),
   }),
+  review_mode: Schema.optional(Schema.Literals(["codex", "opencode"])).annotate({
+    description: zh("config.v1.review_mode"),
+  }),
   small_model: Schema.optional(Schema.String).annotate({
     description: zh("config.v1.small_model"),
   }),
