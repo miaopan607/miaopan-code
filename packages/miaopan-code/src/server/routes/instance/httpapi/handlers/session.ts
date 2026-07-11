@@ -84,6 +84,25 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return yield* SessionError.mapStorageNotFound(session.get(sessionID))
     })
 
+    const startAsyncPrompt = Effect.fn("SessionHttpApi.startAsyncPrompt")(function* (
+      sessionID: SessionID,
+      prompt: Effect.Effect<unknown, unknown>,
+    ) {
+      const language = yield* requestLanguage()
+      yield* prompt.pipe(
+        Effect.catchCause((cause) =>
+          Effect.gen(function* () {
+            yield* Effect.logError(t(language, "log.server_prompt_async_failed"), { sessionID, cause })
+            yield* events.publish(Session.Event.Error, {
+              sessionID,
+              error: new NamedError.Unknown({ message: Cause.pretty(cause) }).toObject(),
+            })
+          }),
+        ),
+        Effect.forkIn(scope, { startImmediately: true }),
+      )
+    })
+
     const get = Effect.fn("SessionHttpApi.get")(function* (ctx: { params: { sessionID: SessionID } }) {
       return yield* requireSession(ctx.params.sessionID)
     })
@@ -314,23 +333,26 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       params: { sessionID: SessionID }
       payload: typeof PromptPayload.Type
     }) {
-      const language = yield* requestLanguage()
       yield* requireSession(ctx.params.sessionID)
-      yield* promptSvc.prompt({ ...ctx.payload, sessionID: ctx.params.sessionID }).pipe(
-        Effect.catchCause((cause) =>
-          Effect.gen(function* () {
-            yield* Effect.logError(t(language, "log.server_prompt_async_failed"), {
-              sessionID: ctx.params.sessionID,
-              cause,
-            })
-            yield* events.publish(Session.Event.Error, {
-              sessionID: ctx.params.sessionID,
-              error: new NamedError.Unknown({ message: Cause.pretty(cause) }).toObject(),
-            })
-          }),
-        ),
-        Effect.forkIn(scope, { startImmediately: true }),
+      yield* startAsyncPrompt(
+        ctx.params.sessionID,
+        promptSvc.prompt({ ...ctx.payload, sessionID: ctx.params.sessionID }),
       )
+      return HttpApiSchema.NoContent.make()
+    })
+
+    const continueSession = Effect.fn("SessionHttpApi.continue")(function* (ctx: {
+      params: { sessionID: SessionID }
+    }) {
+      yield* requireSession(ctx.params.sessionID)
+      if (
+        !(yield* SessionError.mapStorageNotFound(session.messages({ sessionID: ctx.params.sessionID }))).some(
+          (message) => message.info.role === "user",
+        )
+      ) {
+        return yield* new HttpApiError.BadRequest({})
+      }
+      yield* startAsyncPrompt(ctx.params.sessionID, promptSvc.continue({ sessionID: ctx.params.sessionID }))
       return HttpApiSchema.NoContent.make()
     })
 
@@ -437,6 +459,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       .handle("summarize", summarize)
       .handle("prompt", prompt)
       .handle("promptAsync", promptAsync)
+      .handle("continue", continueSession)
       .handle("command", command)
       .handle("shell", shell)
       .handle("revert", revert)

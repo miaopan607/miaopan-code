@@ -121,6 +121,7 @@ const sessionBindingCommands = [
   "session.timeline",
   "session.fork",
   "session.compact",
+  "session.continue",
   "session.unshare",
   "session.undo",
   "session.redo",
@@ -213,6 +214,11 @@ export function Session() {
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const hasUserMessage = createMemo(() => messages().some((message) => message.role === "user"))
+  const canContinue = createMemo(() => {
+    const status = sync.data.session_status[route.sessionID]
+    return (!status || status.type === "idle") && hasUserMessage()
+  })
   const foregroundTasks = createMemo(() =>
     sync.data.capabilities.experimentalBackgroundSubagents
       ? messages().flatMap((message) =>
@@ -459,6 +465,29 @@ export function Session() {
   }
 
   const sessionCommandList = createMemo(() => [
+    {
+      title: i18n.t("session.continue"),
+      value: "session.continue",
+      suggested: route.type === "session",
+      category: i18n.t("tui.session"),
+      enabled: canContinue(),
+      slash: {
+        name: "continue",
+      },
+      run: async () => {
+        if (!hasUserMessage()) {
+          toast.show({ message: i18n.t("session.continue_empty"), variant: "warning" })
+          return
+        }
+        if (!canContinue()) return
+        await sdk.client.session
+          .continue({ sessionID: route.sessionID })
+          .catch((error) =>
+            toast.show({ message: error instanceof Error ? error.message : String(error), variant: "error" }),
+          )
+        dialog.clear()
+      },
+    },
     {
       title: session()?.share?.url ? i18n.t("session.copy_share_link") : i18n.t("session.share"),
       value: "session.share",
@@ -1500,7 +1529,15 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     if (!props.message.time.completed) return 0
     const user = messages().find((x) => x.role === "user" && x.id === props.message.parentID)
     if (!user || !user.time) return 0
-    return props.message.time.completed - user.time.created
+    const continued = messages().some(
+      (message) =>
+        message.role === "assistant" &&
+        message.parentID === props.message.parentID &&
+        message.id < props.message.id &&
+        message.finish !== undefined &&
+        !["tool-calls", "unknown"].includes(message.finish),
+    )
+    return props.message.time.completed - (continued ? props.message.time.created : user.time.created)
   })
 
   const childShortcut = useCommandShortcut("session.child.first")

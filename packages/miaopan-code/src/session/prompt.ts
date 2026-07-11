@@ -95,6 +95,7 @@ function isOrphanedInterruptedTool(part: SessionV1.ToolPart) {
 export interface Interface {
   readonly cancel: (sessionID: SessionID) => Effect.Effect<void>
   readonly prompt: (input: PromptInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
+  readonly continue: (input: LoopInput) => Effect.Effect<SessionV1.WithParts>
   readonly loop: (input: LoopInput) => Effect.Effect<SessionV1.WithParts>
   readonly shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError>
   readonly command: (input: CommandInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
@@ -1109,8 +1110,10 @@ const layer = Layer.effect(
       throw new Error(t((yield* config.get()).language, "error.impossible"))
     })
 
-    const runLoop: (sessionID: SessionID) => Effect.Effect<SessionV1.WithParts> = Effect.fn("SessionPrompt.run")(
-      function* (sessionID: SessionID) {
+    const runLoop: (sessionID: SessionID, force?: boolean) => Effect.Effect<SessionV1.WithParts> = Effect.fn(
+      "SessionPrompt.run",
+    )(
+      function* (sessionID: SessionID, force = false) {
         const ctx = yield* InstanceState.context
         let structured: unknown
         let step = 0
@@ -1141,6 +1144,7 @@ const layer = Layer.effect(
               (part) => part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part),
             ) ?? false
           const finished =
+            !(force && step === 0) &&
             Boolean(lastAssistant?.finish) &&
             !["tool-calls"].includes(lastAssistant?.finish ?? "") &&
             !hasToolCalls &&
@@ -1410,6 +1414,12 @@ const layer = Layer.effect(
       return yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID))
     })
 
+    const continueSession: (input: LoopInput) => Effect.Effect<SessionV1.WithParts> = Effect.fn(
+      "SessionPrompt.continue",
+    )(function* (input: LoopInput) {
+      return yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID, true))
+    })
+
     const shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError> = Effect.fn(
       "SessionPrompt.shell",
     )(function* (input: ShellInput) {
@@ -1555,6 +1565,7 @@ const layer = Layer.effect(
     return Service.of({
       cancel,
       prompt,
+      continue: continueSession,
       loop,
       shell,
       command,

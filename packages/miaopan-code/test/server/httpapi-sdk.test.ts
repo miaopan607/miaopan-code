@@ -806,6 +806,47 @@ describe("HttpApi SDK", () => {
     ),
   )
 
+  serverPathParity("continues a session without adding another user message", (serverPath) =>
+    withFakeLlm(serverPath, ({ sdk, llm }) =>
+      Effect.gen(function* () {
+        yield* llm.text("first response")
+        yield* llm.text("continued response")
+        const session = yield* capture(() =>
+          sdk.session.create({
+            title: "continue",
+            permission: [{ permission: "*", pattern: "*", action: "allow" }],
+          }),
+        )
+        const sessionID = String(record(session.data).id)
+        const prompt = yield* capture(() =>
+          sdk.session.prompt({
+            sessionID,
+            agent: "build",
+            model: { providerID: "test", modelID: "test-model" },
+            parts: [{ type: "text", text: "finish the task" }],
+          }),
+        )
+        const continued = yield* capture(() => sdk.session.continue({ sessionID }))
+        const messages = yield* pollWithTimeout(
+          capture(() => sdk.session.messages({ sessionID })).pipe(
+            Effect.map((result) =>
+              JSON.stringify(result.data).includes("continued response") ? result : undefined,
+            ),
+          ),
+          "continued response was not persisted",
+        )
+
+        return {
+          statuses: statuses({ session, prompt, continued, messages }),
+          calls: (yield* llm.inputs).length,
+          userMessages: array(messages.data).filter(
+            (message) => record(record(message).info).role === "user",
+          ).length,
+        }
+      }),
+    ),
+  )
+
   httpapi(
     "includes project skills in REST API prompt context",
     withFakeLlmProject("default", { setup: writeProjectSkill }, ({ sdk, llm }) =>

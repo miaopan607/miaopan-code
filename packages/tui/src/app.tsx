@@ -596,7 +596,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         category: i18n.t("tui.session"),
         suggested: sync.data.session.length > 0,
         slashName: "sessions",
-        slashAliases: ["resume", "continue"],
+        slashAliases: ["resume"],
         run: () => {
           dialog.replace(() => <DialogSessionList />)
         },

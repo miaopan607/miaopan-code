@@ -2582,6 +2582,8 @@ export const messages = {
   "session.jump_to_message": { "zh-CN": "跳转到消息", en: "Jump to message" },
   "session.fork": { "zh-CN": "分叉会话", en: "Fork session" },
   "session.compact": { "zh-CN": "压缩会话", en: "Compact session" },
+  "session.continue": { "zh-CN": "继续当前任务", en: "Continue current task" },
+  "session.continue_empty": { "zh-CN": "当前会话没有可继续的任务", en: "This session has no task to continue" },
   "session.connect_to_summarize": {
     "zh-CN": "请连接提供商以汇总此会话",
     en: "Connect a provider to summarize this session",

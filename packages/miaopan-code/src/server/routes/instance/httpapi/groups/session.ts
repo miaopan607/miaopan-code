@@ -96,6 +96,7 @@ export const SessionPaths = {
   summarize: `${root}/:sessionID/summarize`,
   prompt: `${root}/:sessionID/message`,
   promptAsync: `${root}/:sessionID/prompt_async`,
+  continue: `${root}/:sessionID/continue`,
   command: `${root}/:sessionID/command`,
   shell: `${root}/:sessionID/shell`,
   revert: `${root}/:sessionID/revert`,
@@ -339,6 +340,18 @@ export const makeSessionApi = (language?: Language) =>
               identifier: "session.prompt_async",
               summary: t(language, "legacy_session_async"),
               description: t(language, "session_send_message_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("continue", SessionPaths.continue, {
+            params: { sessionID: SessionID },
+            query: WorkspaceRoutingQuery,
+            success: described(HttpApiSchema.NoContent, text(language, "response_prompt_accepted")),
+            error: [HttpApiError.BadRequest, ApiNotFoundError],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "session.continue",
+              summary: t(language, "legacy_session_continue"),
+              description: t(language, "legacy_session_continue_description"),
             }),
           ),
           HttpApiEndpoint.post("command", SessionPaths.command, {

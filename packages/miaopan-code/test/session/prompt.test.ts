@@ -887,6 +887,31 @@ it.instance("loop continues when finish is tool-calls", () =>
   }),
 )
 
+it.instance("continue starts another turn without adding a user message", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Continue" })
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "finish the task" }],
+    })
+    yield* llm.text("first response")
+    yield* prompt.loop({ sessionID: session.id })
+    yield* llm.text("continued response")
+
+    const result = yield* prompt.continue({ sessionID: session.id })
+    const messages = yield* sessions.messages({ sessionID: session.id })
+
+    expect(yield* llm.calls).toBe(2)
+    expect(messages.filter((message) => message.info.role === "user")).toHaveLength(1)
+    expect(result.parts.some((part) => part.type === "text" && part.text === "continued response")).toBe(true)
+  }),
+)
+
 it.instance("glob tool keeps instance context during prompt runs", () =>
   Effect.gen(function* () {
     const { dir, llm } = yield* useServerConfig(providerCfg)

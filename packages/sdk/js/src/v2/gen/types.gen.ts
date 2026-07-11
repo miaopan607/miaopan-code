@@ -10184,6 +10184,40 @@ export type SessionPromptAsyncResponses = {
 
 export type SessionPromptAsyncResponse = SessionPromptAsyncResponses[keyof SessionPromptAsyncResponses]
 
+export type SessionContinueData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/continue"
+}
+
+export type SessionContinueErrors = {
+  /**
+   * BadRequest | InvalidRequestError
+   */
+  400: EffectHttpApiErrorBadRequest | InvalidRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type SessionContinueError = SessionContinueErrors[keyof SessionContinueErrors]
+
+export type SessionContinueResponses = {
+  /**
+   * 提示已接受
+   */
+  204: void
+}
+
+export type SessionContinueResponse = SessionContinueResponses[keyof SessionContinueResponses]
+
 export type SessionCommandData = {
   body?: {
     messageID?: string

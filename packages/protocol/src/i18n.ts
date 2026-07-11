@@ -378,6 +378,11 @@ export const messages = {
     "zh-CN": "使用 AI 压缩生成会话简要总结，以保留关键信息。",
     en: "Generate a concise summary of the session using AI compaction to preserve key information.",
   },
+  legacy_session_continue: { "zh-CN": "继续当前任务", en: "Continue current task" },
+  legacy_session_continue_description: {
+    "zh-CN": "不添加新提示词，直接从现有会话历史继续执行。",
+    en: "Continue execution from the existing session history without adding a new prompt.",
+  },
   legacy_session_async: { "zh-CN": "异步发送消息", en: "Send async message" },
   legacy_session_command: { "zh-CN": "发送命令", en: "Send command" },
   legacy_session_command_description: {
