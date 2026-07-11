@@ -15,6 +15,7 @@ import {
   sameRepositoryReference,
   validateRepositoryBranch,
 } from "../../src/util/repository"
+import { t } from "@miaopan-code/core/i18n"
 
 describe("util.repository", () => {
   test("parses github shorthand and preserves cache path", () => {
@@ -61,8 +62,8 @@ describe("util.repository", () => {
     })
     expect(reference && isFileRepositoryReference(reference)).toBe(true)
     expect(reference && isRemoteRepositoryReference(reference)).toBe(false)
-    expect(() => parseRemoteRepositoryReference(pathToFileURL(localPath).href)).toThrow(
-      "Local file repositories are not supported",
+    expect(() => parseRemoteRepositoryReference(pathToFileURL(localPath).href, "en")).toThrow(
+      t("en", "error.repository_local"),
     )
     expect(() => parseRemoteRepositoryReference(pathToFileURL(localPath).href)).toThrow(UnsupportedLocalRepositoryError)
   })
@@ -84,10 +85,10 @@ describe("util.repository", () => {
   })
 
   test("validates repository branch names", () => {
-    expect(() => validateRepositoryBranch("feature/docs.v1")).not.toThrow()
-    expect(() => validateRepositoryBranch("-bad")).toThrow("Branch must contain only alphanumeric characters")
-    expect(() => validateRepositoryBranch("bad..branch")).toThrow("Branch must contain only alphanumeric characters")
-    expect(() => validateRepositoryBranch("bad branch")).toThrow("Branch must contain only alphanumeric characters")
+    expect(() => validateRepositoryBranch("feature/docs.v1", "en")).not.toThrow()
+    expect(() => validateRepositoryBranch("-bad", "en")).toThrow(t("en", "error.repository_branch_invalid"))
+    expect(() => validateRepositoryBranch("bad..branch", "en")).toThrow(t("en", "error.repository_branch_invalid"))
+    expect(() => validateRepositoryBranch("bad branch", "en")).toThrow(t("en", "error.repository_branch_invalid"))
     expect(() => validateRepositoryBranch("bad branch")).toThrow(InvalidRepositoryBranchError)
   })
 })

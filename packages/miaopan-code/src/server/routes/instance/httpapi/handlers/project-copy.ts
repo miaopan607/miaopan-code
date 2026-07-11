@@ -5,6 +5,8 @@ import { MessageID, SessionID } from "@/session/schema"
 import { Slug } from "@miaopan-code/core/util/slug"
 import { LLMEvent } from "@miaopan-code/llm"
 import { Effect, Stream } from "effect"
+import { t } from "@miaopan-code/core/i18n"
+import { Config } from "@/config/config"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 
@@ -21,10 +23,12 @@ export const projectCopyHandlers = HttpApiBuilder.group(InstanceHttpApi, "projec
   Effect.gen(function* () {
     const llm = yield* LLM.Service
     const provider = yield* Provider.Service
+    const config = yield* Config.Service
 
     const generateName = Effect.fn("ProjectCopyHttpApi.generateName")(function* (context: string | undefined) {
       const text = context?.trim()
       if (!text) return Slug.create()
+      const language = (yield* config.get()).language
       const fallback = yield* provider.defaultModel().pipe(Effect.catch(() => Effect.succeed(undefined)))
       if (!fallback) return Slug.create()
       const model =
@@ -48,7 +52,7 @@ export const projectCopyHandlers = HttpApiBuilder.group(InstanceHttpApi, "projec
           model,
           sessionID,
           retries: 2,
-          messages: [{ role: "user", content: `Generate a short 2-3 word name that describes this task:\n${text}` }],
+          messages: [{ role: "user", content: t(language, "prompt.project_copy_name", { context: text }) }],
         })
         .pipe(
           Stream.filter(LLMEvent.is.textDelta),
@@ -62,10 +66,12 @@ export const projectCopyHandlers = HttpApiBuilder.group(InstanceHttpApi, "projec
     return handlers.handle("generateName", (ctx) =>
       generateName(ctx.payload.context).pipe(
         Effect.catchCause((cause) =>
-          Effect.logWarning("project copy name generation failed", {
-            projectID: ctx.params.projectID,
-            cause,
-          }).pipe(Effect.as(Slug.create())),
+          Effect.flatMap(config.get(), (cfg) =>
+            Effect.logWarning(t(cfg.language, "log.server_project_copy_name_failed"), {
+              projectID: ctx.params.projectID,
+              cause,
+            }).pipe(Effect.as(Slug.create())),
+          ),
         ),
         Effect.map((name) => ({ name })),
       ),

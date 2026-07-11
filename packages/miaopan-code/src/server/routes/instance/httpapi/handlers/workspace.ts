@@ -8,14 +8,17 @@ import { InstanceHttpApi } from "../api"
 import { notFound } from "../errors"
 import { ApiVcsApplyError } from "../groups/instance"
 import { ApiWorkspaceCreateError, ApiWorkspaceWarpError, CreatePayload, WarpPayload } from "../groups/workspace"
+import { t } from "../i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 
 export const workspaceHandlers = HttpApiBuilder.group(InstanceHttpApi, "workspace", (handlers) =>
   Effect.gen(function* () {
     const workspace = yield* Workspace.Service
 
     const adapters = Effect.fn("WorkspaceHttpApi.adapters")(function* () {
+      const language = yield* requestLanguage()
       const instance = yield* InstanceState.context
-      return yield* Effect.sync(() => listAdapters(instance.project.id))
+      return yield* Effect.sync(() => listAdapters(instance.project.id, language))
     })
 
     const list = Effect.fn("WorkspaceHttpApi.list")(function* () {
@@ -23,13 +26,17 @@ export const workspaceHandlers = HttpApiBuilder.group(InstanceHttpApi, "workspac
     })
 
     const create = Effect.fn("WorkspaceHttpApi.create")(function* (ctx: { payload: typeof CreatePayload.Type }) {
+      const language = yield* requestLanguage()
       const instance = yield* InstanceState.context
       return yield* workspace
-        .create({
-          ...ctx.payload,
-          extra: ctx.payload.extra ?? null,
-          projectID: instance.project.id,
-        })
+        .create(
+          {
+            ...ctx.payload,
+            extra: ctx.payload.extra ?? null,
+            projectID: instance.project.id,
+          },
+          language,
+        )
         .pipe(
           Effect.catchCause((cause) => {
             // Plugin throws surface as defects (because EffectBridge.fromPromise uses Effect.promise),
@@ -37,7 +44,7 @@ export const workspaceHandlers = HttpApiBuilder.group(InstanceHttpApi, "workspac
             const die = cause.reasons.find(Cause.isDieReason)
             const fail = cause.reasons.find(Cause.isFailReason)
             const reason: unknown = die?.defect ?? fail?.error
-            const message = reason instanceof Error ? reason.message : "Workspace creation failed"
+            const message = reason instanceof Error ? reason.message : t(language, "error.workspace_creation_failed")
             return Effect.fail(
               new ApiWorkspaceCreateError({
                 name: "WorkspaceCreateError",
@@ -62,12 +69,16 @@ export const workspaceHandlers = HttpApiBuilder.group(InstanceHttpApi, "workspac
     })
 
     const warp = Effect.fn("WorkspaceHttpApi.warp")(function* (ctx: { payload: typeof WarpPayload.Type }) {
+      const language = yield* requestLanguage()
       yield* workspace
-        .sessionWarp({
-          workspaceID: ctx.payload.id,
-          sessionID: ctx.payload.sessionID,
-          copyChanges: ctx.payload.copyChanges,
-        })
+        .sessionWarp(
+          {
+            workspaceID: ctx.payload.id,
+            sessionID: ctx.payload.sessionID,
+            copyChanges: ctx.payload.copyChanges,
+          },
+          language,
+        )
         .pipe(
           Effect.mapError((error) => {
             if (error instanceof Workspace.WorkspaceNotFoundError) return notFound(error.message)

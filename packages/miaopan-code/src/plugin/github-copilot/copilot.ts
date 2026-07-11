@@ -5,6 +5,8 @@ import { iife } from "@/util/iife"
 import { setTimeout as sleep } from "node:timers/promises"
 import { CopilotModels } from "./models"
 import { MessageV2 } from "@/session/message-v2"
+import { t } from "@miaopan-code/core/i18n"
+import { pluginLanguage } from "../language"
 
 const CLIENT_ID = "Ov23li8tweQw6odWQebz"
 const API_VERSION = "2026-06-01"
@@ -34,11 +36,11 @@ function imgMsg(msg: any): boolean {
   // Handle the 3 api formats
 
   const content = msg.content
-  if (typeof content === "string") return content === MessageV2.SYNTHETIC_ATTACHMENT_PROMPT
+  if (typeof content === "string") return MessageV2.isSyntheticAttachmentPrompt(content)
   if (!Array.isArray(content)) return false
   return content.some(
     (part: any) =>
-      (part?.type === "text" || part?.type === "input_text") && part.text === MessageV2.SYNTHETIC_ATTACHMENT_PROMPT,
+      (part?.type === "text" || part?.type === "input_text") && MessageV2.isSyntheticAttachmentPrompt(part.text),
   )
 }
 
@@ -53,7 +55,8 @@ function fix(model: Model, url: string): Model {
   }
 }
 
-export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
+export async function CopilotAuthPlugin(input: PluginInput, options?: Record<string, unknown>): Promise<Hooks> {
+  const language = pluginLanguage(options)
   const sdk = input.client
   let models: Record<string, Model> = {}
   return {
@@ -76,6 +79,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
             "X-GitHub-Api-Version": API_VERSION,
           },
           provider.models,
+          language,
         )
           .then((result) => {
             models = result.models
@@ -182,39 +186,39 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
       methods: [
         {
           type: "oauth",
-          label: "Login with GitHub Copilot",
+          label: t(language, "plugin.github.login_copilot"),
           prompts: [
             {
               type: "select",
               key: "deploymentType",
-              message: "Select GitHub deployment type",
+              message: t(language, "plugin.github.deployment_type"),
               options: [
                 {
                   label: "GitHub.com",
                   value: "github.com",
-                  hint: "Public",
+                  hint: t(language, "plugin.github.public"),
                 },
                 {
-                  label: "GitHub Enterprise",
+                  label: t(language, "plugin.github.enterprise"),
                   value: "enterprise",
-                  hint: "Data residency or self-hosted",
+                  hint: t(language, "plugin.github.enterprise_hint"),
                 },
               ],
             },
             {
               type: "text",
               key: "enterpriseUrl",
-              message: "Enter your GitHub Enterprise URL or domain",
-              placeholder: "company.ghe.com or https://company.ghe.com",
+              message: t(language, "plugin.github.enterprise_url"),
+              placeholder: t(language, "plugin.example.github_enterprise"),
               when: { key: "deploymentType", op: "eq", value: "enterprise" },
               validate: (value) => {
-                if (!value) return "URL or domain is required"
+                if (!value) return t(language, "plugin.github.url_required")
                 try {
                   const url = value.includes("://") ? new URL(value) : new URL(`https://${value}`)
-                  if (!url.hostname) return "Please enter a valid URL or domain"
+                  if (!url.hostname) return t(language, "plugin.github.url_invalid")
                   return undefined
                 } catch {
-                  return "Please enter a valid URL (e.g., company.ghe.com or https://company.ghe.com)"
+                  return t(language, "plugin.github.url_format")
                 }
               },
             },
@@ -245,7 +249,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
             })
 
             if (!deviceResponse.ok) {
-              throw new Error("Failed to initiate device authorization")
+              throw new Error(t(language, "plugin.github.device_auth_failed"))
             }
 
             const deviceData = (await deviceResponse.json()) as {
@@ -257,7 +261,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
 
             return {
               url: deviceData.verification_uri,
-              instructions: `Enter code: ${deviceData.user_code}`,
+              instructions: t(language, "plugin.oauth.enter_code", { code: deviceData.user_code }),
               method: "auto" as const,
               async callback() {
                 while (true) {

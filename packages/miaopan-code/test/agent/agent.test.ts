@@ -1,5 +1,6 @@
 import { afterEach, expect } from "bun:test"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import { t } from "@miaopan-code/core/i18n"
 import { Cause, Effect, Exit, Layer } from "effect"
 import path from "path"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
@@ -598,7 +599,7 @@ it.instance(
   () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
-      const skillDir = path.join(test.directory, ".miaopanCode", "skill", "perm-skill")
+      const skillDir = path.join(test.directory, ".miaopan-code", "skill", "perm-skill")
       yield* Effect.promise(() =>
         Bun.write(
           path.join(skillDir, "SKILL.md"),
@@ -696,7 +697,7 @@ it.instance(
 
 it.instance(
   "defaultAgent throws when default_agent points to subagent",
-  () => expectDefaultAgentError('default agent "explore" is a subagent'),
+  () => expectDefaultAgentError(t("zh-CN", "error.agent_default_subagent", { agent: "explore" })),
   {
     config: {
       default_agent: "explore",
@@ -706,7 +707,7 @@ it.instance(
 
 it.instance(
   "defaultAgent throws when default_agent points to hidden agent",
-  () => expectDefaultAgentError('default agent "compaction" is hidden'),
+  () => expectDefaultAgentError(t("zh-CN", "error.agent_default_hidden", { agent: "compaction" })),
   {
     config: {
       default_agent: "compaction",
@@ -716,7 +717,7 @@ it.instance(
 
 it.instance(
   "defaultAgent throws when default_agent points to non-existent agent",
-  () => expectDefaultAgentError('default agent "does_not_exist" not found'),
+  () => expectDefaultAgentError(t("zh-CN", "error.agent_default_missing", { agent: "does_not_exist" })),
   {
     config: {
       default_agent: "does_not_exist",
@@ -743,7 +744,7 @@ it.instance(
 
 it.instance(
   "defaultAgent throws when all primary agents are disabled",
-  () => expectDefaultAgentError("no primary visible agent found"),
+  () => expectDefaultAgentError(t("zh-CN", "error.agent_primary_missing")),
   {
     config: {
       agent: {

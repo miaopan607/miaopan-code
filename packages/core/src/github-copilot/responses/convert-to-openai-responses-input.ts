@@ -8,6 +8,7 @@ import { convertToBase64, parseProviderOptions } from "@ai-sdk/provider-utils"
 import { z } from "zod/v4"
 import type { OpenAIResponsesInput, OpenAIResponsesReasoning } from "./openai-responses-api-types"
 import { localShellInputSchema, localShellOutputSchema } from "./tool/local-shell"
+import { zh } from "../../i18n"
 
 /**
  * Check if a string is a file ID based on the given prefixes
@@ -53,13 +54,13 @@ export async function convertToOpenAIResponsesInput({
           case "remove": {
             warnings.push({
               type: "other",
-              message: "system messages are removed for this model",
+              message: zh("warning.system_messages_removed"),
             })
             break
           }
           default: {
             const _exhaustiveCheck: never = systemMessageMode
-            throw new Error(`Unsupported system message mode: ${_exhaustiveCheck}`)
+            throw new Error(zh("error.copilot_system_mode_unsupported", { mode: _exhaustiveCheck }))
           }
         }
         break
@@ -175,7 +176,7 @@ export async function convertToOpenAIResponsesInput({
               } else {
                 warnings.push({
                   type: "other",
-                  message: `Results for OpenAI tool ${part.toolName} are not sent to the API when store is false`,
+                  message: zh("warning.tool_result_not_sent", { tool: part.toolName }),
                 })
               }
 
@@ -220,7 +221,7 @@ export async function convertToOpenAIResponsesInput({
                   } else if (reasoningMessage !== undefined) {
                     warnings.push({
                       type: "other",
-                      message: `Cannot append empty reasoning part to existing reasoning sequence. Skipping reasoning part: ${JSON.stringify(part)}.`,
+                      message: zh("warning.copilot_empty_reasoning", { part: JSON.stringify(part) }),
                     })
                   }
 
@@ -239,7 +240,7 @@ export async function convertToOpenAIResponsesInput({
               } else {
                 warnings.push({
                   type: "other",
-                  message: `Non-OpenAI reasoning parts are not supported. Skipping reasoning part: ${JSON.stringify(part)}.`,
+                  message: zh("warning.copilot_reasoning_unsupported", { part: JSON.stringify(part) }),
                 })
               }
               break
@@ -319,7 +320,7 @@ export async function convertToOpenAIResponsesInput({
 
       default: {
         const _exhaustiveCheck: never = role
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`)
+        throw new Error(zh("error.copilot_role_unsupported", { role: _exhaustiveCheck }))
       }
     }
   }

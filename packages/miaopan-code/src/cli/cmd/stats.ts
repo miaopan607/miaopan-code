@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 import { effectCmd } from "../effect-cmd"
+import { UI } from "../ui"
 import { Session } from "@/session/session"
 import { NotFoundError } from "@/storage/storage"
 import { Database } from "@miaopan-code/core/database/database"
@@ -48,22 +49,22 @@ interface SessionStats {
 
 export const StatsCommand = effectCmd({
   command: "stats",
-  describe: "show token usage and cost statistics",
+  describe: UI.t("cli.stats"),
   builder: (yargs) =>
     yargs
       .option("days", {
-        describe: "show stats for the last N days (default: all time)",
+        describe: UI.t("cli.stats_days"),
         type: "number",
       })
       .option("tools", {
-        describe: "number of tools to show (default: all)",
+        describe: UI.t("cli.stats_tools"),
         type: "number",
       })
       .option("models", {
-        describe: "show model statistics (default: hidden). Pass a number to show top N, otherwise shows all",
+        describe: UI.t("cli.stats_models"),
       })
       .option("project", {
-        describe: "filter by project (default: all projects, empty string: current project)",
+        describe: UI.t("cli.stats_project"),
         type: "string",
       }),
   handler: Effect.fn("Cli.stats")(function* (args) {
@@ -114,7 +115,7 @@ const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
 
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
-      if (!currentProject) throw new Error("currentProject required when projectFilter is empty string")
+      if (!currentProject) throw new Error(UI.t("stats.current_project_required"))
       filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
       filteredSessions = filteredSessions.filter((session) => session.projectID === projectFilter)
@@ -147,7 +148,7 @@ const aggregateSessionStats = Effect.fn("Cli.stats.aggregate")(function* (
   }
 
   if (filteredSessions.length > 1000) {
-    console.log(`Large dataset detected (${filteredSessions.length} sessions). This may take a while...`)
+    console.log(UI.t("stats.large_dataset", { count: filteredSessions.length }))
   }
 
   if (filteredSessions.length === 0) {
@@ -301,30 +302,30 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
 
   // Overview section
   console.log("┌────────────────────────────────────────────────────────┐")
-  console.log("│                       OVERVIEW                         │")
+  console.log(`│${UI.t("stats.overview").padStart(30).padEnd(56)}│`)
   console.log("├────────────────────────────────────────────────────────┤")
-  console.log(renderRow("Sessions", stats.totalSessions.toLocaleString()))
-  console.log(renderRow("Messages", stats.totalMessages.toLocaleString()))
-  console.log(renderRow("Days", stats.days.toString()))
+  console.log(renderRow(UI.t("stats.sessions"), stats.totalSessions.toLocaleString()))
+  console.log(renderRow(UI.t("stats.messages"), stats.totalMessages.toLocaleString()))
+  console.log(renderRow(UI.t("stats.days"), stats.days.toString()))
   console.log("└────────────────────────────────────────────────────────┘")
   console.log()
 
   // Cost & Tokens section
   console.log("┌────────────────────────────────────────────────────────┐")
-  console.log("│                    COST & TOKENS                       │")
+  console.log(`│${UI.t("stats.cost_tokens").padStart(30).padEnd(56)}│`)
   console.log("├────────────────────────────────────────────────────────┤")
   const cost = isNaN(stats.totalCost) ? 0 : stats.totalCost
   const costPerDay = isNaN(stats.costPerDay) ? 0 : stats.costPerDay
   const tokensPerSession = isNaN(stats.tokensPerSession) ? 0 : stats.tokensPerSession
-  console.log(renderRow("Total Cost", `$${cost.toFixed(2)}`))
-  console.log(renderRow("Avg Cost/Day", `$${costPerDay.toFixed(2)}`))
-  console.log(renderRow("Avg Tokens/Session", formatNumber(Math.round(tokensPerSession))))
+  console.log(renderRow(UI.t("stats.total_cost"), `$${cost.toFixed(2)}`))
+  console.log(renderRow(UI.t("stats.avg_cost_day"), `$${costPerDay.toFixed(2)}`))
+  console.log(renderRow(UI.t("stats.avg_tokens_session"), formatNumber(Math.round(tokensPerSession))))
   const medianTokensPerSession = isNaN(stats.medianTokensPerSession) ? 0 : stats.medianTokensPerSession
-  console.log(renderRow("Median Tokens/Session", formatNumber(Math.round(medianTokensPerSession))))
-  console.log(renderRow("Input", formatNumber(stats.totalTokens.input)))
-  console.log(renderRow("Output", formatNumber(stats.totalTokens.output)))
-  console.log(renderRow("Cache Read", formatNumber(stats.totalTokens.cache.read)))
-  console.log(renderRow("Cache Write", formatNumber(stats.totalTokens.cache.write)))
+  console.log(renderRow(UI.t("stats.median_tokens_session"), formatNumber(Math.round(medianTokensPerSession))))
+  console.log(renderRow(UI.t("stats.input"), formatNumber(stats.totalTokens.input)))
+  console.log(renderRow(UI.t("stats.output"), formatNumber(stats.totalTokens.output)))
+  console.log(renderRow(UI.t("stats.cache_read"), formatNumber(stats.totalTokens.cache.read)))
+  console.log(renderRow(UI.t("stats.cache_write"), formatNumber(stats.totalTokens.cache.write)))
   console.log("└────────────────────────────────────────────────────────┘")
   console.log()
 
@@ -334,17 +335,17 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
     const modelsToDisplay = modelLimit === Infinity ? sortedModels : sortedModels.slice(0, modelLimit)
 
     console.log("┌────────────────────────────────────────────────────────┐")
-    console.log("│                      MODEL USAGE                       │")
+    console.log(`│${UI.t("stats.model_usage").padStart(30).padEnd(56)}│`)
     console.log("├────────────────────────────────────────────────────────┤")
 
     for (const [model, usage] of modelsToDisplay) {
       console.log(`│ ${model.padEnd(54)} │`)
-      console.log(renderRow("  Messages", usage.messages.toLocaleString()))
-      console.log(renderRow("  Input Tokens", formatNumber(usage.tokens.input)))
-      console.log(renderRow("  Output Tokens", formatNumber(usage.tokens.output)))
-      console.log(renderRow("  Cache Read", formatNumber(usage.tokens.cache.read)))
-      console.log(renderRow("  Cache Write", formatNumber(usage.tokens.cache.write)))
-      console.log(renderRow("  Cost", `$${usage.cost.toFixed(4)}`))
+      console.log(renderRow(`  ${UI.t("stats.messages")}`, usage.messages.toLocaleString()))
+      console.log(renderRow(`  ${UI.t("stats.input_tokens")}`, formatNumber(usage.tokens.input)))
+      console.log(renderRow(`  ${UI.t("stats.output_tokens")}`, formatNumber(usage.tokens.output)))
+      console.log(renderRow(`  ${UI.t("stats.cache_read")}`, formatNumber(usage.tokens.cache.read)))
+      console.log(renderRow(`  ${UI.t("stats.cache_write")}`, formatNumber(usage.tokens.cache.write)))
+      console.log(renderRow(`  ${UI.t("stats.cost")}`, `$${usage.cost.toFixed(4)}`))
       console.log("├────────────────────────────────────────────────────────┤")
     }
     // Remove last separator and add bottom border
@@ -359,7 +360,7 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
     const toolsToDisplay = toolLimit ? sortedTools.slice(0, toolLimit) : sortedTools
 
     console.log("┌────────────────────────────────────────────────────────┐")
-    console.log("│                      TOOL USAGE                        │")
+    console.log(`│${UI.t("stats.tool_usage").padStart(30).padEnd(56)}│`)
     console.log("├────────────────────────────────────────────────────────┤")
 
     const maxCount = Math.max(...toolsToDisplay.map(([, count]) => count))

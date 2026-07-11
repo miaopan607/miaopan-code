@@ -12,6 +12,7 @@ import {
   type WorkspaceSelection,
 } from "../dialog-workspace-create"
 import type { WorkspaceStatus } from "../workspace-label"
+import { useI18n } from "../../context/i18n"
 
 export function usePromptWorkspace(sessionID?: string) {
   const dialog = useDialog()
@@ -19,6 +20,7 @@ export function usePromptWorkspace(sessionID?: string) {
   const project = useProject()
   const sync = useSync()
   const toast = useToast()
+  const i18n = useI18n()
   const [selection, setSelection] = createSignal<WorkspaceSelection>()
   const [creating, setCreating] = createSignal(false)
   const [creatingDots, setCreatingDots] = createSignal(3)
@@ -32,15 +34,15 @@ export function usePromptWorkspace(sessionID?: string) {
     } catch (err) {
       setSelection(undefined)
       setCreating(false)
-      toast.show({ title: "Creating workspace failed", message: errorMessage(err), variant: "error" })
+      toast.show({ title: i18n.t("workspace.create_failed"), message: errorMessage(err), variant: "error" })
       return
     }
     if (result.error || !result.data) {
       setSelection(undefined)
       setCreating(false)
       toast.show({
-        title: "Creating workspace failed",
-        message: errorMessage(result.error ?? "no response"),
+        title: i18n.t("workspace.create_failed"),
+        message: errorMessage(result.error ?? i18n.t("error.no_response")),
         variant: "error",
       })
       return
@@ -73,7 +75,7 @@ export function usePromptWorkspace(sessionID?: string) {
 
     const workspace =
       selection.type === "none"
-        ? { id: null, name: "local project" }
+        ? { id: null, name: i18n.t("workspace.local_project") }
         : selection.type === "existing"
           ? { id: selection.workspaceID, name: selection.workspaceName }
           : await create(selection)
@@ -94,7 +96,7 @@ export function usePromptWorkspace(sessionID?: string) {
   }
 
   function showNotice(name: string) {
-    setNotice(`Warped to ${name}`)
+    setNotice(i18n.t("workspace.warped", { name }))
     setTimeout(() => setNotice(undefined), 4000)
   }
 

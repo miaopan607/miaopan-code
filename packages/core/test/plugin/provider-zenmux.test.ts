@@ -41,7 +41,10 @@ describe("ZenmuxPlugin", () => {
       })
       yield* addPlugin()
       const result = required(yield* catalog.provider.get(ProviderV2.ID.make("zenmux")))
-      expect(result.request.headers).toEqual({ "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/", "X-Title": "miaopanCode" })
+      expect(result.request.headers).toEqual({
+        "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/",
+        "X-Title": "miaopan-code",
+      })
       expect(Object.keys(result.request.headers).sort()).toEqual(["HTTP-Referer", "X-Title"])
     }),
   )
@@ -64,7 +67,7 @@ describe("ZenmuxPlugin", () => {
       expect(required(yield* catalog.provider.get(ProviderV2.ID.make("zenmux"))).request.headers).toEqual({
         Existing: "value",
         "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/",
-        "X-Title": "miaopanCode",
+        "X-Title": "miaopan-code",
       })
     }),
   )

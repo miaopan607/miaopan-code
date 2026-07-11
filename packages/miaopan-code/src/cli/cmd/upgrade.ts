@@ -6,67 +6,67 @@ import { InstallationVersion } from "@miaopan-code/core/installation/version"
 
 export const UpgradeCommand = {
   command: "upgrade [target]",
-  describe: "upgrade miaopanCode to the latest or a specific version",
+  describe: UI.t("cli.upgrade"),
   builder: (yargs: Argv) => {
     return yargs
       .positional("target", {
-        describe: "version to upgrade to, for ex '0.1.48' or 'v0.1.48'",
+        describe: UI.t("cli.version_target"),
         type: "string",
       })
       .option("method", {
         alias: "m",
-        describe: "installation method to use",
+        describe: UI.t("cli.install_method"),
         type: "string",
         choices: ["curl", "npm", "pnpm", "bun", "choco", "scoop"],
       })
   },
   handler: async (args: { target?: string; method?: string }) => {
     UI.empty()
-    prompts.intro("Upgrade")
+    prompts.intro(UI.t("upgrade.title"))
     const detectedMethod = await Installation.method()
     const method = (args.method as Installation.Method) ?? detectedMethod
     if (method === "unknown") {
-      prompts.log.error(`miaopanCode is installed to ${process.execPath} and may be managed by a package manager`)
+      prompts.log.error(UI.t("upgrade.package_manager_hint", { path: process.execPath }))
       const install = await prompts.select({
-        message: "Install anyways?",
+        message: UI.t("upgrade.install_anyway"),
         options: [
-          { label: "Yes", value: true },
-          { label: "No", value: false },
+          { label: UI.t("upgrade.yes"), value: true },
+          { label: UI.t("upgrade.no"), value: false },
         ],
         initialValue: false,
       })
       if (!install) {
-        prompts.outro("Done")
+        prompts.outro(UI.t("mcp.done"))
         return
       }
     }
-    prompts.log.info("Using method: " + method)
+    prompts.log.info(UI.t("upgrade.using_method", { method }))
     const target = args.target ? args.target.replace(/^v/, "") : await Installation.latest()
 
     if (InstallationVersion === target) {
-      prompts.log.warn(`miaopanCode upgrade skipped: ${target} is already installed`)
-      prompts.outro("Done")
+      prompts.log.warn(UI.t("upgrade.skipped", { target }))
+      prompts.outro(UI.t("mcp.done"))
       return
     }
 
-    prompts.log.info(`From ${InstallationVersion} → ${target}`)
+    prompts.log.info(UI.t("upgrade.from_to", { from: InstallationVersion, to: target }))
     const spinner = prompts.spinner()
-    spinner.start("Upgrading...")
+    spinner.start(UI.t("upgrade.in_progress"))
     const err = await Installation.upgrade(method, target).catch((err) => err)
     if (err) {
-      spinner.stop("Upgrade failed", 1)
+      spinner.stop(UI.t("upgrade.failed"), 1)
       if (err instanceof Installation.UpgradeFailedError) {
         // necessary because choco only allows install/upgrade in elevated terminals
         if (method === "choco" && err.stderr.includes("not running from an elevated command shell")) {
-          prompts.log.error("Please run the terminal as Administrator and try again")
+          prompts.log.error(UI.t("upgrade.admin_required"))
         } else {
           prompts.log.error(err.stderr)
         }
       } else if (err instanceof Error) prompts.log.error(err.message)
-      prompts.outro("Done")
+      prompts.outro(UI.t("mcp.done"))
       return
     }
-    spinner.stop("Upgrade complete")
-    prompts.outro("Done")
+    spinner.stop(UI.t("upgrade.complete"))
+    prompts.outro(UI.t("mcp.done"))
   },
 }

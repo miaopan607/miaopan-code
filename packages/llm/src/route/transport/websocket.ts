@@ -1,12 +1,14 @@
 import { Cause, Context, Effect, Layer, Queue, Stream } from "effect"
 import { Headers } from "effect/unstable/http"
-import { LLMError, TransportReason } from "../../schema"
+import { LLMError, TransportReason, type LLMRequest } from "../../schema"
 import * as HttpTransport from "./http"
 import type { Transport } from "./index"
+import { t, type Language } from "../../i18n"
 
 export interface WebSocketRequest {
   readonly url: string
   readonly headers: Headers.Headers
+  readonly language?: Language
 }
 
 export interface WebSocketConnection {
@@ -42,6 +44,8 @@ const eventMessage = (event: Event) => {
   return event.type
 }
 
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error))
+
 const binaryMessage = (data: unknown) => {
   if (data instanceof Uint8Array) return data
   if (data instanceof ArrayBuffer) return new Uint8Array(data)
@@ -53,7 +57,7 @@ const waitOpen = (ws: globalThis.WebSocket, input: WebSocketRequest) => {
   if (ws.readyState === globalThis.WebSocket.OPEN) return Effect.void
   if (ws.readyState === globalThis.WebSocket.CLOSING || ws.readyState === globalThis.WebSocket.CLOSED) {
     return Effect.fail(
-      transportError("open", `WebSocket closed before opening (state ${ws.readyState})`, {
+      transportError("open", t(input.language, "llm.websocket.closed_before_opening_state", { state: ws.readyState }), {
         url: input.url,
         kind: "open",
       }),
@@ -79,7 +83,10 @@ const waitOpen = (ws: globalThis.WebSocket, input: WebSocketRequest) => {
       cleanup()
       resume(
         Effect.fail(
-          transportError("open", `Failed to open WebSocket: ${eventMessage(event)}`, { url: input.url, kind: "open" }),
+          transportError("open", t(input.language, "llm.websocket.open_failed", { error: eventMessage(event) }), {
+            url: input.url,
+            kind: "open",
+          }),
         ),
       )
     }
@@ -87,7 +94,7 @@ const waitOpen = (ws: globalThis.WebSocket, input: WebSocketRequest) => {
       cleanup()
       resume(
         Effect.fail(
-          transportError("open", `WebSocket closed before opening with code ${event.code}`, {
+          transportError("open", t(input.language, "llm.websocket.closed_before_opening_code", { code: event.code }), {
             url: input.url,
             kind: "open",
           }),
@@ -101,36 +108,48 @@ const waitOpen = (ws: globalThis.WebSocket, input: WebSocketRequest) => {
   })
 }
 
-const webSocketUrl = (value: string) =>
+const webSocketUrl = (value: string, language?: Language) =>
   Effect.try({
-    try: () => {
-      const url = new URL(value)
-      if (url.protocol === "https:") {
-        url.protocol = "wss:"
-        return url.toString()
-      }
-      if (url.protocol === "http:") {
-        url.protocol = "ws:"
-        return url.toString()
-      }
-      throw new Error(`Unsupported WebSocket URL protocol ${url.protocol}`)
-    },
+    try: () => new URL(value),
     catch: (error) =>
-      transportError("prepare", error instanceof Error ? error.message : "Invalid WebSocket URL", {
+      transportError("prepare", t(language, "llm.websocket.url_invalid_detail", { error: errorMessage(error) }), {
         url: value,
         kind: "websocket",
       }),
-  })
+  }).pipe(
+    Effect.flatMap((url) => {
+      if (url.protocol === "https:") {
+        url.protocol = "wss:"
+        return Effect.succeed(url.toString())
+      }
+      if (url.protocol === "http:") {
+        url.protocol = "ws:"
+        return Effect.succeed(url.toString())
+      }
+      return Effect.fail(
+        transportError("prepare", t(language, "llm.websocket.protocol_unsupported", { protocol: url.protocol }), {
+          url: value,
+          kind: "websocket",
+        }),
+      )
+    }),
+  )
 
 export const open = (input: WebSocketRequest) =>
   Effect.try({
     try: () =>
       new (globalThis.WebSocket as unknown as WebSocketConstructorWithHeaders)(input.url, { headers: input.headers }),
     catch: (error) =>
-      transportError("open", error instanceof Error ? error.message : "Failed to construct WebSocket", {
-        url: input.url,
-        kind: "open",
-      }),
+      transportError(
+        "open",
+        error instanceof Error
+          ? t(input.language, "llm.websocket.construct_failed_detail", { error: error.message })
+          : t(input.language, "llm.websocket.construct_failed"),
+        {
+          url: input.url,
+          kind: "open",
+        },
+      ),
   }).pipe(Effect.flatMap((ws) => fromWebSocket(ws, input)))
 
 export const layer: Layer.Layer<Service> = Layer.succeed(Service, Service.of({ open }))
@@ -150,7 +169,10 @@ export const fromWebSocket = (
       Queue.failCauseUnsafe(
         messages,
         Cause.fail(
-          transportError("message", "Unsupported WebSocket message payload", { url: input.url, kind: "message" }),
+          transportError("message", t(input.language, "llm.websocket.payload_unsupported"), {
+            url: input.url,
+            kind: "message",
+          }),
         ),
       )
     }
@@ -158,7 +180,10 @@ export const fromWebSocket = (
       Queue.failCauseUnsafe(
         messages,
         Cause.fail(
-          transportError("message", `WebSocket error: ${eventMessage(event)}`, { url: input.url, kind: "message" }),
+          transportError("message", t(input.language, "llm.websocket.error", { error: eventMessage(event) }), {
+            url: input.url,
+            kind: "message",
+          }),
         ),
       )
     }
@@ -167,7 +192,10 @@ export const fromWebSocket = (
       Queue.failCauseUnsafe(
         messages,
         Cause.fail(
-          transportError("message", `WebSocket closed with code ${event.code}`, { url: input.url, kind: "close" }),
+          transportError("message", t(input.language, "llm.websocket.closed_code", { code: event.code }), {
+            url: input.url,
+            kind: "close",
+          }),
         ),
       )
     }
@@ -186,10 +214,16 @@ export const fromWebSocket = (
         Effect.try({
           try: () => ws.send(message),
           catch: (error) =>
-            transportError("sendText", error instanceof Error ? error.message : "Failed to send WebSocket message", {
-              url: input.url,
-              kind: "write",
-            }),
+            transportError(
+              "sendText",
+              error instanceof Error
+                ? t(input.language, "llm.websocket.send_failed_detail", { error: error.message })
+                : t(input.language, "llm.websocket.send_failed"),
+              {
+                url: input.url,
+                kind: "write",
+              },
+            ),
         }),
       messages: Stream.fromQueue(messages),
       close: cleanup.pipe(
@@ -210,10 +244,11 @@ export interface JsonPrepared {
   readonly url: string
   readonly headers: Headers.Headers
   readonly message: string
+  readonly language?: Language
 }
 
 export interface JsonInput<Body, Message> {
-  readonly toMessage: (body: Body | Record<string, unknown>) => Effect.Effect<Message, LLMError>
+  readonly toMessage: (body: Body | Record<string, unknown>, request: LLMRequest) => Effect.Effect<Message, LLMError>
   readonly encodeMessage: (message: Message) => string
 }
 
@@ -232,16 +267,17 @@ export const json = <Body, Message>(input: JsonInput<Body, Message>): JsonTransp
         ...prepareInput,
       })
       return {
-        url: yield* webSocketUrl(parts.url),
+        url: yield* webSocketUrl(parts.url, prepareInput.request.language),
         headers: parts.headers,
-        message: input.encodeMessage(yield* input.toMessage(parts.jsonBody)),
+        message: input.encodeMessage(yield* input.toMessage(parts.jsonBody, prepareInput.request)),
+        language: prepareInput.request.language,
       }
     }),
-  frames: (prepared, _request, runtime) => {
+  frames: (prepared, request, runtime) => {
     const webSocket = runtime.webSocket
     if (!webSocket) {
       return Stream.fail(
-        transportError("json", "WebSocket JSON transport requires WebSocketExecutor.Service", {
+        transportError("json", t(request.language, "llm.websocket.service_required"), {
           url: prepared.url,
           kind: "websocket",
         }),
@@ -251,7 +287,7 @@ export const json = <Body, Message>(input: JsonInput<Body, Message>): JsonTransp
     return Stream.unwrap(
       Effect.gen(function* () {
         const connection = yield* Effect.acquireRelease(
-          webSocket.open({ url: prepared.url, headers: prepared.headers }),
+          webSocket.open({ url: prepared.url, headers: prepared.headers, language: prepared.language }),
           (connection) => connection.close,
         )
         yield* connection.sendText(prepared.message)

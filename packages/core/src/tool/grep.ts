@@ -13,21 +13,22 @@ import { RelativePath } from "../schema"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "grep"
 
 export const Input = Schema.Struct({
   pattern: FileSystem.GrepInput.fields.pattern.annotate({
-    description: "Regex pattern to search for in file contents",
+    description: zh("tool.param.core_pattern"),
   }),
   path: RelativePath.pipe(Schema.optional).annotate({
-    description: "Relative directory to search. Defaults to the active Location.",
+    description: zh("tool.param.core_path"),
   }),
   include: FileSystem.GrepInput.fields.include.annotate({
-    description: 'File glob to include in the search (for example, "*.js" or "*.{ts,tsx}")',
+    description: zh("tool.param.core_include"),
   }),
   limit: FileSystem.GrepInput.fields.limit.annotate({
-    description: "Maximum matches to return",
+    description: zh("tool.param.core_limit"),
   }),
 })
 
@@ -35,8 +36,11 @@ export const Output = Schema.Array(FileSystem.Match)
 type ModelOutput = typeof Output.Encoded
 
 /** Format raw search matches into the familiar concise model output. */
-export const toModelOutput = (output: ModelOutput) => {
-  const lines = output.length === 0 ? ["No files found"] : [`Found ${output.length} matches`]
+export const toModelOutput = (output: ModelOutput, language?: Language) => {
+  const lines =
+    output.length === 0
+      ? [t(language, "tool.output.no_files")]
+      : [t(language, "tool.output.matches_found", { count: output.length })]
   let current = ""
   for (const match of output) {
     if (current !== match.entry.path) {
@@ -44,7 +48,7 @@ export const toModelOutput = (output: ModelOutput) => {
       current = match.entry.path
       lines.push(`${match.entry.path}:`)
     }
-    lines.push(`  Line ${match.line}: ${match.text}`)
+    lines.push(t(language, "tool.output.match_line", { line: match.line, text: match.text }))
   }
   return lines.join("\n")
 }
@@ -61,11 +65,10 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description:
-            "Search file contents by regular expression within the active Location or an absolute managed tool-output file. Use a path to narrow the search, include to filter files by glob, and limit to bound the match count. Returns concise file resources, line numbers, and bounded line previews.",
+          description: zh("tool.description.core_grep"),
           input: Input,
           output: Output,
-          toModelOutput: ({ output }) => [
+          toModelOutput: ({ output, context }) => [
             {
               type: "text",
               text: toModelOutput(
@@ -73,6 +76,7 @@ const layer = Layer.effectDiscard(
                   ...match,
                   entry: { ...match.entry, path: path.resolve(location.directory, match.entry.path) },
                 })),
+                context.language,
               ),
             },
           ],
@@ -123,7 +127,11 @@ const layer = Layer.effectDiscard(
                     ),
                   ),
                 )
-            }).pipe(Effect.mapError(() => new ToolFailure({ message: `Unable to grep for ${input.pattern}` }))),
+            }).pipe(
+              Effect.mapError(
+                () => new ToolFailure({ message: t(context.language, "tool.error.grep", { pattern: input.pattern }) }),
+              ),
+            ),
         }),
       })
       .pipe(Effect.orDie)

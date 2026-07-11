@@ -1,6 +1,7 @@
 import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan-code/sdk/v2"
 import { Locale } from "./locale"
 import * as Model from "./model"
+import { t } from "@miaopan-code/core/i18n"
 
 export type TranscriptOptions = {
   thinking: boolean
@@ -30,9 +31,9 @@ export function formatTranscript(
 ): string {
   const providers = Model.index(options.providers)
   let transcript = `# ${session.title}\n\n`
-  transcript += `**Session ID:** ${session.id}\n`
-  transcript += `**Created:** ${new Date(session.time.created).toLocaleString()}\n`
-  transcript += `**Updated:** ${new Date(session.time.updated).toLocaleString()}\n\n`
+  transcript += `**${t(Locale.language(), "transcript.session_id")}:** ${session.id}\n`
+  transcript += `**${t(Locale.language(), "transcript.created")}:** ${new Date(session.time.created).toLocaleString(Locale.language())}\n`
+  transcript += `**${t(Locale.language(), "transcript.updated")}:** ${new Date(session.time.updated).toLocaleString(Locale.language())}\n\n`
   transcript += `---\n\n`
 
   for (const msg of messages) {
@@ -52,7 +53,7 @@ export function formatMessage(
   let result = ""
 
   if (msg.role === "user") {
-    result += `## User\n\n`
+    result += `## ${t(Locale.language(), "transcript.user")}\n\n`
   } else {
     result += formatAssistantHeader(msg, options.assistantMetadata, providers ?? options.providers)
   }
@@ -70,7 +71,7 @@ export function formatAssistantHeader(
   providers?: Provider[] | ReadonlyMap<string, Provider>,
 ): string {
   if (!includeMetadata) {
-    return `## Assistant\n\n`
+    return `## ${t(Locale.language(), "transcript.assistant")}\n\n`
   }
 
   const duration =
@@ -78,7 +79,7 @@ export function formatAssistantHeader(
 
   const modelName = Model.name(providers, msg.providerID, msg.modelID)
 
-  return `## Assistant (${Locale.titlecase(msg.agent)} · ${modelName}${duration ? ` · ${duration}` : ""})\n\n`
+  return `## ${t(Locale.language(), "transcript.assistant")} (${Locale.titlecase(msg.agent)} · ${modelName}${duration ? ` · ${duration}` : ""})\n\n`
 }
 
 export function formatPart(part: Part, options: TranscriptOptions): string {
@@ -88,21 +89,21 @@ export function formatPart(part: Part, options: TranscriptOptions): string {
 
   if (part.type === "reasoning") {
     if (options.thinking) {
-      return `_Thinking:_\n\n${part.text}\n\n`
+      return `_${t(Locale.language(), "transcript.thinking")}:_\n\n${part.text}\n\n`
     }
     return ""
   }
 
   if (part.type === "tool") {
-    let result = `**Tool: ${part.tool}**\n`
+    let result = `**${t(Locale.language(), "transcript.tool")}: ${part.tool}**\n`
     if (options.toolDetails && part.state.input) {
-      result += `\n**Input:**\n\`\`\`json\n${JSON.stringify(part.state.input, null, 2)}\n\`\`\`\n`
+      result += `\n**${t(Locale.language(), "transcript.input")}:**\n\`\`\`json\n${JSON.stringify(part.state.input, null, 2)}\n\`\`\`\n`
     }
     if (options.toolDetails && part.state.status === "completed" && part.state.output) {
-      result += `\n**Output:**\n\`\`\`\n${part.state.output}\n\`\`\`\n`
+      result += `\n**${t(Locale.language(), "transcript.output")}:**\n\`\`\`\n${part.state.output}\n\`\`\`\n`
     }
     if (options.toolDetails && part.state.status === "error" && part.state.error) {
-      result += `\n**Error:**\n\`\`\`\n${part.state.error}\n\`\`\`\n`
+      result += `\n**${t(Locale.language(), "transcript.error")}:**\n\`\`\`\n${part.state.error}\n\`\`\`\n`
     }
     result += `\n`
     return result

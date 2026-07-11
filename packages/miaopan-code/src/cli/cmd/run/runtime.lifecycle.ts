@@ -16,6 +16,7 @@ import { openEditor } from "@miaopan-code/tui/editor"
 import { registerMiaopanCodeKeymap } from "@miaopan-code/tui/keymap"
 import { Session as SessionApi } from "@/session/session"
 import * as Locale from "@/util/locale"
+import { UI } from "../../ui"
 import { resolveInteractiveStdin } from "./runtime.stdin"
 import { entrySplash, exitSplash, splashMeta } from "./splash"
 import { resolveRunTheme } from "./theme"
@@ -127,7 +128,7 @@ function footerLabels(input: Pick<RunInput, "agent" | "model" | "variant">): Foo
   if (!input.model) {
     return {
       agentLabel,
-      modelLabel: "Model default",
+      modelLabel: UI.t("cli.run.model_default"),
     }
   }
 
@@ -372,12 +373,12 @@ export async function createRuntimeLifecycle(input: LifecycleInput): Promise<Lif
       },
       async resetForReplay(next) {
         if (closed || renderer.isDestroyed || footer.isClosed) {
-          throw new Error("runtime closed")
+          throw new Error(UI.t("run.runtime_closed"))
         }
 
         await footer.idle()
         if (closed || renderer.isDestroyed || footer.isClosed) {
-          throw new Error("runtime closed")
+          throw new Error(UI.t("run.runtime_closed"))
         }
 
         footer.resetForReplay(true)

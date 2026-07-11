@@ -91,13 +91,13 @@ describe("skill", () => {
     }),
   )
 
-  it.live("discovers skills from .miaopanCode/skill/ directory", () =>
+  it.live("discovers skills from .miaopan-code/skill/ directory", () =>
     provideTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Bun.write(
-              path.join(dir, ".miaopanCode", "skill", "test-skill", "SKILL.md"),
+              path.join(dir, ".miaopan-code", "skill", "test-skill", "SKILL.md"),
               `---
 name: test-skill
 description: A test skill for verification.
@@ -130,7 +130,7 @@ Instructions here.
           Effect.gen(function* () {
             yield* Effect.promise(() =>
               Bun.write(
-                path.join(dir, ".miaopanCode", "skill", "dir-skill", "SKILL.md"),
+                path.join(dir, ".miaopan-code", "skill", "dir-skill", "SKILL.md"),
                 `---
 name: dir-skill
 description: Skill for dirs test.
@@ -143,7 +143,7 @@ description: Skill for dirs test.
 
             const skill = yield* Skill.Service
             const dirs = yield* skill.dirs()
-            expect(dirs).toContain(path.join(dir, ".miaopanCode", "skill", "dir-skill"))
+            expect(dirs).toContain(path.join(dir, ".miaopan-code", "skill", "dir-skill"))
             expect(dirs.length).toBe(1)
           }),
         ),
@@ -151,14 +151,14 @@ description: Skill for dirs test.
     ),
   )
 
-  it.live("discovers multiple skills from .miaopanCode/skill/ directory", () =>
+  it.live("discovers multiple skills from .miaopan-code/skill/ directory", () =>
     provideTmpdirInstance(
       (dir) =>
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Promise.all([
               Bun.write(
-                path.join(dir, ".miaopanCode", "skill", "skill-one", "SKILL.md"),
+                path.join(dir, ".miaopan-code", "skill", "skill-one", "SKILL.md"),
                 `---
 name: skill-one
 description: First test skill.
@@ -168,7 +168,7 @@ description: First test skill.
 `,
               ),
               Bun.write(
-                path.join(dir, ".miaopanCode", "skill", "skill-two", "SKILL.md"),
+                path.join(dir, ".miaopan-code", "skill", "skill-two", "SKILL.md"),
                 `---
 name: skill-two
 description: Second test skill.
@@ -196,7 +196,7 @@ description: Second test skill.
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Bun.write(
-              path.join(dir, ".miaopanCode", "skill", "no-frontmatter", "SKILL.md"),
+              path.join(dir, ".miaopan-code", "skill", "no-frontmatter", "SKILL.md"),
               `# No Frontmatter
 
 Just some content without YAML frontmatter.
@@ -217,7 +217,7 @@ Just some content without YAML frontmatter.
         Effect.gen(function* () {
           yield* Effect.promise(() =>
             Bun.write(
-              path.join(dir, ".miaopanCode", "skill", "manual-skill", "SKILL.md"),
+              path.join(dir, ".miaopan-code", "skill", "manual-skill", "SKILL.md"),
               `---
 name: manual-skill
 ---
@@ -235,8 +235,9 @@ Instructions here.
           const item = list.find((x) => x.name === "manual-skill")
           expect(item).toBeDefined()
           expect(item!.description).toBeUndefined()
-          expect(Skill.fmt(list, { verbose: false })).toBe("No skills are currently available.")
-          expect(Skill.fmt(list, { verbose: true })).toBe("No skills are currently available.")
+          expect(Skill.fmt(list, { verbose: false })).toBe("当前没有可用技能。")
+          expect(Skill.fmt(list, { verbose: true })).toBe("当前没有可用技能。")
+          expect(Skill.fmt(list, { verbose: false, language: "en" })).toBe("No skills are currently available.")
         }),
       { git: true },
     ),
@@ -314,7 +315,7 @@ description: A skill in the .claude/skills directory.
           expect(error).toBeInstanceOf(Skill.NotFoundError)
           expect(error._tag).toBe("Skill.NotFoundError")
           expect(error.name).toBe("missing-skill")
-          expect(error.message).toContain('Skill "missing-skill" not found.')
+          expect(error.message).toContain("未找到技能“missing-skill”。")
         }),
       { git: true },
     ),
@@ -507,10 +508,10 @@ description: A skill in the .agents/skills directory.
 `,
               ),
               Bun.write(
-                path.join(dir, ".miaopanCode", "skill", "miaopanCode-skill", "SKILL.md"),
+                path.join(dir, ".miaopan-code", "skill", "miaopanCode-skill", "SKILL.md"),
                 `---
 name: miaopanCode-skill
-description: A skill in the .miaopanCode/skill directory.
+description: A skill in the .miaopan-code/skill directory.
 ---
 
 # MiaopanCode Skill
@@ -554,20 +555,20 @@ description: A skill in the .agents/skills directory.
 `,
               ),
               Bun.write(
-                path.join(dir, ".miaopanCode", "skill", "agent-skill", "SKILL.md"),
+                path.join(dir, ".miaopan-code", "skill", "agent-skill", "SKILL.md"),
                 `---
 name: miaopanCode-skill
-description: A skill in the .miaopanCode/skill directory.
+description: A skill in the .miaopan-code/skill directory.
 ---
 
 # MiaopanCode Skill
 `,
               ),
               Bun.write(
-                path.join(dir, ".miaopanCode", "skills", "agent-skill", "SKILL.md"),
+                path.join(dir, ".miaopan-code", "skills", "agent-skill", "SKILL.md"),
                 `---
 name: miaopanCode-skill
-description: A skill in the .miaopanCode/skills directory.
+description: A skill in the .miaopan-code/skills directory.
 ---
 
 # MiaopanCode Skill

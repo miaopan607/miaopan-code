@@ -6,6 +6,7 @@ import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { Effect } from "effect"
+import { t } from "@miaopan-code/core/i18n"
 import { Config } from "../../src/config/config"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
 import { McpAuth } from "../../src/mcp/auth"
@@ -216,7 +217,7 @@ mcpTest.instance("failed reauthentication preserves existing credentials", () =>
 
     expect(yield* mcp.finishAuth(name, "invalid-code")).toEqual({
       status: "failed",
-      error: "OAuth completion failed: Token exchange failed",
+      error: t("zh-CN", "error.mcp_oauth_completion", { error: "Token exchange failed" }),
     })
     expect((yield* auth.get(name))?.tokens?.accessToken).toBe("working-token")
     expect((yield* auth.get(name))?.clientInfo).toMatchObject({

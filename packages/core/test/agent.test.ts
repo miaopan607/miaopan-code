@@ -1,10 +1,12 @@
 import { describe, expect } from "bun:test"
 import { Effect, Exit, Scope } from "effect"
 import { AgentV2 } from "@miaopan-code/core/agent"
+import { Config } from "@miaopan-code/core/config"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { Location } from "@miaopan-code/core/location"
 import { AgentPlugin } from "@miaopan-code/core/plugin/agent"
 import { AbsolutePath } from "@miaopan-code/core/schema"
+import { t } from "@miaopan-code/core/i18n"
 import { location } from "./fixture/location"
 import { testEffect } from "./lib/effect"
 import { agentHost, host } from "./plugin/host"
@@ -107,6 +109,7 @@ describe("AgentV2", () => {
           agent: agentHost(agent),
         }),
       ).pipe(
+        Effect.provideService(Config.Service, Config.Service.of({ entries: () => Effect.succeed([]) })),
         Effect.provideService(
           Location.Service,
           Location.Service.of(location({ directory: AbsolutePath.make("/project") })),
@@ -126,6 +129,39 @@ describe("AgentV2", () => {
       for (const item of agents) {
         expect(item.permissions.some((rule) => rule.action === "bash" && rule.effect !== "deny")).toBe(false)
       }
+      expect(yield* agent.get(AgentV2.ID.make("general"))).toMatchObject({
+        description: t(undefined, "agent.general_description"),
+      })
+      expect(yield* agent.get(AgentV2.ID.make("explore"))).toMatchObject({
+        description: t(undefined, "agent.explore_description"),
+        system: t(undefined, "prompt.agent_explore_system"),
+      })
+
+      yield* AgentPlugin.Plugin.effect(
+        host({
+          agent: agentHost(agent),
+        }),
+      ).pipe(
+        Effect.provideService(
+          Config.Service,
+          Config.Service.of({
+            entries: () =>
+              Effect.succeed([new Config.Document({ type: "document", info: new Config.Info({ language: "en" }) })]),
+          }),
+        ),
+        Effect.provideService(
+          Location.Service,
+          Location.Service.of(location({ directory: AbsolutePath.make("/project") })),
+        ),
+      )
+
+      expect(yield* agent.get(AgentV2.ID.make("general"))).toMatchObject({
+        description: t("en", "agent.general_description"),
+      })
+      expect(yield* agent.get(AgentV2.ID.make("explore"))).toMatchObject({
+        description: t("en", "agent.explore_description"),
+        system: t("en", "prompt.agent_explore_system"),
+      })
     }),
   )
 })

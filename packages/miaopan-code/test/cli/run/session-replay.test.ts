@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { replayLocalRows, replaySession } from "@/cli/cmd/run/session-replay"
 import type { SessionMessages } from "@/cli/cmd/run/session.shared"
 import type { RunProvider } from "@/cli/cmd/run/types"
+import { Locale } from "@/util/locale"
 
 function userMessage(id: string, text: string): SessionMessages[number] {
   return {
@@ -279,14 +280,14 @@ describe("run session replay", () => {
       }),
       expect.objectContaining({
         kind: "system",
-        text: "▣ Build · gpt-5 · 2.8s",
+        text: `▣ Build · gpt-5 · ${Locale.duration(2800)}`,
         phase: "final",
         source: "system",
         messageID: "msg-1",
         summary: {
           agent: "Build",
           model: "gpt-5",
-          duration: "2.8s",
+          duration: Locale.duration(2800),
         },
       }),
     ])
@@ -314,11 +315,11 @@ describe("run session replay", () => {
     expect(out.commits.at(-1)).toEqual(
       expect.objectContaining({
         kind: "system",
-        text: "▣ Build · Little Frank · 2.8s",
+        text: `▣ Build · Little Frank · ${Locale.duration(2800)}`,
         summary: {
           agent: "Build",
           model: "Little Frank",
-          duration: "2.8s",
+          duration: Locale.duration(2800),
         },
       }),
     )
@@ -346,7 +347,7 @@ describe("run session replay", () => {
     expect(out.commits.filter((commit) => commit.summary)).toEqual([
       expect.objectContaining({
         kind: "system",
-        text: "▣ Build · gpt-5 · 2.0s",
+        text: `▣ Build · gpt-5 · ${Locale.duration(2000)}`,
         messageID: "msg-step-2",
       }),
     ])

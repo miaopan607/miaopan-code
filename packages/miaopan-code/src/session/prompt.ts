@@ -14,9 +14,10 @@ import { type Tool as AITool, tool, jsonSchema } from "ai"
 import type { JSONSchema7 } from "@ai-sdk/provider"
 import { SessionCompaction } from "./compaction"
 import { SystemPrompt } from "./system"
+import { t } from "@miaopan-code/core/i18n"
 import { Instruction } from "./instruction"
 import { Plugin } from "../plugin"
-import { MAX_STEPS_PROMPT } from "@miaopan-code/core/session/runner/max-steps"
+import { maxStepsPrompt } from "@miaopan-code/core/session/runner/max-steps"
 import { ToolRegistry } from "@/tool/registry"
 import { MCP } from "../mcp"
 import { LSP } from "@/lsp/lsp"
@@ -70,16 +71,6 @@ const SUPPORTED_MCP_RESOURCE_ATTACHMENT_MIMES = new Set([
   "image/png",
   "image/webp",
 ])
-
-const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
-
-IMPORTANT:
-- You MUST call this tool exactly once at the end of your response
-- The input must be valid JSON matching the required schema
-- Complete all necessary research and tool calls BEFORE calling this tool
-- This tool provides your final answer - no further actions are taken after calling it`
-
-const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text - you MUST call the StructuredOutput tool with your answer formatted according to the schema.`
 
 function mcpResourceBase64Size(value: string) {
   const trimmed = value.replace(/\s/g, "")
@@ -150,7 +141,7 @@ const layer = Layer.effect(
     })
 
     const cancel = Effect.fn("SessionPrompt.cancel")(function* (sessionID: SessionID) {
-      yield* Effect.logInfo("cancel", { "session.id": sessionID })
+      yield* Effect.logInfo(t((yield* config.get()).language, "log.session_cancel"), { "session.id": sessionID })
       yield* state.cancel(sessionID)
     })
 
@@ -204,6 +195,7 @@ const layer = Layer.effect(
       const idx = input.history.findIndex(real)
       if (idx === -1) return
       if (input.history.filter(real).length !== 1) return
+      const language = (yield* config.get()).language
 
       const context = input.history.slice(0, idx + 1)
       const firstUser = context[idx]
@@ -221,8 +213,8 @@ const layer = Layer.effect(
           (yield* provider.getModel(input.providerID, input.modelID)))
       const msgs = onlySubtasks
         ? [{ role: "user" as const, content: subtasks.map((p) => p.prompt).join("\n") }]
-        : yield* MessageV2.toModelMessagesEffect(context, mdl)
-      const text = yield* llm
+        : yield* MessageV2.toModelMessagesEffect(context, mdl, { language })
+      const generatedText = yield* llm
         .stream({
           agent: ag,
           user: firstInfo,
@@ -232,7 +224,7 @@ const layer = Layer.effect(
           model: mdl,
           sessionID: input.session.id,
           retries: 2,
-          messages: [{ role: "user", content: "Generate a title for this conversation:\n" }, ...msgs],
+          messages: [{ role: "user", content: t(language, "prompt.generate_title") }, ...msgs],
         })
         .pipe(
           Stream.filter(LLMEvent.is.textDelta),
@@ -240,16 +232,20 @@ const layer = Layer.effect(
           Stream.mkString,
           Effect.orDie,
         )
-      const cleaned = text
+      const cleaned = generatedText
         .replace(/<think>[\s\S]*?<\/think>\s*/g, "")
         .split("\n")
         .map((line) => line.trim())
         .find((line) => line.length > 0)
       if (!cleaned) return
-      const t = cleaned.length > 100 ? cleaned.substring(0, 97) + "..." : cleaned
+      const titleText = cleaned.length > 100 ? cleaned.substring(0, 97) + "..." : cleaned
       yield* sessions
-        .setTitle({ sessionID: input.session.id, title: t })
-        .pipe(Effect.catchCause((cause) => Effect.logError("failed to generate title", { error: Cause.squash(cause) })))
+        .setTitle({ sessionID: input.session.id, title: titleText })
+        .pipe(
+          Effect.catchCause((cause) =>
+            Effect.logError(t(language, "log.failed_generate_title"), { error: Cause.squash(cause) }),
+          ),
+        )
     })
 
     const handleSubtask = Effect.fn("SessionPrompt.handleSubtask")(function* (input: {
@@ -261,6 +257,7 @@ const layer = Layer.effect(
       msgs: SessionV1.WithParts[]
     }) {
       const { task, model, lastUser, sessionID, session, msgs } = input
+      const language = (yield* config.get()).language
       const ctx = yield* InstanceState.context
       const promptOps = yield* ops()
       const { task: taskTool } = yield* registry.named()
@@ -313,8 +310,12 @@ const layer = Layer.effect(
       const taskAgent = yield* agents.get(task.agent)
       if (!taskAgent) {
         const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
-        const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-        const error = new NamedError.Unknown({ message: `Agent not found: "${task.agent}".${hint}` })
+        const hint = available.length
+          ? t((yield* config.get()).language, "error.available_agents", { items: available.join(", ") })
+          : ""
+        const error = new NamedError.Unknown({
+          message: t((yield* config.get()).language, "error.agent_not_found", { agent: task.agent, hint }),
+        })
         yield* events.publish(Session.Event.Error, { sessionID, error: error.toObject() })
         throw error
       }
@@ -351,7 +352,7 @@ const layer = Layer.effect(
           Effect.catchCause((cause) => {
             const defect = Cause.squash(cause)
             error = defect instanceof Error ? defect : new Error(String(defect))
-            return Effect.logError("subtask execution failed", {
+            return Effect.logError(t(language, "log.session_subtask_failed"), {
               error,
               agent: task.agent,
               description: task.description,
@@ -368,7 +369,7 @@ const layer = Layer.effect(
                   ...part,
                   state: {
                     status: "error",
-                    error: "Cancelled",
+                    error: t((yield* config.get()).language, "error.tool_cancelled"),
                     time: { start: part.state.time.start, end: Date.now() },
                     metadata: part.state.metadata,
                     input: part.state.input,
@@ -416,7 +417,9 @@ const layer = Layer.effect(
           ...part,
           state: {
             status: "error",
-            error: error ? `Tool execution failed: ${error.message}` : "Tool execution failed",
+            error: t((yield* config.get()).language, "error.tool_execution_failed", {
+              detail: error ? `: ${error.message}` : "",
+            }),
             time: {
               start: part.state.status === "running" ? part.state.time.start : Date.now(),
               end: Date.now(),
@@ -443,7 +446,7 @@ const layer = Layer.effect(
         messageID: summaryUserMsg.id,
         sessionID,
         type: "text",
-        text: "Summarize the task tool output above and continue with your task.",
+        text: t((yield* config.get()).language, "prompt.summarize_task_output"),
         synthetic: true,
       } satisfies SessionV1.TextPart)
     })
@@ -461,8 +464,12 @@ const layer = Layer.effect(
             const agent = yield* agents.get(input.agent)
             if (!agent) {
               const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
-              const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-              const error = new NamedError.Unknown({ message: `Agent not found: "${input.agent}".${hint}` })
+              const hint = available.length
+                ? t((yield* config.get()).language, "error.available_agents", { items: available.join(", ") })
+                : ""
+              const error = new NamedError.Unknown({
+                message: t((yield* config.get()).language, "error.agent_not_found", { agent: input.agent, hint }),
+              })
               yield* events.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
               throw error
             }
@@ -481,7 +488,7 @@ const layer = Layer.effect(
               id: PartID.ascending(),
               messageID: userMsg.id,
               sessionID: input.sessionID,
-              text: "The following tool was executed by the user",
+              text: t((yield* config.get()).language, "prompt.tool_executed_by_user"),
               synthetic: true,
             }
             yield* sessions.updatePart(userPart)
@@ -528,7 +535,9 @@ const layer = Layer.effect(
           const finish = Effect.uninterruptible(
             Effect.gen(function* () {
               if (aborted) {
-                output += "\n\n" + ["<metadata>", "User aborted the command", "</metadata>"].join("\n")
+                output +=
+                  "\n\n" +
+                  ["<metadata>", t((yield* config.get()).language, "tool.shell.user_aborted"), "</metadata>"].join("\n")
               }
               const completed = Date.now()
               if (!msg.time.completed) {
@@ -600,11 +609,17 @@ const layer = Layer.effect(
       if (Exit.isSuccess(exit)) return exit.value
       const err = Cause.squash(exit.cause)
       if (Provider.ModelNotFoundError.isInstance(err)) {
-        const hint = err.suggestions?.length ? ` Did you mean: ${err.suggestions.join(", ")}?` : ""
+        const hint = err.suggestions?.length
+          ? t((yield* config.get()).language, "error.did_you_mean_suffix", {
+              items: err.suggestions.join(", "),
+            })
+          : ""
         yield* events.publish(Session.Event.Error, {
           sessionID,
           error: new NamedError.Unknown({
-            message: `Model not found: ${err.providerID}/${err.modelID}.${hint}`,
+            message: t((yield* config.get()).language, "error.model_not_found", {
+              model: `${err.providerID}/${err.modelID}.${hint}`,
+            }),
           }).toObject(),
         })
       }
@@ -637,8 +652,12 @@ const layer = Layer.effect(
       const ag = agentName ? yield* agents.get(agentName) : yield* agents.defaultInfo()
       if (!ag) {
         const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
-        const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-        const error = new NamedError.Unknown({ message: `Agent not found: "${agentName}".${hint}` })
+        const hint = available.length
+          ? t((yield* config.get()).language, "error.available_agents", { items: available.join(", ") })
+          : ""
+        const error = new NamedError.Unknown({
+          message: t((yield* config.get()).language, "error.agent_not_found", { agent: agentName, hint }),
+        })
         yield* events.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
         throw error
       }
@@ -696,26 +715,27 @@ const layer = Layer.effect(
         id: part.id ? PartID.make(part.id) : PartID.ascending(),
       })
 
+      const language = (yield* config.get()).language
       const resolvePart: (part: PromptInput["parts"][number]) => Effect.Effect<Draft<SessionV1.Part>[]> = Effect.fn(
         "SessionPrompt.resolveUserPart",
       )(function* (part) {
         if (part.type === "file") {
           if (part.source?.type === "resource") {
             const { clientName, uri } = part.source
-            yield* Effect.logInfo("mcp resource", { clientName, uri, mime: part.mime })
+            yield* Effect.logInfo(t(language, "log.session_mcp_resource"), { clientName, uri, mime: part.mime })
             const pieces: Draft<SessionV1.Part>[] = [
               {
                 messageID: info.id,
                 sessionID: input.sessionID,
                 type: "text",
                 synthetic: true,
-                text: `Reading MCP resource: ${part.filename} (${uri})`,
+                text: t(language, "prompt.mcp_resource_reading", { filename: part.filename, uri }),
               },
             ]
             const exit = yield* mcp.readResource(clientName, uri).pipe(Effect.exit)
             if (Exit.isSuccess(exit)) {
               const content = exit.value
-              if (!content) throw new Error(`Resource not found: ${clientName}/${uri}`)
+              if (!content) throw new Error(t(language, "error.mcp_resource_not_found", { client: clientName, uri }))
               const items = Array.isArray(content.contents) ? content.contents : [content.contents]
               for (const c of items) {
                 if (!c || typeof c !== "object") continue
@@ -737,7 +757,11 @@ const layer = Layer.effect(
                       sessionID: input.sessionID,
                       type: "text",
                       synthetic: true,
-                      text: `[Binary MCP resource omitted: ${filename ?? uri} (${mime}, ${formatMcpResourceBytes(size)}) is not a supported attachment type]`,
+                      text: t(language, "prompt.mcp_binary_omitted_unsupported", {
+                        filename: filename ?? uri,
+                        mime,
+                        size: formatMcpResourceBytes(size),
+                      }),
                     })
                     continue
                   }
@@ -747,7 +771,12 @@ const layer = Layer.effect(
                       sessionID: input.sessionID,
                       type: "text",
                       synthetic: true,
-                      text: `[Binary MCP resource omitted: ${filename ?? uri} (${mime}, ${formatMcpResourceBytes(size)}) exceeds ${formatMcpResourceBytes(MAX_MCP_RESOURCE_BLOB_BYTES)}]`,
+                      text: t(language, "prompt.mcp_binary_omitted_size", {
+                        filename: filename ?? uri,
+                        mime,
+                        size: formatMcpResourceBytes(size),
+                        limit: formatMcpResourceBytes(MAX_MCP_RESOURCE_BLOB_BYTES),
+                      }),
                     })
                     continue
                   }
@@ -756,7 +785,7 @@ const layer = Layer.effect(
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: `[Binary MCP resource attached: ${filename ?? uri} (${mime})]`,
+                    text: t(language, "prompt.mcp_binary_attached", { filename: filename ?? uri, mime }),
                   })
                   pieces.push({
                     messageID: info.id,
@@ -770,14 +799,14 @@ const layer = Layer.effect(
               }
             } else {
               const error = Cause.squash(exit.cause)
-              yield* Effect.logError("failed to read MCP resource", { error, clientName, uri })
+              yield* Effect.logError(t(language, "log.session_mcp_read_failed"), { error, clientName, uri })
               const message = error instanceof Error ? error.message : String(error)
               pieces.push({
                 messageID: info.id,
                 sessionID: input.sessionID,
                 type: "text",
                 synthetic: true,
-                text: `Failed to read MCP resource ${part.filename}: ${message}`,
+                text: t(language, "error.mcp_resource_read_failed", { filename: part.filename, error: message }),
               })
             }
             return pieces
@@ -792,7 +821,9 @@ const layer = Layer.effect(
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: `Called the Read tool with the following input: ${JSON.stringify({ filePath: part.filename })}`,
+                    text: t(language, "prompt.called_read_tool", {
+                      input: JSON.stringify({ filePath: part.filename }),
+                    }),
                   },
                   {
                     messageID: info.id,
@@ -806,7 +837,7 @@ const layer = Layer.effect(
               }
               break
             case "file:": {
-              yield* Effect.logInfo("file", { mime: part.mime })
+              yield* Effect.logInfo(t(language, "log.session_file"), { mime: part.mime })
               const filepath = fileURLToPath(part.url)
               const mime = (yield* fsys.isDir(filepath)) ? "application/x-directory" : part.mime
 
@@ -858,7 +889,7 @@ const layer = Layer.effect(
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: `Called the Read tool with the following input: ${JSON.stringify(args)}`,
+                    text: t(language, "prompt.called_read_tool", { input: JSON.stringify(args) }),
                   },
                 ]
                 const exit = yield* provider.getModel(info.model.providerID, info.model.modelID).pipe(
@@ -889,7 +920,7 @@ const layer = Layer.effect(
                   }
                 } else {
                   const error = Cause.squash(exit.cause)
-                  yield* Effect.logError("failed to read file", { error, filepath })
+                  yield* Effect.logError(t(language, "log.session_read_file_failed"), { error, filepath })
                   const message = error instanceof Error ? error.message : String(error)
                   yield* events.publish(Session.Event.Error, {
                     sessionID: input.sessionID,
@@ -900,7 +931,7 @@ const layer = Layer.effect(
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: `Read tool failed to read ${filepath} with the following error: ${message}`,
+                    text: t(language, "error.read_tool_failed", { path: filepath, error: message }),
                   })
                 }
                 return pieces
@@ -911,7 +942,7 @@ const layer = Layer.effect(
                 const exit = yield* execRead(args).pipe(Effect.exit)
                 if (Exit.isFailure(exit)) {
                   const error = Cause.squash(exit.cause)
-                  yield* Effect.logError("failed to read directory", { error, filepath })
+                  yield* Effect.logError(t(language, "log.session_read_directory_failed"), { error, filepath })
                   const message = error instanceof Error ? error.message : String(error)
                   yield* events.publish(Session.Event.Error, {
                     sessionID: input.sessionID,
@@ -923,7 +954,7 @@ const layer = Layer.effect(
                       sessionID: input.sessionID,
                       type: "text",
                       synthetic: true,
-                      text: `Read tool failed to read ${filepath} with the following error: ${message}`,
+                      text: t(language, "error.read_tool_failed", { path: filepath, error: message }),
                     },
                   ]
                 }
@@ -933,7 +964,7 @@ const layer = Layer.effect(
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: `Called the Read tool with the following input: ${JSON.stringify(args)}`,
+                    text: t(language, "prompt.called_read_tool", { input: JSON.stringify(args) }),
                   },
                   {
                     messageID: info.id,
@@ -952,7 +983,7 @@ const layer = Layer.effect(
                   sessionID: input.sessionID,
                   type: "text",
                   synthetic: true,
-                  text: `Called the Read tool with the following input: {"filePath":"${filepath}"}`,
+                  text: t(language, "prompt.called_read_tool", { path: filepath }),
                 },
                 {
                   id: part.id,
@@ -981,10 +1012,7 @@ const layer = Layer.effect(
               sessionID: input.sessionID,
               type: "text",
               synthetic: true,
-              text:
-                " Use the above message and context to generate a prompt and call the task tool with subagent: " +
-                part.name +
-                hint,
+              text: ` ${t(language, "prompt.agent_task_instruction", { agent: part.name, hint })}`,
             },
           ]
         }
@@ -1021,7 +1049,7 @@ const layer = Layer.effect(
 
       const parsed = decodeMessageInfo(info, { errors: "all", propertyOrder: "original" })
       if (Exit.isFailure(parsed)) {
-        yield* Effect.logError("invalid user message before save", {
+        yield* Effect.logError(t(language, "log.session_invalid_message"), {
           sessionID: input.sessionID,
           messageID: info.id,
           agent: info.agent,
@@ -1032,7 +1060,7 @@ const layer = Layer.effect(
       for (const [index, part] of parts.entries()) {
         const p = decodeMessagePart(part, { errors: "all", propertyOrder: "original" })
         if (Exit.isSuccess(p)) continue
-        yield* Effect.logError("invalid user part before save", {
+        yield* Effect.logError(t(language, "log.session_invalid_part"), {
           sessionID: input.sessionID,
           messageID: info.id,
           partID: part.id,
@@ -1075,7 +1103,7 @@ const layer = Layer.effect(
       if (Option.isSome(match)) return match.value
       const msgs = yield* sessions.messages({ sessionID, limit: 1 }).pipe(Effect.orDie)
       if (msgs.length > 0) return msgs[0]
-      throw new Error("Impossible")
+      throw new Error(t((yield* config.get()).language, "error.impossible"))
     })
 
     const runLoop: (sessionID: SessionID) => Effect.Effect<SessionV1.WithParts> = Effect.fn("SessionPrompt.run")(
@@ -1084,10 +1112,11 @@ const layer = Layer.effect(
         let structured: unknown
         let step = 0
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
+        const language = (yield* config.get()).language
 
         while (true) {
           yield* status.set(sessionID, { type: "busy" })
-          yield* Effect.logInfo("loop", { "session.id": sessionID, step })
+          yield* Effect.logInfo(t(language, "log.session_loop"), { "session.id": sessionID, step })
 
           let msgs = yield* MessageV2.filterCompactedEffect(sessionID).pipe(
             Effect.provideService(Database.Service, database),
@@ -1095,7 +1124,7 @@ const layer = Layer.effect(
 
           const { user: lastUser, assistant: lastAssistant, finished: lastFinished, tasks } = MessageV2.latest(msgs)
 
-          if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
+          if (!lastUser) throw new Error(t((yield* config.get()).language, "error.no_user_message"))
 
           const lastAssistantMsg = msgs.findLast(
             (msg) => msg.info.role === "assistant" && msg.info.id === lastAssistant?.id,
@@ -1118,14 +1147,14 @@ const layer = Layer.effect(
               (part): part is SessionV1.ToolPart => part.type === "tool" && isOrphanedInterruptedTool(part),
             )
             if (orphan) {
-              yield* Effect.logWarning("loop exit with orphaned interrupted tool", {
+              yield* Effect.logWarning(t(language, "log.session_loop_orphaned"), {
                 "session.id": sessionID,
                 messageID: lastAssistant.id,
                 tool: orphan.tool,
                 callID: orphan.callID,
               })
             }
-            yield* Effect.logInfo("exiting loop", { "session.id": sessionID })
+            yield* Effect.logInfo(t(language, "log.session_exiting_loop"), { "session.id": sessionID })
             break
           }
 
@@ -1170,8 +1199,12 @@ const layer = Layer.effect(
           const agent = yield* agents.get(lastUser.agent)
           if (!agent) {
             const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
-            const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-            const error = new NamedError.Unknown({ message: `Agent not found: "${lastUser.agent}".${hint}` })
+            const hint = available.length
+              ? t((yield* config.get()).language, "error.available_agents", { items: available.join(", ") })
+              : ""
+            const error = new NamedError.Unknown({
+              message: t((yield* config.get()).language, "error.agent_not_found", { agent: lastUser.agent, hint }),
+            })
             yield* events.publish(Session.Event.Error, { sessionID, error: error.toObject() })
             throw error
           }
@@ -1181,6 +1214,7 @@ const layer = Layer.effect(
             Effect.provideService(RuntimeFlags.Service, flags),
             Effect.provideService(FSUtil.Service, fsys),
             Effect.provideService(Session.Service, sessions),
+            Effect.provideService(Config.Service, config),
           )
 
           const msg: SessionV1.Assistant = {
@@ -1202,10 +1236,14 @@ const layer = Layer.effect(
 
           const finalizeInterruptedAssistant = Effect.gen(function* () {
             if (msg.time.completed) return
-            msg.error ??= MessageV2.fromError(new DOMException("Aborted", "AbortError"), {
-              providerID: msg.providerID,
-              aborted: true,
-            })
+            msg.error ??= MessageV2.fromError(
+              new DOMException(t((yield* config.get()).language, "error.request_aborted"), "AbortError"),
+              {
+                providerID: msg.providerID,
+                aborted: true,
+                language: (yield* config.get()).language,
+              },
+            )
             msg.time.completed = Date.now()
             yield* sessions.updateMessage(msg)
           })
@@ -1243,6 +1281,7 @@ const layer = Layer.effect(
             if (lastUser.format?.type === "json_schema") {
               tools["StructuredOutput"] = createStructuredOutputTool({
                 schema: lastUser.format.schema,
+                language: (yield* config.get()).language,
                 onSuccess(output) {
                   structured = output
                 },
@@ -1254,12 +1293,13 @@ const layer = Layer.effect(
 
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
+            const language = (yield* config.get()).language
             const [skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
               sys.skills(agent),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
               sys.mcp(agent, session.permission),
-              MessageV2.toModelMessagesEffect(msgs, model),
+              MessageV2.toModelMessagesEffect(msgs, model, { language }),
             ])
             const system = [
               ...env,
@@ -1268,7 +1308,7 @@ const layer = Layer.effect(
               ...(skills ? [skills] : []),
             ]
             const format = lastUser.format ?? { type: "text" as const }
-            if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
+            if (format.type === "json_schema") system.push(t(language, "prompt.structured_output_system"))
             const result = yield* handle.process({
               user: lastUser,
               agent,
@@ -1278,7 +1318,7 @@ const layer = Layer.effect(
               system,
               messages: [
                 ...modelMsgs,
-                ...(isLastStep ? [{ role: "assistant" as const, content: MAX_STEPS_PROMPT }] : []),
+                ...(isLastStep ? [{ role: "assistant" as const, content: maxStepsPrompt(language) }] : []),
               ],
               tools,
               model,
@@ -1300,7 +1340,7 @@ const layer = Layer.effect(
               // partial text that was cut off by the provider's filter.
               if (handle.message.finish === "content-filter") {
                 handle.message.error = new SessionV1.ContentFilterError({
-                  message: "The response was blocked by the provider's content filter",
+                  message: t((yield* config.get()).language, "error.content_filter"),
                 }).toObject()
                 yield* sessions.updateMessage(handle.message)
                 yield* events.publish(Session.Event.Error, { sessionID, error: handle.message.error })
@@ -1308,7 +1348,7 @@ const layer = Layer.effect(
               }
               if (format.type === "json_schema") {
                 handle.message.error = new SessionV1.StructuredOutputError({
-                  message: "Model did not produce structured output",
+                  message: t((yield* config.get()).language, "error.structured_output_missing"),
                   retries: 0,
                 }).toObject()
                 yield* sessions.updateMessage(handle.message)
@@ -1362,8 +1402,12 @@ const layer = Layer.effect(
       const cmd = yield* commands.get(input.command)
       if (!cmd) {
         const available = (yield* commands.list()).map((c) => c.name)
-        const hint = available.length ? ` Available commands: ${available.join(", ")}` : ""
-        const error = new NamedError.Unknown({ message: `Command not found: "${input.command}".${hint}` })
+        const hint = available.length
+          ? t((yield* config.get()).language, "error.available_commands", { items: available.join(", ") })
+          : ""
+        const error = new NamedError.Unknown({
+          message: t((yield* config.get()).language, "error.command_not_found", { command: input.command, hint }),
+        })
         yield* events.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
         throw error
       }
@@ -1423,8 +1467,12 @@ const layer = Layer.effect(
       const agent = agentName ? yield* agents.get(agentName) : yield* agents.defaultInfo()
       if (!agent) {
         const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
-        const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-        const error = new NamedError.Unknown({ message: `Agent not found: "${agentName}".${hint}` })
+        const hint = available.length
+          ? t((yield* config.get()).language, "error.available_agents", { items: available.join(", ") })
+          : ""
+        const error = new NamedError.Unknown({
+          message: t((yield* config.get()).language, "error.agent_not_found", { agent: agentName, hint }),
+        })
         yield* events.publish(Session.Event.Error, { sessionID: input.sessionID, error: error.toObject() })
         throw error
       }
@@ -1564,20 +1612,21 @@ export type CommandInput = Schema.Schema.Type<typeof CommandInput>
 /** @internal Exported for testing */
 export function createStructuredOutputTool(input: {
   schema: Record<string, any>
+  language?: "zh-CN" | "en"
   onSuccess: (output: unknown) => void
 }): AITool {
   // Remove $schema property if present (not needed for tool input)
   const { $schema: _, ...toolSchema } = input.schema
 
   return tool({
-    description: STRUCTURED_OUTPUT_DESCRIPTION,
+    description: t(input.language, "prompt.structured_output_description"),
     inputSchema: jsonSchema(toolSchema as JSONSchema7),
     async execute(args) {
       // AI SDK validates args against inputSchema before calling execute()
       input.onSuccess(args)
       return {
-        output: "Structured output captured successfully.",
-        title: "Structured Output",
+        output: t(input.language, "tool.output.structured_captured"),
+        title: t(input.language, "session.structured_output"),
         metadata: { valid: true },
       }
     },

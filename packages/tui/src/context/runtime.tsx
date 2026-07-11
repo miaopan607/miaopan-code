@@ -1,4 +1,6 @@
 import { createComponent, createContext, type JSX, useContext } from "solid-js"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 export type TuiPaths = Readonly<{
   cwd: string
@@ -45,7 +47,7 @@ export function TuiStartupProvider(props: { value: TuiStartup; children: JSX.Ele
 
 function required<T>(context: ReturnType<typeof createContext<T>>, name: string) {
   const value = useContext(context)
-  if (!value) throw new Error(`${name} is missing`)
+  if (!value) throw new Error(t(Locale.language(), "tui.error.runtime_missing", { name }))
   return value
 }
 

@@ -3,6 +3,7 @@ import { useSync } from "../../context/sync"
 import { DialogSelect, type DialogSelectOption } from "../../ui/dialog-select"
 import type { TextPart } from "@miaopan-code/sdk/v2"
 import { Locale } from "../../util/locale"
+import { t } from "@miaopan-code/core/i18n"
 import { DialogMessage } from "./dialog-message"
 import { useDialog } from "../../ui/dialog"
 import type { PromptInfo } from "../../component/prompt/history"
@@ -43,5 +44,11 @@ export function DialogTimeline(props: {
     return result
   })
 
-  return <DialogSelect onMove={(option) => props.onMove(option.value)} title="Timeline" options={options()} />
+  return (
+    <DialogSelect
+      onMove={(option) => props.onMove(option.value)}
+      title={t(Locale.language(), "tui.timeline")}
+      options={options()}
+    />
+  )
 }

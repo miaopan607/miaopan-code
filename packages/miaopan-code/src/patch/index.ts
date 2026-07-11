@@ -2,10 +2,13 @@ import { Effect, Schema } from "effect"
 import * as path from "path"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import * as Bom from "../util/bom"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-export const PatchSchema = Schema.Struct({
-  patchText: Schema.String.annotate({ description: "The full patch text that describes all changes to be made" }),
-})
+export const makePatchSchema = (language?: Language) =>
+  Schema.Struct({
+    patchText: Schema.String.annotate({ description: t(language, "tool.param.patch_text") }),
+  })
+export const PatchSchema = makePatchSchema()
 
 export type PatchParams = Schema.Schema.Type<typeof PatchSchema>
 
@@ -182,7 +185,7 @@ function stripHeredoc(input: string): string {
   return input
 }
 
-export function parsePatch(patchText: string): { hunks: Hunk[] } {
+export function parsePatch(patchText: string, language?: Language): { hunks: Hunk[] } {
   const cleaned = stripHeredoc(patchText.trim())
   const lines = cleaned.split("\n")
   const hunks: Hunk[] = []
@@ -196,7 +199,7 @@ export function parsePatch(patchText: string): { hunks: Hunk[] } {
   const endIdx = lines.findIndex((line) => line.trim() === endMarker)
 
   if (beginIdx === -1 || endIdx === -1 || beginIdx >= endIdx) {
-    throw new Error("Invalid patch format: missing Begin/End markers")
+    throw new Error(t(language, "error.patch_invalid_format"))
   }
 
   // Parse content between markers
@@ -243,6 +246,7 @@ export function parsePatch(patchText: string): { hunks: Hunk[] } {
 // Apply patch functionality
 export function maybeParseApplyPatch(
   argv: string[],
+  language?: Language,
 ):
   | { type: MaybeApplyPatch.Body; args: ApplyPatchArgs }
   | { type: MaybeApplyPatch.PatchParseError; error: Error }
@@ -252,7 +256,7 @@ export function maybeParseApplyPatch(
   // Direct invocation: apply_patch <patch>
   if (argv.length === 2 && APPLY_PATCH_COMMANDS.includes(argv[0])) {
     try {
-      const { hunks } = parsePatch(argv[1])
+      const { hunks } = parsePatch(argv[1], language)
       return {
         type: MaybeApplyPatch.Body,
         args: {
@@ -277,7 +281,7 @@ export function maybeParseApplyPatch(
     if (heredocMatch) {
       const patchContent = heredocMatch[2]
       try {
-        const { hunks } = parsePatch(patchContent)
+        const { hunks } = parsePatch(patchContent, language)
         return {
           type: MaybeApplyPatch.Body,
           args: {
@@ -308,6 +312,7 @@ export function deriveNewContentsFromChunks(
   filePath: string,
   chunks: UpdateFileChunk[],
   originalText: string,
+  language?: Language,
 ): ApplyPatchFileUpdate {
   const originalContent = Bom.split(originalText)
 
@@ -318,7 +323,7 @@ export function deriveNewContentsFromChunks(
     originalLines.pop()
   }
 
-  const replacements = computeReplacements(originalLines, filePath, chunks)
+  const replacements = computeReplacements(originalLines, filePath, chunks, language)
   let newLines = applyReplacements(originalLines, replacements)
 
   // Ensure trailing newline
@@ -343,6 +348,7 @@ function computeReplacements(
   originalLines: string[],
   filePath: string,
   chunks: UpdateFileChunk[],
+  language?: Language,
 ): Array<[number, number, string[]]> {
   const replacements: Array<[number, number, string[]]> = []
   let lineIndex = 0
@@ -352,7 +358,7 @@ function computeReplacements(
     if (chunk.change_context) {
       const contextIdx = seekSequence(originalLines, [chunk.change_context], lineIndex)
       if (contextIdx === -1) {
-        throw new Error(`Failed to find context '${chunk.change_context}' in ${filePath}`)
+        throw new Error(t(language, "error.patch_context_missing", { context: chunk.change_context, path: filePath }))
       }
       lineIndex = contextIdx + 1
     }
@@ -385,7 +391,7 @@ function computeReplacements(
       replacements.push([found, pattern.length, newSlice])
       lineIndex = found + pattern.length
     } else {
-      throw new Error(`Failed to find expected lines in ${filePath}:\n${chunk.old_lines.join("\n")}`)
+      throw new Error(t(language, "error.patch_lines_missing", { path: filePath, lines: chunk.old_lines.join("\n") }))
     }
   }
 
@@ -511,9 +517,9 @@ function generateUnifiedDiff(oldContent: string, newContent: string): string {
 }
 
 // Apply hunks to filesystem
-export const applyHunksToFiles = Effect.fn("Patch.applyHunksToFiles")(function* (hunks: Hunk[]) {
+export const applyHunksToFiles = Effect.fn("Patch.applyHunksToFiles")(function* (hunks: Hunk[], language?: Language) {
   if (hunks.length === 0) {
-    return yield* Effect.fail(new Error("No files were modified."))
+    return yield* Effect.fail(new Error(t(language, "error.patch_no_files_modified")))
   }
 
   const fs = yield* FSUtil.Service
@@ -527,30 +533,30 @@ export const applyHunksToFiles = Effect.fn("Patch.applyHunksToFiles")(function* 
       case "add": {
         yield* fs.writeWithDirs(hunk.path, hunk.contents)
         added.push(hunk.path)
-        yield* Effect.logInfo(`Added file: ${hunk.path}`)
+        yield* Effect.logInfo(t(language, "log.patch_added", { path: hunk.path }))
         break
       }
 
       case "delete": {
         yield* fs.remove(hunk.path)
         deleted.push(hunk.path)
-        yield* Effect.logInfo(`Deleted file: ${hunk.path}`)
+        yield* Effect.logInfo(t(language, "log.patch_deleted", { path: hunk.path }))
         break
       }
 
       case "update": {
         const originalText = yield* fs.readFileString(hunk.path)
-        const fileUpdate = deriveNewContentsFromChunks(hunk.path, hunk.chunks, originalText)
+        const fileUpdate = deriveNewContentsFromChunks(hunk.path, hunk.chunks, originalText, language)
 
         if (hunk.move_path) {
           yield* fs.writeWithDirs(hunk.move_path, Bom.join(fileUpdate.content, fileUpdate.bom))
           yield* fs.remove(hunk.path)
           modified.push(hunk.move_path)
-          yield* Effect.logInfo(`Moved file: ${hunk.path} -> ${hunk.move_path}`)
+          yield* Effect.logInfo(t(language, "log.patch_moved", { path: hunk.path, target: hunk.move_path }))
         } else {
           yield* fs.writeWithDirs(hunk.path, Bom.join(fileUpdate.content, fileUpdate.bom))
           modified.push(hunk.path)
-          yield* Effect.logInfo(`Updated file: ${hunk.path}`)
+          yield* Effect.logInfo(t(language, "log.patch_updated", { path: hunk.path }))
         }
         break
       }
@@ -561,9 +567,9 @@ export const applyHunksToFiles = Effect.fn("Patch.applyHunksToFiles")(function* 
 })
 
 // Main patch application function
-export const applyPatch = Effect.fn("Patch.applyPatch")(function* (patchText: string) {
-  const { hunks } = parsePatch(patchText)
-  return yield* applyHunksToFiles(hunks)
+export const applyPatch = Effect.fn("Patch.applyPatch")(function* (patchText: string, language?: Language) {
+  const { hunks } = parsePatch(patchText, language)
+  return yield* applyHunksToFiles(hunks, language)
 })
 
 type MaybeApplyPatchVerifiedResult =
@@ -575,11 +581,12 @@ type MaybeApplyPatchVerifiedResult =
 export const maybeParseApplyPatchVerified = Effect.fn("Patch.maybeParseApplyPatchVerified")(function* (
   argv: string[],
   cwd: string,
+  language?: Language,
 ) {
   // Detect implicit patch invocation (raw patch without apply_patch command)
   if (argv.length === 1) {
     try {
-      parsePatch(argv[0])
+      parsePatch(argv[0], language)
       return {
         type: MaybeApplyPatchVerified.CorrectnessError,
         error: new Error(ApplyPatchError.ImplicitInvocation),
@@ -589,7 +596,7 @@ export const maybeParseApplyPatchVerified = Effect.fn("Patch.maybeParseApplyPatc
     }
   }
 
-  const result = maybeParseApplyPatch(argv)
+  const result = maybeParseApplyPatch(argv, language)
 
   switch (result.type) {
     case MaybeApplyPatch.Body: {
@@ -618,7 +625,7 @@ export const maybeParseApplyPatchVerified = Effect.fn("Patch.maybeParseApplyPatc
             if (content === undefined) {
               return {
                 type: MaybeApplyPatchVerified.CorrectnessError,
-                error: new Error(`Failed to read file for deletion: ${deletePath}`),
+                error: new Error(t(language, "error.patch_delete_read", { path: deletePath })),
               } satisfies MaybeApplyPatchVerifiedResult
             }
             changes.set(resolvedPath, {
@@ -630,13 +637,15 @@ export const maybeParseApplyPatchVerified = Effect.fn("Patch.maybeParseApplyPatc
 
           case "update": {
             const updatePath = path.resolve(effectiveCwd, hunk.path)
-            const originalText = yield* fs
-              .readFileString(updatePath)
-              .pipe(
-                Effect.catch((cause) =>
-                  Effect.succeed(new Error(`Failed to read file ${updatePath}: ${cause}`, { cause })),
+            const originalText = yield* fs.readFileString(updatePath).pipe(
+              Effect.catch((cause) =>
+                Effect.succeed(
+                  new Error(t(language, "error.patch_read_file_cause", { path: updatePath, cause: String(cause) }), {
+                    cause,
+                  }),
                 ),
-              )
+              ),
+            )
             if (originalText instanceof Error) {
               return {
                 type: MaybeApplyPatchVerified.CorrectnessError,
@@ -644,7 +653,7 @@ export const maybeParseApplyPatchVerified = Effect.fn("Patch.maybeParseApplyPatc
               } satisfies MaybeApplyPatchVerifiedResult
             }
             try {
-              const fileUpdate = deriveNewContentsFromChunks(updatePath, hunk.chunks, originalText)
+              const fileUpdate = deriveNewContentsFromChunks(updatePath, hunk.chunks, originalText, language)
               changes.set(resolvedPath, {
                 type: "update",
                 unified_diff: fileUpdate.unified_diff,

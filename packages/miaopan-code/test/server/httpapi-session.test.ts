@@ -37,6 +37,8 @@ import { disposeAllInstances, provideInstanceEffect, TestInstance, tmpdirScoped 
 import { TestLLMServer } from "../lib/llm-server"
 import { testProviderConfig } from "../lib/test-provider"
 import { pollWithTimeout, testEffect } from "../lib/effect"
+import { I18n } from "@miaopan-code/core/i18n"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const originalWorkspaces = Flag.MIAOPAN_CODE_EXPERIMENTAL_WORKSPACES
 const noopBootstrapLayer = Layer.succeed(
@@ -245,7 +247,7 @@ describe("session HttpApi", () => {
         expect(Cause.squash(exit.cause)).toMatchObject({
           _tag: "SessionBusyError",
           sessionID,
-          message: `Session is busy: ${sessionID}`,
+          message: t(undefined, "error.session_busy", { id: sessionID }),
         })
       }
     }),
@@ -260,7 +262,7 @@ describe("session HttpApi", () => {
         const missingSession = SessionID.descending()
         const missingSessionBody = {
           name: "NotFoundError",
-          data: { message: `Session not found: ${missingSession}` },
+          data: { message: I18n.t(undefined, "error.session_not_found", { id: missingSession }) },
         }
 
         const get = yield* request(pathFor(SessionPaths.get, { sessionID: missingSession }), { headers })
@@ -310,7 +312,7 @@ describe("session HttpApi", () => {
         expect(message.status).toBe(404)
         expect(yield* responseJson(message)).toEqual({
           name: "NotFoundError",
-          data: { message: `Message not found: ${missingMessage}` },
+          data: { message: I18n.t(undefined, "error.message_not_found", { id: missingMessage }) },
         })
       }),
     { git: true, config: { formatter: false, lsp: false } },
@@ -463,7 +465,7 @@ describe("session HttpApi", () => {
         expect(invalidSessionCursor.status).toBe(400)
         expect(yield* responseJson(invalidSessionCursor)).toMatchObject({
           _tag: "InvalidCursorError",
-          message: "Invalid cursor",
+          message: I18n.t(undefined, "error.invalid_cursor"),
         })
 
         const invalidWorkspace = yield* request(`/api/session?workspace=bad`, { headers })
@@ -508,14 +510,14 @@ describe("session HttpApi", () => {
         expect(messageCursorWithOrder.status).toBe(400)
         expect(yield* responseJson(messageCursorWithOrder)).toMatchObject({
           _tag: "InvalidCursorError",
-          message: "Cursor cannot be combined with order",
+          message: I18n.t(undefined, "error.cursor_order"),
         })
 
         const invalidMessageCursor = yield* request(`/api/session/${session.id}/message?cursor=invalid`, { headers })
         expect(invalidMessageCursor.status).toBe(400)
         expect(yield* responseJson(invalidMessageCursor)).toMatchObject({
           _tag: "InvalidCursorError",
-          message: "Invalid cursor",
+          message: I18n.t(undefined, "error.invalid_cursor"),
         })
       }),
     { git: true, config: { formatter: false, lsp: false } },
@@ -531,7 +533,7 @@ describe("session HttpApi", () => {
         const expected = {
           _tag: "SessionNotFoundError",
           sessionID: missing,
-          message: `Session not found: ${missing}`,
+          message: I18n.t(undefined, "error.session_not_found", { id: missing }),
         }
 
         const messages = yield* request(`/api/session/${missing}/message`, { headers })
@@ -613,7 +615,7 @@ describe("session HttpApi", () => {
         expect(conflict.status).toBe(409)
         expect(yield* responseJson(conflict)).toEqual({
           _tag: "ConflictError",
-          message: "Prompt message ID conflicts with an existing durable record: msg_http_prompt",
+          message: I18n.t(undefined, "error.prompt_conflict", { id: "msg_http_prompt" }),
           resource: "msg_http_prompt",
         })
 
@@ -648,7 +650,7 @@ describe("session HttpApi", () => {
         expect(compact.status).toBe(503)
         expect(yield* responseJson(compact)).toEqual({
           _tag: "ServiceUnavailableError",
-          message: "Session compact is not available yet",
+          message: I18n.t(undefined, "error.session_unavailable", { operation: "compact" }),
           service: "session.compact",
         })
 
@@ -656,7 +658,7 @@ describe("session HttpApi", () => {
         expect(wait.status).toBe(503)
         expect(yield* responseJson(wait)).toEqual({
           _tag: "ServiceUnavailableError",
-          message: "Session wait is not available yet",
+          message: I18n.t(undefined, "error.session_unavailable", { operation: "wait" }),
           service: "session.wait",
         })
       }),
@@ -678,7 +680,7 @@ describe("session HttpApi", () => {
         expect(messages.status).toBe(500)
         expect(messagesBody).toMatchObject({
           _tag: "UnknownError",
-          message: "Unexpected server error. Check server logs for details.",
+          message: t(undefined, "error.unexpected_server"),
         })
         expect((messagesBody as { ref?: unknown }).ref).toMatch(/^err_[0-9a-f-]{8}$/)
         expect(JSON.stringify(messagesBody)).not.toContain("assistant")
@@ -690,7 +692,7 @@ describe("session HttpApi", () => {
         expect(context.status).toBe(500)
         expect(contextBody).toMatchObject({
           _tag: "UnknownError",
-          message: "Unexpected server error. Check server logs for details.",
+          message: t(undefined, "error.unexpected_server"),
         })
         expect((contextBody as { ref?: unknown }).ref).toMatch(/^err_[0-9a-f-]{8}$/)
         expect(JSON.stringify(contextBody)).not.toContain("assistant")
@@ -1082,7 +1084,7 @@ describe("session HttpApi", () => {
         expect(yield* responseJson(permission)).toEqual({
           _tag: "PermissionNotFoundError",
           requestID: permissionID,
-          message: `Permission request not found: ${permissionID}`,
+          message: t(undefined, "error.permission_not_found", { id: permissionID }),
         })
       }),
     { git: true, config: { formatter: false, lsp: false } },

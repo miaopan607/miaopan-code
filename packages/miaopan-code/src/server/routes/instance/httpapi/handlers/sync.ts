@@ -6,6 +6,8 @@ import { EventV2 } from "@miaopan-code/core/event"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { EventTable } from "@miaopan-code/core/event/sql"
 import { asc } from "drizzle-orm"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 import { and } from "drizzle-orm"
 import { eq } from "drizzle-orm"
 import { lte } from "drizzle-orm"
@@ -32,6 +34,7 @@ export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handl
     })
 
     const replay = Effect.fn("SyncHttpApi.replay")(function* (ctx: { payload: typeof ReplayPayload.Type }) {
+      const language = yield* requestLanguage()
       const payload: EventV2.SerializedEvent[] = ctx.payload.events.map((event) => ({
         id: event.id,
         aggregateID: event.aggregateID,
@@ -40,7 +43,7 @@ export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handl
         data: { ...event.data },
       }))
       const source = payload[0].aggregateID
-      yield* Effect.logInfo("sync replay requested", {
+      yield* Effect.logInfo(t(language, "log.server_sync_replay_requested"), {
         sessionID: source,
         events: payload.length,
         first: payload[0]?.seq,
@@ -49,7 +52,7 @@ export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handl
       })
       const ownerID = yield* InstanceState.workspaceID
       yield* events.replayAll(payload, { ownerID, strictOwner: true })
-      yield* Effect.logInfo("sync replay complete", {
+      yield* Effect.logInfo(t(language, "log.server_sync_replay_complete"), {
         sessionID: source,
         events: payload.length,
         first: payload[0]?.seq,
@@ -59,12 +62,13 @@ export const syncHandlers = HttpApiBuilder.group(InstanceHttpApi, "sync", (handl
     })
 
     const steal = Effect.fn("SyncHttpApi.steal")(function* (ctx: { payload: typeof SessionPayload.Type }) {
+      const language = yield* requestLanguage()
       const workspaceID = yield* InstanceState.workspaceID
       if (!workspaceID) return yield* new HttpApiError.BadRequest({})
 
       yield* session.setWorkspace({ sessionID: ctx.payload.sessionID, workspaceID })
 
-      yield* Effect.logInfo("sync session stolen", { sessionID: ctx.payload.sessionID, workspaceID })
+      yield* Effect.logInfo(t(language, "log.server_sync_stolen"), { sessionID: ctx.payload.sessionID, workspaceID })
 
       return { sessionID: ctx.payload.sessionID }
     })

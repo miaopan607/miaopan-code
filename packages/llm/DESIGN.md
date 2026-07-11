@@ -1,5 +1,7 @@
 # AI Library Design
 
+Languages: [简体中文概览](README.md) · English
+
 > Discussion draft. This document describes the intended replacement for the
 > current private `@miaopan-code/llm` API. Names and exact TypeScript signatures
 > are illustrative until implementation, but the domain boundaries and defaults
@@ -1074,7 +1076,7 @@ The redesign intentionally removes or changes these current concepts:
 
 | Current                                 | Proposed                                                    |
 | --------------------------------------- | ----------------------------------------------------------- |
-| `@miaopan-code/llm`                      | `@miaopan-code/ai`                                           |
+| `@miaopan-code/llm`                     | `@miaopan-code/ai`                                          |
 | Mandatory `LLM.request({ model, ... })` | Inline calls or model-free portable requests                |
 | `LLM.generate` means one turn           | `LLM.generate` means complete run                           |
 | `LLMClient.generate/stream`             | `LLM.generateTurn/streamTurn` for one turn                  |

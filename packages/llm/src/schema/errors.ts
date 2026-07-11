@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { Language, t } from "../i18n"
 import { ModelID, ProviderID, ProviderMetadata, RouteID } from "./ids"
 
 export const ProviderFailureClassification = Schema.Literal("context-overflow")
@@ -49,13 +50,18 @@ export class NoRouteReason extends Schema.Class<NoRouteReason>("LLM.Error.NoRout
   route: RouteID,
   provider: ProviderID,
   model: ModelID,
+  language: Schema.optional(Schema.Literals(Language)),
 }) {
   get retryable() {
     return false
   }
 
   get message() {
-    return `No LLM route for ${this.provider}/${this.model} using ${this.route}`
+    return t(this.language, "llm.request.no_route", {
+      provider: this.provider,
+      model: this.model,
+      route: this.route,
+    })
   }
 }
 

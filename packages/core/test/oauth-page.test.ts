@@ -2,6 +2,13 @@ import { describe, expect, test } from "bun:test"
 import { OauthCallbackPage } from "../src/oauth/page"
 
 describe("OauthCallbackPage", () => {
+  test("defaults to Chinese and supports an English page", () => {
+    expect(OauthCallbackPage.success()).toContain('<html lang="zh-CN">')
+    expect(OauthCallbackPage.success()).toContain("授权成功")
+    expect(OauthCallbackPage.success({ language: "en" })).toContain('<html lang="en">')
+    expect(OauthCallbackPage.success({ language: "en" })).toContain("Authorization successful")
+  })
+
   test("escapes bootstrap options embedded in the inline script", () => {
     const html = OauthCallbackPage.bootstrap({
       provider: `xAI</script><script>alert("provider")</script>`,

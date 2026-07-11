@@ -5,6 +5,7 @@ import { PtyTicket } from "@miaopan-code/schema/pty-ticket"
 import { PtyID } from "./schema"
 import { Cache, Context, Duration, Effect, Layer } from "effect"
 import { makeGlobalNode } from "../effect/app-node"
+import { zh } from "../i18n"
 
 const DEFAULT_TTL = Duration.seconds(60)
 const CAPACITY = 10_000
@@ -32,7 +33,7 @@ function matches(record: Scope, input: Scope) {
 
 // Tickets are inserted via Cache.set and removed atomically via invalidateWhen. The lookup is
 // never invoked; it dies if it ever is, which would signal a misuse of the Service interface.
-const noLookup = () => Effect.die("PtyTicket cache must be used via set/invalidateWhen, never get")
+const noLookup = () => Effect.die(zh("error.pty_ticket_direct_lookup"))
 
 // Visible for tests so the TTL can be shortened. Production uses `layer` with the default TTL.
 export const make = (ttl: Duration.Input = DEFAULT_TTL) =>

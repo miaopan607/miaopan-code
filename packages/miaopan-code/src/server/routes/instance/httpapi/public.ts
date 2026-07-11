@@ -1,5 +1,6 @@
 import { OpenApi } from "effect/unstable/httpapi"
-import { MiaopanCodeHttpApi } from "./api"
+import { localizeText, t, type Language } from "./i18n"
+import { makeMiaopanCodeHttpApi } from "./api"
 import { QueryBooleanOpenApi } from "./groups/query"
 
 type OpenApiParameter = {
@@ -73,13 +74,13 @@ const QueryParameterSchemas: Record<string, OpenApiSchema> = {
   "GET /api/session/{sessionID}/message limit": { type: "number" },
 }
 
-const LegacyComponentDescriptions: Record<string, string> = {
-  LogLevel: "Log level",
-  ServerConfig: "Server configuration for miaopanCode serve command",
-  LayoutConfig: "@deprecated Always uses stretch layout.",
-}
+const legacyComponentDescriptions = (language?: Language): Record<string, string> => ({
+  LogLevel: t(language, "public_schema_log_level"),
+  ServerConfig: t(language, "public_schema_server_config"),
+  LayoutConfig: t(language, "public_schema_layout_config"),
+})
 
-function matchLegacyOpenApi(input: Record<string, unknown>) {
+function matchLegacyOpenApi(input: Record<string, unknown>, language?: Language) {
   const spec = input as OpenApiSpec
 
   // Effect's multi-document JSON Schema deduplicator can produce self-referencing
@@ -87,7 +88,7 @@ function matchLegacyOpenApi(input: Record<string, unknown>) {
   // of X itself) when the same AST node appears both as a standalone endpoint
   // payload and inside an annotated union arm. Resolve these by inlining the
   // actual schema from any parent union that references them.
-  fixSelfReferencingComponents(spec)
+  fixSelfReferencingComponents(spec, language)
 
   // Effect's Schema.optional emits `anyOf: [T, {type:"null"}]` in OpenAPI,
   // but the legacy SDK expected plain `T` for optional fields. Strip null
@@ -98,7 +99,7 @@ function matchLegacyOpenApi(input: Record<string, unknown>) {
   normalizeComponentNames(spec)
   collapseDuplicateComponents(spec)
   applyLegacySchemaOverrides(spec)
-  normalizeComponentDescriptions(spec)
+  normalizeComponentDescriptions(spec, language)
   addLegacyErrorSchemas(spec)
   delete spec.components?.securitySchemes
 
@@ -149,14 +150,14 @@ function matchLegacyOpenApi(input: Record<string, unknown>) {
         // generated 401 error unions.
         delete operation.security
         delete operation.responses?.["401"]
-        normalizeLegacyErrorResponses(operation)
+        normalizeLegacyErrorResponses(operation, language)
       }
       normalizeLegacyOperation(operation, path, method)
       if ((path === "/event" || path === "/global/event" || path === "/api/event") && method === "get") {
         // HttpApi has no first-class SSE response schema, and these handlers are
         // raw/streaming routes. Document the actual wire protocol explicitly.
         operation.responses!["200"] = {
-          description: "Event stream",
+          description: t(language, "public_event_stream"),
           content: {
             "text/event-stream": {
               schema:
@@ -174,6 +175,7 @@ function matchLegacyOpenApi(input: Record<string, unknown>) {
     }
   }
   deleteUnusedLegacyErrorComponents(spec)
+  localizeOpenApi(input, language)
   return input
 }
 
@@ -278,9 +280,10 @@ function applyLegacySchemaOverrides(spec: OpenApiSpec) {
   if (syncInfo?.properties) makePropertiesNullable(syncInfo.properties)
 }
 
-function normalizeComponentDescriptions(spec: OpenApiSpec) {
+function normalizeComponentDescriptions(spec: OpenApiSpec, language?: Language) {
+  const descriptions = legacyComponentDescriptions(language)
   for (const [name, schema] of Object.entries(spec.components?.schemas ?? {})) {
-    const description = LegacyComponentDescriptions[name]
+    const description = descriptions[name]
     if (description) {
       schema.description = description
       continue
@@ -343,12 +346,12 @@ function rewriteRefs(input: unknown, from: string, to: string): void {
   for (const value of Object.values(input)) rewriteRefs(value, from, to)
 }
 
-function normalizeLegacyErrorResponses(operation: OpenApiOperation) {
+function normalizeLegacyErrorResponses(operation: OpenApiOperation, language?: Language) {
   if (operation.responses?.["400"] && isLegacyBadRequestResponse(operation.responses["400"])) {
-    operation.responses["400"] = legacyErrorResponse("Bad request", "BadRequestError")
+    operation.responses["400"] = legacyErrorResponse(t(language, "error.bad_request"), "BadRequestError")
   }
   if (operation.responses?.["404"] && isBuiltInErrorResponse(operation.responses["404"], "NotFound")) {
-    operation.responses["404"] = legacyErrorResponse("Not found", "NotFoundError")
+    operation.responses["404"] = legacyErrorResponse(t(language, "error.not_found"), "NotFoundError")
   }
 }
 
@@ -421,7 +424,7 @@ function legacyErrorResponse(description: string, name: "BadRequestError" | "Not
  * Resolves by finding the actual schema from a parent union's `anyOf`/`oneOf`
  * that references the broken component, then inlining that schema.
  */
-function fixSelfReferencingComponents(spec: OpenApiSpec) {
+function fixSelfReferencingComponents(spec: OpenApiSpec, language?: Language) {
   const schemas = spec.components?.schemas
   if (!schemas) return
   const selfRefs = new Set<string>()
@@ -449,7 +452,7 @@ function fixSelfReferencingComponents(spec: OpenApiSpec) {
     }
   }
   // Simplest fix: generate the raw spec (without transform) to get correct schemas
-  const raw: OpenApiSpec = OpenApi.fromApi(MiaopanCodeHttpApi)
+  const raw: OpenApiSpec = OpenApi.fromApi(makeMiaopanCodeHttpApi(language))
   const rawSchemas = raw.components?.schemas
   if (!rawSchemas) return
   for (const name of selfRefs) {
@@ -527,11 +530,29 @@ function normalizeParameter(param: OpenApiParameter, route: string) {
   param.schema = stripOptionalNull(param.schema)
 }
 
-export const PublicApi = MiaopanCodeHttpApi.annotateMerge(
-  OpenApi.annotations({
-    title: "miaopan-code",
-    version: "1.0.0",
-    description: "miaopanCode api",
-    transform: matchLegacyOpenApi,
-  }),
-)
+function localizeOpenApi(input: unknown, language?: Language): void {
+  if (Array.isArray(input)) {
+    input.forEach((value) => localizeOpenApi(value, language))
+    return
+  }
+  if (!input || typeof input !== "object") return
+  for (const [key, value] of Object.entries(input)) {
+    if (typeof value === "string" && (key === "description" || key === "summary" || key === "title")) {
+      ;(input as Record<string, unknown>)[key] = localizeText(language, value)
+      continue
+    }
+    localizeOpenApi(value, language)
+  }
+}
+
+export const makeApi = (language?: Language) =>
+  makeMiaopanCodeHttpApi(language).annotateMerge(
+    OpenApi.annotations({
+      title: t(language, "public_api_title"),
+      version: "1.0.0",
+      description: t(language, "public_api_title"),
+      transform: (input) => matchLegacyOpenApi(input, language),
+    }),
+  )
+
+export const PublicApi = makeApi()

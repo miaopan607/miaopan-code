@@ -1,4 +1,5 @@
 export * as Patch from "./patch"
+import { zh } from "./i18n"
 
 export type Hunk =
   | { readonly type: "add"; readonly path: string; readonly contents: string }
@@ -26,7 +27,7 @@ export function parse(patchText: string): ReadonlyArray<Hunk> {
   const lines = stripHeredoc(patchText.trim()).split("\n")
   const begin = lines.findIndex((line) => line.trim() === "*** Begin Patch")
   const end = lines.findIndex((line) => line.trim() === "*** End Patch")
-  if (begin === -1 || end === -1 || begin >= end) throw new Error("Invalid patch format: missing Begin/End markers")
+  if (begin === -1 || end === -1 || begin >= end) throw new Error(zh("error.patch_invalid_format"))
 
   const hunks: Hunk[] = []
   let index = begin + 1
@@ -34,7 +35,7 @@ export function parse(patchText: string): ReadonlyArray<Hunk> {
     const line = lines[index]!
     if (line.startsWith("*** Add File:")) {
       const path = line.slice("*** Add File:".length).trim()
-      if (!path) throw new Error("Invalid add file path")
+      if (!path) throw new Error(zh("error.patch_invalid_path"))
       const parsed = parseAdd(lines, index + 1)
       hunks.push({ type: "add", path, contents: parsed.content })
       index = parsed.next
@@ -42,28 +43,28 @@ export function parse(patchText: string): ReadonlyArray<Hunk> {
     }
     if (line.startsWith("*** Delete File:")) {
       const path = line.slice("*** Delete File:".length).trim()
-      if (!path) throw new Error("Invalid delete file path")
+      if (!path) throw new Error(zh("error.patch_invalid_path"))
       hunks.push({ type: "delete", path })
       index++
       continue
     }
     if (line.startsWith("*** Update File:")) {
       const path = line.slice("*** Update File:".length).trim()
-      if (!path) throw new Error("Invalid update file path")
+      if (!path) throw new Error(zh("error.patch_invalid_path"))
       let next = index + 1
       let movePath: string | undefined
       if (lines[next]?.startsWith("*** Move to:")) {
         movePath = lines[next]!.slice("*** Move to:".length).trim()
-        if (!movePath) throw new Error("Invalid move file path")
+        if (!movePath) throw new Error(zh("error.patch_invalid_path"))
         next++
       }
       const parsed = parseUpdate(lines, next)
-      if (parsed.chunks.length === 0) throw new Error(`Invalid update hunk for ${path}: expected at least one @@ chunk`)
+      if (parsed.chunks.length === 0) throw new Error(zh("error.patch_invalid_hunk", { path }))
       hunks.push({ type: "update", path, movePath, chunks: parsed.chunks })
       index = parsed.next
       continue
     }
-    throw new Error(`Invalid patch line: ${line}`)
+    throw new Error(zh("error.patch_invalid_line", { line }))
   }
   return hunks
 }
@@ -89,7 +90,7 @@ function parseAdd(lines: ReadonlyArray<string>, start: number) {
   const content: string[] = []
   let index = start
   while (index < lines.length && !lines[index]!.startsWith("***")) {
-    if (!lines[index]!.startsWith("+")) throw new Error(`Invalid add file line: ${lines[index]}`)
+    if (!lines[index]!.startsWith("+")) throw new Error(zh("error.patch_invalid_line", { line: lines[index] }))
     content.push(lines[index]!.slice(1))
     index++
   }
@@ -101,7 +102,7 @@ function parseUpdate(lines: ReadonlyArray<string>, start: number) {
   let index = start
   while (index < lines.length && !lines[index]!.startsWith("***")) {
     if (!lines[index]!.startsWith("@@")) {
-      throw new Error(`Invalid update file line: ${lines[index]}`)
+      throw new Error(zh("error.patch_invalid_line", { line: lines[index] }))
     }
     const changeContext = lines[index]!.slice(2).trim() || undefined
     const oldLines: string[] = []
@@ -121,7 +122,7 @@ function parseUpdate(lines: ReadonlyArray<string>, start: number) {
         newLines.push(line.slice(1))
       } else if (line.startsWith("-")) oldLines.push(line.slice(1))
       else if (line.startsWith("+")) newLines.push(line.slice(1))
-      else throw new Error(`Invalid update chunk line: ${line}`)
+      else throw new Error(zh("error.patch_invalid_line", { line }))
       index++
     }
     chunks.push({ oldLines, newLines, changeContext, endOfFile: endOfFile || undefined })
@@ -135,7 +136,7 @@ function computeReplacements(lines: ReadonlyArray<string>, path: string, chunks:
   for (const chunk of chunks) {
     if (chunk.changeContext) {
       const context = seek(lines, [chunk.changeContext], lineIndex)
-      if (context === -1) throw new Error(`Failed to find context '${chunk.changeContext}' in ${path}`)
+      if (context === -1) throw new Error(zh("error.patch_context_missing", { context: chunk.changeContext, path }))
       lineIndex = context + 1
     }
     if (chunk.oldLines.length === 0) {
@@ -150,7 +151,7 @@ function computeReplacements(lines: ReadonlyArray<string>, path: string, chunks:
       if (newLines.at(-1) === "") newLines = newLines.slice(0, -1)
       found = seek(lines, oldLines, lineIndex, chunk.endOfFile)
     }
-    if (found === -1) throw new Error(`Failed to find expected lines in ${path}:\n${chunk.oldLines.join("\n")}`)
+    if (found === -1) throw new Error(zh("error.patch_lines_missing", { path, lines: chunk.oldLines.join("\n") }))
     replacements.push([found, oldLines.length, newLines])
     lineIndex = found + oldLines.length
   }

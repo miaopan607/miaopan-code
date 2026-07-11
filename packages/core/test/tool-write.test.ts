@@ -107,7 +107,7 @@ describe("WriteTool", () => {
             expect((yield* toolDefinitions(registry)).map((tool) => tool.name)).toEqual(["write"])
             const settled = yield* settleTool(registry, call({ path: "src/new.txt", content: "created" }))
             expect(settled).toEqual({
-              result: { type: "text", value: "Created file successfully: src/new.txt" },
+              result: { type: "text", value: "已成功创建文件：src/new.txt" },
               output: {
                 structured: {
                   operation: "write",
@@ -115,7 +115,7 @@ describe("WriteTool", () => {
                   resource: "src/new.txt",
                   existed: false,
                 },
-                content: [{ type: "text", text: "Created file successfully: src/new.txt" }],
+                content: [{ type: "text", text: "已成功创建文件：src/new.txt" }],
               },
             })
             expect(yield* Effect.promise(() => fs.readFile(path.join(tmp.path, "src", "new.txt"), "utf8"))).toBe(
@@ -141,7 +141,7 @@ describe("WriteTool", () => {
           ),
           Effect.andThen((settled) =>
             Effect.gen(function* () {
-              expect(settled.result).toEqual({ type: "text", value: "Wrote file successfully: existing.txt" })
+              expect(settled.result).toEqual({ type: "text", value: "已成功写入文件：existing.txt" })
               expect(settled.output?.structured).toMatchObject({ resource: "existing.txt", existed: true })
               expect(yield* Effect.promise(() => fs.readFile(path.join(tmp.path, "existing.txt"), "utf8"))).toBe(
                 "after",
@@ -194,7 +194,7 @@ describe("WriteTool", () => {
         return withTool(tmp.path, (registry) => executeTool(registry, call({ path: target, content: "inside" }))).pipe(
           Effect.andThen((result) =>
             Effect.gen(function* () {
-              expect(result).toEqual({ type: "text", value: "Created file successfully: absolute.txt" })
+              expect(result).toEqual({ type: "text", value: "已成功创建文件：absolute.txt" })
               expect(assertions.map((input) => input.action)).toEqual(["edit"])
               expect(yield* Effect.promise(() => fs.readFile(target, "utf8"))).toBe("inside")
             }),
@@ -256,7 +256,7 @@ describe("WriteTool", () => {
             ),
           ).toEqual({
             type: "error",
-            value: `Unable to write ${external}`,
+            value: `无法写入 ${external}`,
           })
           expect(assertions.map((input) => input.action)).toEqual(["external_directory"])
           expect(writes).toEqual([])
@@ -269,7 +269,7 @@ describe("WriteTool", () => {
             ),
           ).toEqual({
             type: "error",
-            value: "Unable to write denied.txt",
+            value: "无法写入 denied.txt",
           })
           expect(assertions.map((input) => input.action)).toEqual(["edit"])
           expect(writes).toEqual([])

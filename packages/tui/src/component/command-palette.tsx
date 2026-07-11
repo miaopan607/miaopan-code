@@ -9,6 +9,7 @@ import {
   useMiaopanCodeKeymap,
 } from "../keymap"
 import { useTuiConfig } from "../config"
+import { useI18n } from "../context/i18n"
 
 type PaletteCommandEntry = ReturnType<OpenTuiKeymap["getCommandEntries"]>[number]
 
@@ -25,6 +26,7 @@ function isSuggestedPaletteCommand(entry: PaletteCommandEntry) {
 
 export function CommandPaletteDialog() {
   const config = useTuiConfig()
+  const i18n = useI18n()
   const keymap = useMiaopanCodeKeymap()
   const entries = useKeymapSelector((keymap: OpenTuiKeymap) => {
     const query = {
@@ -69,11 +71,11 @@ export function CommandPaletteDialog() {
         .map((option) => ({
           ...option,
           value: `suggested:${option.value}`,
-          category: "Suggested",
+          category: i18n.t("tui.suggested"),
         })),
       ...options(),
     ]
   }
 
-  return <DialogSelect ref={(value) => (ref = value)} title="Commands" options={list()} />
+  return <DialogSelect ref={(value) => (ref = value)} title={i18n.t("tui.commands_title")} options={list()} />
 }

@@ -3,10 +3,11 @@ export * as PermissionV1 from "./permission"
 import { Schema } from "effect"
 export * from "@miaopan-code/schema/permission-v1"
 import { ID } from "@miaopan-code/schema/permission-v1"
+import { zh } from "../i18n"
 
 export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("PermissionRejectedError", {}) {
   override get message() {
-    return "The user rejected permission to use this specific tool call."
+    return zh("permission.tool_rejected")
   }
 }
 
@@ -14,7 +15,7 @@ export class CorrectedError extends Schema.TaggedErrorClass<CorrectedError>()("P
   feedback: Schema.String,
 }) {
   override get message() {
-    return `The user rejected permission to use this specific tool call with the following feedback: ${this.feedback}`
+    return zh("permission.tool_rejected_feedback", { feedback: this.feedback })
   }
 }
 
@@ -22,7 +23,7 @@ export class DeniedError extends Schema.TaggedErrorClass<DeniedError>()("Permiss
   ruleset: Schema.Any,
 }) {
   override get message() {
-    return `The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules ${JSON.stringify(this.ruleset)}`
+    return zh("permission.tool_denied_rules", { rules: JSON.stringify(this.ruleset) })
   }
 }
 

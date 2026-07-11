@@ -389,7 +389,7 @@ describe("Bedrock Converse route", () => {
         Effect.flip,
       )
 
-      expect(error.message).toContain("Bedrock Converse requires either route bearer auth or AWS credentials")
+      expect(error.message).toContain("Bedrock Converse 需要路由 bearer 身份验证或路由上配置的 AWS 凭据")
     }),
   )
 
@@ -535,7 +535,7 @@ describe("Bedrock Converse route", () => {
               // Filename round-trips when supplied.
               { document: { format: "pdf", name: "report.pdf", source: { bytes: "UERGREFUQQ==" } } },
               // Falls back to a stable placeholder when filename is missing.
-              { document: { format: "csv", name: "document.csv", source: { bytes: "Q1NWREFUQQ==" } } },
+              { document: { format: "csv", name: "文档.csv", source: { bytes: "Q1NWREFUQQ==" } } },
             ],
           },
         ],
@@ -553,7 +553,7 @@ describe("Bedrock Converse route", () => {
         }),
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain("Bedrock Converse does not support image media type image/svg+xml")
+      expect(error.message).toContain("Bedrock Converse 不支持图像媒体类型 image/svg+xml")
     }),
   )
 
@@ -567,7 +567,7 @@ describe("Bedrock Converse route", () => {
         }),
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain("Bedrock Converse does not support media type application/x-tar")
+      expect(error.message).toContain("Bedrock Converse 不支持媒体类型 application/x-tar")
     }),
   )
 

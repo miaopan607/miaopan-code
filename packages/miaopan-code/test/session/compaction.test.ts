@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import { ConfigV1 } from "@miaopan-code/core/v1/config/config"
+import { t } from "@miaopan-code/core/i18n"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { Database } from "@miaopan-code/core/database/database"
 import { EventV2Bridge } from "@/event-v2-bridge"
@@ -822,7 +823,7 @@ describe("session.compaction.process", () => {
         const error = Cause.squash(exit.cause)
         expect(error).toBeInstanceOf(Error)
         if (error instanceof Error) {
-          expect(error.message).toContain(`Compaction parent must be a user message: ${reply.id}`)
+          expect(error.message).toContain(t("zh-CN", "error.compaction_parent", { parentID: reply.id }))
         }
       }
     }),
@@ -885,7 +886,7 @@ describe("session.compaction.process", () => {
       expect(summary?.info.role).toBe("assistant")
       if (summary?.info.role === "assistant") {
         expect(summary.info.finish).toBe("error")
-        expect(JSON.stringify(summary.info.error)).toContain("Session too large to compact")
+        expect(JSON.stringify(summary.info.error)).toContain(t("zh-CN", "error.compaction_session_too_large"))
       }
     }).pipe(withCompaction({ result: "compact" })),
   )
@@ -916,7 +917,7 @@ describe("session.compaction.process", () => {
         metadata: { compaction_continue: true },
       })
       if (last?.parts[0]?.type === "text") {
-        expect(last.parts[0].text).toContain("Continue if you have next steps")
+        expect(last.parts[0].text).toContain(t("zh-CN", "prompt.compaction_continue"))
       }
     }),
   )
@@ -1031,7 +1032,7 @@ describe("session.compaction.process", () => {
         expect(part?.type).toBe("compaction")
         expect(part?.tail_start_id).toBeUndefined()
         expect(captured).toContain("recent image turn")
-        expect(captured).toContain("Attached image/png: big.png")
+        expect(captured).toContain(t("zh-CN", "prompt.attachment_placeholder", { mime: "image/png", filename: "big.png" }))
       }).pipe(withCompaction({ llm: stub.llmLayer, config: cfg({ tail_turns: 1, preserve_recent_tokens: 100 }) }))
     },
     { git: true },
@@ -1113,7 +1114,7 @@ describe("session.compaction.process", () => {
           (msg) =>
             msg.info.role === "user" &&
             msg.parts.some(
-              (part) => part.type === "text" && part.synthetic && part.text.includes("Continue if you have next steps"),
+              (part) => part.type === "text" && part.synthetic && part.text.includes(t("zh-CN", "prompt.compaction_continue")),
             ),
         ),
       ).toBe(false)
@@ -1153,7 +1154,10 @@ describe("session.compaction.process", () => {
       expect(last?.info.role).toBe("user")
       expect(last?.parts.some((part) => part.type === "file")).toBe(false)
       expect(
-        last?.parts.some((part) => part.type === "text" && part.text.includes("Attached image/png: cat.png")),
+        last?.parts.some((part) =>
+          part.type === "text" &&
+          part.text.includes(t("zh-CN", "prompt.attachment_placeholder", { mime: "image/png", filename: "cat.png" })),
+        ),
       ).toBe(true)
     }),
   )
@@ -1180,7 +1184,7 @@ describe("session.compaction.process", () => {
       expect(result).toBe("continue")
       expect(last?.info.role).toBe("user")
       if (last?.parts[0]?.type === "text") {
-        expect(last.parts[0].text).toContain("previous request exceeded the provider's size limit")
+        expect(last.parts[0].text).toContain(t("zh-CN", "prompt.compaction_media_removed_notice"))
       }
     }),
   )
@@ -1430,8 +1434,7 @@ describe("session.compaction.process", () => {
         expect(captured).toContain("<previous-summary>")
         expect(captured).toContain("summary one")
         expect(captured.match(/summary one/g)?.length).toBe(1)
-        expect(captured).toContain("## Important Details")
-        expect(captured).toContain("## Work State")
+        expect(captured).toContain(t("zh-CN", "prompt.compaction_summary_template").split("\n")[0])
       }).pipe(withCompaction({ llm: stub.llmLayer }))
     },
     { git: true },

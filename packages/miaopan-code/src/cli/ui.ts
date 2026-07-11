@@ -1,5 +1,16 @@
 import { EOL } from "os"
 import { Schema } from "effect"
+import {
+  I18n,
+  resolveLanguage,
+  type Language,
+  type MessageKey,
+  type MessageParameters,
+} from "@miaopan-code/core/i18n"
+import { Global } from "@miaopan-code/core/global"
+import { existsSync } from "fs"
+import { parse } from "jsonc-parser"
+import path from "path"
 
 export class CancelledError extends Schema.TaggedErrorClass<CancelledError>()("UICancelledError", {}) {}
 
@@ -18,6 +29,26 @@ export const Style = {
   TEXT_SUCCESS_BOLD: "\x1b[92m\x1b[1m",
   TEXT_INFO: "\x1b[94m",
   TEXT_INFO_BOLD: "\x1b[94m\x1b[1m",
+}
+
+const configFile = ["miaopan-code.jsonc", "miaopan-code.json", "config.json"]
+  .map((file) => path.join(Global.make().config, file))
+  .find((file) => existsSync(file))
+const config = configFile ? parse(await Bun.file(configFile).text()) : undefined
+let language: Language = resolveLanguage(
+  typeof config === "object" && config !== null && "language" in config ? config.language : undefined,
+)
+
+export function setLanguage(input: unknown) {
+  language = resolveLanguage(input)
+}
+
+export function getLanguage() {
+  return language
+}
+
+export function t(key: MessageKey, parameters?: MessageParameters) {
+  return I18n.t(language, key, parameters)
 }
 
 export function println(...message: string[]) {
@@ -53,10 +84,8 @@ export async function input(prompt: string): Promise<string> {
 }
 
 export function error(message: string) {
-  if (message.startsWith("Error: ")) {
-    message = message.slice("Error: ".length)
-  }
-  println(Style.TEXT_DANGER_BOLD + "Error: " + Style.TEXT_NORMAL + message)
+  if (message.startsWith("Error: ")) message = message.slice("Error: ".length)
+  println(Style.TEXT_DANGER_BOLD + t("cli.error") + Style.TEXT_NORMAL + message)
 }
 
 export function markdown(text: string): string {

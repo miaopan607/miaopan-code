@@ -14,6 +14,7 @@ import {
   WorkspaceRoutingQueryFields,
 } from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { t, type Language } from "../i18n"
 
 const PathInfo = Schema.Struct({
   home: Schema.String,
@@ -55,152 +56,153 @@ export const InstancePaths = {
   formatter: "/formatter",
 } as const
 
-export const InstanceApi = HttpApi.make("instance")
-  .add(
-    HttpApiGroup.make("instance")
-      .add(
-        HttpApiEndpoint.post("dispose", InstancePaths.dispose, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Instance disposed"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "instance.dispose",
-            summary: "Dispose instance",
-            description: "Clean up and dispose the current MiaopanCode instance, releasing all resources.",
-          }),
-        ),
-        HttpApiEndpoint.get("path", InstancePaths.path, {
-          query: WorkspaceRoutingQuery,
-          success: PathInfo,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "path.get",
-            summary: "Get paths",
-            description:
-              "Retrieve the current working directory and related path information for the MiaopanCode instance.",
-          }),
-        ),
-        HttpApiEndpoint.get("vcs", InstancePaths.vcs, {
-          query: WorkspaceRoutingQuery,
-          success: described(Vcs.Info, "VCS info"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "vcs.get",
-            summary: "Get VCS info",
-            description:
-              "Retrieve version control system (VCS) information for the current project, such as git branch.",
-          }),
-        ),
-        HttpApiEndpoint.get("vcsStatus", InstancePaths.vcsStatus, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Vcs.FileStatus), "VCS status"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "vcs.status",
-            summary: "Get VCS status",
-            description: "Retrieve changed files in the current working tree without patches.",
-          }),
-        ),
-        HttpApiEndpoint.get("vcsDiff", InstancePaths.vcsDiff, {
-          query: VcsDiffQuery,
-          success: described(Schema.Array(Vcs.FileDiff), "VCS diff"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "vcs.diff",
-            summary: "Get VCS diff",
-            description: "Retrieve the current git diff for the working tree or against the default branch.",
-          }),
-        ),
-        HttpApiEndpoint.get("vcsDiffRaw", InstancePaths.vcsDiffRaw, {
-          query: WorkspaceRoutingQuery,
-          success: described(
-            Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/x-diff; charset=utf-8" })),
-            "Raw VCS diff",
+export const makeInstanceApi = (language?: Language) =>
+  HttpApi.make("instance")
+    .add(
+      HttpApiGroup.make("instance")
+        .add(
+          HttpApiEndpoint.post("dispose", InstancePaths.dispose, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_instance_disposed")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "instance.dispose",
+              summary: t(language, "instance_dispose"),
+              description: t(language, "instance_dispose_description"),
+            }),
           ),
-        }).annotateMerge(
+          HttpApiEndpoint.get("path", InstancePaths.path, {
+            query: WorkspaceRoutingQuery,
+            success: PathInfo,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "path.get",
+              summary: t(language, "instance_paths"),
+              description: t(language, "instance_paths_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("vcs", InstancePaths.vcs, {
+            query: WorkspaceRoutingQuery,
+            success: described(Vcs.Info, t(language, "response_vcs_info")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "vcs.get",
+              summary: t(language, "instance_vcs_info"),
+              description: t(language, "instance_vcs_info_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("vcsStatus", InstancePaths.vcsStatus, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Vcs.FileStatus), t(language, "response_vcs_status")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "vcs.status",
+              summary: t(language, "instance_vcs_status"),
+              description: t(language, "instance_vcs_status_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("vcsDiff", InstancePaths.vcsDiff, {
+            query: VcsDiffQuery,
+            success: described(Schema.Array(Vcs.FileDiff), t(language, "response_vcs_diff")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "vcs.diff",
+              summary: t(language, "instance_vcs_diff"),
+              description: t(language, "instance_vcs_diff_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("vcsDiffRaw", InstancePaths.vcsDiffRaw, {
+            query: WorkspaceRoutingQuery,
+            success: described(
+              Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/x-diff; charset=utf-8" })),
+              t(language, "response_vcs_raw_diff"),
+            ),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "vcs.diff.raw",
+              summary: t(language, "instance_vcs_raw_diff"),
+              description: t(language, "instance_vcs_raw_diff_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("vcsApply", InstancePaths.vcsApply, {
+            query: WorkspaceRoutingQuery,
+            payload: Vcs.ApplyInput,
+            success: described(Vcs.ApplyResult, t(language, "response_vcs_patch_applied")),
+            error: ApiVcsApplyError,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "vcs.apply",
+              summary: t(language, "instance_vcs_apply"),
+              description: t(language, "instance_vcs_apply_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("command", InstancePaths.command, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Command.Info), t(language, "response_command_list")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "command.list",
+              summary: t(language, "instance_commands"),
+              description: t(language, "instance_commands_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("agent", InstancePaths.agent, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Agent.Info), t(language, "response_agent_list")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "app.agents",
+              summary: t(language, "instance_agents"),
+              description: t(language, "instance_agents_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("skill", InstancePaths.skill, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Skill.Info), t(language, "response_skill_list")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "app.skills",
+              summary: t(language, "instance_skills"),
+              description: t(language, "instance_skills_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("lsp", InstancePaths.lsp, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(LSP.Status), t(language, "response_lsp_status")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "lsp.status",
+              summary: t(language, "instance_lsp_status"),
+              description: t(language, "instance_lsp_status"),
+            }),
+          ),
+          HttpApiEndpoint.get("formatter", InstancePaths.formatter, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Format.Status), t(language, "response_formatter_status")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "formatter.status",
+              summary: t(language, "instance_formatter_status"),
+              description: t(language, "instance_formatter_status"),
+            }),
+          ),
+        )
+        .annotateMerge(
           OpenApi.annotations({
-            identifier: "vcs.diff.raw",
-            summary: "Get raw VCS diff",
-            description: "Retrieve a raw patch for current uncommitted changes.",
+            title: "instance",
+            description: t(language, "instance_routes"),
           }),
-        ),
-        HttpApiEndpoint.post("vcsApply", InstancePaths.vcsApply, {
-          query: WorkspaceRoutingQuery,
-          payload: Vcs.ApplyInput,
-          success: described(Vcs.ApplyResult, "VCS patch applied"),
-          error: ApiVcsApplyError,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "vcs.apply",
-            summary: "Apply VCS patch",
-            description: "Apply a raw patch to the current working tree.",
-          }),
-        ),
-        HttpApiEndpoint.get("command", InstancePaths.command, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Command.Info), "List of commands"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "command.list",
-            summary: "List commands",
-            description: "Get a list of all available commands in the MiaopanCode system.",
-          }),
-        ),
-        HttpApiEndpoint.get("agent", InstancePaths.agent, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Agent.Info), "List of agents"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "app.agents",
-            summary: "List agents",
-            description: "Get a list of all available AI agents in the MiaopanCode system.",
-          }),
-        ),
-        HttpApiEndpoint.get("skill", InstancePaths.skill, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Skill.Info), "List of skills"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "app.skills",
-            summary: "List skills",
-            description: "Get a list of all available skills in the MiaopanCode system.",
-          }),
-        ),
-        HttpApiEndpoint.get("lsp", InstancePaths.lsp, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(LSP.Status), "LSP server status"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "lsp.status",
-            summary: "Get LSP status",
-            description: "Get LSP server status",
-          }),
-        ),
-        HttpApiEndpoint.get("formatter", InstancePaths.formatter, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Format.Status), "Formatter status"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "formatter.status",
-            summary: "Get formatter status",
-            description: "Get formatter status",
-          }),
-        ),
-      )
-      .annotateMerge(
-        OpenApi.annotations({
-          title: "instance",
-          description: "Experimental HttpApi instance read routes.",
-        }),
-      )
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode experimental HttpApi",
-      version: "0.0.1",
-      description: "Experimental HttpApi surface for selected instance routes.",
-    }),
-  )
+        )
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "httpapi_title"),
+        version: "0.0.1",
+        description: t(language, "httpapi_title"),
+      }),
+    )
+
+export const InstanceApi = makeInstanceApi()

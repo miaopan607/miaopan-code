@@ -19,6 +19,8 @@ import { Locale } from "../util/locale"
 import { getScrollAcceleration } from "../util/scroll"
 import { useTuiConfig } from "../config"
 import { formatKeyBindings, useBindings, useKeymapSelector } from "../keymap"
+import { t } from "@miaopan-code/core/i18n"
+import { useI18n } from "../context/i18n"
 
 export interface DialogSelectProps<T> {
   title: string
@@ -78,6 +80,7 @@ export type DialogSelectRef<T> = {
 }
 
 export function DialogSelect<T>(props: DialogSelectProps<T>) {
+  const i18n = useI18n()
   type Action = NonNullable<DialogSelectProps<T>["actions"]>[number]
   type FooterHint = NonNullable<DialogSelectProps<T>["footerHints"]>[number]
   type VisibleAction = (Action & { label: string }) | FooterHint
@@ -373,8 +376,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       commands: [
         {
           name: "dialog.select.prev",
-          title: "Previous item",
-          category: "Dialog",
+          title: t(Locale.language(), "select.previous_item"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             setStore("input", "keyboard")
             move(-1)
@@ -382,8 +385,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         },
         {
           name: "dialog.select.next",
-          title: "Next item",
-          category: "Dialog",
+          title: t(Locale.language(), "select.next_item"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             setStore("input", "keyboard")
             move(1)
@@ -391,8 +394,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         },
         {
           name: "dialog.select.page_up",
-          title: "Page up",
-          category: "Dialog",
+          title: t(Locale.language(), "select.page_up"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             setStore("input", "keyboard")
             move(-10)
@@ -400,8 +403,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         },
         {
           name: "dialog.select.page_down",
-          title: "Page down",
-          category: "Dialog",
+          title: t(Locale.language(), "select.page_down"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             setStore("input", "keyboard")
             move(10)
@@ -409,8 +412,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         },
         {
           name: "dialog.select.home",
-          title: "First item",
-          category: "Dialog",
+          title: t(Locale.language(), "select.first_item"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             if (props.locked) return
             setStore("input", "keyboard")
@@ -419,8 +422,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         },
         {
           name: "dialog.select.end",
-          title: "Last item",
-          category: "Dialog",
+          title: t(Locale.language(), "select.last_item"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             if (props.locked) return
             setStore("input", "keyboard")
@@ -429,14 +432,14 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         },
         {
           name: "dialog.select.submit",
-          title: "Select item",
-          category: "Dialog",
+          title: t(Locale.language(), "select.select_item"),
+          category: t(Locale.language(), "tui.category_dialog"),
           run: submit,
         },
         ...visible.map((item) => ({
           name: item.command,
           title: item.title,
-          category: "Dialog",
+          category: t(Locale.language(), "tui.category_dialog"),
           run() {
             if (props.locked) return
             if (isActionDisabled(item)) return
@@ -462,14 +465,14 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           ? [
               {
                 key: "tab",
-                desc: "Next dialog action",
-                group: "Dialog",
+                desc: t(Locale.language(), "dialog.next_action"),
+                group: t(Locale.language(), "tui.category_dialog"),
                 cmd: () => moveAction(1),
               },
               {
                 key: "shift+tab",
-                desc: "Previous dialog action",
-                group: "Dialog",
+                desc: t(Locale.language(), "dialog.previous_action"),
+                group: t(Locale.language(), "tui.category_dialog"),
                 cmd: () => moveAction(-1),
               },
             ]
@@ -589,7 +592,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                   input.focus()
                 }, 1)
               }}
-              placeholder={props.placeholder ?? "Search"}
+              placeholder={props.placeholder ?? t(Locale.language(), "dialog.search")}
               placeholderColor={theme.textMuted}
             />
           </box>
@@ -601,7 +604,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           fallback={
             props.emptyView ?? (
               <box paddingLeft={4} paddingRight={4} paddingTop={1}>
-                <text fg={theme.textMuted}>No results found</text>
+                <text fg={theme.textMuted}>{t(Locale.language(), "dialog.no_results")}</text>
               </box>
             )
           }
@@ -623,7 +626,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                         when={options[0]?.categoryView}
                         fallback={
                           <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-                            {category}
+                            {i18n.category(category)}
                           </text>
                         }
                       >
@@ -684,7 +687,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                             <Option
                               title={option.title}
                               titleView={option.titleView}
-                              footer={flatten() ? (option.category ?? option.footer) : option.footer}
+                              footer={flatten() ? (i18n.category(option.category) ?? option.footer) : option.footer}
                               titleWidth={option.titleWidth}
                               truncateTitle={option.truncateTitle}
                               description={option.description !== category ? option.description : undefined}

@@ -13,6 +13,7 @@ import { withTransientReadRetry } from "@/util/effect-http-client"
 import { Global } from "@miaopan-code/core/global"
 import type { MessageV2 } from "./message-v2"
 import type { MessageID } from "./schema"
+import { t } from "@miaopan-code/core/i18n"
 
 function extract(messages: SessionV1.WithParts[]) {
   const paths = new Set<string>()
@@ -163,8 +164,12 @@ const layer: Layer.Layer<
       const remote = yield* Effect.forEach(urls, fetch, { concurrency: 4 })
 
       return [
-        ...Array.from(paths).flatMap((item, i) => (files[i] ? [`Instructions from: ${item}\n${files[i]}`] : [])),
-        ...urls.flatMap((item, i) => (remote[i] ? [`Instructions from: ${item}\n${remote[i]}`] : [])),
+        ...Array.from(paths).flatMap((item, i) =>
+          files[i] ? [t(config.language, "prompt.instructions_from", { source: item, content: files[i] })] : [],
+        ),
+        ...urls.flatMap((item, i) =>
+          remote[i] ? [t(config.language, "prompt.instructions_from", { source: item, content: remote[i] })] : [],
+        ),
       ]
     })
 
@@ -181,6 +186,7 @@ const layer: Layer.Layer<
       filepath: string,
       messageID: MessageID,
     ) {
+      const config = yield* cfg.get()
       const sys = yield* systemPaths()
       const already = extract(messages)
       const results: { filepath: string; content: string }[] = []
@@ -211,7 +217,10 @@ const layer: Layer.Layer<
         set.add(found)
         const content = yield* read(found)
         if (content) {
-          results.push({ filepath: found, content: `Instructions from: ${found}\n${content}` })
+          results.push({
+            filepath: found,
+            content: t(config.language, "prompt.instructions_from", { source: found, content }),
+          })
         }
 
         current = path.dirname(current)

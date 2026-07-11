@@ -9,6 +9,7 @@ import { Repository } from "./repository"
 import { RepositoryCache } from "./repository-cache"
 import { AbsolutePath } from "./schema"
 import { State } from "./state"
+import { zh } from "./i18n"
 
 export const LocalSource = Reference.LocalSource
 export type LocalSource = Reference.LocalSource
@@ -97,7 +98,7 @@ const layer = Layer.effect(
             )
             yield* cache.ensure({ reference: repository, branch: source.branch, refresh: true }).pipe(
               Effect.catchCause((cause) =>
-                Effect.logWarning("failed to materialize reference", {
+                Effect.logWarning(zh("log.reference_materialize_failed"), {
                   name,
                   repository: source.repository,
                   cause,

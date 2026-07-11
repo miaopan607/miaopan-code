@@ -270,12 +270,16 @@ describe("WebSearchTool registration", () => {
       const registry = yield* ToolRegistry.Service
 
       expect(
-        yield* executeTool(registry, {
-          sessionID,
-          ...toolIdentity,
-          call: { type: "tool-call", id: "call-empty", name: "websearch", input: { query: "nothing" } },
-        }),
-      ).toEqual({ type: "text", value: WebSearchTool.NO_RESULTS })
+        yield* executeTool(
+          registry,
+          {
+            sessionID,
+            ...toolIdentity,
+            call: { type: "tool-call", id: "call-empty", name: "websearch", input: { query: "nothing" } },
+          },
+          "en",
+        ),
+      ).toEqual({ type: "text", value: WebSearchTool.noResults("en") })
     }),
   )
 
@@ -308,7 +312,7 @@ describe("WebSearchTool registration", () => {
           ...toolIdentity,
           call: { type: "tool-call", id: "call-large-response", name: "websearch", input: { query: "too much" } },
         }),
-      ).toEqual({ type: "error", value: "Unable to search the web for too much" })
+      ).toEqual({ type: "error", value: "无法在网页中搜索 too much" })
       expect(chunksRead).toBeLessThan(10)
       expect(cancelled).toBe(true)
     }),

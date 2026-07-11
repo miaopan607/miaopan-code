@@ -30,6 +30,7 @@ import type { OpenAIResponsesIncludeOptions, OpenAIResponsesIncludeValue } from 
 import { prepareResponsesTools } from "./openai-responses-prepare-tools"
 import type { OpenAIResponsesModelId } from "./openai-responses-settings"
 import { localShellInputSchema } from "./tool/local-shell"
+import { t, type Language } from "../../i18n"
 
 const webSearchCallItem = z.object({
   type: z.literal("web_search_call"),
@@ -133,9 +134,9 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
 
   readonly modelId: OpenAIResponsesModelId
 
-  private readonly config: OpenAIConfig
+  private readonly config: OpenAIConfig & { language?: Language }
 
-  constructor(modelId: OpenAIResponsesModelId, config: OpenAIConfig) {
+  constructor(modelId: OpenAIResponsesModelId, config: OpenAIConfig & { language?: Language }) {
     this.modelId = modelId
     this.config = config
   }
@@ -316,7 +317,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
         warnings.push({
           type: "unsupported",
           feature: "temperature",
-          details: "temperature is not supported for reasoning models",
+          details: t(this.config.language, "warning.copilot_reasoning_temperature"),
         })
       }
 
@@ -325,7 +326,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
         warnings.push({
           type: "unsupported",
           feature: "topP",
-          details: "topP is not supported for reasoning models",
+          details: t(this.config.language, "warning.copilot_reasoning_top_p"),
         })
       }
     } else {
@@ -333,7 +334,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
         warnings.push({
           type: "unsupported",
           feature: "reasoningEffort",
-          details: "reasoningEffort is not supported for non-reasoning models",
+          details: t(this.config.language, "warning.copilot_non_reasoning_effort"),
         })
       }
 
@@ -341,7 +342,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
         warnings.push({
           type: "unsupported",
           feature: "reasoningSummary",
-          details: "reasoningSummary is not supported for non-reasoning models",
+          details: t(this.config.language, "warning.copilot_non_reasoning_summary"),
         })
       }
     }
@@ -351,7 +352,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
       warnings.push({
         type: "unsupported",
         feature: "serviceTier",
-        details: "flex processing is only available for o3, o4-mini, and gpt-5 models",
+        details: t(this.config.language, "warning.copilot_flex_processing"),
       })
       // Remove from args if not supported
       baseArgs.service_tier = undefined
@@ -362,8 +363,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
       warnings.push({
         type: "unsupported",
         feature: "serviceTier",
-        details:
-          "priority processing is only available for supported models (gpt-4, gpt-5, gpt-5-mini, o3, o4-mini) and requires Enterprise access. gpt-5-nano is not supported",
+        details: t(this.config.language, "warning.copilot_priority_processing"),
       })
       // Remove from args if not supported
       baseArgs.service_tier = undefined
@@ -377,6 +377,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
       tools,
       toolChoice,
       strictJsonSchema,
+      language: this.config.language,
     })
 
     return {
@@ -603,7 +604,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
                   sourceType: "document",
                   id: this.config.generateId?.() ?? generateId(),
                   mediaType: "text/plain",
-                  title: annotation.quote ?? annotation.filename ?? "Document",
+                  title: annotation.quote ?? annotation.filename ?? t(this.config.language, "copilot.document_title"),
                   filename: annotation.filename ?? annotation.file_id,
                 })
               }
@@ -776,6 +777,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
 
   async doStream(options: LanguageModelV3CallOptions) {
     const { args: body, warnings, webSearchToolName } = await this.getArgs(options)
+    const language = this.config.language
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -1289,7 +1291,7 @@ export class OpenAIResponsesLanguageModel implements LanguageModelV3 {
                   sourceType: "document",
                   id: self.config.generateId?.() ?? generateId(),
                   mediaType: "text/plain",
-                  title: value.annotation.quote ?? value.annotation.filename ?? "Document",
+                  title: value.annotation.quote ?? value.annotation.filename ?? t(language, "copilot.document_title"),
                   filename: value.annotation.filename ?? value.annotation.file_id,
                 })
               }

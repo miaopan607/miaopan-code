@@ -2,6 +2,7 @@ import type { LanguageModelV3 } from "@ai-sdk/provider"
 import { type FetchFunction, withoutTrailingSlash, withUserAgentSuffix } from "@ai-sdk/provider-utils"
 import { OpenAICompatibleChatLanguageModel } from "./chat/openai-compatible-chat-language-model"
 import { OpenAIResponsesLanguageModel } from "./responses/openai-responses-language-model"
+import { zh } from "../i18n"
 
 // Import the version or define it
 const VERSION = "0.1.0"
@@ -53,7 +54,7 @@ export function createOpenaiCompatible(options: OpenaiCompatibleProviderSettings
   const baseURL = withoutTrailingSlash(options.baseURL ?? "https://api.openai.com/v1")
 
   if (!baseURL) {
-    throw new Error("baseURL is required")
+    throw new Error(zh("error.github_base_url_required"))
   }
 
   // Merge headers: defaults first, then user overrides

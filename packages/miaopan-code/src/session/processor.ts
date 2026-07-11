@@ -18,6 +18,7 @@ import type { SessionID } from "./schema"
 import { SessionRetry } from "./retry"
 import { SessionStatus } from "./status"
 import { SessionSummary } from "./summary"
+import { t } from "@miaopan-code/core/i18n"
 import type { Provider } from "@/provider/provider"
 import { Question } from "@/question"
 import { errorMessage } from "@/util/error"
@@ -100,6 +101,7 @@ const layer = Layer.effect(
       // may execute tools internally before emitting start-step events,
       // so capturing inside the event handler can be too late.
       const initialSnapshot = yield* snapshot.track()
+      const language = (yield* config.get()).language
       const ctx: ProcessorContext = {
         assistantMessage: input.assistantMessage,
         sessionID: input.sessionID,
@@ -118,6 +120,7 @@ const layer = Layer.effect(
         MessageV2.fromError(e, {
           providerID: input.model.providerID,
           aborted,
+          language,
         })
 
       const settleToolCall = Effect.fn("SessionProcessor.settleToolCall")(function* (toolCallID: string) {
@@ -314,7 +317,7 @@ const layer = Layer.effect(
 
           case "tool-input-start":
             if (ctx.assistantMessage.summary) {
-              throw new Error(`Tool call not allowed while generating summary: ${value.name}`)
+              throw new Error(t(language, "error.tool_call_summary", { name: value.name }))
             }
             yield* ensureToolCall(value)
             return
@@ -330,7 +333,7 @@ const layer = Layer.effect(
 
           case "tool-call": {
             if (ctx.assistantMessage.summary) {
-              throw new Error(`Tool call not allowed while generating summary: ${value.name}`)
+              throw new Error(t(language, "error.tool_call_summary", { name: value.name }))
             }
             yield* ensureToolCall(value)
             const input = isRecord(value.input) ? value.input : { value: value.input }
@@ -406,7 +409,10 @@ const layer = Layer.effect(
               output:
                 omitted === 0
                   ? rawOutput.output
-                  : `${rawOutput.output}\n\n[${omitted} image${omitted === 1 ? "" : "s"} omitted: could not be resized below the image size limit.]`,
+                  : `${rawOutput.output}\n\n${t((yield* config.get()).language, "tool.output.images_omitted", {
+                      count: omitted,
+                      suffix: omitted === 1 ? "" : "s",
+                    })}`,
               attachments: attachments.length ? attachments : undefined,
             }
             yield* completeToolCall(value.id, output)
@@ -585,7 +591,7 @@ const layer = Layer.effect(
             state: {
               ...part.state,
               status: "error",
-              error: "Tool execution aborted",
+              error: t(language, "error.tool_execution_aborted"),
               metadata: { ...metadata, interrupted: true },
               time: { start: "time" in part.state ? part.state.time.start : end, end },
             },
@@ -597,7 +603,7 @@ const layer = Layer.effect(
       })
 
       const halt = Effect.fn("SessionProcessor.halt")(function* (e: unknown) {
-        yield* Effect.logError("process", {
+        yield* Effect.logError(t(language, "log.session_process_error"), {
           "session.id": input.sessionID,
           messageID: input.assistantMessage.id,
           error: errorMessage(e),
@@ -625,12 +631,13 @@ const layer = Layer.effect(
       })
 
       const process = Effect.fn("SessionProcessor.process")(function* (streamInput: LLM.StreamInput) {
-        yield* Effect.logInfo("process", {
+        yield* Effect.logInfo(t(language, "log.session_process_info"), {
           "session.id": input.sessionID,
           messageID: input.assistantMessage.id,
         })
         ctx.needsCompaction = false
-        ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+        const cfg = yield* config.get()
+        ctx.shouldBreak = cfg.experimental?.continue_loop_on_deny !== true
 
         return yield* Effect.gen(function* () {
           yield* Effect.gen(function* () {
@@ -649,7 +656,7 @@ const layer = Layer.effect(
               Effect.gen(function* () {
                 aborted = true
                 if (!ctx.assistantMessage.error) {
-                  yield* halt(new DOMException("Aborted", "AbortError"))
+                  yield* halt(new DOMException(t(cfg.language, "error.request_aborted"), "AbortError"))
                 }
               }),
             ),
@@ -660,6 +667,7 @@ const layer = Layer.effect(
             Effect.retry(
               SessionRetry.policy({
                 provider: input.model.providerID,
+                language: cfg.language,
                 parse,
                 set: (info) => {
                   return status.set(ctx.sessionID, {

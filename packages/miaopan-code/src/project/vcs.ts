@@ -7,6 +7,8 @@ import { Git } from "@/git"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { EventV2 } from "@miaopan-code/core/event"
 import { VcsEvent } from "@miaopan-code/schema/vcs-event"
+import { t } from "@miaopan-code/core/i18n"
+import { Config } from "@/config/config"
 
 const PATCH_CONTEXT_LINES = 2_147_483_647
 const MAX_PATCH_BYTES = 10_000_000
@@ -295,11 +297,12 @@ interface State {
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/Vcs") {}
 
-const layer: Layer.Layer<Service, never, Git.Service | EventV2Bridge.Service> = Layer.effect(
+const layer: Layer.Layer<Service, never, Git.Service | EventV2Bridge.Service | Config.Service> = Layer.effect(
   Service,
   Effect.gen(function* () {
     const git = yield* Git.Service
     const events = yield* EventV2Bridge.Service
+    const config = yield* Config.Service
     const scope = yield* Scope.Scope
 
     const state = yield* InstanceState.make<State>(
@@ -399,16 +402,17 @@ const layer: Layer.Layer<Service, never, Git.Service | EventV2Bridge.Service> = 
       }),
       apply: Effect.fn("Vcs.apply")(function* (input: ApplyInput) {
         const ctx = yield* InstanceState.context
+        const language = (yield* config.get()).language
         if (ctx.project.vcs !== "git") {
           return yield* new PatchApplyError({
-            message: "Patch can't be applied because the project is not git-based",
+            message: t(language, "error.vcs_patch_non_git"),
             reason: "non-git",
           })
         }
         const applied = yield* git.applyPatch(ctx.directory, input.patch)
         if (applied.exitCode !== 0) {
           return yield* new PatchApplyError({
-            message: "Patch can't be applied",
+            message: t(language, "error.vcs_patch_failed"),
             reason: "not-clean",
           })
         }
@@ -418,6 +422,10 @@ const layer: Layer.Layer<Service, never, Git.Service | EventV2Bridge.Service> = 
   }),
 )
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [Git.node, EventV2Bridge.node] })
+export const node = LayerNode.make({
+  service: Service,
+  layer: layer,
+  deps: [Git.node, EventV2Bridge.node, Config.node],
+})
 
 export * as Vcs from "./vcs"

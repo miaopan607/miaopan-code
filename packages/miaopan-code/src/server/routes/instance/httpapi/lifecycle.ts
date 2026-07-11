@@ -3,6 +3,8 @@ import type { InstanceContext } from "@/project/instance-context"
 import { InstanceStore } from "@/project/instance-store"
 import { Effect } from "effect"
 import { HttpEffect, HttpMiddleware, HttpServerRequest } from "effect/unstable/http"
+import { t } from "@miaopan-code/core/i18n"
+import { fromAcceptLanguage } from "@miaopan-code/server/i18n"
 
 type MarkedInstance = {
   ctx: InstanceContext
@@ -44,11 +46,12 @@ export const disposeMiddleware: HttpMiddleware.HttpMiddleware = (effect) =>
   Effect.gen(function* () {
     const response = yield* effect
     const request = yield* HttpServerRequest.HttpServerRequest
+    const language = fromAcceptLanguage(request.headers["accept-language"])
     const marked = disposeAfterResponse.get(request.source)
     if (!marked) return response
     disposeAfterResponse.delete(request.source)
     yield* Effect.uninterruptible(marked.bridge.run(marked.store.dispose(marked.ctx))).pipe(
-      Effect.catchCause((cause) => Effect.logWarning("instance disposal failed", { cause })),
+      Effect.catchCause((cause) => Effect.logWarning(t(language, "log.instance_dispose_failed"), { cause })),
     )
     return response
   })

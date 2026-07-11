@@ -1,5 +1,7 @@
 # Typed Error Migration
 
+Languages: [简体中文索引](../README.md) · English
+
 This note expands the `ERR`, `RENDER`, and `HTTP` tracks from
 [`todo.md`](./todo.md). It is the current reference for expected failures,
 typed service errors, and HTTP error boundaries.

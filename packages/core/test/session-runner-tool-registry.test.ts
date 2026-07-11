@@ -11,6 +11,7 @@ import { ToolRegistry } from "@miaopan-code/core/tool/registry"
 import { executeTool, settleTool, toolDefinitions } from "./lib/tool"
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Schema, SchemaGetter, SchemaIssue, Scope } from "effect"
 import { testEffect } from "./lib/effect"
+import { t, zh } from "@miaopan-code/core/i18n"
 
 const bounds: ToolOutputStore.BoundInput[] = []
 const retentionFailure = new ToolOutputStore.StorageError({ operation: "write", cause: new Error("disk full") })
@@ -59,6 +60,32 @@ const make = (permission?: string) => {
 }
 
 describe("ToolRegistry", () => {
+  it.effect("materializes descriptions, schemas, and failures in the requested language", () =>
+    Effect.gen(function* () {
+      const service = yield* ToolRegistry.Service
+      yield* service.register({
+        shell: Tool.make({
+          description: zh("tool.description.core_bash"),
+          input: Schema.Struct({
+            command: Schema.String.annotate({ description: zh("tool.param.core_command") }),
+          }),
+          output: Schema.String,
+          execute: ({ command }) => Effect.succeed(command),
+        }),
+      })
+      const materialized = yield* service.materialize([], "en")
+
+      expect(materialized.definitions[0]?.description).toBe(t("en", "tool.description.core_bash"))
+      expect(materialized.definitions[0]?.inputSchema).toMatchObject({
+        properties: { command: { description: t("en", "tool.param.core_command") } },
+      })
+      expect((yield* materialized.settle(call("shell"))).result).toMatchObject({
+        type: "error",
+        value: expect.stringContaining("Invalid tool input:"),
+      })
+    }),
+  )
+
   it.effect("filters disabled tools with edit aliases and ordered wildcard precedence", () =>
     Effect.gen(function* () {
       const service = yield* ToolRegistry.Service
@@ -178,7 +205,7 @@ describe("ToolRegistry", () => {
           ...identity,
           call: { type: "tool-call", id: "missing", name: "missing", input: {} },
         }),
-      ).toEqual({ type: "error", value: "Unknown tool: missing" })
+      ).toEqual({ type: "error", value: "未知工具：missing" })
 
       yield* service.register({
         defect: Tool.make({
@@ -212,7 +239,7 @@ describe("ToolRegistry", () => {
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) expect(Option.getOrUndefined(Cause.findErrorOption(exit.cause))).toBe(retentionFailure)
-      expect(retentionFailure.message).toBe("Failed to write tool output: disk full")
+      expect(retentionFailure.message).toBe("写入工具输出失败: disk full")
     }),
   )
 
@@ -243,7 +270,7 @@ describe("ToolRegistry", () => {
         ...identity,
         call: { type: "tool-call", id: "call-context", name: "context", input: {} },
       })
-      expect(contexts).toEqual([{ sessionID, ...identity, toolCallID: "call-context" }])
+      expect(contexts).toEqual([{ sessionID, ...identity, toolCallID: "call-context", language: "zh-CN" }])
     }),
   )
 
@@ -301,7 +328,7 @@ describe("ToolRegistry", () => {
           ...identity,
           call: { type: "tool-call", id: "invalid-input", name: "transformed", input: { value: "yes" } },
         }),
-      ).toMatchObject({ type: "error", value: expect.stringContaining("Invalid tool input") })
+      ).toMatchObject({ type: "error", value: expect.stringContaining("工具输入无效") })
       expect(executed).toEqual(["yes"])
 
       yield* service.register({
@@ -329,7 +356,7 @@ describe("ToolRegistry", () => {
           ...identity,
           call: { type: "tool-call", id: "invalid-output", name: "invalid_output", input: {} },
         }),
-      ).toMatchObject({ type: "error", value: expect.stringContaining("invalid value for its output schema") })
+      ).toMatchObject({ type: "error", value: expect.stringContaining("工具为输出 Schema 返回了无效值") })
     }),
   )
 
@@ -353,7 +380,7 @@ describe("ToolRegistry", () => {
 
       expect((yield* materialized.settle(call("echo"))).result).toEqual({
         type: "error",
-        value: "Stale tool call: echo",
+        value: "过期的工具调用：echo",
       })
     }),
   )
@@ -367,7 +394,7 @@ describe("ToolRegistry", () => {
 
       expect((yield* materialized.settle(call("first"))).result).toEqual({
         type: "error",
-        value: "Stale tool call: first",
+        value: "过期的工具调用：first",
       })
       expect((yield* materialized.settle(call("second"))).result).toEqual({ type: "text", value: "second" })
     }),
@@ -384,7 +411,7 @@ describe("ToolRegistry", () => {
 
       expect((yield* materialized.settle(call("echo"))).result).toEqual({
         type: "error",
-        value: "Stale tool call: echo",
+        value: "过期的工具调用：echo",
       })
     }),
   )
@@ -399,7 +426,7 @@ describe("ToolRegistry", () => {
 
       expect((yield* materialized.settle(call("echo"))).result).toEqual({
         type: "error",
-        value: "Stale tool call: echo",
+        value: "过期的工具调用：echo",
       })
     }),
   )
@@ -416,7 +443,7 @@ describe("ToolRegistry", () => {
 
       expect((yield* materialized.settle(call("echo"))).result).toEqual({
         type: "error",
-        value: "Stale tool call: echo",
+        value: "过期的工具调用：echo",
       })
     }),
   )

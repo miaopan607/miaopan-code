@@ -16,6 +16,7 @@
 import type { PermissionRequest } from "@miaopan-code/sdk/v2"
 import type { PermissionReply } from "./types"
 import { toolPath, toolPermissionInfo } from "./tool"
+import { UI } from "../../ui"
 
 type Dict = Record<string, unknown>
 
@@ -103,7 +104,7 @@ export function permissionInfo(request: PermissionRequest): PermissionInfo {
     const dir = raw.includes("*") ? raw.slice(0, raw.indexOf("*")).replace(/[\\/]+$/, "") : raw
     return {
       icon: "←",
-      title: `Access external directory ${toolPath(dir, { home: true })}`,
+      title: UI.t("permission.external_directory", { dir: toolPath(dir, { home: true }) }),
       lines: pats.map((item) => `- ${item}`),
     }
   }
@@ -111,35 +112,32 @@ export function permissionInfo(request: PermissionRequest): PermissionInfo {
   if (request.permission === "doom_loop") {
     return {
       icon: "⟳",
-      title: "Continue after repeated failures",
-      lines: ["This keeps the session running despite repeated failures."],
+      title: UI.t("permission.continue_failures"),
+      lines: [UI.t("permission.keep_running")],
     }
   }
 
   return {
     icon: "⚙",
-    title: `Call tool ${request.permission}`,
-    lines: [`Tool: ${request.permission}`],
+    title: UI.t("permission.call_tool", { permission: request.permission }),
+    lines: [UI.t("permission.tool_label", { permission: request.permission })],
   }
 }
 
 export function permissionAlwaysLines(request: PermissionRequest): string[] {
   if (request.always.length === 1 && request.always[0] === "*") {
-    return [`This will allow ${request.permission} until MiaopanCode is restarted.`]
+    return [UI.t("permission.allow_until_restart", { permission: request.permission })]
   }
 
-  return [
-    "This will allow the following patterns until MiaopanCode is restarted.",
-    ...request.always.map((item) => `- ${item}`),
-  ]
+  return [UI.t("permission.allow_patterns_until_restart"), ...request.always.map((item) => `- ${item}`)]
 }
 
 export function permissionLabel(option: PermissionOption): string {
-  if (option === "once") return "Allow once"
-  if (option === "always") return "Allow always"
-  if (option === "reject") return "Reject"
-  if (option === "confirm") return "Confirm"
-  return "Cancel"
+  if (option === "once") return UI.t("permission.allow_once")
+  if (option === "always") return UI.t("permission.allow_always")
+  if (option === "reject") return UI.t("permission.reject")
+  if (option === "confirm") return UI.t("permission.confirm")
+  return UI.t("permission.cancel")
 }
 
 export function permissionReply(requestID: string, reply: PermissionReply["reply"], message?: string): PermissionReply {

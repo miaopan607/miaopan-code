@@ -6,12 +6,15 @@ import { useClipboard } from "../context/clipboard"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { useExit } from "../context/exit"
 import { describeOS, describeTerminal } from "../util/system"
+import { useI18n } from "../context/i18n"
+import type { MessageKey, MessageParameters } from "@miaopan-code/core/i18n"
 
 export function ErrorComponent(props: { error: Error; reset: () => void; mode?: "dark" | "light" }) {
   const term = useTerminalDimensions()
   const exit = useExit()
   const clipboard = useClipboard()
   const [copied, setCopied] = createSignal(false)
+  const i18n = useI18n()
 
   // Safe fallback palette per mode (mirrors theme/assets/miaopan-code.json) since the
   // theme context may be the thing that crashed.
@@ -40,18 +43,23 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
         success: "#7fd88f",
       }
 
-  const message = props.error.message || "An unknown error occurred."
-  const stack = props.error.stack || "No stack trace available."
-  const issueURL = buildIssueURL(message, stack)
+  const message = props.error.message || i18n.t("error.unknown")
+  const stack = props.error.stack || i18n.t("error.no_stack")
+  const issueURL = buildIssueURL(message, stack, i18n.t)
 
   const copyReport = () => {
     void clipboard.write?.(issueURL.toString()).then(() => setCopied(true))
   }
 
   const actions = [
-    { key: "c", label: () => (copied() ? "✓ Copied" : "Copy report"), copy: true, onUse: copyReport },
-    { key: "r", label: () => "Restart", onUse: props.reset },
-    { key: "q", label: () => "Quit", onUse: () => exit() },
+    {
+      key: "c",
+      label: () => (copied() ? `✓ ${i18n.t("error.copied")}` : i18n.t("error.copy_report")),
+      copy: true,
+      onUse: copyReport,
+    },
+    { key: "r", label: () => i18n.t("error.restart"), onUse: props.reset },
+    { key: "q", label: () => i18n.t("error.quit"), onUse: () => exit() },
   ]
   const [selected, setSelected] = createSignal(0)
   const move = (delta: number) => setSelected((prev) => (prev + delta + actions.length) % actions.length)
@@ -108,10 +116,10 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
         {/* Headline */}
         <box flexDirection="column" alignItems="center" flexShrink={0}>
           <text attributes={TextAttributes.BOLD} fg={colors.text}>
-            miaopanCode crashed
+            {i18n.t("error.crashed")}
           </text>
           <Show when={showSubtext()}>
-            <text fg={colors.muted}>An unexpected error stopped the session.</text>
+            <text fg={colors.muted}>{i18n.t("error.unexpected_session")}</text>
           </Show>
         </box>
 
@@ -121,7 +129,7 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
           border
           borderStyle="rounded"
           borderColor={colors.error}
-          title=" Error "
+          title={` ${i18n.t("error.title")} `}
           titleColor={colors.error}
           paddingLeft={2}
           paddingRight={2}
@@ -168,9 +176,9 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
           border
           borderStyle="rounded"
           borderColor={colors.borderSubtle}
-          title=" Stack trace "
+          title={` ${i18n.t("error.stack_trace_title")} `}
           titleColor={colors.muted}
-          bottomTitle=" ↑↓ scroll "
+          bottomTitle={` ${i18n.t("error.scroll_hint")} `}
           bottomTitleAlignment="right"
           paddingLeft={1}
           paddingRight={1}
@@ -187,11 +195,7 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
         {/* Footer */}
         <Show when={showFooter()}>
           <box flexDirection="column" alignItems="center" flexShrink={0}>
-            <text fg={colors.muted}>
-              {copied()
-                ? "Report copied — paste it into a new GitHub issue."
-                : "Copy the report and open a GitHub issue to help us fix this."}
-            </text>
+            <text fg={colors.muted}>{i18n.t(copied() ? "error.report_copied_hint" : "error.report_copy_hint")}</text>
             <text fg={colors.muted}>miaopanCode {InstallationVersion}</text>
           </box>
         </Show>
@@ -200,27 +204,28 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
   )
 }
 
-function buildIssueURL(message: string, stack: string) {
+function buildIssueURL(
+  message: string,
+  stack: string,
+  tr: (key: MessageKey, parameters?: MessageParameters) => string,
+) {
   // Field keys match the ids in .github/ISSUE_TEMPLATE/bug-report.yml so the issue
   // form opens pre-filled. Populating os/terminal/reproduce keeps the report past
   // the contributing-guidelines compliance check, which pushes for system info.
   const url = new URL("https://github.com/miaopan607/miaopan-code/issues/new?template=bug-report.yml")
-  url.searchParams.set("title", `TUI crash: ${message}`)
+  url.searchParams.set("title", tr("error.issue_title", { message }))
   url.searchParams.set("miaopanCode-version", InstallationVersion)
   url.searchParams.set("os", describeOS())
   url.searchParams.set("terminal", describeTerminal())
-  url.searchParams.set(
-    "reproduce",
-    "Reported automatically from the miaopanCode crash screen. If you can, describe what you were doing when it crashed.",
-  )
+  url.searchParams.set("reproduce", tr("error.issue_reproduce"))
 
   // Budget the stack against the fully URL-encoded length (not the raw length) so
   // the final link stays under GitHub's practical limit; flag truncation so a
   // clipped trace is obvious. searchParams.set handles encoding without throwing,
   // so measuring url.toString() is both correct and safe on any input.
   const MAX_URL_LENGTH = 6000
-  const marker = "\n... (truncated)"
-  const head = `The miaopanCode TUI crashed with an unexpected error.\n\n**Error:** ${message}\n\n**Stack trace:**\n`
+  const marker = tr("error.truncated_marker")
+  const head = tr("error.issue_body_head", { message })
   const setBody = (body: string) => url.searchParams.set("description", head + "```\n" + body + "\n```")
 
   setBody(stack)

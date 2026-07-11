@@ -1,5 +1,6 @@
 import type { ChildProcessWithoutNullStreams } from "child_process"
 import { Process } from "@/util/process"
+import { t } from "@miaopan-code/core/i18n"
 
 type Child = Process.Child & ChildProcessWithoutNullStreams
 
@@ -15,7 +16,7 @@ export function spawn(cmd: string, argsOrOpts?: string[] | Process.Options, opts
     stderr: "pipe",
   }) as Child
 
-  if (!proc.stdin || !proc.stdout || !proc.stderr) throw new Error("Process output not available")
+  if (!proc.stdin || !proc.stdout || !proc.stderr) throw new Error(t(cfg?.language, "error.process_output_unavailable"))
 
   return proc
 }

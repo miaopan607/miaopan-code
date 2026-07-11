@@ -2,6 +2,8 @@
 import type { TuiCommand, TuiPluginApi } from "@miaopan-code/plugin/tui"
 import { TuiKeybind } from "../config/keybind"
 import type { DialogContext } from "../ui/dialog"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 const COMMAND_PALETTE_SHOW = "command.palette.show"
 const warned = new Set<string>()
@@ -13,7 +15,7 @@ type LegacyKeybinds = TuiPluginApi["tuiConfig"]["keybinds"]
 
 function warnCommandShim(api: string, replacement: string) {
   // Warn v1 plugins about deprecated `api.command`; remove this shim path in v2.
-  console.warn("[tui.plugin] deprecated TUI plugin API", { api, replacement })
+  console.warn(`[tui.plugin] ${t(Locale.language(), "tui.error.plugin_deprecated_api")}`, { api, replacement })
 }
 
 function createCommandShimDialog(dialog: CommandShimDialog): LegacyDialog {

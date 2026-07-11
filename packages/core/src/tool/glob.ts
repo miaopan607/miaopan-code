@@ -12,16 +12,17 @@ import { PermissionV2 } from "../permission"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "glob"
 
 export const Input = Schema.Struct({
-  pattern: FileSystem.GlobInput.fields.pattern.annotate({ description: "Glob pattern to match files against" }),
+  pattern: FileSystem.GlobInput.fields.pattern.annotate({ description: zh("tool.param.core_glob") }),
   path: RelativePath.pipe(Schema.optional).annotate({
-    description: "Relative directory to search. Defaults to the active Location.",
+    description: zh("tool.param.core_path"),
   }),
   limit: FileSystem.GlobInput.fields.limit.annotate({
-    description: "Maximum results to return",
+    description: zh("tool.param.core_limit"),
   }),
 })
 
@@ -29,8 +30,8 @@ export const Output = Schema.Array(FileSystem.Entry)
 type ModelOutput = typeof Output.Encoded
 
 /** Format raw search results into the concise line-oriented output models expect. */
-export const toModelOutput = (output: ModelOutput) => {
-  const lines = output.length === 0 ? ["No files found"] : output.map((item) => item.path)
+export const toModelOutput = (output: ModelOutput, language?: Language) => {
+  const lines = output.length === 0 ? [t(language, "tool.output.no_files")] : output.map((item) => item.path)
   return lines.join("\n")
 }
 
@@ -45,15 +46,15 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description:
-            "Find files by glob pattern within the active Location. Returns concise relative file resources. Use a relative path to narrow the search and limit to bound the result count.",
+          description: zh("tool.description.core_glob"),
           input: Input,
           output: Output,
-          toModelOutput: ({ output }) => [
+          toModelOutput: ({ output, context }) => [
             {
               type: "text",
               text: toModelOutput(
                 output.map((entry) => ({ ...entry, path: path.resolve(location.directory, entry.path) })),
+                context.language,
               ),
             },
           ],
@@ -90,7 +91,9 @@ const layer = Layer.effectDiscard(
                   ),
                 )
             }).pipe(
-              Effect.mapError(() => new ToolFailure({ message: `Unable to find files matching ${input.pattern}` })),
+              Effect.mapError(
+                () => new ToolFailure({ message: t(context.language, "tool.error.glob", { pattern: input.pattern }) }),
+              ),
             ),
         }),
       })

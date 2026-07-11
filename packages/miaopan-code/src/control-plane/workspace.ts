@@ -18,6 +18,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProjectV2 } from "@miaopan-code/core/project"
 import { Slug } from "@miaopan-code/core/util/slug"
 import { WorkspaceTable } from "@miaopan-code/core/control-plane/workspace.sql"
+import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { getAdapter, registeredAdapters } from "./adapters"
 import { type Target, type WorkspaceInfo, WorkspaceInfo as WorkspaceInfoSchema } from "./types"
 import { WorkspaceV2 } from "@miaopan-code/core/workspace"
@@ -129,8 +130,8 @@ type WaitForSyncError = SyncTimeoutError | SyncAbortedError
 type SyncLoopError = SyncHttpError | HttpClientError.HttpClientError
 
 export interface Interface {
-  readonly create: (input: CreateInput) => Effect.Effect<Info, CreateError>
-  readonly sessionWarp: (input: SessionWarpInput) => Effect.Effect<void, SessionWarpError>
+  readonly create: (input: CreateInput, language?: Language) => Effect.Effect<Info, CreateError>
+  readonly sessionWarp: (input: SessionWarpInput, language?: Language) => Effect.Effect<void, SessionWarpError>
   readonly list: (project: Project.Info) => Effect.Effect<Info[]>
   readonly syncList: (project: Project.Info) => Effect.Effect<void>
   readonly get: (id: WorkspaceV2.ID) => Effect.Effect<Info | undefined>
@@ -142,6 +143,7 @@ export interface Interface {
     state: Record<string, number>,
     signal?: AbortSignal,
     timeout?: number,
+    language?: Language,
   ) => Effect.Effect<void, WaitForSyncError>
   readonly startWorkspaceSyncing: (projectID: ProjectV2.ID) => Effect.Effect<void>
 }
@@ -154,6 +156,7 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const auth = yield* Auth.Service
+    const defaultLanguage = resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
     const session = yield* Session.Service
     const prompt = yield* SessionPrompt.Service
     const http = yield* HttpClient.HttpClient
@@ -193,7 +196,7 @@ const layer = Layer.effect(
       )
       if (response.status < 200 || response.status >= 300) {
         return yield* new SyncHttpError({
-          message: `Workspace sync HTTP failure: ${response.status}`,
+          message: t(defaultLanguage, "error.workspace_sync_http", { status: response.status }),
           status: response.status,
         })
       }
@@ -266,7 +269,7 @@ const layer = Layer.effect(
         const workspace = yield* get(input.workspaceID)
         if (!workspace) return input.fallback
 
-        const target = yield* WorkspaceAdapterRuntime.target(workspace)
+        const target = yield* WorkspaceAdapterRuntime.target(workspace, defaultLanguage)
 
         if (target.type === "local") {
           const store = yield* InstanceStore.Service
@@ -275,7 +278,7 @@ const layer = Layer.effect(
 
         const response = yield* http.execute(input.remote({ workspace, target })).pipe(
           Effect.catch((error) =>
-            Effect.logWarning("workspace target request failed", {
+            Effect.logWarning(t(defaultLanguage, "log.workspace_target_failed"), {
               workspaceID: workspace.id,
               error: errorData(error),
             }).pipe(Effect.as(undefined)),
@@ -284,7 +287,7 @@ const layer = Layer.effect(
         if (!response) return input.fallback
         if (response.status < 200 || response.status >= 300) {
           const body = yield* response.text.pipe(Effect.catch(() => Effect.succeed("")))
-          yield* Effect.logWarning("workspace target request failed", {
+          yield* Effect.logWarning(t(defaultLanguage, "log.workspace_target_failed"), {
             workspaceID: workspace.id,
             status: response.status,
             body,
@@ -296,7 +299,7 @@ const layer = Layer.effect(
         return yield* body.pipe(
           Effect.map((result) => result as A),
           Effect.catch((error) =>
-            Effect.logWarning("workspace target response decode failed", {
+            Effect.logWarning(t(defaultLanguage, "log.workspace_decode_failed"), {
               workspaceID: workspace.id,
               error: errorData(error),
             }).pipe(Effect.as(input.fallback)),
@@ -336,7 +339,7 @@ const layer = Layer.effect(
       if (response.status < 200 || response.status >= 300) {
         const body = yield* response.text
         return yield* new SyncHttpError({
-          message: `Workspace history HTTP failure: ${response.status} ${body}`,
+          message: t(defaultLanguage, "error.workspace_history_http", { status: response.status, body }),
           status: response.status,
           body,
         })
@@ -364,7 +367,7 @@ const layer = Layer.effect(
     })
 
     const syncWorkspaceLoop = Effect.fn("Workspace.syncWorkspaceLoop")(function* (space: Info) {
-      const target = yield* WorkspaceAdapterRuntime.target(space)
+      const target = yield* WorkspaceAdapterRuntime.target(space, defaultLanguage)
 
       if (target.type === "local") return
 
@@ -378,7 +381,7 @@ const layer = Layer.effect(
           Effect.catch((err) =>
             Effect.gen(function* () {
               setStatus(space.id, "error")
-              yield* Effect.logWarning("failed to connect to global sync", {
+              yield* Effect.logWarning(t(defaultLanguage, "log.workspace_global_sync_failed"), {
                 workspace: space.name,
                 error: errorData(err),
               })
@@ -402,7 +405,7 @@ const layer = Layer.effect(
                 const failed = yield* events.replay(payload.syncEvent, { publish: true, ownerID: space.id }).pipe(
                   Effect.as(false),
                   Effect.catchCause((error) =>
-                    Effect.logWarning("failed to replay global event", error).pipe(
+                    Effect.logWarning(t(defaultLanguage, "log.workspace_replay_failed"), error).pipe(
                       Effect.annotateLogs({ workspaceID: space.id }),
                       Effect.as(true),
                     ),
@@ -420,7 +423,7 @@ const layer = Layer.effect(
                   payload: event.payload,
                 })
               } catch (error) {
-                yield* Effect.logWarning("failed to emit global event", {
+                yield* Effect.logWarning(t(defaultLanguage, "log.workspace_emit_failed"), {
                   workspaceID: space.id,
                   error: errorData(error),
                 })
@@ -441,11 +444,11 @@ const layer = Layer.effect(
     const startSync = Effect.fn("Workspace.startSync")(function* (space: Info) {
       if (!flags.experimentalWorkspaces) return
 
-      const target = yield* WorkspaceAdapterRuntime.target(space).pipe(
+      const target = yield* WorkspaceAdapterRuntime.target(space, defaultLanguage).pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
             setStatus(space.id, "error")
-            yield* Effect.logWarning("workspace target failed", {
+            yield* Effect.logWarning(t(defaultLanguage, "log.workspace_target_failed"), {
               workspaceID: space.id,
               error: errorData(error),
             })
@@ -474,7 +477,7 @@ const layer = Layer.effect(
           Effect.catch((error) =>
             Effect.gen(function* () {
               setStatus(space.id, "error")
-              yield* Effect.logWarning("workspace listener failed", {
+              yield* Effect.logWarning(t(defaultLanguage, "log.workspace_listener_failed"), {
                 workspaceID: space.id,
                 error: errorData(error),
               })
@@ -489,9 +492,9 @@ const layer = Layer.effect(
       connections.delete(id)
     })
 
-    const create = Effect.fn("Workspace.create")(function* (input: CreateInput) {
+    const create = Effect.fn("Workspace.create")(function* (input: CreateInput, language: Language = defaultLanguage) {
       const id = WorkspaceV2.ID.ascending(input.id)
-      const adapter = getAdapter(input.projectID, input.type)
+      const adapter = getAdapter(input.projectID, input.type, language)
       const config = yield* WorkspaceAdapterRuntime.configure(adapter, {
         ...input,
         id,
@@ -540,6 +543,7 @@ const layer = Layer.effect(
         [
           waitEvent({
             timeout: TIMEOUT,
+            language,
             fn(event) {
               if (event.workspace === info.id && event.payload.type === Event.Status.type) {
                 const { status } = event.payload.properties
@@ -556,7 +560,10 @@ const layer = Layer.effect(
       return info
     })
 
-    const sessionWarp = Effect.fn("Workspace.sessionWarp")(function* (input: SessionWarpInput) {
+    const sessionWarp = Effect.fn("Workspace.sessionWarp")(function* (
+      input: SessionWarpInput,
+      language: Language = defaultLanguage,
+    ) {
       return yield* Effect.gen(function* () {
         const current = yield* db
           .select({ workspaceID: SessionTable.workspace_id })
@@ -568,12 +575,12 @@ const layer = Layer.effect(
         if (current?.workspaceID) {
           const previous = yield* get(current.workspaceID)
           if (previous) {
-            const target = yield* WorkspaceAdapterRuntime.target(previous)
+            const target = yield* WorkspaceAdapterRuntime.target(previous, language)
 
             if (target.type === "remote") {
               yield* syncHistory(previous, target.url, target.headers).pipe(
                 Effect.catch((error) =>
-                  Effect.logWarning("session warp final source sync failed", {
+                  Effect.logWarning(t(language, "log.workspace_source_sync_failed"), {
                     workspaceID: previous.id,
                     sessionID: input.sessionID,
                     error: errorData(error),
@@ -630,11 +637,11 @@ const layer = Layer.effect(
         const space = yield* get(workspaceID)
         if (!space)
           return yield* new WorkspaceNotFoundError({
-            message: `Workspace not found: ${workspaceID}`,
+            message: t(language, "error.workspace_not_found", { id: workspaceID }),
             workspaceID,
           })
 
-        const target = yield* WorkspaceAdapterRuntime.target(space)
+        const target = yield* WorkspaceAdapterRuntime.target(space, language)
 
         if (target.type === "local") {
           yield* session.setWorkspace({ sessionID: input.sessionID, workspaceID: input.workspaceID })
@@ -657,7 +664,7 @@ const layer = Layer.effect(
           .pipe(Effect.orDie)
         if (rows.length === 0)
           return yield* new SessionEventsNotFoundError({
-            message: `No events found for session: ${input.sessionID}`,
+            message: t(language, "error.session_events_not_found", { id: input.sessionID }),
             sessionID: input.sessionID,
           })
 
@@ -681,7 +688,12 @@ const layer = Layer.effect(
               if (response.status < 200 || response.status >= 300) {
                 const body = yield* response.text
                 return yield* new SessionWarpHttpError({
-                  message: `Failed to warp session ${input.sessionID} into workspace ${workspaceID}: HTTP ${response.status} ${body}`,
+                  message: t(language, "error.workspace_warp_http", {
+                    sessionID: input.sessionID,
+                    workspaceID,
+                    status: response.status,
+                    body,
+                  }),
                   workspaceID,
                   sessionID: input.sessionID,
                   status: response.status,
@@ -701,7 +713,12 @@ const layer = Layer.effect(
         if (response.status < 200 || response.status >= 300) {
           const body = yield* response.text
           return yield* new SessionWarpHttpError({
-            message: `Failed to steal session ${input.sessionID} into workspace ${workspaceID}: HTTP ${response.status} ${body}`,
+            message: t(language, "error.workspace_steal_http", {
+              sessionID: input.sessionID,
+              workspaceID,
+              status: response.status,
+              body,
+            }),
             workspaceID,
             sessionID: input.sessionID,
             status: response.status,
@@ -727,11 +744,13 @@ const layer = Layer.effect(
     const syncList = Effect.fn("Workspace.syncList")(function* (project: Project.Info) {
       const names = new Set((yield* list(project)).map((workspace) => workspace.name))
       const discovered = yield* Effect.forEach(
-        registeredAdapters(project.id),
+        registeredAdapters(project.id, defaultLanguage),
         ([type, adapter]) =>
           WorkspaceAdapterRuntime.list(adapter).pipe(
             Effect.catchCause((error) =>
-              Effect.logWarning("workspace adapter list failed", { type, error }).pipe(Effect.as([])),
+              Effect.logWarning(t(defaultLanguage, "log.workspace_adapter_list_failed"), { type, error }).pipe(
+                Effect.as([]),
+              ),
             ),
           ),
         { concurrency: "unbounded" },
@@ -805,9 +824,9 @@ const layer = Layer.effect(
       const info = fromRow(row)
       yield* Effect.catchCause(
         Effect.gen(function* () {
-          yield* WorkspaceAdapterRuntime.remove(info)
+          yield* WorkspaceAdapterRuntime.remove(info, defaultLanguage)
         }),
-        () => Effect.logError("adapter not available when removing workspace", { type: row.type }),
+        () => Effect.logError(t(defaultLanguage, "log.workspace_adapter_missing"), { type: row.type }),
       )
 
       yield* db.delete(WorkspaceTable).where(eq(WorkspaceTable.id, id)).run().pipe(Effect.orDie)
@@ -828,22 +847,24 @@ const layer = Layer.effect(
       state: Record<string, number>,
       signal?: AbortSignal,
       timeout = TIMEOUT,
+      language: Language = defaultLanguage,
     ) {
       if (yield* synced(db, state)) return
 
       yield* Effect.catch(
-        waitUntilSynced({ db, workspaceID, state, signal, timeout }),
+        waitUntilSynced({ db, workspaceID, state, signal, timeout, language }),
         (): Effect.Effect<never, WaitForSyncError> =>
           signal?.aborted
             ? Effect.fail(
                 new SyncAbortedError({
-                  message: signal.reason instanceof Error ? signal.reason.message : "Request aborted",
+                  message:
+                    signal.reason instanceof Error ? signal.reason.message : t(language, "error.request_aborted"),
                   cause: signal.reason,
                 }),
               )
             : Effect.fail(
                 new SyncTimeoutError({
-                  message: `Timed out waiting for sync fence: ${JSON.stringify(state)}`,
+                  message: t(language, "error.sync_fence_timeout", { state: JSON.stringify(state) }),
                   state,
                 }),
               ),
@@ -901,11 +922,13 @@ function waitUntilSynced(input: {
   state: Record<string, number>
   signal?: AbortSignal
   timeout: number
+  language: Language
 }): Effect.Effect<void, unknown> {
   return Effect.suspend(() =>
     waitEvent({
       timeout: input.timeout,
       signal: input.signal,
+      language: input.language,
       fn(event) {
         return event.workspace === input.workspaceID || event.payload.type === "sync"
       },

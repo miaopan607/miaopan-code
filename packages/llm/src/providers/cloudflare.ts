@@ -4,6 +4,7 @@ import { Auth } from "../route/auth"
 import { AuthOptions, type AtLeastOne, type ProviderAuthOption } from "../route/auth-options"
 import type { RouteDefaultsInput } from "../route/client"
 import { ProviderID, type ModelID } from "../schema"
+import { t, type Language } from "../i18n"
 
 export const aiGatewayID = ProviderID.make("cloudflare-ai-gateway")
 export const workersAIID = ProviderID.make("cloudflare-workers-ai")
@@ -17,6 +18,7 @@ type GatewayURL = AtLeastOne<{
   readonly baseURL: string
 }> & {
   readonly gatewayId?: string
+  readonly language?: Language
 }
 
 export type AIGatewayOptions = GatewayURL &
@@ -29,13 +31,14 @@ export type AIGatewayOptions = GatewayURL &
 type WorkersAIURL = AtLeastOne<{
   readonly accountId: string
   readonly baseURL: string
-}>
+}> & { readonly language?: Language }
 
 export type WorkersAIOptions = WorkersAIURL & RouteDefaultsInput & ProviderAuthOption<"optional">
 
 export const aiGatewayBaseURL = (input: GatewayURL) => {
   if (input.baseURL) return input.baseURL
-  if (!input.accountId) throw new Error("CloudflareAIGateway.configure requires accountId unless baseURL is supplied")
+  if (!input.accountId)
+    throw new Error(t(input.language, "llm.cloudflare.account_required", { provider: "CloudflareAIGateway" }))
   return `https://gateway.ai.cloudflare.com/v1/${encodeURIComponent(input.accountId)}/${encodeURIComponent(input.gatewayId?.trim() || "default")}/compat`
 }
 
@@ -52,7 +55,8 @@ const aiGatewayAuth = (input: AIGatewayOptions) => {
 
 export const workersAIBaseURL = (input: WorkersAIURL) => {
   if (input.baseURL) return input.baseURL
-  if (!input.accountId) throw new Error("CloudflareWorkersAI.configure requires accountId unless baseURL is supplied")
+  if (!input.accountId)
+    throw new Error(t(input.language, "llm.cloudflare.account_required", { provider: "CloudflareWorkersAI" }))
   return `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(input.accountId)}/ai/v1`
 }
 
@@ -80,13 +84,21 @@ const aiGatewayDefaults = (options: AIGatewayOptions) => {
     gatewayApiKey: _gatewayApiKey,
     baseURL: _baseURL,
     auth: _auth,
+    language: _language,
     ...rest
   } = options
   return rest
 }
 
 const workersAIDefaults = (options: WorkersAIOptions) => {
-  const { accountId: _accountId, apiKey: _apiKey, auth: _auth, baseURL: _baseURL, ...rest } = options
+  const {
+    accountId: _accountId,
+    apiKey: _apiKey,
+    auth: _auth,
+    baseURL: _baseURL,
+    language: _language,
+    ...rest
+  } = options
   return rest
 }
 
@@ -98,7 +110,7 @@ const configureAIGateway = (options: AIGatewayOptions) => {
   })
   return {
     id: aiGatewayID,
-    model: (modelID: string | ModelID) => route.model({ id: modelID }),
+    model: (modelID: string | ModelID) => route.model({ id: modelID, language: options.language }),
     configure: configureAIGateway,
   }
 }
@@ -111,7 +123,7 @@ const configureWorkersAI = (options: WorkersAIOptions) => {
   })
   return {
     id: workersAIID,
-    model: (modelID: string | ModelID) => route.model({ id: modelID }),
+    model: (modelID: string | ModelID) => route.model({ id: modelID, language: options.language }),
     configure: configureWorkersAI,
   }
 }

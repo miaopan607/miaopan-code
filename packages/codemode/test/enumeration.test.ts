@@ -22,7 +22,7 @@ const tools = {
   playwright: { navigate: echo("Navigate somewhere") },
 }
 
-const run = (code: string) => Effect.runPromise(CodeMode.execute({ tools, code }))
+const run = (code: string) => Effect.runPromise(CodeMode.execute({ language: "en", tools, code }))
 const value = async (code: string) => {
   const result = await run(code)
   if (!result.ok) throw new Error(`expected success, got ${result.error.kind}: ${result.error.message}`)

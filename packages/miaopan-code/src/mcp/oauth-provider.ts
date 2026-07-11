@@ -1,4 +1,5 @@
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import type {
   OAuthClientMetadata,
   OAuthTokens,
@@ -30,6 +31,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
     protected config: McpOAuthConfig,
     private callbacks: McpOAuthCallbacks,
     protected auth: McpAuth.Interface,
+    protected language?: Language,
   ) {}
 
   get redirectUrl(): string {
@@ -135,7 +137,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
   async codeVerifier(): Promise<string> {
     const entry = await Effect.runPromise(this.auth.get(this.mcpName))
     if (!entry?.codeVerifier) {
-      throw new Error(`No code verifier saved for MCP server: ${this.mcpName}`)
+      throw new Error(t(this.language, "error.mcp_code_verifier_missing", { name: this.mcpName }))
     }
     return entry.codeVerifier
   }

@@ -9,11 +9,6 @@ import { Truncate } from "@/tool/truncate"
 import { Auth } from "../auth"
 import { ProviderTransform } from "@/provider/transform"
 
-import PROMPT_GENERATE from "./generate.txt"
-import PROMPT_COMPACTION from "./prompt/compaction.txt"
-import PROMPT_EXPLORE from "./prompt/explore.txt"
-import PROMPT_SUMMARY from "./prompt/summary.txt"
-import PROMPT_TITLE from "./prompt/title.txt"
 import { Permission } from "@/permission"
 import { mergeDeep, pipe, sortBy, values } from "remeda"
 import { Global } from "@miaopan-code/core/global"
@@ -27,10 +22,12 @@ import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { AbsolutePath, type DeepMutable } from "@miaopan-code/core/schema"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { t } from "@miaopan-code/core/i18n"
 import { LocationServiceMap, locationServiceMapLayer } from "@miaopan-code/core/location-services"
 import { Reference } from "@miaopan-code/core/reference"
 import { Location } from "@miaopan-code/core/location"
 import { PluginV2 } from "@miaopan-code/core/plugin"
+import { PromptI18n } from "@/i18n/prompt"
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -140,7 +137,7 @@ const layer = Layer.effect(
         const agents: Record<string, Info> = {
           build: {
             name: "build",
-            description: "The default agent. Executes tools based on configured permissions.",
+            description: t(cfg.language, "agent.build_description"),
             options: {},
             permission: Permission.merge(
               defaults,
@@ -155,7 +152,7 @@ const layer = Layer.effect(
           },
           plan: {
             name: "plan",
-            description: "Plan mode. Disallows all edit tools.",
+            description: t(cfg.language, "agent.plan_description"),
             options: {},
             permission: Permission.merge(
               defaults,
@@ -181,7 +178,7 @@ const layer = Layer.effect(
           },
           general: {
             name: "general",
-            description: `General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.`,
+            description: t(cfg.language, "agent.general_description"),
             permission: Permission.merge(
               defaults,
               Permission.fromConfig({
@@ -210,8 +207,8 @@ const layer = Layer.effect(
               }),
               user,
             ),
-            description: `Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.`,
-            prompt: PROMPT_EXPLORE,
+            description: t(cfg.language, "agent.explore_description"),
+            prompt: PromptI18n.text(cfg.language, "agent.explore"),
             options: {},
             mode: "subagent",
             native: true,
@@ -221,7 +218,7 @@ const layer = Layer.effect(
             mode: "primary",
             native: true,
             hidden: true,
-            prompt: PROMPT_COMPACTION,
+            prompt: PromptI18n.text(cfg.language, "agent.compaction"),
             permission: Permission.merge(
               defaults,
               Permission.fromConfig({
@@ -245,7 +242,7 @@ const layer = Layer.effect(
               }),
               user,
             ),
-            prompt: PROMPT_TITLE,
+            prompt: PromptI18n.text(cfg.language, "agent.title"),
           },
           summary: {
             name: "summary",
@@ -260,7 +257,7 @@ const layer = Layer.effect(
               }),
               user,
             ),
-            prompt: PROMPT_SUMMARY,
+            prompt: PromptI18n.text(cfg.language, "agent.summary"),
           },
         }
 
@@ -329,13 +326,17 @@ const layer = Layer.effect(
           const c = yield* config.get()
           if (c.default_agent) {
             const agent = agents[c.default_agent]
-            if (!agent) throw new Error(`default agent "${c.default_agent}" not found`)
-            if (agent.mode === "subagent") throw new Error(`default agent "${c.default_agent}" is a subagent`)
-            if (agent.hidden === true) throw new Error(`default agent "${c.default_agent}" is hidden`)
+            if (!agent) throw new Error(t(c.language, "error.agent_default_missing", { agent: c.default_agent }))
+            if (agent.mode === "subagent") {
+              throw new Error(t(c.language, "error.agent_default_subagent", { agent: c.default_agent }))
+            }
+            if (agent.hidden === true) {
+              throw new Error(t(c.language, "error.agent_default_hidden", { agent: c.default_agent }))
+            }
             return agent
           }
           const visible = Object.values(agents).find((a) => a.mode !== "subagent" && a.hidden !== true)
-          if (!visible) throw new Error("no primary visible agent found")
+          if (!visible) throw new Error(t(c.language, "error.agent_primary_missing"))
           return visible
         })
 
@@ -377,7 +378,7 @@ const layer = Layer.effect(
           ? Option.getOrUndefined(yield* Effect.serviceOption(OtelTracer.OtelTracer))
           : undefined
 
-        const system = [PROMPT_GENERATE]
+        const system = [PromptI18n.text(cfg.language, "agent.generate")]
         yield* plugin.trigger("experimental.chat.system.transform", { model: resolved }, { system })
         const existing = yield* InstanceState.useEffect(state, (s) => s.list())
 
@@ -405,7 +406,10 @@ const layer = Layer.effect(
                 )),
             {
               role: "user",
-              content: `Create an agent configuration based on this request: "${input.description}".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
+              content: t(cfg.language, "prompt.generate_agent_request", {
+                description: input.description,
+                existing: existing.map((i) => i.name).join(", "),
+              }),
             },
           ],
           model: language,

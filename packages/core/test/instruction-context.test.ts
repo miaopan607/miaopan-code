@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect"
 import fs from "fs/promises"
 import path from "path"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
+import { Config } from "@miaopan-code/core/config"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { Global } from "@miaopan-code/core/global"
@@ -19,10 +20,25 @@ const it = testEffect(Layer.empty)
 
 const instructionLayer = (input: {
   config: string
+  language?: "zh-CN" | "en"
   locationServiceLayer: Layer.Layer<Location.Service>
   filesystemLayer?: Layer.Layer<FSUtil.Service>
 }) =>
   AppNodeBuilder.build(LayerNode.group([SystemContextRegistry.node, InstructionContext.node]), [
+    [
+      Config.node,
+      Layer.succeed(
+        Config.Service,
+        Config.Service.of({
+          entries: () =>
+            Effect.succeed(
+              input.language
+                ? [new Config.Document({ type: "document", info: new Config.Info({ language: input.language }) })]
+                : [],
+            ),
+        }),
+      ),
+    ],
     [Global.node, Global.layerWith({ config: input.config })],
     [Location.node, input.locationServiceLayer],
     ...(input.filesystemLayer ? [[FSUtil.node, input.filesystemLayer] as const] : []),
@@ -73,9 +89,9 @@ describe("InstructionContext", () => {
           const initialized = yield* SystemContext.initialize(yield* load)
           expect(initialized.baseline).toBe(
             [
-              `Instructions from: ${globalFile}\nglobal`,
-              `Instructions from: ${packageFile}\npackage`,
-              `Instructions from: ${projectFile}\nproject`,
+              `来自 ${globalFile} 的指令：\nglobal`,
+              `来自 ${packageFile} 的指令：\npackage`,
+              `来自 ${projectFile} 的指令：\nproject`,
             ].join("\n\n"),
           )
           expect(initialized.baseline).not.toContain("outside")
@@ -83,7 +99,7 @@ describe("InstructionContext", () => {
           yield* Effect.promise(() => fs.writeFile(packageFile, "changed"))
           expect(yield* SystemContext.reconcile(yield* load, initialized.snapshot)).toMatchObject({
             _tag: "Updated",
-            text: expect.stringContaining(`Instructions from: ${packageFile}\nchanged`),
+            text: expect.stringContaining(`来自 ${packageFile} 的指令：\nchanged`),
           })
 
           yield* Effect.promise(() => fs.rm(packageFile))
@@ -91,9 +107,9 @@ describe("InstructionContext", () => {
           expect(partial).toEqual({
             _tag: "Updated",
             text: [
-              "These instructions replace all previously loaded ambient instructions.",
-              `Instructions from: ${globalFile}\nglobal`,
-              `Instructions from: ${projectFile}\nproject`,
+              "这些指令替换此前加载的全部环境指令。",
+              `来自 ${globalFile} 的指令：\nglobal`,
+              `来自 ${projectFile} 的指令：\nproject`,
             ].join("\n\n"),
             snapshot: expect.any(Object),
           })
@@ -101,7 +117,7 @@ describe("InstructionContext", () => {
           yield* Effect.promise(() => Promise.all([fs.rm(globalFile), fs.rm(projectFile)]))
           expect(yield* SystemContext.reconcile(yield* load, initialized.snapshot)).toEqual({
             _tag: "Updated",
-            text: "Previously loaded instructions no longer apply.",
+            text: "此前加载的指令不再适用。",
             snapshot: {},
           })
         }),
@@ -131,7 +147,36 @@ describe("InstructionContext", () => {
             ),
           )
 
-          expect((yield* SystemContext.initialize(context)).baseline).toBe(`Instructions from: ${file}\n`)
+          expect((yield* SystemContext.initialize(context)).baseline).toBe(`来自 ${file} 的指令：\n`)
+        }),
+      ),
+    ),
+  )
+
+  it.live("renders English instruction context when configured", () =>
+    Effect.acquireRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ).pipe(
+      Effect.flatMap((tmp) =>
+        Effect.gen(function* () {
+          const file = path.join(tmp.path, "AGENTS.md")
+          yield* Effect.promise(() => fs.writeFile(file, "Be precise."))
+          const context = yield* SystemContextRegistry.Service.pipe(
+            Effect.flatMap((service) => service.load()),
+            Effect.provide(
+              instructionLayer({
+                config: path.join(tmp.path, "global"),
+                language: "en",
+                locationServiceLayer: Layer.succeed(
+                  Location.Service,
+                  Location.Service.of(location({ directory: AbsolutePath.make(tmp.path) })),
+                ),
+              }),
+            ),
+          )
+
+          expect((yield* SystemContext.initialize(context)).baseline).toBe(`Instructions from: ${file}\nBe precise.`)
         }),
       ),
     ),

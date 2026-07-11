@@ -5,6 +5,8 @@ export { Authorization } from "@miaopan-code/protocol/middleware/authorization"
 import { hasPtyConnectTicketURL } from "@miaopan-code/protocol/groups/pty"
 import { Effect, Encoding, Layer, Redacted } from "effect"
 import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
 const AUTH_TOKEN_QUERY = "auth_token"
 const WWW_AUTHENTICATE = 'Basic realm="Secure Area"'
@@ -43,6 +45,7 @@ export const authorizationLayer = Layer.effect(
     return Authorization.of((effect) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
+        const language = yield* requestLanguage()
         // Browsers cannot set headers on WebSocket upgrades, so a ticketed PTY connect skips
         // credential checks here; the connect handler consumes and validates the ticket.
         if (hasPtyConnectTicketURL(new URL(request.url, "http://localhost"))) return yield* effect
@@ -51,7 +54,7 @@ export const authorizationLayer = Layer.effect(
         yield* HttpEffect.appendPreResponseHandler((_request, response) =>
           Effect.succeed(HttpServerResponse.setHeader(response, "www-authenticate", WWW_AUTHENTICATE)),
         )
-        return yield* new UnauthorizedError({ message: "Authentication required" })
+        return yield* new UnauthorizedError({ message: t(language, "error.auth_required") })
       }),
     )
   }),

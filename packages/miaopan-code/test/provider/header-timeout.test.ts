@@ -13,6 +13,7 @@ import { Env } from "@/env"
 import { Plugin } from "@/plugin"
 import { Provider } from "@/provider/provider"
 import { ProviderError } from "@/provider/error"
+import { t } from "@miaopan-code/core/i18n"
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -105,7 +106,7 @@ it.live("headerTimeout aborts when response headers do not arrive", () =>
             }
             return errors
           })
-          expect(errors.join("\n")).toContain("response headers timed out")
+          expect(errors.join("\n")).toContain(t("zh-CN", "error.provider_headers_timeout", { ms: 50 }))
         }),
       { config: providerConfig(server.url, { headerTimeout: 50 }) },
     )

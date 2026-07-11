@@ -10,6 +10,7 @@ import { ModelV2 } from "../../model"
 import { OauthCallbackPage } from "../../oauth/page"
 import { ProviderV2 } from "../../provider"
 import type { PluginInternal } from "../internal"
+import { zh } from "../../i18n"
 
 const clientID = "app_EMoamEEZ73f0CkXaXp7hrann"
 const issuer = "https://auth.openai.com"
@@ -41,7 +42,7 @@ const browser = {
   method: {
     id: browserMethodID,
     type: "oauth",
-    label: "ChatGPT Pro/Plus (browser)",
+    label: zh("plugin.codex.browser"),
   },
   authorize: () =>
     Effect.gen(function* () {
@@ -52,7 +53,7 @@ const browser = {
       const server = createServer((request, response) => {
         const url = new URL(request.url ?? "/", `http://localhost:${callbackPort}`)
         if (url.pathname !== "/auth/callback") {
-          response.writeHead(404).end("Not found")
+          response.writeHead(404).end(zh("error.oauth_not_found"))
           return
         }
         const error = url.searchParams.get("error_description") ?? url.searchParams.get("error")
@@ -65,7 +66,7 @@ const browser = {
           return
         }
         if (!value || url.searchParams.get("state") !== state) {
-          const message = value ? "Invalid OAuth state" : "Missing authorization code"
+          const message = value ? zh("plugin.codex.invalid_oauth_state") : zh("plugin.codex.authorization_code_missing")
           Effect.runFork(Deferred.fail(code, new Error(message)))
           response
             .writeHead(400, { "Content-Type": "text/html" })
@@ -83,7 +84,7 @@ const browser = {
       return {
         mode: "auto" as const,
         url: authorizeURL(redirect, pkce, state),
-        instructions: "Complete authorization in your browser. This window will close automatically.",
+        instructions: zh("plugin.codex.browser_instructions"),
         callback: Deferred.await(code).pipe(
           Effect.flatMap((value) => exchange(value, redirect, pkce)),
           Effect.map((tokens) => credential(browserMethodID, tokens)),
@@ -98,7 +99,7 @@ const headless = {
   method: {
     id: headlessMethodID,
     type: "oauth",
-    label: "ChatGPT Pro/Plus (headless)",
+    label: zh("plugin.codex.headless"),
   },
   authorize: () =>
     Effect.gen(function* () {
@@ -114,7 +115,7 @@ const headless = {
       return {
         mode: "auto" as const,
         url: `${issuer}/codex/device`,
-        instructions: `Enter code: ${device.user_code}`,
+        instructions: zh("plugin.codex.enter_code", { code: device.user_code }),
         callback: Effect.gen(function* () {
           while (true) {
             const response = yield* Effect.tryPromise({
@@ -141,7 +142,9 @@ const headless = {
               )
             }
             if (response.status !== 403 && response.status !== 404) {
-              return yield* Effect.fail(new Error(`Device authorization failed: ${response.status}`))
+              return yield* Effect.fail(
+                new Error(zh("plugin.codex.device_authorization_failed", { status: response.status })),
+              )
             }
             yield* Effect.sleep(interval + pollingSafetyMargin)
           }
@@ -227,7 +230,7 @@ function request<A>(url: string, init: RequestInit) {
   return Effect.tryPromise({
     try: async (signal) => {
       const response = await fetch(url, { ...init, signal })
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(zh("error.request_failed_status", { status: response.status }))
       return response.json() as Promise<A>
     },
     catch: (cause) => cause,

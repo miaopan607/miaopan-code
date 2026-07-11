@@ -9,6 +9,7 @@ import { Glob } from "./util/glob"
 import { serviceUse } from "./effect/service-use"
 import { makeGlobalNode } from "./effect/app-node"
 import { filesystem } from "./effect/app-node-platform"
+import { zh } from "./i18n"
 
 export namespace FSUtil {
   export class FileSystemError extends Schema.TaggedErrorClass<FileSystemError>()("FileSystemError", {
@@ -17,7 +18,7 @@ export namespace FSUtil {
   }) {
     override get message() {
       const detail = this.cause instanceof Error ? this.cause.message : this.cause && String(this.cause)
-      return `Filesystem operation failed: ${this.method}${detail ? `: ${detail}` : ""}`
+      return zh("error.filesystem_operation", { method: this.method, detail: detail ? `: ${detail}` : "" })
     }
   }
 

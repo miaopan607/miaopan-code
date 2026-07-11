@@ -185,7 +185,7 @@ describe("SystemContext", () => {
       ).pipe(Effect.exit)
 
       expect(Exit.isFailure(exit)).toBe(true)
-      if (Exit.isFailure(exit)) expect(Cause.pretty(exit.cause)).toContain("rendered an empty baseline")
+      if (Exit.isFailure(exit)) expect(Cause.pretty(exit.cause)).toContain("渲染了空的 baseline")
     }),
   )
 

@@ -4,6 +4,7 @@ import { Effect, Layer, Record, Result, Schema, Context } from "effect"
 import { NonNegativeInt } from "@miaopan-code/core/schema"
 import { Global } from "@miaopan-code/core/global"
 import { FSUtil } from "@miaopan-code/core/fs-util"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export const OAUTH_DUMMY_KEY = "miaopanCode-oauth-dummy-key"
 
@@ -43,8 +44,8 @@ export class AuthError extends Schema.TaggedErrorClass<AuthError>()("AuthError",
 export interface Interface {
   readonly get: (providerID: string) => Effect.Effect<Info | undefined, AuthError>
   readonly all: () => Effect.Effect<Record<string, Info>, AuthError>
-  readonly set: (key: string, info: Info) => Effect.Effect<void, AuthError>
-  readonly remove: (key: string) => Effect.Effect<void, AuthError>
+  readonly set: (key: string, info: Info, language?: Language) => Effect.Effect<void, AuthError>
+  readonly remove: (key: string, language?: Language) => Effect.Effect<void, AuthError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/Auth") {}
@@ -70,22 +71,22 @@ const layer = Layer.effect(
       return (yield* all())[providerID]
     })
 
-    const set = Effect.fn("Auth.set")(function* (key: string, info: Info) {
+    const set = Effect.fn("Auth.set")(function* (key: string, info: Info, language?: Language) {
       const norm = key.replace(/\/+$/, "")
       const data = yield* all()
       if (norm !== key) delete data[key]
       delete data[norm + "/"]
       yield* fsys
         .writeJson(file, { ...data, [norm]: info }, 0o600)
-        .pipe(Effect.mapError(fail("Failed to write auth data")))
+        .pipe(Effect.mapError(fail(t(language, "error.auth_write_data"))))
     })
 
-    const remove = Effect.fn("Auth.remove")(function* (key: string) {
+    const remove = Effect.fn("Auth.remove")(function* (key: string, language?: Language) {
       const norm = key.replace(/\/+$/, "")
       const data = yield* all()
       delete data[key]
       delete data[norm]
-      yield* fsys.writeJson(file, data, 0o600).pipe(Effect.mapError(fail("Failed to write auth data")))
+      yield* fsys.writeJson(file, data, 0o600).pipe(Effect.mapError(fail(t(language, "error.auth_write_data"))))
     })
 
     return Service.of({ get, all, set, remove })

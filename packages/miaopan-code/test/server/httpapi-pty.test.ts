@@ -11,6 +11,7 @@ import * as Socket from "effect/unstable/socket/Socket"
 import { HttpApiApp } from "../../src/server/routes/instance/httpapi/server"
 import { Pty } from "@miaopan-code/core/pty"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const testPty = process.platform === "win32" ? test.skip : test
 
@@ -112,7 +113,7 @@ describe("pty HttpApi bridge", () => {
     expect(await missing.json()).toEqual({
       _tag: "PtyNotFoundError",
       ptyID: info.id,
-      message: `PTY session not found: ${info.id}`,
+      message: t(undefined, "error.pty_not_found", { id: info.id }),
     })
 
     const missingUpdate = await app().request(PtyPaths.update.replace(":ptyID", info.id), {
@@ -124,7 +125,7 @@ describe("pty HttpApi bridge", () => {
     expect(await missingUpdate.json()).toEqual({
       _tag: "PtyNotFoundError",
       ptyID: info.id,
-      message: `PTY session not found: ${info.id}`,
+      message: t(undefined, "error.pty_not_found", { id: info.id }),
     })
 
     const missingRemove = await app().request(PtyPaths.remove.replace(":ptyID", info.id), { method: "DELETE", headers })
@@ -132,7 +133,7 @@ describe("pty HttpApi bridge", () => {
     expect(await missingRemove.json()).toEqual({
       _tag: "PtyNotFoundError",
       ptyID: info.id,
-      message: `PTY session not found: ${info.id}`,
+      message: t(undefined, "error.pty_not_found", { id: info.id }),
     })
   })
 
@@ -203,7 +204,7 @@ describe("pty HttpApi bridge", () => {
     const expected = {
       _tag: "PtyNotFoundError",
       ptyID: missingID,
-      message: `PTY session not found: ${missingID}`,
+      message: t(undefined, "error.pty_not_found", { id: missingID }),
     }
 
     const found = await app().request(PtyPaths.get.replace(":ptyID", missingID), { headers })
@@ -235,7 +236,7 @@ describe("pty HttpApi bridge", () => {
     expect(forbidden.status).toBe(403)
     expect(await forbidden.json()).toEqual({
       _tag: "PtyForbiddenError",
-      message: "Invalid PTY connect token request",
+      message: t(undefined, "error.invalid_pty_token_request"),
     })
 
     const missing = await app().request(PtyPaths.connectToken.replace(":ptyID", missingID), {
@@ -249,7 +250,7 @@ describe("pty HttpApi bridge", () => {
     expect(await missing.json()).toEqual({
       _tag: "PtyNotFoundError",
       ptyID: missingID,
-      message: `PTY session not found: ${missingID}`,
+      message: t(undefined, "error.pty_not_found", { id: missingID }),
     })
   })
   ;(process.platform === "win32" ? effectIt.live.skip : effectIt.live)(

@@ -4,6 +4,8 @@ import { useTheme } from "../context/theme"
 import { useTerminalDimensions } from "@opentui/solid"
 import { SplitBorder } from "./border"
 import { TextAttributes } from "@opentui/core"
+import { t } from "@miaopan-code/core/i18n"
+import { language } from "../util/locale"
 export type ToastOptions = {
   title?: string
   message: string
@@ -74,7 +76,7 @@ function init() {
         })
       toast.show({
         variant: "error",
-        message: "An unknown error has occurred",
+        message: t(language(), "tui.unknown_error"),
       })
     },
     get currentToast(): ToastOptions | null {
@@ -96,7 +98,7 @@ export function ToastProvider(props: ParentProps) {
 export function useToast() {
   const value = useContext(ctx)
   if (!value) {
-    throw new Error("useToast must be used within a ToastProvider")
+    throw new Error(t(language(), "tui.error.toast_provider_missing"))
   }
   return value
 }

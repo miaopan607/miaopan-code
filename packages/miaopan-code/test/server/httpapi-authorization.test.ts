@@ -11,6 +11,8 @@ import {
   serverAuthorizationLayer,
 } from "../../src/server/routes/instance/httpapi/middleware/authorization"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
+import { I18n } from "@miaopan-code/core/i18n"
 
 const Api = HttpApi.make("test-authorization").add(
   HttpApiGroup.make("test")
@@ -168,7 +170,7 @@ describe("HttpApi authorization middleware", () => {
 
       expect(response.status).toBe(401)
       expect(response.headers["www-authenticate"] ?? "").toContain("Basic")
-      expect(body).toEqual({ _tag: "UnauthorizedError", message: "Authentication required" })
+      expect(body).toEqual({ _tag: "UnauthorizedError", message: I18n.t(undefined, "error.auth_required") })
     }),
   )
 })

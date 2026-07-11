@@ -1,5 +1,5 @@
 import { PermissionV1 } from "@miaopan-code/core/v1/permission"
-import { afterEach, describe, expect } from "bun:test"
+import { describe, expect } from "bun:test"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { Cause, Effect, Exit, Layer, Stream } from "effect"
 import path from "path"
@@ -17,21 +17,12 @@ import { Instruction } from "../../src/session/instruction"
 import { ReadTool } from "../../src/tool/read"
 import { Truncate } from "@/tool/truncate"
 import { Tool } from "@/tool/tool"
+import { zh } from "@miaopan-code/core/i18n"
 import { Filesystem } from "@/util/filesystem"
-import {
-  disposeAllInstances,
-  provideInstance,
-  testInstanceStoreLayer,
-  TestInstance,
-  tmpdirScoped,
-} from "../fixture/fixture"
+import { provideInstance, testInstanceStoreLayer, TestInstance, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
 const FIXTURES_DIR = path.join(import.meta.dir, "fixtures")
-
-afterEach(async () => {
-  await disposeAllInstances()
-})
 
 const ctx = {
   sessionID: SessionID.make("ses_test"),
@@ -323,8 +314,17 @@ describe("tool.read truncation", () => {
 
       const result = yield* run({ filePath: path.join(test.directory, "large.json") })
       expect(result.metadata.truncated).toBe(true)
-      expect(result.output).toContain("Output capped at")
-      expect(result.output).toContain("Use offset=")
+      const display = result.metadata.display
+      expect(display?.type).toBe("file")
+      if (display?.type !== "file") return
+      expect(result.output).toContain(
+        zh("tool.read.capped", {
+          max: "50 KB",
+          start: display.lineStart,
+          last: display.lineEnd,
+          next: display.lineEnd + 1,
+        }),
+      )
     }),
   )
 
@@ -355,7 +355,17 @@ describe("tool.read truncation", () => {
       )
 
       expect(result.metadata.truncated).toBe(true)
-      expect(result.output).toContain("Output capped at")
+      const display = result.metadata.display
+      expect(display?.type).toBe("file")
+      if (display?.type !== "file") return
+      expect(result.output).toContain(
+        zh("tool.read.capped", {
+          max: "50 KB",
+          start: display.lineStart,
+          last: display.lineEnd,
+          next: display.lineEnd + 1,
+        }),
+      )
       expect(counter.bytes).toBeLessThan(Buffer.byteLength(content, "utf-8") / 2)
     }),
   )
@@ -368,8 +378,7 @@ describe("tool.read truncation", () => {
 
       const result = yield* run({ filePath: path.join(test.directory, "many-lines.txt"), limit: 10 })
       expect(result.metadata.truncated).toBe(true)
-      expect(result.output).toContain("Showing lines 1-10 of 100")
-      expect(result.output).toContain("Use offset=11")
+      expect(result.output).toContain(zh("tool.read.more", { start: 1, last: 10, count: 100, next: 11 }))
       expect(result.output).toContain("line0")
       expect(result.output).toContain("line9")
       expect(result.output).not.toContain("line10")
@@ -383,7 +392,7 @@ describe("tool.read truncation", () => {
 
       const result = yield* run({ filePath: path.join(test.directory, "small.txt") })
       expect(result.metadata.truncated).toBe(false)
-      expect(result.output).toContain("End of file")
+      expect(result.output).toContain(zh("tool.read.end", { count: 1 }))
       expect(result.metadata.display).toMatchObject({
         type: "file",
         path: path.join(test.directory, "small.txt"),
@@ -421,7 +430,7 @@ describe("tool.read truncation", () => {
       yield* put(path.join(dir, "short.txt"), lines)
 
       const err = yield* fail(dir, { filePath: path.join(dir, "short.txt"), offset: 4, limit: 5 })
-      expect(err.message).toContain("Offset 4 is out of range for this file (3 lines)")
+      expect(err.message).toContain(zh("tool.read.offset_error", { offset: 4, count: 3 }))
     }),
   )
 
@@ -432,7 +441,7 @@ describe("tool.read truncation", () => {
 
       const result = yield* exec(dir, { filePath: path.join(dir, "empty.txt") })
       expect(result.metadata.truncated).toBe(false)
-      expect(result.output).toContain("End of file - total 0 lines")
+      expect(result.output).toContain(zh("tool.read.end", { count: 0 }))
     }),
   )
 
@@ -442,7 +451,7 @@ describe("tool.read truncation", () => {
       yield* put(path.join(dir, "empty.txt"), "")
 
       const err = yield* fail(dir, { filePath: path.join(dir, "empty.txt"), offset: 2 })
-      expect(err.message).toContain("Offset 2 is out of range for this file (0 lines)")
+      expect(err.message).toContain(zh("tool.read.offset_error", { offset: 2, count: 0 }))
     }),
   )
 
@@ -459,7 +468,7 @@ describe("tool.read truncation", () => {
 
       const result = yield* exec(dir, { filePath: path.join(dir, "dir"), offset: 6, limit: 5 })
       expect(result.metadata.truncated).toBe(false)
-      expect(result.output).not.toContain("Showing 5 of 10 entries")
+      expect(result.output).not.toContain(zh("tool.read.directory_entries", { shown: 5, total: 10, next: 11 }))
       expect(result.metadata.display).toMatchObject({
         type: "directory",
         path: path.join(dir, "dir"),
@@ -477,7 +486,7 @@ describe("tool.read truncation", () => {
       yield* put(path.join(dir, "long-line.txt"), "x".repeat(3000))
 
       const result = yield* exec(dir, { filePath: path.join(dir, "long-line.txt") })
-      expect(result.output).toContain("(line truncated to 2000 chars)")
+      expect(result.output).toContain(zh("tool.output.line_truncated", { max: 2000 }))
       expect(result.output.length).toBeLessThan(3000)
     }),
   )
@@ -508,7 +517,7 @@ describe("tool.read truncation", () => {
       yield* put(path.join(dir, "image.bin"), jpeg)
 
       const result = yield* exec(dir, { filePath: path.join(dir, "image.bin") })
-      expect(result.output).toBe("Image read successfully")
+      expect(result.output).toBe(zh("tool.read.image_success"))
       expect(result.attachments?.[0].mime).toBe("image/jpeg")
       expect(result.attachments?.[0].url.startsWith("data:image/jpeg;base64,")).toBe(true)
     }),
@@ -591,8 +600,9 @@ describe("tool.read binary detection", () => {
       const bytes = Buffer.from([0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0x77, 0x6f, 0x72, 0x6c, 0x64])
       yield* put(path.join(dir, "null-byte.txt"), bytes)
 
-      const err = yield* fail(dir, { filePath: path.join(dir, "null-byte.txt") })
-      expect(err.message).toContain("Cannot read binary file")
+      const filepath = path.join(dir, "null-byte.txt")
+      const err = yield* fail(dir, { filePath: filepath })
+      expect(err.message).toContain(zh("tool.file_binary_unreadable", { path: filepath }))
     }),
   )
 
@@ -601,8 +611,9 @@ describe("tool.read binary detection", () => {
       const dir = yield* tmpdirScoped()
       yield* put(path.join(dir, "module.wasm"), "not really wasm")
 
-      const err = yield* fail(dir, { filePath: path.join(dir, "module.wasm") })
-      expect(err.message).toContain("Cannot read binary file")
+      const filepath = path.join(dir, "module.wasm")
+      const err = yield* fail(dir, { filePath: filepath })
+      expect(err.message).toContain(zh("tool.file_binary_unreadable", { path: filepath }))
     }),
   )
 })

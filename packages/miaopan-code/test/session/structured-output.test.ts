@@ -4,6 +4,7 @@ import { Exit, Schema } from "effect"
 import { MessageV2 } from "../../src/session/message-v2"
 import { SessionPrompt } from "../../src/session/prompt"
 import { SessionID, MessageID } from "../../src/session/schema"
+import { t } from "@miaopan-code/core/i18n"
 
 const decodeFormat = Schema.decodeUnknownExit(SessionV1.Format)
 const decodeUser = Schema.decodeUnknownExit(SessionV1.User)
@@ -169,7 +170,7 @@ describe("structured-output.createStructuredOutputTool", () => {
       onSuccess: () => {},
     })
 
-    expect(tool.description).toContain("structured format")
+    expect(tool.description).toBe(t("zh-CN", "prompt.structured_output_description"))
   })
 
   test("creates tool with schema as inputSchema", () => {
@@ -230,7 +231,7 @@ describe("structured-output.createStructuredOutputTool", () => {
     })
 
     expect(capturedOutput).toEqual(testArgs)
-    expect(result.output).toBe("Structured output captured successfully.")
+    expect(result.output).toBe(t("zh-CN", "tool.output.structured_captured"))
     expect(result.metadata.valid).toBe(true)
   })
 

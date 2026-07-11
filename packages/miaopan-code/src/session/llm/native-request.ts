@@ -1,5 +1,6 @@
 import type { JsonSchema, LLMRequest, ProviderMetadata } from "@miaopan-code/llm"
 import { LLM, Message, SystemPart, ToolCallPart, ToolDefinition, ToolResultPart } from "@miaopan-code/llm"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import {
   AmazonBedrock,
   Anthropic,
@@ -32,6 +33,7 @@ export type RequestInput = {
   readonly maxOutputTokens?: number
   readonly providerOptions?: LLMRequest["providerOptions"]
   readonly headers?: Record<string, string>
+  readonly language?: Language
 }
 
 const providerMetadata = (value: unknown): ProviderMetadata | undefined => {
@@ -53,9 +55,9 @@ const textPart = (part: Record<string, unknown>) => ({
   providerMetadata: partProviderMetadata(part),
 })
 
-const mediaPart = (part: Record<string, unknown>) => {
+const mediaPart = (part: Record<string, unknown>, language?: Language) => {
   if (typeof part.data !== "string" && !(part.data instanceof Uint8Array))
-    throw new Error("Native LLM request adapter only supports file parts with string or Uint8Array data")
+    throw new Error(t(language, "error.native_file_part"))
   return {
     type: "media" as const,
     mediaType: typeof part.mediaType === "string" ? part.mediaType : "application/octet-stream",
@@ -77,10 +79,10 @@ const toolResult = (part: Record<string, unknown>) => {
   })
 }
 
-const contentPart = (part: unknown) => {
-  if (!isRecord(part)) throw new Error("Native LLM request adapter only supports object content parts")
+const contentPart = (part: unknown, language?: Language) => {
+  if (!isRecord(part)) throw new Error(t(language, "error.native_object_part"))
   if (part.type === "text") return textPart(part)
-  if (part.type === "file") return mediaPart(part)
+  if (part.type === "file") return mediaPart(part, language)
   if (part.type === "reasoning")
     return {
       type: "reasoning" as const,
@@ -96,20 +98,22 @@ const contentPart = (part: unknown) => {
       providerMetadata: partProviderMetadata(part),
     })
   if (part.type === "tool-result") return toolResult(part)
-  throw new Error(`Native LLM request adapter does not support ${String(part.type)} content parts`)
+  throw new Error(t(language, "error.native_part_unsupported", { type: String(part.type) }))
 }
 
-const content = (value: ModelMessage["content"]) =>
-  typeof value === "string" ? [{ type: "text" as const, text: value }] : value.map(contentPart)
+const content = (value: ModelMessage["content"], language?: Language) =>
+  typeof value === "string"
+    ? [{ type: "text" as const, text: value }]
+    : value.map((part) => contentPart(part, language))
 
-const messages = (input: readonly ModelMessage[]) => {
+const messages = (input: readonly ModelMessage[], language?: Language) => {
   const system = input.flatMap((message) => (message.role === "system" ? [SystemPart.make(message.content)] : []))
   const messages = input.flatMap((message) => {
     if (message.role === "system") return []
     return [
       Message.make({
         role: message.role,
-        content: content(message.content),
+        content: content(message.content, language),
         native: isRecord(message.providerOptions) ? { providerOptions: message.providerOptions } : undefined,
       }),
     ]
@@ -145,13 +149,14 @@ const generation = (input: RequestInput) => {
 const baseURL = (input: Provider.Model | RequestInput) =>
   "model" in input ? (input.baseURL ?? (input.model.api.url || undefined)) : input.api.url || undefined
 
-const requireBaseURL = (model: Provider.Model, url: string | undefined) => {
+const requireBaseURL = (model: Provider.Model, url: string | undefined, language?: Language) => {
   if (url) return url
-  throw new Error(`Native LLM request adapter requires a base URL for ${model.providerID}/${model.id}`)
+  throw new Error(t(language, "error.native_base_url", { providerID: model.providerID, id: model.id }))
 }
 
-export const model = (input: Provider.Model | RequestInput, headers?: Record<string, string>) => {
+export const model = (input: Provider.Model | RequestInput, headers?: Record<string, string>, language?: Language) => {
   const model = "model" in input ? input.model : input
+  const locale = "model" in input ? input.language : language
   const url = baseURL(input)
   const options = {
     ...("model" in input && input.apiKey ? { apiKey: input.apiKey } : {}),
@@ -164,7 +169,7 @@ export const model = (input: Provider.Model | RequestInput, headers?: Record<str
   }
   if (model.api.npm === "@ai-sdk/openai") return OpenAI.configure(options).responses(model.api.id)
   if (model.api.npm === "@ai-sdk/azure")
-    return Azure.configure({ ...options, baseURL: requireBaseURL(model, url) }).responses(model.api.id)
+    return Azure.configure({ ...options, baseURL: requireBaseURL(model, url, locale) }).responses(model.api.id)
   if (model.api.npm === "@ai-sdk/anthropic") return Anthropic.configure(options).model(model.api.id)
   if (model.api.npm === "@ai-sdk/google") return Google.configure(options).model(model.api.id)
   if (model.api.npm === "@ai-sdk/amazon-bedrock") return AmazonBedrock.configure(options).model(model.api.id)
@@ -172,14 +177,14 @@ export const model = (input: Provider.Model | RequestInput, headers?: Record<str
     return OpenAICompatible.configure({
       ...options,
       provider: String(model.providerID),
-      baseURL: requireBaseURL(model, url),
+      baseURL: requireBaseURL(model, url, locale),
     }).model(model.api.id)
   if (model.api.npm === "@openrouter/ai-sdk-provider") return OpenRouter.configure(options).model(model.api.id)
-  throw new Error(`Native LLM request adapter does not support provider package ${model.api.npm}`)
+  throw new Error(t(locale, "error.native_provider_package", { package: model.api.npm }))
 }
 
 export const request = (input: RequestInput) => {
-  const converted = messages(input.messages)
+  const converted = messages(input.messages, input.language)
   // This is the only native adapter boundary that should construct canonical
   // @miaopan-code/llm request objects from miaopanCode's session/AI SDK-shaped data.
   return LLM.request({
@@ -190,6 +195,7 @@ export const request = (input: RequestInput) => {
     toolChoice: input.toolChoice,
     generation: generation(input),
     providerOptions: input.providerOptions,
+    language: input.language,
   })
 }
 

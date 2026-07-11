@@ -1,5 +1,7 @@
 # Effect loose ends
 
+Languages: [简体中文索引](../README.md) · English
+
 Small follow-ups that do not fit neatly into the main facade, route, tool, or schema migration checklists.
 
 ## Config / TUI

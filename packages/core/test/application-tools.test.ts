@@ -62,7 +62,7 @@ describe("ApplicationTools", () => {
           { type: "file", uri: "data:image/png;base64,aGVsbG8=", mime: "image/png", name: "result.png" },
         ],
       })
-      expect(contexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-opaque" }])
+      expect(contexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-opaque", language: "zh-CN" }])
     }),
   )
 
@@ -101,7 +101,7 @@ describe("ApplicationTools", () => {
           call: { type: "tool-call", id: "call-denied", name: "application_context", input: { query: "hello" } },
         }),
       ).toMatchObject({ result: { type: "content" } })
-      expect(contexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-denied" }])
+      expect(contexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-denied", language: "zh-CN" }])
     }),
   )
 
@@ -113,7 +113,7 @@ describe("ApplicationTools", () => {
 
       yield* applications.register({ application_context: contextual(contexts) })
 
-      expect(yield* toolDefinitions(registry)).toMatchObject([
+      expect(yield* toolDefinitions(registry, undefined, "en")).toMatchObject([
         { name: "application_context", description: "Read application context" },
       ])
       expect(
@@ -139,7 +139,9 @@ describe("ApplicationTools", () => {
           ],
         },
       })
-      expect(contexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-context" }])
+      expect(contexts).toEqual([
+        { sessionID, agent, assistantMessageID, toolCallID: "call-context", language: "zh-CN" },
+      ])
     }),
   )
 
@@ -173,7 +175,7 @@ describe("ApplicationTools", () => {
           assistantMessageID,
           call: { type: "tool-call", id: "call-removed", name: "contextual", input: { query: "hello" } },
         }),
-      ).toEqual({ result: { type: "error", value: "Unknown tool: contextual" } })
+      ).toEqual({ result: { type: "error", value: "未知工具：contextual" } })
     }),
   )
 
@@ -252,8 +254,12 @@ describe("ApplicationTools", () => {
         call: { type: "tool-call", id: "call-first", name: "contextual", input: { query: "first" } },
       })
 
-      expect(secondContexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-second" }])
-      expect(firstContexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-first" }])
+      expect(secondContexts).toEqual([
+        { sessionID, agent, assistantMessageID, toolCallID: "call-second", language: "zh-CN" },
+      ])
+      expect(firstContexts).toEqual([
+        { sessionID, agent, assistantMessageID, toolCallID: "call-first", language: "zh-CN" },
+      ])
     }),
   )
 
@@ -280,7 +286,9 @@ describe("ApplicationTools", () => {
           call: { type: "tool-call", id: "call-shared", name: "shared", input: { query: "location" } },
         }),
       ).toMatchObject({ result: { type: "content" } })
-      expect(locationContexts).toEqual([{ sessionID, agent, assistantMessageID, toolCallID: "call-shared" }])
+      expect(locationContexts).toEqual([
+        { sessionID, agent, assistantMessageID, toolCallID: "call-shared", language: "zh-CN" },
+      ])
       expect(applicationContexts).toEqual([])
     }),
   )

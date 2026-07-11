@@ -9,6 +9,7 @@ import { Config } from "@/config/config"
 import { Identifier } from "../id/id"
 import { ToolID } from "./schema"
 import { TRUNCATION_DIR } from "./truncation-dir"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 const RETENTION = Duration.days(7)
 
@@ -51,6 +52,12 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FSUtil.Service
 
+    const language = Effect.fn("Truncate.language")(function* () {
+      const configSvc = yield* Effect.serviceOption(Config.Service)
+      if (Option.isNone(configSvc)) return "zh-CN" as const
+      return (yield* configSvc.value.get().pipe(Effect.catch(() => Effect.succeed(undefined))))?.language ?? "zh-CN"
+    })
+
     const cleanup = Effect.fn("Truncate.cleanup")(function* () {
       const cutoff = Identifier.timestamp(
         Identifier.create("tool", "ascending", Date.now() - Duration.toMillis(RETENTION)),
@@ -83,6 +90,7 @@ const layer = Layer.effect(
     })
 
     const output = Effect.fn("Truncate.output")(function* (text: string, options: Options = {}, agent?: Agent.Info) {
+      const currentLanguage: Language = yield* language()
       const resolved = yield* limits()
       const maxLines = options.maxLines ?? resolved.maxLines
       const maxBytes = options.maxBytes ?? resolved.maxBytes
@@ -122,26 +130,28 @@ const layer = Layer.effect(
       }
 
       const removed = hitBytes ? totalBytes - bytes : lines.length - out.length
-      const unit = hitBytes ? "bytes" : "lines"
+      const unit = t(currentLanguage, hitBytes ? "tool.truncate.bytes" : "tool.truncate.lines")
       const preview = out.join("\n")
       const file = yield* write(text)
 
       const hint = hasTaskTool(agent)
-        ? `The tool call succeeded but the output was truncated. Full output saved to: ${file}\nUse the Task tool to have explore agent process this file with Grep and Read (with offset/limit). Do NOT read the full file yourself - delegate to save context.`
-        : `The tool call succeeded but the output was truncated. Full output saved to: ${file}\nUse Grep to search the full content or Read with offset/limit to view specific sections.`
+        ? t(currentLanguage, "tool.truncate.task_hint", { file })
+        : t(currentLanguage, "tool.truncate.hint", { file })
+      const marker = t(currentLanguage, "tool.truncate.marker", { removed, unit })
 
       return {
-        content:
-          direction === "head"
-            ? `${preview}\n\n...${removed} ${unit} truncated...\n\n${hint}`
-            : `...${removed} ${unit} truncated...\n\n${hint}\n\n${preview}`,
+        content: direction === "head" ? `${preview}\n\n${marker}\n\n${hint}` : `${marker}\n\n${hint}\n\n${preview}`,
         truncated: true,
         outputPath: file,
       } as const
     })
 
     yield* cleanup().pipe(
-      Effect.catchCause((cause) => Effect.logError("truncation cleanup failed", { cause: Cause.pretty(cause) })),
+      Effect.catchCause((cause) =>
+        Effect.flatMap(language(), (currentLanguage) =>
+          Effect.logError(t(currentLanguage, "log.truncation_cleanup_failed"), { cause: Cause.pretty(cause) }),
+        ),
+      ),
       Effect.repeat(Schedule.spaced(Duration.hours(1))),
       Effect.delay(Duration.minutes(1)),
       Effect.forkScoped,

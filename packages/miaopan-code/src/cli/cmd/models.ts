@@ -7,27 +7,27 @@ import { ProviderV2 } from "@miaopan-code/core/provider"
 
 export const ModelsCommand = effectCmd({
   command: "models [provider]",
-  describe: "list all available models",
+  describe: UI.t("cli.models"),
   builder: (yargs) =>
     yargs
       .positional("provider", {
-        describe: "provider ID to filter models by",
+        describe: UI.t("cli.provider_filter"),
         type: "string",
         array: false,
       })
       .option("verbose", {
-        describe: "use more verbose model output (includes metadata like costs)",
+        describe: UI.t("cli.verbose_models"),
         type: "boolean",
       })
       .option("refresh", {
-        describe: "refresh the models cache from models.dev",
+        describe: UI.t("cli.refresh_models"),
         type: "boolean",
       }),
   handler: Effect.fn("Cli.models")(function* (args) {
     const { Provider } = yield* Effect.promise(() => import("@/provider/provider"))
     if (args.refresh) {
       yield* ModelsDev.Service.use((s) => s.refresh(true))
-      UI.println(UI.Style.TEXT_SUCCESS_BOLD + "Models cache refreshed" + UI.Style.TEXT_NORMAL)
+      UI.println(UI.Style.TEXT_SUCCESS_BOLD + UI.t("cli.cache_refreshed") + UI.Style.TEXT_NORMAL)
     }
 
     const provider = yield* Provider.Service
@@ -48,7 +48,7 @@ export const ModelsCommand = effectCmd({
 
     if (args.provider) {
       const providerID = ProviderV2.ID.make(args.provider)
-      if (!providers[providerID]) return yield* fail(`Provider not found: ${args.provider}`)
+      if (!providers[providerID]) return yield* fail(UI.t("error.provider_not_found", { id: args.provider }))
       print(providerID, args.verbose)
       return
     }

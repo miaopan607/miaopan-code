@@ -10,6 +10,7 @@ import { AppProcess } from "./process"
 import { makeGlobalNode } from "./effect/app-node"
 import { File } from "./file"
 import { KeyedMutex } from "./effect/keyed-mutex"
+import { zh } from "./i18n"
 
 export class Repository extends Schema.Class<Repository>("Git.Repository")({
   worktree: AbsolutePath,
@@ -254,7 +255,7 @@ const layer = Layer.effect(
       return yield* new OperationError({
         operation,
         directory,
-        message: result.stderr.trim() || result.text.trim() || `Git ${operation} failed`,
+        message: result.stderr.trim() || result.text.trim() || zh("git.operation_failed", { operation }),
       })
     })
 
@@ -278,7 +279,7 @@ const layer = Layer.effect(
       return yield* new OperationError({
         operation: "clone",
         directory: input.directory,
-        message: "Cloned repository could not be opened",
+        message: zh("error.git_clone_open"),
       })
     })
 
@@ -352,7 +353,10 @@ const layer = Layer.effect(
       return yield* new OperationError({
         operation: operationName,
         directory: repository.worktree,
-        message: result.stderr.toString("utf8").trim() || text.trim() || `Git ${operationName} failed`,
+        message:
+          result.stderr.toString("utf8").trim() ||
+          text.trim() ||
+          zh("git.operation_failed", { operation: operationName }),
       })
     })
 
@@ -367,7 +371,7 @@ const layer = Layer.effect(
             new OperationError({
               operation: "create",
               directory: input.gitDirectory,
-              message: "Failed to create Git storage",
+              message: zh("error.git_storage_create"),
               cause,
             }),
         ),
@@ -399,7 +403,7 @@ const layer = Layer.effect(
             new OperationError({
               operation: "create",
               directory: input.gitDirectory,
-              message: "Failed to configure shared Git objects",
+              message: zh("error.git_shared_objects"),
               cause,
             }),
         ),
@@ -415,7 +419,7 @@ const layer = Layer.effect(
               new OperationError({
                 operation: "create",
                 directory: input.gitDirectory,
-                message: "Failed to configure shared Git objects",
+                message: zh("error.git_shared_objects"),
                 cause,
               }),
           ),
@@ -516,7 +520,7 @@ const layer = Layer.effect(
         return yield* new OperationError({
           operation: "list_files",
           directory: input.repository.worktree,
-          message: result.stderr.toString("utf8").trim() || "Failed to check ignored paths",
+          message: result.stderr.toString("utf8").trim() || zh("git.ignored_check_failed"),
         })
       return new Set(
         result.stdout
@@ -630,7 +634,7 @@ const layer = Layer.effect(
         return yield* new OperationError({
           operation: "restore",
           directory: repository.worktree,
-          message: `Invalid tree entry for ${file}`,
+          message: zh("error.git_tree_entry", { file }),
         })
       return { mode: match[1], object: match[2] }
     })
@@ -705,7 +709,7 @@ const layer = Layer.effect(
                       new OperationError({
                         operation: "restore",
                         directory: input.repository.worktree,
-                        message: `Failed to remove ${file}`,
+                        message: zh("error.git_remove_file", { file }),
                         cause,
                       }),
                   ),
@@ -740,7 +744,7 @@ const layer = Layer.effect(
         return yield* new PatchError({
           operation: "capture",
           directory: input.path,
-          message: tracked.stderr.trim() || tracked.text.trim() || "Failed to capture tracked changes",
+          message: tracked.stderr.trim() || tracked.text.trim() || zh("git.capture_tracked_failed"),
         })
       }
 
@@ -756,7 +760,7 @@ const layer = Layer.effect(
         return yield* new PatchError({
           operation: "capture",
           directory: input.path,
-          message: untracked.stderr.trim() || untracked.text.trim() || "Failed to list untracked changes",
+          message: untracked.stderr.trim() || untracked.text.trim() || zh("git.list_untracked_failed"),
         })
       }
 
@@ -777,7 +781,7 @@ const layer = Layer.effect(
                     operation: "capture",
                     directory: input.path,
                     message:
-                      result.stderr.trim() || result.text.trim() || `Failed to capture untracked change: ${file}`,
+                      result.stderr.trim() || result.text.trim() || zh("error.git_capture_untracked_failed", { file }),
                   }),
                 ),
           ),
@@ -809,7 +813,9 @@ const layer = Layer.effect(
         operation: "apply",
         directory: input.path,
         message:
-          result.stderr.toString("utf8").trim() || result.stdout.toString("utf8").trim() || "Failed to apply changes",
+          result.stderr.toString("utf8").trim() ||
+          result.stdout.toString("utf8").trim() ||
+          zh("git.apply_changes_failed"),
       })
     })
 
@@ -832,7 +838,7 @@ const layer = Layer.effect(
         return yield* new PatchError({
           operation: "reset",
           directory: input.path,
-          message: restore.stderr.trim() || restore.text.trim() || "Failed to restore tracked changes",
+          message: restore.stderr.trim() || restore.text.trim() || zh("git.restore_tracked_failed"),
         })
       }
       if (input.untracked === "preserve") return
@@ -848,7 +854,7 @@ const layer = Layer.effect(
       return yield* new PatchError({
         operation: "reset",
         directory: input.path,
-        message: clean.stderr.trim() || clean.text.trim() || "Failed to clean untracked changes",
+        message: clean.stderr.trim() || clean.text.trim() || zh("git.clean_untracked_failed"),
       })
     })
 
@@ -867,7 +873,7 @@ const layer = Layer.effect(
           ),
         )
       if (result.exitCode === 0) return result.stdout.toString("utf8")
-      const message = result.stderr.toString("utf8").trim() || result.stdout.toString("utf8").trim() || "Git failed"
+      const message = result.stderr.toString("utf8").trim() || result.stdout.toString("utf8").trim() || zh("git.failed")
       return yield* new WorktreeError({
         operation,
         directory: worktreeDirectory,
@@ -891,7 +897,7 @@ const layer = Layer.effect(
       return yield* new WorktreeError({
         operation: "create",
         directory: input.directory,
-        message: "Created worktree could not be opened",
+        message: zh("error.git_worktree_open"),
       })
     })
 

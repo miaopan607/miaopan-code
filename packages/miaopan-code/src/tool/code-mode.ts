@@ -8,14 +8,14 @@ import { Agent } from "@/agent/agent"
 import { Session } from "@/session/session"
 import { Permission } from "@/permission"
 import { Plugin } from "@/plugin"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { ToolI18n } from "./i18n"
 
 export const CODE_MODE_TOOL = "execute"
 
-const DESCRIPTION = "Run a confined orchestration script with access to connected MCP tools."
-
 export const Parameters = Schema.Struct({
   code: Schema.String.annotate({
-    description: "Script body executed by the confined interpreter.",
+    description: t(undefined, "tool.param.code_body"),
   }),
 })
 
@@ -59,7 +59,7 @@ export function describeCatalog(mcpTools: Record<string, MCP.McpTool>, servers: 
   return CodeMode.make({
     tools: toolTree(
       [...groupByServer(mcpTools, servers).values()].flat(),
-      () => () => Effect.fail(toolError("Tool preview is not executable.")),
+      () => () => Effect.fail(toolError(t(undefined, "tool.code_mode.preview_not_executable"))),
     ),
   }).instructions()
 }
@@ -72,7 +72,11 @@ const lastSegment = (uri: string) => {
 
 const dataUrl = (mime: string, base64: string) => `data:${mime};base64,${base64}`
 
-function projectMcpResult(result: CallToolResult, collect: (attachment: Attachment) => void): unknown {
+function projectMcpResult(
+  result: CallToolResult,
+  collect: (attachment: Attachment) => void,
+  language?: Language,
+): unknown {
   const text: string[] = []
   let files = 0
   let images = 0
@@ -109,8 +113,9 @@ function projectMcpResult(result: CallToolResult, collect: (attachment: Attachme
   if (result.structuredContent !== undefined && result.structuredContent !== null) return result.structuredContent
   if (text.length > 0) return text.join("\n")
   if (files > 0) {
-    const noun = files === images ? "image" : "file"
-    return `[${files} ${noun}${files === 1 ? "" : "s"} attached to the result]`
+    const kind = files === images ? "images" : "files"
+    const count = files === 1 ? "one" : "many"
+    return t(language, `tool.code_mode.attachments_${kind}_${count}`, { count: files })
   }
   return null
 }
@@ -163,7 +168,7 @@ const invokeChildTool = Effect.fn("CodeMode.invokeChildTool")(function* (input: 
           raw.content
             .flatMap((item) => (item.type === "text" ? [item.text] : []))
             .filter((text) => text.trim())
-            .join("\n\n") || "MCP tool returned an error",
+            .join("\n\n") || t(input.ctx.language, "error.mcp_tool_failed"),
         )
       return raw
     })
@@ -194,14 +199,14 @@ export const CodeModeTool = Tool.define(
     const plugin = yield* Plugin.Service
 
     const init: Tool.DefWithoutID<typeof Parameters, Metadata> = {
-      description: DESCRIPTION,
+      description: yield* ToolI18n.configuredText("tool.description.code_mode"),
       parameters: Parameters,
       execute: Effect.fn("CodeMode.execute")(function* (params, ctx) {
         if (ctx.abort.aborted) {
           return {
             title: CODE_MODE_TOOL,
             metadata: { toolCalls: [], error: true },
-            output: "Execution cancelled.",
+            output: ToolI18n.text(ctx, "tool.execution_cancelled"),
           } satisfies Tool.ExecuteResult<Metadata>
         }
         const agent = yield* agents.get(ctx.agent)
@@ -227,7 +232,7 @@ export const CodeModeTool = Tool.define(
               callID: `${ctx.callID ?? entry.key}/${childCalls}`,
               ctx,
             })
-            return projectMcpResult(result, (attachment: Attachment) => void attachments.push(attachment))
+            return projectMcpResult(result, (attachment: Attachment) => void attachments.push(attachment), ctx.language)
           }).pipe(
             Effect.catchCause((cause) => {
               if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt
@@ -237,6 +242,7 @@ export const CodeModeTool = Tool.define(
           )
 
         const runtime = CodeMode.make({
+          language: ctx.language,
           tools: toolTree(catalog, callTool),
           onToolCallStart: ({ index, name, input }) =>
             Effect.suspend(() => {
@@ -267,7 +273,7 @@ export const CodeModeTool = Tool.define(
         })
         const cancelled = (): CodeMode.Result => ({
           ok: false,
-          error: { kind: "ExecutionFailure", message: "Execution cancelled." },
+          error: { kind: "ExecutionFailure", message: ToolI18n.text(ctx, "tool.error.execution_cancelled") },
           toolCalls: calls.map((call) => ({ name: call.tool })),
         })
 
@@ -275,7 +281,8 @@ export const CodeModeTool = Tool.define(
         const logs = result.logs ?? []
         const withLogs = (text: string) => {
           if (logs.length === 0) return text
-          return text.length > 0 ? `${text}\n\nLogs:\n${logs.join("\n")}` : `Logs:\n${logs.join("\n")}`
+          const heading = ToolI18n.text(ctx, "tool.logs_heading")
+          return text.length > 0 ? `${text}\n\n${heading}\n${logs.join("\n")}` : `${heading}\n${logs.join("\n")}`
         }
 
         if (!result.ok) {
@@ -283,7 +290,7 @@ export const CodeModeTool = Tool.define(
             return {
               title: CODE_MODE_TOOL,
               metadata: { toolCalls: calls, error: true },
-              output: "Execution cancelled.",
+              output: ToolI18n.text(ctx, "tool.execution_cancelled"),
             } satisfies Tool.ExecuteResult<Metadata>
           }
           const hints = (result.error.suggestions ?? []).filter((hint) => !result.error.message.includes(hint))

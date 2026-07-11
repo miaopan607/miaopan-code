@@ -10,6 +10,7 @@ import { SessionMessage } from "./message"
 import { Prompt } from "./prompt"
 import { SessionSchema } from "./schema"
 import { SessionInputTable, SessionMessageTable } from "./sql"
+import { zh } from "../i18n"
 
 type DatabaseService = Database.Interface["db"]
 
@@ -62,7 +63,7 @@ export const admit = Effect.fn("SessionInput.admit")(function* (
     .pipe(
       Effect.flatMap((event) =>
         event.durable === undefined
-          ? Effect.die("Prompt admission event is missing aggregate sequence")
+          ? Effect.die(zh("error.prompt_admission_sequence_missing"))
           : Effect.succeed(
               Admitted.make({
                 admittedSeq: event.durable.seq,

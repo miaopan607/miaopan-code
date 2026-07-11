@@ -1,106 +1,119 @@
-- To regenerate the legacy JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
-- After changing the public Protocol or Server `HttpApi`, regenerate the legacy SDK with `./packages/sdk/js/script/build.ts`. Do not edit generated SDK output directly.
-- Keep runtime dependencies directed from Schema to Core and Protocol, then from Core and Protocol to Server. The generated SDK remains independent of Core and Server; the CLI composes the SDK, Core, and Server.
-- The default branch in this repo is `dev`.
-- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+# 仓库协作与开发约定
 
-## Branch Names
+本文档仅提供简体中文版本。
 
-Use a short branch name of at most three words, separated by hyphens. Do not use slashes or type prefixes such as `feat/` or `fix/`.
+## 国际化要求
 
-Examples: `session-recovery`, `fix-scroll-state`, `regenerate-sdk`.
+- 默认语言为简体中文（`zh-CN`）；英文是额外支持的语言，不得取代中文默认值。
+- 所有面向用户、模型、工具调用结果、日志、错误、CLI/TUI 界面、OpenAPI/SDK 描述和文档中的自然语言，都必须通过 i18n key 或对应语言资源提供。不要在业务代码中新增自然语言硬编码。
+- 新增文案时先定义稳定的 i18n key，再补齐中文和英文资源；语言选择由运行时 locale 决定，禁止用散落的条件分支拼接翻译。
+- 提示词也属于自然语言资源：保持原有语义和结构，只通过语言资源切换语言；除非用户明确要求，不要擅自改写、扩展或润色既有提示词。
+- 中文文档放在默认文件名（如 `README.md`、`AGENTS.md`）；英文文档使用额外的 `.en.md` 文件。`AGENTS.md` 和 `CONTEXT.md` 只维护中文版本。新增语言应沿用稳定的语言后缀和同一 i18n key，不要把翻译写进默认英文文件。
+- 代码标识符、协议字段、命令名、文件路径和第三方专有名词按原样保留，不把技术标识符当作自然语言翻译。
 
-## Commits and PR Titles
+- 重新生成旧版 JavaScript SDK：运行 `./packages/sdk/js/script/build.ts`。
+- 修改公开 Protocol 或 Server `HttpApi` 后，必须运行 `./packages/sdk/js/script/build.ts` 重新生成旧版 SDK。不要直接编辑生成的 SDK 输出。
+- 保持运行时依赖方向为 Schema → Core、Protocol，再由 Core、Protocol → Server。生成的 SDK 必须独立于 Core 和 Server；CLI 负责组合 SDK、Core 和 Server。
+- 本仓库默认分支为 `dev`。
+- 本地可能不存在 `main` 引用；比较差异时使用 `dev` 或 `origin/dev`。
 
-Use conventional commit-style messages and PR titles: `type(scope): summary`.
+## 分支命名
 
-Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes are optional; use the affected package or area when helpful, e.g. `core`, `miaopan-code`, `tui`, `sdk`, or `plugin`.
+使用不超过三个单词、以连字符分隔的短分支名。不要使用斜杠或 `feat/`、`fix/` 等类型前缀。
 
-Examples: `fix(tui): simplify thinking toggle styling`, `docs: update contributing guide`, `chore(sdk): regenerate types`.
+示例：`session-recovery`、`fix-scroll-state`、`regenerate-sdk`。
 
-## Style Guide
+## 提交信息和 PR 标题
 
-### General Principles
+提交信息和 PR 标题使用 Conventional Commit 格式：`type(scope): summary`。
 
-- Keep things in one function unless composable or reusable
-- Do not extract single-use helpers preemptively. Inline the logic at the call site unless the helper is reused, hides a genuinely complex boundary, or has a clear independent name that improves the caller.
-- Avoid `try`/`catch` where possible
-- Avoid using the `any` type
-- Use Bun APIs when possible, like `Bun.file()`
-- Rely on type inference when possible; avoid explicit type annotations or interfaces unless necessary for exports or clarity
-- Prefer functional array methods (flatMap, filter, map) over for loops; use type guards on filter to maintain type inference downstream
-- In `src/config`, follow the existing self-export pattern at the top of the file (for example `export * as ConfigAgent from "./agent"`) when adding a new config module.
-- In Effect generators, bind services to named variables before calling methods. Do not use nested service yields such as `yield* (yield* Foo.Service).bar()`.
+有效类型为 `feat`、`fix`、`docs`、`chore`、`refactor` 和 `test`。scope 可选；如果有帮助，请使用受影响的包或领域，例如 `core`、`miaopan-code`、`tui`、`sdk` 或 `plugin`。
 
-Reduce total variable count by inlining when a value is only used once.
+示例：`fix(tui): simplify thinking toggle styling`、`docs: update contributing guide`、`chore(sdk): regenerate types`。
+
+## 代码风格
+
+### 通用原则
+
+- 除非逻辑可组合或可复用，否则将逻辑保留在一个函数中。
+- 不要预先抽取只使用一次的辅助函数。除非辅助函数会复用、隐藏真正复杂的边界，或有清晰的独立概念，否则直接在调用处内联。
+- 尽量避免 `try`/`catch`。
+- 避免使用 `any` 类型。
+- 可以使用 Bun API 时优先使用，例如 `Bun.file()`。
+- 尽量依赖类型推导；除非导出或可读性确有需要，否则不要显式添加类型标注或接口。
+- 优先使用函数式数组方法（`flatMap`、`filter`、`map`），而不是 `for` 循环；`filter` 使用类型守卫以保持后续类型推导。
+- 在 `src/config` 中新增配置模块时，遵循文件顶部已有的自导出模式（例如 `export * as ConfigAgent from "./agent"`）。
+- 在 Effect generator 中先将服务绑定到具名变量，再调用其方法。不要使用 `yield* (yield* Foo.Service).bar()` 这样的嵌套服务 yield。
+
+只使用一次的值应通过内联减少变量总数。
 
 ```ts
-// Good
+// 推荐
 const journal = await Bun.file(path.join(dir, "journal.json")).json()
 
-// Bad
+// 不推荐
 const journalPath = path.join(dir, "journal.json")
 const journal = await Bun.file(journalPath).json()
 ```
 
-### Destructuring
+### 解构
 
-Avoid unnecessary destructuring. Use dot notation to preserve context.
+避免不必要的解构，使用点号访问以保留上下文。
 
 ```ts
-// Good
+// 推荐
 obj.a
 obj.b
 
-// Bad
+// 不推荐
 const { a, b } = obj
 ```
 
-### Imports
+### 导入
 
-- Never alias imports. Do not use `import { foo as bar } from "..."` or renamed imports like `resolve as pathResolve`.
-- Never use star imports. Do not use `import * as Foo from "..."` or `import type * as Foo from "..."`.
-- If a namespace-style value is needed, import the module's own exported namespace by name, for example `import { Project } from "@miaopan-code/core/project"`, then reference `Project.ID`.
-- Prefer dynamic imports for heavy modules that are only needed in selected code paths, especially in startup-sensitive entrypoints. Destructure dynamic import bindings near the top of the narrowest scope that needs them so they read like normal imports. Avoid inline chains such as `await import("./module").then((mod) => mod.value())` or `(await import("./module")).value()`. Keep branch-specific imports inside the branch that needs them to preserve lazy loading.
+- 绝不要为导入起别名。不要写 `import { foo as bar } from "..."` 或 `resolve as pathResolve` 这样的重命名导入。
+- 绝不要使用星号导入。不要写 `import * as Foo from "..."` 或 `import type * as Foo from "..."`。
+- 如果需要命名空间式的值，应导入模块自己导出的命名空间。例如 `import { Project } from "@miaopan-code/core/project"`，再使用 `Project.ID`。
+- 对只在特定代码路径需要的重量级模块，尤其是启动敏感入口，优先使用动态导入。在最窄的使用作用域顶部解构动态导入绑定，使其读起来像普通导入。避免 `await import("./module").then((mod) => mod.value())` 或 `(await import("./module")).value()` 这样的内联链式写法。分支专用导入应留在分支中，以保持惰性加载。
 
-### Variables
+### 变量
 
-Prefer `const` over `let`. Use ternaries or early returns instead of reassignment.
+优先使用 `const` 而不是 `let`。使用三元表达式或提前返回代替重新赋值。
 
 ```ts
-// Good
+// 推荐
 const foo = condition ? 1 : 2
 
-// Bad
+// 不推荐
 let foo
 if (condition) foo = 1
 else foo = 2
 ```
 
-### Control Flow
+### 控制流
 
-Avoid `else` statements. Prefer early returns.
+避免使用 `else`，优先使用提前返回。
 
 ```ts
-// Good
+// 推荐
 function foo() {
   if (condition) return 1
   return 2
 }
 
-// Bad
+// 不推荐
 function foo() {
   if (condition) return 1
   else return 2
 }
 ```
 
-### Complex Logic
+### 复杂逻辑
 
-When a function has several validation branches or supporting details, make the main function read as the happy path and move supporting details into small helpers below it.
+函数包含多个校验分支或辅助细节时，让主函数呈现成功路径，并把辅助细节移到下面的小函数中。
 
 ```ts
-// Good
+// 推荐
 export function loadThing(input: unknown) {
   const config = requireConfig(input)
   const metadata = readMetadata(input)
@@ -112,25 +125,25 @@ function requireConfig(input: unknown) {
 }
 ```
 
-- Keep helpers close to the code they support, below the main export when that improves readability.
-- Do not over-abstract simple expressions into many single-use helpers; extract only when it names a real concept like `requireConfig` or `readMetadata`.
-- Do not return `Effect` from helpers unless they actually perform effectful work. Synchronous parsing, validation, and option building should stay synchronous.
-- Prefer Effect schema helpers such as `Schema.UnknownFromJsonString` and `Schema.decodeUnknownOption` over manual `JSON.parse` wrapped in `Effect.try` when parsing untrusted JSON strings.
-- Add comments for non-obvious constraints and surprising behavior, not for obvious assignments or control flow.
+- 如果能提升可读性，将辅助函数放在其支持的主导出函数附近、函数之后。
+- 不要把简单表达式过度抽象成许多只使用一次的辅助函数；只有在它命名了真实概念（如 `requireConfig` 或 `readMetadata`）时才抽取。
+- 除非辅助函数确实执行效果，否则不要让它返回 `Effect`。同步解析、校验和选项构建应保持同步。
+- 解析不可信 JSON 字符串时，优先使用 `Schema.UnknownFromJsonString`、`Schema.decodeUnknownOption` 等 Effect Schema 辅助函数，而不是手动 `JSON.parse` 再包裹 `Effect.try`。
+- 只为不明显的约束和反直觉行为添加注释，不要为显而易见的赋值或控制流添加注释。
 
-### Schema Definitions (Drizzle)
+### Schema 定义（Drizzle）
 
-Use snake_case for field names so column names don't need to be redefined as strings.
+字段使用 snake_case，这样列名不需要再次写成字符串。
 
 ```ts
-// Good
+// 推荐
 const table = sqliteTable("session", {
   id: text().primaryKey(),
   project_id: text().notNull(),
   created_at: integer().notNull(),
 })
 
-// Bad
+// 不推荐
 const table = sqliteTable("session", {
   id: text("id").primaryKey(),
   projectID: text("project_id").notNull(),
@@ -138,24 +151,24 @@ const table = sqliteTable("session", {
 })
 ```
 
-## Testing
+## 测试
 
-- Avoid mocks as much as possible, you shouldn't be using globalThis.\* at all unless it's the only option.
-- Test actual implementation, do not duplicate logic into tests
-- Tests cannot run from repo root (guard: `do-not-run-tests-from-root`); run from package dirs like `packages/miaopan-code`.
+- 尽量避免 mock；除非别无选择，不应使用 `globalThis.*`。
+- 测试真实实现，不要在测试中复制一份实现逻辑。
+- 不能从仓库根目录运行测试（有 `do-not-run-tests-from-root` 守卫）；应从包目录运行，例如 `packages/miaopan-code`。
 
-## Type Checking
+## 类型检查
 
-- Always run `bun typecheck` from package directories (e.g., `packages/miaopan-code`), never `tsc` directly.
+- 始终从包目录运行 `bun typecheck`（例如 `packages/miaopan-code`），不要直接运行 `tsc`。
 
 ## V2 Session Core
 
-- Keep durable prompt admission separate from model execution. `SessionV2.prompt(...)` admits one durable `session_input` row before scheduling advisory `SessionExecution.wake(sessionID)` unless `resume: false` requests admit-only behavior. The serialized runner promotes admitted inputs into visible user messages at safe boundaries.
-- Reusing a Session ID adopts the existing Session. Reusing a prompt message ID reconciles an exact retry only when Session, prompt, and delivery mode match; conflicting reuse fails. Historical projected prompts lazily synthesize promoted inbox records during exact retry.
-- Keep `SessionExecution` process-global and Session-ID based. Its local implementation owns the process-local Session coordinator and discovers placement through `SessionStore` plus `LocationServiceMap.get(session.location)` only when a drain starts; no layer should take a Session ID. V2 interruption targets the active process-local ownership chain for that Session; idle or missing interruption is a no-op.
-- Keep `SessionRunner`, model resolution, tool registry, permissions, and filesystem Location-scoped. Omitted `Location.workspaceID` means implicit-local placement; explicit workspace identity remains reserved for future placement semantics.
-- Preserve one explicit `llm.stream(request)` call per provider turn and reload projected history before durable continuation. Do not bridge through legacy `SessionPrompt.loop(...)` or delegate orchestration to an in-memory tool loop.
-- Keep local Session drains process-local until clustering is implemented. `SessionRunCoordinator` joins explicit same-Session resumes, coalesces prompt wakeups, and allows different Sessions to run concurrently. Advisory wakes drain eligible durable inbox rows only; post-crash continuation recovery requires a separate explicit design before it may retry provider work. A drain has no durable identity or transcript boundary.
-- Keep delivery vocabulary explicit. Prompts steer by default and promote at the next safe provider-turn boundary while the current drain requires continuation. An explicit `queue` input remains pending until the Session would otherwise become idle; promote one queued input at that boundary, then reevaluate continuation before promoting another. Promoting any new user input resets the selected agent's provider-turn allowance; a batch of steers resets it once.
-- Keep EventV2 replay owner claims separate from clustered Session execution ownership.
-- Keep the System Context algebra, registry, and built-ins in `src/system-context`; keep Context Source producers with their observed domains, and keep Session History selection plus Context Epoch persistence Session-owned.
+- 将持久化提示接纳与模型执行分开。`SessionV2.prompt(...)` 先接纳一行持久化的 `session_input`，再调度建议性的 `SessionExecution.wake(sessionID)`；除非 `resume: false` 要求只接纳，否则按此顺序执行。序列化 runner 在安全边界将已接纳输入提升为可见的用户消息。
+- 复用 Session ID 时采用已有 Session。复用提示消息 ID 只有在 Session、提示内容和传递模式都一致时才协调为精确重试；冲突复用必须失败。历史投影中的提示在精确重试时可以惰性合成已提升的 inbox 记录。
+- `SessionExecution` 必须是进程全局且按 Session ID 工作。其本地实现拥有进程内 Session 协调器，只有在 drain 开始时才通过 `SessionStore` 和 `LocationServiceMap.get(session.location)` 发现放置位置；任何层都不应接收 Session ID。V2 中断针对该 Session 当前进程内的所有权链；空闲或不存在的中断是无操作。
+- `SessionRunner`、模型解析、工具注册、权限和文件系统必须限定在 Location 作用域。省略 `Location.workspaceID` 表示隐式本地放置；显式 workspace 身份为未来的放置语义保留。
+- 每个 provider turn 保留一次明确的 `llm.stream(request)` 调用，并在持久化继续执行前重新加载投影历史。不要桥接到旧的 `SessionPrompt.loop(...)`，也不要委托给内存工具循环。
+- 在实现集群前，本地 Session drain 保持进程内。`SessionRunCoordinator` 合并同一 Session 的显式恢复、合并提示唤醒，同时允许不同 Session 并行运行。建议性唤醒只 drain 符合条件的持久化 inbox 行；崩溃后的继续恢复必须另行设计，不能在此处重试 provider 工作。drain 没有持久化身份或 transcript 边界。
+- 明确传递词汇。提示默认采用 steer，在当前 drain 仍需继续时于下一个安全 provider-turn 边界提升。显式 `queue` 输入保持 pending，直到 Session 即将空闲；在该边界提升一条 queued 输入，然后重新判断是否继续再提升下一条。提升任意新用户输入都会重置所选 agent 的 provider-turn 配额；同一批 steer 只重置一次。
+- EventV2 的 replay 所有权声明必须与集群 Session 执行所有权分离。
+- System Context 的代数结构、注册表和内置项保存在 `src/system-context`；Context Source producer 保留在各自观察域；Session History 选择和 Context Epoch 持久化由 Session 自己负责。

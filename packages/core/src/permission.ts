@@ -10,6 +10,7 @@ import { SessionV2 } from "./session"
 import { SessionStore } from "./session/store"
 import { Wildcard } from "./util/wildcard"
 import { PermissionSaved } from "./permission/saved"
+import { zh } from "./i18n"
 
 export { Effect, Rule, Ruleset } from "@miaopan-code/schema/permission"
 const missingAgentPermissions: Permission.Ruleset = [{ action: "*", resource: "*", effect: "deny" }]
@@ -178,7 +179,8 @@ const layer = Layer.effect(
         EffectRuntime.gen(function* () {
           const deferred = yield* Deferred.make<void, DeclinedError | CorrectedError>()
           const item = { request, agent, deferred }
-          if (pending.has(request.id)) return yield* EffectRuntime.die(`Duplicate pending permission ID: ${request.id}`)
+          if (pending.has(request.id))
+            return yield* EffectRuntime.die(zh("error.permission_pending_duplicate", { id: request.id }))
           pending.set(request.id, item)
           yield* events
             .publish(Event.Asked, request)

@@ -20,9 +20,10 @@ import {
 import * as Locale from "@/util/locale"
 import { go } from "@/cli/logo"
 import type { RunSplashTheme } from "./theme"
+import { UI } from "../../ui"
 
 export const SPLASH_TITLE_LIMIT = 50
-export const SPLASH_TITLE_FALLBACK = "Untitled session"
+export const SPLASH_TITLE_FALLBACK = UI.t("cli.run.untitled_session")
 
 type SplashInput = {
   title: string | undefined
@@ -212,8 +213,8 @@ function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: Scrollback
     const mark = go.right.slice(1)
     const top = 1
     const body_left = (mark[0]?.length ?? 0) + 2
-    const session = "Session  "
-    const label = "Continue "
+    const session = UI.t("tui.session_label") + "  "
+    const label = UI.t("tui.continue_label") + " "
 
     for (let i = 0; i < mark.length; i += 1) {
       draw(lines, mark[i] ?? "", {

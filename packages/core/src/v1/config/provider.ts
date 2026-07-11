@@ -2,6 +2,7 @@ export * as ConfigProviderV1 from "./provider"
 
 import { Schema } from "effect"
 import { PositiveInt } from "../../schema"
+import { zh } from "../../i18n"
 
 export const ModelStatus = Schema.Literals(["alpha", "beta", "deprecated", "active"])
 
@@ -65,11 +66,11 @@ export const Model = Schema.Struct({
       Schema.String,
       Schema.StructWithRest(
         Schema.Struct({
-          disabled: Schema.optional(Schema.Boolean).annotate({ description: "Disable this variant for the model" }),
+          disabled: Schema.optional(Schema.Boolean).annotate({ description: zh("config.v1.disabled_providers") }),
         }),
         [Schema.Record(Schema.String, Schema.Any)],
       ),
-    ).annotate({ description: "Variant-specific configuration" }),
+    ).annotate({ description: zh("config.v1.providers") }),
   ),
 })
 
@@ -87,30 +88,27 @@ export const Info = Schema.Struct({
         apiKey: Schema.optional(Schema.String),
         baseURL: Schema.optional(Schema.String),
         enterpriseUrl: Schema.optional(Schema.String).annotate({
-          description: "GitHub Enterprise URL for copilot authentication",
+          description: zh("config.v1.enterprise_url"),
         }),
         setCacheKey: Schema.optional(Schema.Boolean).annotate({
-          description: "Enable promptCacheKey for this provider (default false)",
+          description: zh("config.v1.telemetry"),
         }),
         timeout: Schema.optional(
           Schema.Union([PositiveInt, Schema.Literal(false)]).annotate({
-            description: "Timeout in milliseconds for full requests to this provider. Set to false to disable timeout.",
+            description: zh("config.v1.mcp_timeout"),
           }),
         ).annotate({
-          description: "Timeout in milliseconds for full requests to this provider. Set to false to disable timeout.",
+          description: zh("config.v1.mcp_timeout"),
         }),
         headerTimeout: Schema.optional(
           Schema.Union([PositiveInt, Schema.Literal(false)]).annotate({
-            description:
-              "Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.",
+            description: zh("config.v1.header_timeout"),
           }),
         ).annotate({
-          description:
-            "Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.",
+          description: zh("config.v1.header_timeout"),
         }),
         chunkTimeout: Schema.optional(PositiveInt).annotate({
-          description:
-            "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.",
+          description: zh("config.v1.chunk_timeout"),
         }),
       }),
       [Schema.Record(Schema.String, Schema.Any)],

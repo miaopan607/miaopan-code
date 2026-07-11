@@ -8,11 +8,13 @@ import { DialogVariant } from "./dialog-variant"
 import * as fuzzysort from "fuzzysort"
 import { useConnected } from "./use-connected"
 import { useSync } from "../context/sync"
+import { useI18n } from "../context/i18n"
 
 export function DialogModel(props: { providerID?: string }) {
   const local = useLocal()
   const sync = useSync()
   const dialog = useDialog()
+  const i18n = useI18n()
   const [query, setQuery] = createSignal("")
 
   const connected = useConnected()
@@ -41,7 +43,7 @@ export function DialogModel(props: { providerID?: string }) {
             description: provider.name,
             category,
             disabled: provider.id === "miaopan-code" && model.id.includes("-nano"),
-            footer: model.cost?.input === 0 && provider.id === "miaopan-code" ? "Free" : undefined,
+            footer: model.cost?.input === 0 && provider.id === "miaopan-code" ? i18n.t("tui.free") : undefined,
             onSelect: () => {
               onSelect(provider.id, model.id)
             },
@@ -50,12 +52,12 @@ export function DialogModel(props: { providerID?: string }) {
       })
     }
 
-    const favoriteOptions = toOptions(favorites, "Favorites")
+    const favoriteOptions = toOptions(favorites, i18n.t("tui.favorites"))
     const recentOptions = toOptions(
       recents.filter(
         (item) => !favorites.some((fav) => fav.providerID === item.providerID && fav.modelID === item.modelID),
       ),
-      "Recent",
+      i18n.t("tui.recent"),
     )
 
     const providerOptions = pipe(
@@ -75,11 +77,11 @@ export function DialogModel(props: { providerID?: string }) {
             title: info.name ?? model,
             releaseDate: info.release_date,
             description: favorites.some((item) => item.providerID === provider.id && item.modelID === model)
-              ? "(Favorite)"
+              ? `(${i18n.t("tui.favorite")})`
               : undefined,
             category: connected() ? provider.name : undefined,
             disabled: provider.id === "miaopan-code" && model.includes("-nano"),
-            footer: info.cost?.input === 0 && provider.id === "miaopan-code" ? "Free" : undefined,
+            footer: info.cost?.input === 0 && provider.id === "miaopan-code" ? i18n.t("tui.free") : undefined,
             onSelect() {
               onSelect(provider.id, model)
             },
@@ -110,7 +112,7 @@ export function DialogModel(props: { providerID?: string }) {
           providers(),
           map((option) => ({
             ...option,
-            category: "Popular providers",
+            category: i18n.t("tui.popular_providers"),
           })),
           take(6),
         )
@@ -135,7 +137,7 @@ export function DialogModel(props: { providerID?: string }) {
 
   const title = createMemo(() => {
     const value = provider()
-    if (!value) return "Select model"
+    if (!value) return i18n.t("dialog.select_model")
     return value.name
   })
 
@@ -160,14 +162,14 @@ export function DialogModel(props: { providerID?: string }) {
       actions={[
         {
           command: "model.dialog.provider",
-          title: connected() ? "Connect provider" : "View all providers",
+          title: connected() ? i18n.t("dialog.connect_provider") : i18n.t("dialog.view_all_providers"),
           onTrigger() {
             dialog.replace(() => <DialogProvider />)
           },
         },
         {
           command: "model.dialog.favorite",
-          title: "Favorite",
+          title: i18n.t("dialog.favorite"),
           hidden: !connected(),
           onTrigger: (option) => {
             local.model.toggleFavorite(option.value as { providerID: string; modelID: string })

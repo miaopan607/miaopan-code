@@ -6,6 +6,7 @@ import { WorkspaceContext } from "@/control-plane/workspace-context"
 import { InstanceRef } from "@/effect/instance-ref"
 import { disposeInstance as runDisposers } from "@/effect/instance-registry"
 import { FSUtil } from "@miaopan-code/core/fs-util"
+import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { Context, Deferred, Duration, Effect, Exit, Layer, Scope } from "effect"
 import { type InstanceContext } from "./instance-context"
 import { InstanceBootstrap } from "./bootstrap-service"
@@ -15,6 +16,7 @@ export interface LoadInput {
   directory: string
   worktree?: string
   project?: Project.Info
+  language?: Language
 }
 
 export interface Interface {
@@ -32,6 +34,7 @@ export const use = serviceUse(Service)
 
 interface Entry {
   readonly deferred: Deferred.Deferred<InstanceContext>
+  readonly language: Language
 }
 
 const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Service> = Layer.effect(
@@ -51,7 +54,7 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
                 worktree: input.worktree,
                 project: input.project,
               }
-            : yield* project.fromDirectory(input.directory).pipe(
+            : yield* project.fromDirectory(input.directory, input.language).pipe(
                 Effect.map((result) => ({
                   directory: input.directory,
                   worktree: result.sandbox,
@@ -91,15 +94,18 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
         }),
       )
 
-    const disposeContext = Effect.fn("InstanceStore.disposeContext")(function* (ctx: InstanceContext) {
-      yield* Effect.logInfo("disposing instance", { directory: ctx.directory })
+    const disposeContext = Effect.fn("InstanceStore.disposeContext")(function* (
+      ctx: InstanceContext,
+      language?: Language,
+    ) {
+      yield* Effect.logInfo(t(language, "log.instance_dispose"), { directory: ctx.directory })
       yield* Effect.promise(() => runDisposers(ctx.directory))
       yield* emitDisposed({ directory: ctx.directory, project: ctx.project.id })
     })
 
     const disposeEntry = Effect.fnUntraced(function* (directory: string, entry: Entry, ctx: InstanceContext) {
       if (cache.get(directory) !== entry) return false
-      yield* disposeContext(ctx)
+      yield* disposeContext(ctx, entry.language)
       if (cache.get(directory) !== entry) return false
       cache.delete(directory)
       return true
@@ -112,10 +118,13 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
           const existing = cache.get(directory)
           if (existing) return yield* restore(Deferred.await(existing.deferred))
 
-          const entry: Entry = { deferred: Deferred.makeUnsafe<InstanceContext>() }
+          const entry: Entry = {
+            deferred: Deferred.makeUnsafe<InstanceContext>(),
+            language: resolveLanguage(input.language),
+          }
           cache.set(directory, entry)
           yield* Effect.gen(function* () {
-            yield* Effect.logInfo("creating instance", { directory: directory })
+            yield* Effect.logInfo(t(entry.language, "log.instance_creating"), { directory: directory })
             yield* completeLoad(directory, input, entry)
           }).pipe(Effect.forkIn(scope, { startImmediately: true }))
           return yield* restore(Deferred.await(entry.deferred))
@@ -128,10 +137,13 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
       return Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
           const previous = cache.get(directory)
-          const entry: Entry = { deferred: Deferred.makeUnsafe<InstanceContext>() }
+          const entry: Entry = {
+            deferred: Deferred.makeUnsafe<InstanceContext>(),
+            language: resolveLanguage(input.language),
+          }
           cache.set(directory, entry)
           yield* Effect.gen(function* () {
-            yield* Effect.logInfo("reloading instance", { directory: directory })
+            yield* Effect.logInfo(t(entry.language, "log.instance_reloading"), { directory: directory })
             if (previous) {
               yield* Deferred.await(previous.deferred).pipe(Effect.ignore)
               yield* Effect.promise(() => runDisposers(directory))
@@ -164,14 +176,17 @@ const layer: Layer.Layer<Service, never, Project.Service | InstanceBootstrap.Ser
     })
 
     const disposeAllOnce = Effect.fnUntraced(function* () {
-      yield* Effect.logInfo("disposing all instances")
+      yield* Effect.logInfo(t(undefined, "log.instance_dispose_all"))
       yield* Effect.forEach(
         [...cache.entries()],
         (item) =>
           Effect.gen(function* () {
             const exit = yield* Deferred.await(item[1].deferred).pipe(Effect.exit)
             if (Exit.isFailure(exit)) {
-              yield* Effect.logWarning("instance dispose failed", { key: item[0], cause: exit.cause })
+              yield* Effect.logWarning(t(item[1].language, "log.instance_dispose_failed"), {
+                key: item[0],
+                cause: exit.cause,
+              })
               yield* removeEntry(item[0], item[1])
               return
             }

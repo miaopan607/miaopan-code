@@ -17,6 +17,7 @@ import type { TextareaRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
 import type { QuestionRequest } from "@miaopan-code/sdk/v2"
+import { UI } from "../../ui"
 import {
   createQuestionBodyState,
   questionConfirm,
@@ -330,7 +331,7 @@ export function RunQuestionBody(props: {
               >
                 <box width="100%" flexDirection="column" gap={1}>
                   <box paddingLeft={1}>
-                    <text fg={props.theme.text}>Review</text>
+                    <text fg={props.theme.text}>{UI.t("cli.run.review")}</text>
                   </box>
                   <For each={props.request.questions}>
                     {(item, index) => {
@@ -341,7 +342,7 @@ export function RunQuestionBody(props: {
                           <text wrapMode="word">
                             <span style={{ fg: props.theme.muted }}>{item.header}:</span>{" "}
                             <span style={{ fg: answered() ? props.theme.text : props.theme.error }}>
-                              {answered() ? value() : "(not answered)"}
+                              {answered() ? value() : `(${UI.t("cli.run.not_answered")})`}
                             </span>
                           </text>
                         </box>
@@ -357,7 +358,7 @@ export function RunQuestionBody(props: {
             <box>
               <text fg={props.theme.text} wrapMode="word">
                 {info()?.question}
-                {info()?.multiple ? " (select all that apply)" : ""}
+                {info()?.multiple ? ` (${UI.t("cli.run.select_all")})` : ""}
               </text>
             </box>
 
@@ -453,8 +454,8 @@ export function RunQuestionBody(props: {
                             fg={other() ? props.theme.highlight : picked() ? props.theme.success : props.theme.text}
                           >
                             {info()?.multiple
-                              ? `[${picked() ? "✓" : " "}] Type your own answer`
-                              : "Type your own answer"}
+                              ? `[${picked() ? "✓" : " "}] ${UI.t("question.type_own_answer")}`
+                              : UI.t("question.type_own_answer")}
                           </text>
                         </box>
                         <Show when={!info()?.multiple}>
@@ -479,7 +480,7 @@ export function RunQuestionBody(props: {
                             minHeight={1}
                             maxHeight={4}
                             wrapMode="word"
-                            placeholder="Type your own answer"
+                            placeholder={UI.t("question.type_own_placeholder")}
                             placeholderColor={props.theme.muted}
                             textColor={props.theme.text}
                             focusedTextColor={props.theme.text}

@@ -90,7 +90,7 @@ describe("SkillTool", () => {
               type: "text",
               value: SkillTool.toModelOutput(info, [reference]),
             })
-            expect(SkillTool.toModelOutput(info, [reference])).toContain(`Base directory for this skill: ${directory}`)
+            expect(SkillTool.toModelOutput(info, [reference])).toContain(`此技能的基础目录：${directory}`)
             expect(
               yield* settleTool(registry, {
                 sessionID,
@@ -106,11 +106,15 @@ describe("SkillTool", () => {
               { sessionID, action: "skill", resources: ["effect"], save: ["effect"] },
             ])
             expect(
-              yield* executeTool(registry, {
-                sessionID,
-                ...toolIdentity,
-                call: { type: "tool-call", id: "call-missing-skill", name: "skill", input: { name: "missing" } },
-              }),
+              yield* executeTool(
+                registry,
+                {
+                  sessionID,
+                  ...toolIdentity,
+                  call: { type: "tool-call", id: "call-missing-skill", name: "skill", input: { name: "missing" } },
+                },
+                "en",
+              ),
             ).toEqual({ type: "error", value: "Unable to load skill missing" })
             deny = true
             expect(
@@ -119,7 +123,7 @@ describe("SkillTool", () => {
                 ...toolIdentity,
                 call: { type: "tool-call", id: "call-denied-skill", name: "skill", input: { name: "effect" } },
               }),
-            ).toEqual({ type: "error", value: "Unable to load skill effect" })
+            ).toEqual({ type: "error", value: "无法加载技能 effect" })
             deny = false
             const flat = SkillV2.Info.make({
               name: "public",

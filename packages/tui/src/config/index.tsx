@@ -4,6 +4,8 @@ import { createBindingLookup } from "@opentui/keymap/extras"
 import { Schema } from "effect"
 import { createContext, type JSX, useContext } from "solid-js"
 import { TuiKeybind } from "./keybind"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 export const AttentionSoundName = Schema.Literals([
   "default",
@@ -20,15 +22,15 @@ export const PluginSpec = Schema.Union([Schema.String, Schema.mutable(Schema.Tup
 
 export const LeaderTimeoutDefault = 2000
 export const LeaderTimeout = Schema.Int.check(Schema.isGreaterThan(0)).annotate({
-  description: "Leader key timeout in milliseconds",
+  description: t(Locale.language(), "tui.config.leader_timeout"),
 })
 
 export const ScrollSpeed = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0.001))
 export const ScrollAcceleration = Schema.Struct({
-  enabled: Schema.Boolean.annotate({ description: "Enable scroll acceleration" }),
-}).annotate({ description: "Scroll acceleration settings" })
+  enabled: Schema.Boolean.annotate({ description: t(Locale.language(), "tui.config.scroll_enabled") }),
+}).annotate({ description: t(Locale.language(), "tui.config.scroll_settings") })
 export const DiffStyle = Schema.Literals(["auto", "stacked"]).annotate({
-  description: "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column",
+  description: t(Locale.language(), "tui.config.diff_style"),
 })
 
 export const AttentionSounds = Schema.Record(AttentionSoundName, Schema.optionalKey(Schema.String))
@@ -40,15 +42,15 @@ export const Attention = Schema.Struct({
   volume: Schema.optional(Schema.Number.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
   sound_pack: Schema.optional(Schema.String),
   sounds: Schema.optional(AttentionSounds),
-}).annotate({ description: "Attention notification and sound settings" })
+}).annotate({ description: t(Locale.language(), "tui.config.attention") })
 
 const PromptSize = Schema.Int.check(Schema.isGreaterThan(0))
 export const Prompt = Schema.Struct({
-  max_height: Schema.optional(PromptSize).annotate({ description: "Prompt textarea max height" }),
+  max_height: Schema.optional(PromptSize).annotate({ description: t(Locale.language(), "tui.config.prompt_height") }),
   max_width: Schema.optional(Schema.Union([PromptSize, Schema.Literal("auto")])).annotate({
-    description: "Home prompt max width: a positive integer for a fixed cap, or 'auto' to scale with terminal width",
+    description: t(Locale.language(), "tui.config.prompt_width"),
   }),
-}).annotate({ description: "Prompt size settings" })
+}).annotate({ description: t(Locale.language(), "tui.config.prompt_size") })
 
 export const Info = Schema.Struct({
   $schema: Schema.optional(Schema.String),
@@ -59,10 +61,10 @@ export const Info = Schema.Struct({
   leader_timeout: Schema.optional(LeaderTimeout),
   attention: Schema.optional(Attention),
   prompt: Schema.optional(Prompt),
-  scroll_speed: Schema.optional(ScrollSpeed).annotate({ description: "TUI scroll speed" }),
+  scroll_speed: Schema.optional(ScrollSpeed).annotate({ description: t(Locale.language(), "tui.config.scroll_speed") }),
   scroll_acceleration: Schema.optional(ScrollAcceleration),
   diff_style: Schema.optional(DiffStyle),
-  mouse: Schema.optional(Schema.Boolean).annotate({ description: "Enable or disable mouse capture (default: true)" }),
+  mouse: Schema.optional(Schema.Boolean).annotate({ description: t(Locale.language(), "tui.config.mouse") }),
 })
 export type Info = Schema.Schema.Type<typeof Info>
 
@@ -124,6 +126,6 @@ export function TuiConfigProvider(props: { config: Resolved; children: JSX.Eleme
 
 export function useTuiConfig() {
   const value = useContext(ConfigContext)
-  if (!value) throw new Error("TuiConfigProvider is missing")
+  if (!value) throw new Error(t(Locale.language(), "tui.error.config_provider_missing"))
   return value
 }

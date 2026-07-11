@@ -120,12 +120,13 @@ describe("session.retry.delay", () => {
 describe("session.retry.retryable", () => {
   test("maps too_many_requests json messages", () => {
     const error = wrap(JSON.stringify({ type: "error", error: { type: "too_many_requests" } }))
-    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Too Many Requests" })
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "请求过多" })
+    expect(SessionRetry.retryable(error, retryProvider, "en")).toEqual({ message: "Too Many Requests" })
   })
 
   test("maps overloaded provider codes", () => {
     const error = wrap(JSON.stringify({ code: "resource_exhausted" }))
-    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Provider is overloaded" })
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "提供商过载" })
   })
 
   test("does not retry unknown json messages", () => {
@@ -167,7 +168,7 @@ describe("session.retry.retryable", () => {
     const request = MessageV2.fromError(new ProviderError.HeaderTimeoutError(10000), { providerID })
     expect(SessionV1.APIError.isInstance(request)).toBe(true)
     expect(SessionRetry.retryable(request, retryProvider)).toEqual({
-      message: "Provider response headers timed out after 10000ms",
+      message: "提供商响应标头在 10000 毫秒后超时",
     })
   })
 
@@ -272,9 +273,9 @@ describe("session.retry.retryable", () => {
       action: {
         reason: "free_tier_limit",
         provider: "miaopan-code",
-        title: "Free limit reached",
-        message: "Subscribe to MiaopanCode Go for reliable access to the best open-source models, starting at $5/month.",
-        label: "subscribe",
+        title: "已达到免费额度",
+        message: "订阅 MiaopanCode Go 即可稳定访问优秀的开源模型，起价为每月 5 美元。",
+        label: "订阅",
         link: SessionRetry.GO_UPSELL_URL,
       },
     })
@@ -305,14 +306,13 @@ describe("session.retry.retryable", () => {
 
     expect(SessionRetry.retryable(error, "miaopanCode-go")).toEqual({
       message:
-        "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance - https://github.com/miaopan607/miaopan-code/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
+        "已达到 5 hour 用量限制，将在 5 小时 23 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量 - https://github.com/miaopan607/miaopan-code/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
       action: {
         reason: "account_rate_limit",
         provider: "miaopanCode-go",
-        title: "Go limit reached",
-        message:
-          "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance",
-        label: "open settings",
+        title: "已达到 Go 额度",
+        message: "已达到 5 hour 用量限制，将在 5 小时 23 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量",
+        label: "打开设置",
         link: "https://github.com/miaopan607/miaopan-code/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
       },
     })
@@ -341,7 +341,7 @@ describe("session.retry.retryable", () => {
     )
 
     expect(SessionRetry.retryable(error, "miaopanCode-go")?.action?.message).toBe(
-      "Usage limit reached. It will reset in 15 minutes. To continue using this model now, enable usage from your available balance",
+      "已达到用量限制，将在 15 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量",
     )
   })
 })
@@ -377,7 +377,7 @@ describe("session.message-v2.fromError", () => {
       expect(SessionV1.APIError.isInstance(result)).toBe(true)
       if (!SessionV1.APIError.isInstance(result)) throw new Error("expected APIError")
       expect(result.data.isRetryable).toBe(true)
-      expect(result.data.message).toBe("Connection reset by server")
+      expect(result.data.message).toBe("服务器重置了连接")
       expect(result.data.metadata?.code).toBe("ECONNRESET")
       expect(result.data.metadata?.message).toInclude("socket connection")
     },

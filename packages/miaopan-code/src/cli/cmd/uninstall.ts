@@ -24,39 +24,39 @@ interface RemovalTargets {
 
 export const UninstallCommand = {
   command: "uninstall",
-  describe: "uninstall miaopanCode and remove all related files",
+  describe: UI.t("cli.uninstall"),
   builder: (yargs: Argv) =>
     yargs
       .option("keep-config", {
         alias: "c",
         type: "boolean",
-        describe: "keep configuration files",
+        describe: UI.t("cli.keep_config"),
         default: false,
       })
       .option("keep-data", {
         alias: "d",
         type: "boolean",
-        describe: "keep session data and snapshots",
+        describe: UI.t("cli.keep_data"),
         default: false,
       })
       .option("dry-run", {
         type: "boolean",
-        describe: "show what would be removed without removing",
+        describe: UI.t("cli.dry_run"),
         default: false,
       })
       .option("force", {
         alias: "f",
         type: "boolean",
-        describe: "skip confirmation prompts",
+        describe: UI.t("cli.skip_confirm"),
         default: false,
       }),
 
   handler: async (args: UninstallArgs) => {
     UI.empty()
-    prompts.intro("Uninstall MiaopanCode")
+    prompts.intro(UI.t("uninstall.title"))
 
     const method = await Installation.method()
-    prompts.log.info(`Installation method: ${method}`)
+    prompts.log.info(UI.t("uninstall.method", { method }))
 
     const targets = await collectRemovalTargets(args, method)
 
@@ -64,33 +64,33 @@ export const UninstallCommand = {
 
     if (!args.force && !args.dryRun) {
       const confirm = await prompts.confirm({
-        message: "Are you sure you want to uninstall?",
+        message: UI.t("uninstall.confirm"),
         initialValue: false,
       })
       if (!confirm || prompts.isCancel(confirm)) {
-        prompts.outro("Cancelled")
+        prompts.outro(UI.t("uninstall.cancelled"))
         return
       }
     }
 
     if (args.dryRun) {
-      prompts.log.warn("Dry run - no changes made")
-      prompts.outro("Done")
+      prompts.log.warn(UI.t("uninstall.dry_run"))
+      prompts.outro(UI.t("account.done"))
       return
     }
 
     await executeUninstall(method, targets)
 
-    prompts.outro("Done")
+    prompts.outro(UI.t("account.done"))
   },
 }
 
 async function collectRemovalTargets(args: UninstallArgs, method: Installation.Method): Promise<RemovalTargets> {
   const directories: RemovalTargets["directories"] = [
-    { path: Global.Path.data, label: "Data", keep: args.keepData },
-    { path: Global.Path.cache, label: "Cache", keep: false },
-    { path: Global.Path.config, label: "Config", keep: args.keepConfig },
-    { path: Global.Path.state, label: "State", keep: false },
+    { path: Global.Path.data, label: UI.t("uninstall.data"), keep: args.keepData },
+    { path: Global.Path.cache, label: UI.t("uninstall.cache"), keep: false },
+    { path: Global.Path.config, label: UI.t("uninstall.config"), keep: args.keepConfig },
+    { path: Global.Path.state, label: UI.t("uninstall.state"), keep: false },
   ]
 
   const shellConfig = method === "curl" ? await getShellConfigFile() : null
@@ -100,7 +100,7 @@ async function collectRemovalTargets(args: UninstallArgs, method: Installation.M
 }
 
 async function showRemovalSummary(targets: RemovalTargets, method: Installation.Method) {
-  prompts.log.message("The following will be removed:")
+  prompts.log.message(UI.t("uninstall.removing_summary"))
 
   for (const dir of targets.directories) {
     const exists = await fs
@@ -111,18 +111,18 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
 
     const size = await getDirectorySize(dir.path)
     const sizeStr = formatSize(size)
-    const status = dir.keep ? UI.Style.TEXT_DIM + "(keeping)" : ""
+    const status = dir.keep ? UI.Style.TEXT_DIM + UI.t("uninstall.keeping") : ""
     const prefix = dir.keep ? "○" : "✓"
 
     prompts.log.info(`  ${prefix} ${dir.label}: ${shortenPath(dir.path)} ${UI.Style.TEXT_DIM}(${sizeStr})${status}`)
   }
 
   if (targets.binary) {
-    prompts.log.info(`  ✓ Binary: ${shortenPath(targets.binary)}`)
+    prompts.log.info(`  ✓ ${UI.t("uninstall.binary", { path: shortenPath(targets.binary) })}`)
   }
 
   if (targets.shellConfig) {
-    prompts.log.info(`  ✓ Shell PATH in ${shortenPath(targets.shellConfig)}`)
+    prompts.log.info(`  ✓ ${UI.t("uninstall.shell_path", { path: shortenPath(targets.shellConfig) })}`)
   }
 
   if (method !== "curl" && method !== "unknown") {
@@ -134,7 +134,7 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
       choco: "choco uninstall miaopanCode",
       scoop: "scoop uninstall miaopanCode",
     }
-    prompts.log.info(`  ✓ Package: ${cmds[method] || method}`)
+    prompts.log.info(`  ✓ ${UI.t("uninstall.package", { value: cmds[method] || method })}`)
   }
 }
 
@@ -144,7 +144,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   for (const dir of targets.directories) {
     if (dir.keep) {
-      prompts.log.step(`Skipping ${dir.label} (--keep-${dir.label.toLowerCase()})`)
+      prompts.log.step(UI.t("uninstall.skipping", { label: dir.label, key: dir.label.toLowerCase() }))
       continue
     }
 
@@ -154,24 +154,24 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
       .catch(() => false)
     if (!exists) continue
 
-    spinner.start(`Removing ${dir.label}...`)
+    spinner.start(UI.t("uninstall.removing", { label: dir.label }))
     const err = await fs.rm(dir.path, { recursive: true, force: true }).catch((e) => e)
     if (err) {
-      spinner.stop(`Failed to remove ${dir.label}`, 1)
+      spinner.stop(UI.t("uninstall.remove_failed", { label: dir.label }), 1)
       errors.push(`${dir.label}: ${err.message}`)
       continue
     }
-    spinner.stop(`Removed ${dir.label}`)
+    spinner.stop(UI.t("uninstall.removed", { label: dir.label }))
   }
 
   if (targets.shellConfig) {
-    spinner.start("Cleaning shell config...")
+    spinner.start(UI.t("uninstall.cleaning_shell"))
     const err = await cleanShellConfig(targets.shellConfig).catch((e) => e)
     if (err) {
-      spinner.stop("Failed to clean shell config", 1)
-      errors.push(`Shell config: ${err.message}`)
+      spinner.stop(UI.t("uninstall.clean_shell_failed"), 1)
+      errors.push(UI.t("uninstall.shell_config_error", { error: err.message }))
     } else {
-      spinner.stop("Cleaned shell config")
+      spinner.stop(UI.t("uninstall.shell_cleaned"))
     }
   }
 
@@ -187,27 +187,27 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
     const cmd = cmds[method]
     if (cmd) {
-      spinner.start(`Running ${cmd.join(" ")}...`)
+      spinner.start(UI.t("uninstall.running", { command: cmd.join(" ") }))
       const result = await Process.run(method === "choco" ? ["choco", "uninstall", "miaopan-code", "-y", "-r"] : cmd, {
         nothrow: true,
       })
       if (result.code !== 0) {
-        spinner.stop(`Package manager uninstall failed: exit code ${result.code}`, 1)
+        spinner.stop(UI.t("uninstall.package_failed", { code: result.code }), 1)
         const text = `${result.stdout.toString("utf8")}\n${result.stderr.toString("utf8")}`
         if (method === "choco" && text.includes("not running from an elevated command shell")) {
-          prompts.log.warn(`You may need to run '${cmd.join(" ")}' from an elevated command shell`)
+          prompts.log.warn(UI.t("uninstall.elevated_hint", { command: cmd.join(" ") }))
         } else {
-          prompts.log.warn(`You may need to run manually: ${cmd.join(" ")}`)
+          prompts.log.warn(UI.t("uninstall.manual_hint", { command: cmd.join(" ") }))
         }
       } else {
-        spinner.stop("Package removed")
+        spinner.stop(UI.t("uninstall.package_removed"))
       }
     }
   }
 
   if (method === "curl" && targets.binary) {
     UI.empty()
-    prompts.log.message("To finish removing the binary, run:")
+    prompts.log.message(UI.t("uninstall.finish_binary"))
     prompts.log.info(`  rm "${targets.binary}"`)
 
     const binDir = path.dirname(targets.binary)
@@ -218,14 +218,14 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 
   if (errors.length > 0) {
     UI.empty()
-    prompts.log.warn("Some operations failed:")
+    prompts.log.warn(UI.t("uninstall.some_failed"))
     for (const err of errors) {
       prompts.log.error(`  ${err}`)
     }
   }
 
   UI.empty()
-  prompts.log.success("Thank you for using MiaopanCode!")
+  prompts.log.success(UI.t("uninstall.thanks"))
 }
 
 async function getShellConfigFile(): Promise<string | null> {

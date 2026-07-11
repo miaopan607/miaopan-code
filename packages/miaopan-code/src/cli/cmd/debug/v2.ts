@@ -5,10 +5,11 @@ import { LocationServiceMap, locationServiceMapLayer } from "@miaopan-code/core/
 import { Location } from "@miaopan-code/core/location"
 import { AbsolutePath } from "@miaopan-code/core/schema"
 import { effectCmd } from "../../effect-cmd"
+import { UI } from "@/cli/ui"
 
 export const V2Command = effectCmd({
   command: "v2",
-  describe: "debug v2 catalog and built-in plugins",
+  describe: UI.t("cli.debug_tools"),
   instance: false,
   handler: () =>
     Effect.gen(function* () {

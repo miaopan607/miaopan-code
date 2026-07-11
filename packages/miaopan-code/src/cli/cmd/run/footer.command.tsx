@@ -6,6 +6,7 @@ import { createEffect, createMemo, createSignal, type Accessor } from "solid-js"
 import { RunFooterMenu, createFooterMenuState, type RunFooterMenuItem } from "./footer.menu"
 import type { RunFooterTheme } from "./theme"
 import type { FooterQueuedPrompt, FooterSubagentTab, RunCommand, RunInput, RunProvider } from "./types"
+import { UI } from "../../ui"
 
 type PanelEntry = RunFooterMenuItem & {
   category: string
@@ -97,11 +98,11 @@ function countLabel(count: number, total: number, query: string) {
 }
 
 function categoryRank(category: string) {
-  if (category === "Project Commands") {
+  if (category === UI.t("cli.run.category_project")) {
     return 0
   }
 
-  if (category === "MCP Commands") {
+  if (category === UI.t("cli.run.category_mcp")) {
     return 1
   }
 
@@ -359,8 +360,8 @@ export function RunCommandMenuBody(props: {
     const session: CommandEntry[] = [
       {
         action: "editor",
-        category: "Session",
-        display: "Open editor",
+        category: UI.t("cli.run.category_session"),
+        display: UI.t("cli.run.open_editor_title"),
         footer: "/editor",
         keywords: "editor compose draft external editor",
       },
@@ -368,10 +369,12 @@ export function RunCommandMenuBody(props: {
         ? [
             {
               action: "subagent" as const,
-              category: "Session",
-              display: "View subagents",
+              category: UI.t("cli.run.category_session"),
+              display: UI.t("cli.run.view_subagents_title"),
               footer:
-                activeSubagentCount() > 0 ? `${activeSubagentCount()} active` : `${props.subagents().length} recent`,
+                activeSubagentCount() > 0
+                  ? UI.t("cli.run.active_count", { count: activeSubagentCount() })
+                  : UI.t("cli.run.recent_count", { count: props.subagents().length }),
               keywords: props
                 .subagents()
                 .map((item) => `${item.label} ${item.description} ${item.title ?? ""}`)
@@ -381,9 +384,9 @@ export function RunCommandMenuBody(props: {
         : []),
       {
         action: "slash",
-        category: "Session",
+        category: UI.t("cli.run.category_session"),
         name: "new",
-        display: "New session",
+        display: UI.t("cli.run.new_session_title"),
         footer: "/new",
         keywords: "new session clear",
       },
@@ -393,8 +396,8 @@ export function RunCommandMenuBody(props: {
         ? [
             {
               action: "skill" as const,
-              category: "Prompt",
-              display: "Skills",
+              category: UI.t("cli.run.category_prompt"),
+              display: UI.t("cli.run.skills"),
               footer: "/skills",
               keywords: `skill skills ${skills()
                 .map((item) => `${item.name} ${item.description ?? ""}`)
@@ -405,16 +408,16 @@ export function RunCommandMenuBody(props: {
     const agent: CommandEntry[] = [
       {
         action: "model",
-        category: "Agent",
-        display: "Switch model",
+        category: UI.t("cli.run.category_agent"),
+        display: UI.t("cli.run.switch_model"),
       },
       ...(props.queued().length > 0
         ? [
             {
               action: "queued" as const,
-              category: "Agent",
-              display: "Manage queued prompts",
-              footer: `${props.queued().length} queued`,
+              category: UI.t("cli.run.category_agent"),
+              display: UI.t("cli.run.manage_queued"),
+              footer: UI.t("cli.run.queued_count", { count: props.queued().length }),
               keywords: props
                 .queued()
                 .map((item) => item.prompt.text)
@@ -424,8 +427,8 @@ export function RunCommandMenuBody(props: {
         : []),
       {
         action: "variant.cycle",
-        category: "Agent",
-        display: "Variant cycle",
+        category: UI.t("cli.run.category_agent"),
+        display: UI.t("cli.run.variant_cycle"),
         footer: props.variantCycle,
         keywords: "variant cycle",
       },
@@ -433,8 +436,8 @@ export function RunCommandMenuBody(props: {
         ? [
             {
               action: "variant.list" as const,
-              category: "Agent",
-              display: "Switch model variant",
+              category: UI.t("cli.run.category_agent"),
+              display: UI.t("cli.run.switch_variant"),
               keywords: `variant variants ${props.variants().join(" ")}`,
             },
           ]
@@ -446,7 +449,7 @@ export function RunCommandMenuBody(props: {
         (item) =>
           ({
             action: "slash",
-            category: item.source === "mcp" ? "MCP Commands" : "Project Commands",
+            category: item.source === "mcp" ? UI.t("cli.run.category_mcp") : UI.t("cli.run.category_project"),
             name: item.name,
             display: item.name,
             footer: `/${item.name}`,
@@ -463,7 +466,13 @@ export function RunCommandMenuBody(props: {
       ...prompt,
       ...agent,
       ...commands,
-      { action: "exit", category: "System", display: "Exit", footer: "/exit", keywords: "/exit exit" },
+      {
+        action: "exit",
+        category: UI.t("cli.run.category_system"),
+        display: UI.t("tui.exit"),
+        footer: "/exit",
+        keywords: "/exit exit",
+      },
     ]
   })
   const items = createMemo<CommandEntry[]>(() => match(query(), entries()))
@@ -540,12 +549,12 @@ export function RunCommandMenuBody(props: {
 
   return (
     <PanelShell
-      title="Commands"
+      title={UI.t("cli.run.commands")}
       countVisible={false}
       query={query()}
       count={items().length}
       total={entries().length}
-      placeholder="Search"
+      placeholder={UI.t("cli.run.search")}
       theme={props.theme}
       inputRef={(input) => {
         field = input
@@ -561,7 +570,7 @@ export function RunCommandMenuBody(props: {
         offset={menu.offset}
         rows={() => PANEL_LIST_ROWS}
         limit={PANEL_LIST_ROWS}
-        empty="No results found"
+        empty={UI.t("cli.run.no_results")}
         border={false}
         paddingLeft={PANEL_PAD}
         paddingRight={PANEL_PAD}
@@ -638,11 +647,11 @@ export function RunSubagentSelectBody(props: {
 
   return (
     <PanelShell
-      title="Select subagent"
+      title={UI.t("cli.run.select_subagent")}
       query={query()}
       count={items().length}
       total={entries().length}
-      placeholder="Search"
+      placeholder={UI.t("cli.run.search")}
       theme={props.theme}
       inputRef={(input) => {
         field = input
@@ -658,7 +667,7 @@ export function RunSubagentSelectBody(props: {
         offset={menu.offset}
         rows={menu.rows}
         limit={SUBAGENT_LIST_ROWS}
-        empty="No subagents found"
+        empty={UI.t("cli.run.no_subagents")}
         border={false}
         paddingLeft={PANEL_PAD}
         paddingRight={PANEL_PAD}
@@ -735,11 +744,11 @@ export function RunQueuedPromptSelectBody(props: {
 
   return (
     <PanelShell
-      title="Queued prompts"
+      title={UI.t("cli.run.manage_queued")}
       query={query()}
       count={items().length}
       total={entries().length}
-      placeholder="Search"
+      placeholder={UI.t("cli.run.search")}
       theme={props.theme}
       inputRef={(input) => {
         field = input
@@ -755,7 +764,7 @@ export function RunQueuedPromptSelectBody(props: {
         offset={menu.offset}
         rows={menu.rows}
         limit={SUBAGENT_LIST_ROWS}
-        empty="No queued prompts"
+        empty={UI.t("cli.run.no_queued")}
         border={false}
         paddingLeft={PANEL_PAD}
         paddingRight={PANEL_PAD}
@@ -812,11 +821,11 @@ export function RunSkillSelectBody(props: {
 
   return (
     <PanelShell
-      title="Skills"
+      title={UI.t("cli.run.skills")}
       query={query()}
       count={items().length}
       total={entries().length}
-      placeholder="Search"
+      placeholder={UI.t("cli.run.search")}
       theme={props.theme}
       inputRef={(input) => {
         field = input
@@ -832,7 +841,7 @@ export function RunSkillSelectBody(props: {
         offset={menu.offset}
         rows={() => PANEL_LIST_ROWS}
         limit={PANEL_LIST_ROWS}
-        empty={props.commands() ? "No skills found" : "Skills loading"}
+        empty={props.commands() ? UI.t("cli.run.no_skills") : UI.t("cli.run.skills_loading")}
         border={false}
         paddingLeft={PANEL_PAD}
         paddingRight={PANEL_PAD}
@@ -855,8 +864,8 @@ export function RunVariantSelectBody(props: {
   const entries = createMemo<VariantEntry[]>(() => [
     {
       category: "",
-      display: "Default",
-      description: props.current() === undefined ? "current" : undefined,
+      display: UI.t("cli.run.default_variant"),
+      description: props.current() === undefined ? UI.t("cli.run.current") : undefined,
       keywords: "default",
       variant: undefined,
       current: props.current() === undefined,
@@ -864,7 +873,7 @@ export function RunVariantSelectBody(props: {
     ...props.variants().map((variant) => ({
       category: "",
       display: variant,
-      description: props.current() === variant ? "current" : undefined,
+      description: props.current() === variant ? UI.t("cli.run.current") : undefined,
       keywords: variant,
       variant,
       current: props.current() === variant,
@@ -910,11 +919,11 @@ export function RunVariantSelectBody(props: {
 
   return (
     <PanelShell
-      title="Select variant"
+      title={UI.t("dialog.select_variant")}
       query={query()}
       count={items().length}
       total={entries().length}
-      placeholder="Search"
+      placeholder={UI.t("cli.run.search")}
       theme={props.theme}
       inputRef={(input) => {
         field = input
@@ -930,7 +939,7 @@ export function RunVariantSelectBody(props: {
         offset={menu.offset}
         rows={() => PANEL_LIST_ROWS}
         limit={PANEL_LIST_ROWS}
-        empty="No results found"
+        empty={UI.t("cli.run.no_results")}
         border={false}
         paddingLeft={PANEL_PAD}
         paddingRight={PANEL_PAD}
@@ -959,9 +968,9 @@ export function RunModelSelectBody(props: {
             const title = model.name ?? modelID
             const current = props.current()?.providerID === provider.id && props.current()?.modelID === modelID
             const footer = current
-              ? "current"
+              ? UI.t("cli.run.current")
               : model.cost?.input === 0 && provider.id === "miaopan-code"
-                ? "Free"
+                ? UI.t("cli.run.free")
                 : title !== modelID
                   ? modelID
                   : undefined
@@ -1031,11 +1040,11 @@ export function RunModelSelectBody(props: {
 
   return (
     <PanelShell
-      title="Select model"
+      title={UI.t("dialog.select_model")}
       query={query()}
       count={items().length}
       total={entries().length}
-      placeholder="Search"
+      placeholder={UI.t("cli.run.search")}
       theme={props.theme}
       inputRef={(input) => {
         field = input
@@ -1051,7 +1060,7 @@ export function RunModelSelectBody(props: {
         offset={menu.offset}
         rows={() => PANEL_LIST_ROWS}
         limit={PANEL_LIST_ROWS}
-        empty={props.providers() ? "No results found" : "Models loading"}
+        empty={props.providers() ? UI.t("cli.run.no_models") : UI.t("cli.run.models_loading")}
         border={false}
         paddingLeft={PANEL_PAD}
         paddingRight={PANEL_PAD}

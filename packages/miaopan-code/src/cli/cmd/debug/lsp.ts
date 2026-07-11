@@ -3,10 +3,11 @@ import { Effect } from "effect"
 import { effectCmd } from "../../effect-cmd"
 import { cmd } from "../cmd"
 import { EOL } from "os"
+import { UI } from "@/cli/ui"
 
 export const LSPCommand = cmd({
   command: "lsp",
-  describe: "LSP debugging utilities",
+  describe: UI.t("cli.lsp_tools"),
   builder: (yargs) =>
     yargs.command(DiagnosticsCommand).command(SymbolsCommand).command(DocumentSymbolsCommand).demandCommand(),
   async handler() {},
@@ -14,7 +15,7 @@ export const LSPCommand = cmd({
 
 const DiagnosticsCommand = effectCmd({
   command: "diagnostics <file>",
-  describe: "get diagnostics for a file",
+  describe: UI.t("cli.lsp_diagnostics"),
   builder: (yargs) => yargs.positional("file", { type: "string", demandOption: true }),
   handler: Effect.fn("Cli.debug.lsp.diagnostics")(function* (args) {
     const out = yield* LSP.Service.use((lsp) =>
@@ -29,10 +30,10 @@ const DiagnosticsCommand = effectCmd({
 
 export const SymbolsCommand = effectCmd({
   command: "symbols <query>",
-  describe: "search workspace symbols",
+  describe: UI.t("cli.lsp_symbols"),
   builder: (yargs) => yargs.positional("query", { type: "string", demandOption: true }),
   handler: Effect.fn("Cli.debug.lsp.symbols")(function* (args) {
-    yield* Effect.logInfo("symbols")
+    yield* Effect.logInfo(UI.t("cli.lsp.symbols_output"))
     const results = yield* LSP.Service.use((lsp) => lsp.workspaceSymbol(args.query))
     process.stdout.write(JSON.stringify(results, null, 2) + EOL)
   }),
@@ -40,10 +41,10 @@ export const SymbolsCommand = effectCmd({
 
 export const DocumentSymbolsCommand = effectCmd({
   command: "document-symbols <uri>",
-  describe: "get symbols from a document",
+  describe: UI.t("cli.lsp_document_symbols"),
   builder: (yargs) => yargs.positional("uri", { type: "string", demandOption: true }),
   handler: Effect.fn("Cli.debug.lsp.documentSymbols")(function* (args) {
-    yield* Effect.logInfo("document-symbols")
+    yield* Effect.logInfo(UI.t("cli.lsp.document_symbols_output"))
     const results = yield* LSP.Service.use((lsp) => lsp.documentSymbol(args.uri))
     process.stdout.write(JSON.stringify(results, null, 2) + EOL)
   }),

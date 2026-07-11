@@ -10,6 +10,7 @@ import { streamText, wrapLanguageModel, type ModelMessage, type Tool } from "ai"
 import type { LLMEvent } from "@miaopan-code/llm"
 import { LLMClient } from "@miaopan-code/llm/route"
 import type { LLMClientService } from "@miaopan-code/llm/route"
+import { t } from "@miaopan-code/core/i18n"
 import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
@@ -110,6 +111,7 @@ const live: Layer.Layer<
         plugin,
         flags,
         isWorkflow,
+        language: cfg.language,
       })
 
       // Wire up toolExecutor for DWS workflow models so that tool calls
@@ -125,12 +127,12 @@ const live: Layer.Layer<
         workflowModel.sessionID = input.sessionID
         workflowModel.systemPrompt = prepared.system.join("\n")
         workflowModel.toolExecutor = async (toolName, argsJson, _requestID) => {
-          const t = prepared.tools[toolName]
-          if (!t || !t.execute) {
-            return { result: "", error: `Unknown tool: ${toolName}` }
+          const tool = prepared.tools[toolName]
+          if (!tool || !tool.execute) {
+            return { result: "", error: t(cfg.language, "error.tool_unknown", { name: toolName }) }
           }
           try {
-            const result = await t.execute!(JSON.parse(argsJson), {
+            const result = await tool.execute!(JSON.parse(argsJson), {
               toolCallId: _requestID,
               messages: input.messages,
               abortSignal: input.abort,
@@ -239,9 +241,10 @@ const live: Layer.Layer<
           providerOptions: prepared.params.options,
           headers: prepared.headers,
           abort: input.abort,
+          language: cfg.language,
         })
         if (native.type === "supported") {
-          yield* Effect.logInfo("llm runtime selected", {
+          yield* Effect.logInfo(t(cfg.language, "log.llm_runtime_selected"), {
             "llm.runtime": "native",
             "llm.provider": input.model.providerID,
             "llm.model": input.model.id,
@@ -251,13 +254,13 @@ const live: Layer.Layer<
             stream: native.stream,
           }
         }
-        yield* Effect.logInfo("llm runtime selected", {
+        yield* Effect.logInfo(t(cfg.language, "log.llm_runtime_selected"), {
           "llm.runtime": "ai-sdk",
           "llm.provider": input.model.providerID,
           "llm.model": input.model.id,
           "llm.native_unsupported_reason": native.reason,
         })
-        yield* Effect.logInfo("native runtime unavailable; falling back to ai-sdk", {
+        yield* Effect.logInfo(t(cfg.language, "log.llm_native_fallback"), {
           providerID: input.model.providerID,
           modelID: input.model.id,
           "session.id": input.sessionID,
@@ -268,7 +271,7 @@ const live: Layer.Layer<
         })
       }
 
-      yield* Effect.logInfo("llm runtime selected", {
+      yield* Effect.logInfo(t(cfg.language, "log.llm_runtime_selected"), {
         "llm.runtime": "ai-sdk",
         "llm.provider": input.model.providerID,
         "llm.model": input.model.id,
@@ -280,7 +283,7 @@ const live: Layer.Layer<
         result: streamText({
           onError(error) {
             bridge.fork(
-              Effect.logError("stream error", {
+              Effect.logError(t(cfg.language, "log.session_stream_error"), {
                 providerID: input.model.providerID,
                 modelID: input.model.id,
                 "session.id": input.sessionID,
@@ -334,6 +337,7 @@ const live: Layer.Layer<
                       args.params.prompt,
                       input.model,
                       prepared.messageTransformOptions,
+                      cfg.language,
                     )
                   }
                   return args.params

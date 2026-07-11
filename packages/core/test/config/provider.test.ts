@@ -67,7 +67,7 @@ describe("ConfigProviderPlugin.Plugin", () => {
               type: "document",
               info: decode({
                 providers: {
-                  miaopanCode: {
+                  "miaopan-code": {
                     api: { type: "aisdk", package: "@ai-sdk/openai", url: "https://miaopanCode.test/v1" },
                     models: {
                       "alpha-gpt-next": {
@@ -118,7 +118,7 @@ describe("ConfigProviderPlugin.Plugin", () => {
               type: "document",
               info: decode({
                 providers: {
-                  miaopanCode: {
+                  "miaopan-code": {
                     api: { type: "aisdk", package: "@ai-sdk/openai", url: "https://miaopanCode.test/v1" },
                   },
                 },
@@ -128,7 +128,7 @@ describe("ConfigProviderPlugin.Plugin", () => {
               type: "document",
               info: decode({
                 providers: {
-                  miaopanCode: {
+                  "miaopan-code": {
                     models: {
                       "alpha-gpt-next": {
                         variants: [{ id: "high", body: { reasoningEffort: "high" } }],

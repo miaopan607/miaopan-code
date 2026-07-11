@@ -65,7 +65,7 @@ describe("node build", () => {
     )
     const map = Node.makeGlobalNode({ service: LocationServiceMap.Service, layer: mapLayer, deps: [b] })
     expect(() => AppNodeBuilder.build(LayerNode.group([a]), [[LocationServiceMap.node, map]])).toThrow(
-      "Cycle detected in layer tree",
+      "层树中检测到循环",
     )
   })
 

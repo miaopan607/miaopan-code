@@ -3,6 +3,9 @@ import { InstanceState } from "@/effect/instance-state"
 import { GlobalBus } from "@/bus/global"
 import { EventV2 } from "@miaopan-code/core/event"
 import { Effect, Queue } from "effect"
+import { t } from "@miaopan-code/core/i18n"
+import type { Language } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 import * as Stream from "effect/Stream"
 import { HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
@@ -22,7 +25,7 @@ function eventID() {
   return EventV2.ID.create()
 }
 
-function eventResponse(events: EventV2.Interface) {
+function eventResponse(events: EventV2.Interface, language: Language) {
   return Effect.gen(function* () {
     const instance = yield* InstanceState.context
     const workspaceID = yield* InstanceState.workspaceID
@@ -65,14 +68,14 @@ function eventResponse(events: EventV2.Interface) {
       Stream.map(() => ({ id: eventID(), type: "server.heartbeat", properties: {} })),
     )
 
-    yield* Effect.logInfo("event connected")
+    yield* Effect.logInfo(t(language, "log.server_event_connected"))
     return HttpServerResponse.stream(
       Stream.make({ id: eventID(), type: "server.connected", properties: {} }).pipe(
         Stream.concat(output.pipe(Stream.merge(heartbeat, { haltStrategy: "left" }))),
         Stream.map(eventData),
         Stream.pipeThroughChannel(Sse.encode()),
         Stream.encodeText,
-        Stream.ensuring(Effect.logInfo("event disconnected")),
+        Stream.ensuring(Effect.logInfo(t(language, "log.server_event_disconnected"))),
       ),
       {
         contentType: "text/event-stream",
@@ -92,7 +95,8 @@ export const eventHandlers = HttpApiBuilder.group(EventApi, "event", (handlers) 
     return handlers.handleRaw(
       "subscribe",
       Effect.fn("EventHttpApi.subscribe")(function* () {
-        return yield* eventResponse(events)
+        const language = yield* requestLanguage()
+        return yield* eventResponse(events, language)
       }),
     )
   }),

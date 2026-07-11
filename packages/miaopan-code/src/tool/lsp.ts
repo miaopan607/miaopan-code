@@ -2,7 +2,8 @@ import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
 import path from "path"
 import { LSP } from "@/lsp/lsp"
-import DESCRIPTION from "./lsp.txt"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { ToolI18n } from "./i18n"
 import { InstanceState } from "@/effect/instance-state"
 import { pathToFileURL } from "url"
 import { assertExternalDirectoryEffect } from "./external-directory"
@@ -20,28 +21,31 @@ const operations = [
   "outgoingCalls",
 ] as const
 
-export const Parameters = Schema.Struct({
-  operation: Schema.Literals(operations).annotate({ description: "The LSP operation to perform" }),
-  filePath: Schema.String.annotate({ description: "The absolute or relative path to the file" }),
-  line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({
-    description: "The line number (1-based, as shown in editors)",
-  }),
-  character: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({
-    description: "The character offset (1-based, as shown in editors)",
-  }),
-  query: Schema.optional(Schema.String).annotate({
-    description: "Search query for workspaceSymbol. Empty string requests all symbols.",
-  }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    operation: Schema.Literals(operations).annotate({ description: t(language, "tool.param.lsp_operation") }),
+    filePath: Schema.String.annotate({ description: t(language, "tool.param.lsp_path") }),
+    line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({
+      description: t(language, "tool.param.lsp_line"),
+    }),
+    character: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({
+      description: t(language, "tool.param.lsp_character"),
+    }),
+    query: Schema.optional(Schema.String).annotate({
+      description: t(language, "tool.param.lsp_query"),
+    }),
+  })
+export const Parameters = makeParameters()
 
 export const LspTool = Tool.define(
   "lsp",
   Effect.gen(function* () {
     const lsp = yield* LSP.Service
     const fs = yield* FSUtil.Service
+    const language = yield* ToolI18n.language()
     return {
-      description: DESCRIPTION,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.lsp"),
+      parameters: makeParameters(language),
       execute: (args: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
           const instance = yield* InstanceState.context
@@ -72,10 +76,10 @@ export const LspTool = Tool.define(
           const title = detail ? `${args.operation} ${detail}` : args.operation
 
           const exists = yield* fs.existsSafe(file)
-          if (!exists) throw new Error(`File not found: ${file}`)
+          if (!exists) throw new Error(ToolI18n.text(ctx, "tool.file_not_found", { path: file }))
 
           const available = yield* lsp.hasClients(file)
-          if (!available) throw new Error("No LSP server available for this file type.")
+          if (!available) throw new Error(ToolI18n.text(ctx, "tool.lsp_unavailable"))
 
           yield* lsp.touchFile(file, "document")
 
@@ -105,7 +109,10 @@ export const LspTool = Tool.define(
           return {
             title,
             metadata: { result },
-            output: result.length === 0 ? `No results found for ${args.operation}` : JSON.stringify(result, null, 2),
+            output:
+              result.length === 0
+                ? ToolI18n.text(undefined, "tool.lsp_no_results", { operation: args.operation })
+                : JSON.stringify(result, null, 2),
           }
         }).pipe(Effect.orDie),
     }

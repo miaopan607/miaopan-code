@@ -6,6 +6,7 @@ import type { Data, Definition, Payload } from "@miaopan-code/schema/event"
 import { and, asc, eq, gt, inArray } from "drizzle-orm"
 import { Database } from "./database/database"
 import { EventSequenceTable, EventTable } from "./event/sql"
+import { zh } from "./i18n"
 import { Location } from "./location"
 import { makeGlobalNode } from "./effect/app-node"
 import { isDeepStrictEqual } from "node:util"
@@ -50,7 +51,10 @@ export class InvalidDurableEventError extends Schema.TaggedErrorClass<InvalidDur
 const decodeSerializedEvent = (event: SerializedEvent): Payload => {
   const definition = Durable.get(event.type)
   if (!definition?.durable) {
-    throw new InvalidDurableEventError({ type: event.type, message: `Unknown durable event type ${event.type}` })
+    throw new InvalidDurableEventError({
+      type: event.type,
+      message: zh("error.event_unknown_type", { type: event.type }),
+    })
   }
   return {
     id: event.id,
@@ -221,7 +225,7 @@ export const layerWith = (options?: LayerOptions) =>
               yield* Effect.die(
                 new InvalidDurableEventError({
                   type: event.type,
-                  message: `Expected string aggregate field ${durable.aggregate}`,
+                  message: zh("error.event_aggregate_string", { field: durable.aggregate }),
                 }),
               )
             } else {
@@ -229,7 +233,10 @@ export const layerWith = (options?: LayerOptions) =>
                 yield* Effect.die(
                   new InvalidDurableEventError({
                     type: event.type,
-                    message: `Aggregate mismatch: expected ${input.aggregateID}, got ${aggregateID}`,
+                    message: zh("error.event_aggregate_mismatch", {
+                      expected: input.aggregateID,
+                      actual: aggregateID,
+                    }),
                   }),
                 )
               }
@@ -255,7 +262,11 @@ export const layerWith = (options?: LayerOptions) =>
                             yield* Effect.die(
                               new InvalidDurableEventError({
                                 type: event.type,
-                                message: `Replay owner mismatch for aggregate ${aggregateID}: expected ${row.ownerID}, got ${input.ownerID ?? "none"}`,
+                                message: zh("error.event_owner_mismatch", {
+                                  aggregateID,
+                                  expected: row.ownerID,
+                                  actual: input.ownerID ?? zh("common.none"),
+                                }),
                               }),
                             )
                           }
@@ -284,7 +295,7 @@ export const layerWith = (options?: LayerOptions) =>
                             yield* Effect.die(
                               new InvalidDurableEventError({
                                 type: event.type,
-                                message: `Replay diverged at aggregate ${aggregateID} sequence ${input.seq}`,
+                                message: zh("error.event_replay_diverged", { aggregateID, seq: input.seq }),
                               }),
                             )
                           }
@@ -296,7 +307,11 @@ export const layerWith = (options?: LayerOptions) =>
                             yield* Effect.die(
                               new InvalidDurableEventError({
                                 type: event.type,
-                                message: `Sequence mismatch for aggregate ${aggregateID}: expected ${latest + 1}, got ${seq}`,
+                                message: zh("error.event_sequence_mismatch", {
+                                  aggregateID,
+                                  expected: latest + 1,
+                                  actual: seq,
+                                }),
                               }),
                             )
                           }
@@ -310,7 +325,11 @@ export const layerWith = (options?: LayerOptions) =>
                             yield* Effect.die(
                               new InvalidDurableEventError({
                                 type: event.type,
-                                message: `Event ${event.id} already exists at aggregate ${stored.aggregateID} sequence ${stored.seq}`,
+                                message: zh("error.event_duplicate", {
+                                  eventID: event.id,
+                                  aggregateID: stored.aggregateID,
+                                  seq: stored.seq,
+                                }),
                               }),
                             )
                           const committed = {
@@ -372,7 +391,7 @@ export const layerWith = (options?: LayerOptions) =>
             return yield* Effect.die(
               new InvalidDurableEventError({
                 type: event.type,
-                message: "Local commit hooks require a durable event",
+                message: zh("error.event_commit_requires_durable"),
               }),
             )
           if (definition?.durable) {
@@ -399,7 +418,8 @@ export const layerWith = (options?: LayerOptions) =>
         Effect.suspend(() => observer(event)).pipe(
           Effect.catchCauseIf(
             (cause) => !Cause.hasInterrupts(cause),
-            (cause) => Effect.logError("Event listener failed", { eventID: event.id, eventType: event.type, cause }),
+            (cause) =>
+              Effect.logError(zh("log.event_listener_failed"), { eventID: event.id, eventType: event.type, cause }),
           ),
         )
 
@@ -446,7 +466,10 @@ export const layerWith = (options?: LayerOptions) =>
           const definition = Durable.get(event.type)
           if (!definition?.durable) {
             yield* Effect.die(
-              new InvalidDurableEventError({ type: event.type, message: `Unknown durable event type ${event.type}` }),
+              new InvalidDurableEventError({
+                type: event.type,
+                message: zh("error.event_unknown_type", { type: event.type }),
+              }),
             )
           } else {
             const payload = {
@@ -488,7 +511,7 @@ export const layerWith = (options?: LayerOptions) =>
             yield* Effect.die(
               new InvalidDurableEventError({
                 type: events[0]?.type ?? "unknown",
-                message: "Replay events must belong to the same aggregate",
+                message: zh("error.event_same_aggregate"),
               }),
             )
           }
@@ -499,7 +522,11 @@ export const layerWith = (options?: LayerOptions) =>
               yield* Effect.die(
                 new InvalidDurableEventError({
                   type: event.type,
-                  message: `Replay sequence mismatch at index ${index}: expected ${seq}, got ${event.seq}`,
+                  message: zh("error.event_replay_sequence_mismatch", {
+                    index,
+                    expected: seq,
+                    actual: event.seq,
+                  }),
                 }),
               )
             }

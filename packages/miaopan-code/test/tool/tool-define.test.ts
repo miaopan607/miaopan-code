@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { Cause, Effect, Exit, Schema } from "effect"
 import { Agent } from "../../src/agent/agent"
+import { t } from "@miaopan-code/core/i18n"
 import { MessageID, SessionID } from "../../src/session/schema"
 import { Tool } from "@/tool/tool"
 import { Truncate } from "@/tool/truncate"
@@ -146,8 +147,7 @@ describe("Tool.define", () => {
       expect(error).toBeInstanceOf(Tool.InvalidArgumentsError)
       const args = error as Tool.InvalidArgumentsError
       expect(args.tool).toBe("qtest")
-      expect(args.message).toContain("qtest tool was called with invalid arguments")
-      expect(args.message).toContain("Please rewrite the input")
+      expect(args.message).toBe(t("zh-CN", "tool.error.invalid_arguments", { tool: "qtest", detail: args.detail }))
       expect(args.message).toContain(`["questions"][0]["question"]`)
     }),
   )

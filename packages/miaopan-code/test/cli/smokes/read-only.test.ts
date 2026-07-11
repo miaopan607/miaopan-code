@@ -17,6 +17,7 @@
 import { describe, expect } from "bun:test"
 import { Effect } from "effect"
 import { cliIt } from "../../lib/cli-process"
+import { UI } from "../../../src/cli/ui"
 
 describe("miaopanCode read-only commands (smoke)", () => {
   // `mcp list` reads MCP server config and pings each one. With the empty
@@ -44,7 +45,7 @@ describe("miaopanCode read-only commands (smoke)", () => {
       Effect.gen(function* () {
         const r = yield* miaopanCode.spawn(["providers", "list"])
         miaopanCode.expectExit(r, 0, "providers list")
-        expect(r.stdout).toContain("Credentials")
+        expect(r.stdout).toContain(UI.t("provider.credentials"))
       }),
     60_000,
   )

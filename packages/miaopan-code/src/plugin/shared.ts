@@ -5,6 +5,7 @@ import semver from "semver"
 import { Filesystem } from "@/util/filesystem"
 import { isRecord } from "@/util/record"
 import { Npm } from "@miaopan-code/core/npm"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 // Old npm package names for plugins that are now built-in
 export const DEPRECATED_PLUGIN_PACKAGES = ["miaopanCode-openai-codex-auth", "miaopanCode-copilot-auth"]
@@ -51,6 +52,8 @@ export type PluginEntry = {
   entry?: string
 }
 
+export class PluginDirectoryMissingError extends Error {}
+
 const INDEX_FILES = ["index.ts", "index.tsx", "index.js", "index.mjs", "index.cjs"]
 
 export function pluginSource(spec: string): PluginSource {
@@ -86,25 +89,25 @@ function packageMain(pkg: PluginPackage) {
   return next
 }
 
-function resolvePackageFile(spec: string, raw: string, kind: string, pkg: PluginPackage) {
+function resolvePackageFile(spec: string, raw: string, kind: string, pkg: PluginPackage, language?: Language) {
   const resolved = resolveExportPath(raw, pkg.dir)
   const root = Filesystem.resolve(pkg.dir)
   const next = Filesystem.resolve(resolved)
   if (!Filesystem.contains(root, next)) {
-    throw new Error(`Plugin ${spec} resolved ${kind} entry outside plugin directory`)
+    throw new Error(t(language, "error.plugin_entry_outside", { spec, kind }))
   }
   return next
 }
 
-function resolvePackagePath(spec: string, raw: string, kind: PluginKind, pkg: PluginPackage) {
-  return pathToFileURL(resolvePackageFile(spec, raw, kind, pkg)).href
+function resolvePackagePath(spec: string, raw: string, kind: PluginKind, pkg: PluginPackage, language?: Language) {
+  return pathToFileURL(resolvePackageFile(spec, raw, kind, pkg, language)).href
 }
 
-function resolvePackageEntrypoint(spec: string, kind: PluginKind, pkg: PluginPackage) {
+function resolvePackageEntrypoint(spec: string, kind: PluginKind, pkg: PluginPackage, language?: Language) {
   const exports = pkg.json.exports
   if (isRecord(exports)) {
     const raw = extractExportValue(exports[`./${kind}`])
-    if (raw) return resolvePackagePath(spec, raw, kind, pkg)
+    if (raw) return resolvePackagePath(spec, raw, kind, pkg, language)
   }
 
   if (kind !== "server") return
@@ -133,13 +136,19 @@ async function resolveTargetDirectory(target: string) {
   return file
 }
 
-async function resolvePluginEntrypoint(spec: string, target: string, kind: PluginKind, pkg?: PluginPackage) {
+async function resolvePluginEntrypoint(
+  spec: string,
+  target: string,
+  kind: PluginKind,
+  pkg?: PluginPackage,
+  language?: Language,
+) {
   const source = pluginSource(spec)
   const hit =
     pkg ?? (source === "npm" ? await readPluginPackage(target) : await readPluginPackage(target).catch(() => undefined))
   if (!hit) return target
 
-  const entry = resolvePackageEntrypoint(spec, kind, hit)
+  const entry = resolvePackageEntrypoint(spec, kind, hit, language)
   if (entry) return entry
 
   const dir = await resolveTargetDirectory(target)
@@ -172,7 +181,7 @@ export function isPathPluginSpec(spec: string) {
   return spec.startsWith("file://") || spec.startsWith(".") || isAbsolutePath(spec)
 }
 
-export async function resolvePathPluginTarget(spec: string) {
+export async function resolvePathPluginTarget(spec: string, language?: Language) {
   const raw = spec.startsWith("file://") ? fileURLToPath(spec) : spec
   const file = path.isAbsolute(raw) || /^[A-Za-z]:[\\/]/.test(raw) ? raw : path.resolve(raw)
   const stat = await Filesystem.statAsync(file)
@@ -188,10 +197,15 @@ export async function resolvePathPluginTarget(spec: string) {
   const index = await resolveDirectoryIndex(file)
   if (index) return pathToFileURL(index).href
 
-  throw new Error(`Plugin directory ${file} is missing package.json or index file`)
+  throw new PluginDirectoryMissingError(t(language, "error.plugin_directory_missing", { file }))
 }
 
-export async function checkPluginCompatibility(target: string, miaopanCodeVersion: string, pkg?: PluginPackage) {
+export async function checkPluginCompatibility(
+  target: string,
+  miaopanCodeVersion: string,
+  pkg?: PluginPackage,
+  language?: Language,
+) {
   if (!semver.valid(miaopanCodeVersion) || semver.major(miaopanCodeVersion) === 0) return
   const hit = pkg ?? (await readPluginPackage(target).catch(() => undefined))
   if (!hit) return
@@ -200,12 +214,12 @@ export async function checkPluginCompatibility(target: string, miaopanCodeVersio
   const range = engines.miaopanCode
   if (typeof range !== "string") return
   if (!semver.satisfies(miaopanCodeVersion, range)) {
-    throw new Error(`Plugin requires miaopanCode ${range} but running ${miaopanCodeVersion}`)
+    throw new Error(t(language, "error.plugin_version_required", { range, version: miaopanCodeVersion }))
   }
 }
 
-export async function resolvePluginTarget(spec: string) {
-  if (isPathPluginSpec(spec)) return resolvePathPluginTarget(spec)
+export async function resolvePluginTarget(spec: string, language?: Language) {
+  if (isPathPluginSpec(spec)) return resolvePathPluginTarget(spec, language)
   const hit = parse(spec)
   const pkg = hit?.name && hit.raw === hit.name ? `${hit.name}@latest` : spec
   const result = await Npm.add(pkg)
@@ -221,11 +235,16 @@ export async function readPluginPackage(target: string): Promise<PluginPackage> 
   return { dir, pkg, json }
 }
 
-export async function createPluginEntry(spec: string, target: string, kind: PluginKind): Promise<PluginEntry> {
+export async function createPluginEntry(
+  spec: string,
+  target: string,
+  kind: PluginKind,
+  language?: Language,
+): Promise<PluginEntry> {
   const source = pluginSource(spec)
   const pkg =
     source === "npm" ? await readPluginPackage(target) : await readPluginPackage(target).catch(() => undefined)
-  const entry = await resolvePluginEntrypoint(spec, target, kind, pkg)
+  const entry = await resolvePluginEntrypoint(spec, target, kind, pkg, language)
   return {
     spec,
     source,
@@ -235,37 +254,37 @@ export async function createPluginEntry(spec: string, target: string, kind: Plug
   }
 }
 
-export function readPackageThemes(spec: string, pkg: PluginPackage) {
+export function readPackageThemes(spec: string, pkg: PluginPackage, language?: Language) {
   const field = pkg.json["oc-themes"]
   if (field === undefined) return []
   if (!Array.isArray(field)) {
-    throw new TypeError(`Plugin ${spec} has invalid oc-themes field`)
+    throw new TypeError(t(language, "error.plugin_themes_invalid", { spec }))
   }
 
   const list = field.map((item) => {
     if (typeof item !== "string") {
-      throw new TypeError(`Plugin ${spec} has invalid oc-themes entry`)
+      throw new TypeError(t(language, "error.plugin_theme_entry_invalid", { spec }))
     }
 
     const raw = item.trim()
     if (!raw) {
-      throw new TypeError(`Plugin ${spec} has empty oc-themes entry`)
+      throw new TypeError(t(language, "error.plugin_theme_entry_empty", { spec }))
     }
     if (raw.startsWith("file://") || isAbsolutePath(raw)) {
-      throw new TypeError(`Plugin ${spec} oc-themes entry must be relative: ${item}`)
+      throw new TypeError(t(language, "error.plugin_theme_entry_relative", { spec, item }))
     }
 
-    return resolvePackageFile(spec, raw, "oc-themes", pkg)
+    return resolvePackageFile(spec, raw, "oc-themes", pkg, language)
   })
 
   return Array.from(new Set(list))
 }
 
-export function readPluginId(id: unknown, spec: string) {
+export function readPluginId(id: unknown, spec: string, language?: Language) {
   if (id === undefined) return
-  if (typeof id !== "string") throw new TypeError(`Plugin ${spec} has invalid id type ${typeof id}`)
+  if (typeof id !== "string") throw new TypeError(t(language, "error.plugin_id_type", { spec, type: typeof id }))
   const value = id.trim()
-  if (!value) throw new TypeError(`Plugin ${spec} has an empty id`)
+  if (!value) throw new TypeError(t(language, "error.plugin_id_empty", { spec }))
   return value
 }
 
@@ -274,30 +293,31 @@ export function readV1Plugin(
   spec: string,
   kind: PluginKind,
   mode: PluginMode = "strict",
+  language?: Language,
 ) {
   const value = mod.default
   if (!isRecord(value)) {
     if (mode === "detect") return
-    throw new TypeError(`Plugin ${spec} must default export an object with ${kind}()`)
+    throw new TypeError(t(language, "error.plugin_default_object", { spec, kind }))
   }
   if (mode === "detect" && !("id" in value) && !("server" in value) && !("tui" in value)) return
 
   const server = "server" in value ? value.server : undefined
   const tui = "tui" in value ? value.tui : undefined
   if (server !== undefined && typeof server !== "function") {
-    throw new TypeError(`Plugin ${spec} has invalid server export`)
+    throw new TypeError(t(language, "error.plugin_server_export_invalid", { spec }))
   }
   if (tui !== undefined && typeof tui !== "function") {
-    throw new TypeError(`Plugin ${spec} has invalid tui export`)
+    throw new TypeError(t(language, "error.plugin_tui_export_invalid", { spec }))
   }
   if (server !== undefined && tui !== undefined) {
-    throw new TypeError(`Plugin ${spec} must default export either server() or tui(), not both`)
+    throw new TypeError(t(language, "error.plugin_export_both", { spec }))
   }
   if (kind === "server" && server === undefined) {
-    throw new TypeError(`Plugin ${spec} must default export an object with server()`)
+    throw new TypeError(t(language, "error.plugin_default_object", { spec, kind: "server" }))
   }
   if (kind === "tui" && tui === undefined) {
-    throw new TypeError(`Plugin ${spec} must default export an object with tui()`)
+    throw new TypeError(t(language, "error.plugin_default_object", { spec, kind: "tui" }))
   }
 
   return value
@@ -309,15 +329,16 @@ export async function resolvePluginId(
   target: string,
   id: string | undefined,
   pkg?: PluginPackage,
+  language?: Language,
 ) {
   if (source === "file") {
     if (id) return id
-    throw new TypeError(`Path plugin ${spec} must export id`)
+    throw new TypeError(t(language, "error.plugin_path_id_missing", { spec }))
   }
   if (id) return id
   const hit = pkg ?? (await readPluginPackage(target))
   if (typeof hit.json.name !== "string" || !hit.json.name.trim()) {
-    throw new TypeError(`Plugin package ${hit.pkg} is missing name`)
+    throw new TypeError(t(language, "error.plugin_package_name_missing", { package: hit.pkg }))
   }
   return hit.json.name.trim()
 }

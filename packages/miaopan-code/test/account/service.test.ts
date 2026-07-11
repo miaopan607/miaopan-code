@@ -114,8 +114,33 @@ it.live("login maps transport failures to account transport errors", () =>
 
     expect(error).toBeInstanceOf(AccountTransportError)
     if (error instanceof AccountTransportError) {
+      expect(error.language).toBe("zh-CN")
       expect(error.method).toBe("POST")
       expect(error.url).toBe("https://one.example.com/auth/device/code")
+    }
+  }),
+)
+
+it.live("login maps transport failures using the requested English language", () =>
+  Effect.gen(function* () {
+    const client = HttpClient.make((req) =>
+      Effect.fail(
+        new HttpClientError.HttpClientError({
+          reason: new HttpClientError.TransportError({ request: req }),
+        }),
+      ),
+    )
+
+    const error = yield* Effect.flip(
+      Account.use.login("https://one.example.com", "en").pipe(Effect.provide(live(client))),
+    )
+
+    expect(error).toBeInstanceOf(AccountTransportError)
+    if (error instanceof AccountTransportError) {
+      expect(error.language).toBe("en")
+      expect(error.message).toContain("Could not reach POST https://one.example.com/auth/device/code.")
+      expect(error.message).toContain("This failed before the server returned an HTTP response.")
+      expect(error.message).toContain("Check your network, proxy, or VPN configuration and try again.")
     }
   }),
 )

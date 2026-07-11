@@ -1,5 +1,7 @@
 # Facade removal checklist
 
+Languages: [简体中文索引](../README.md) · English
+
 Concrete inventory of the remaining `makeRuntime(...)`-backed facades in `packages/miaopan-code`.
 
 Current status on this branch:

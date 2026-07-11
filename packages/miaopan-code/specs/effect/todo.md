@@ -1,5 +1,7 @@
 # Effect TODO
 
+Languages: [简体中文索引](../README.md) · English
+
 Short roadmap for Effect cleanup in `packages/miaopan-code`.
 
 Current patterns and examples live in [`guide.md`](./guide.md). Error

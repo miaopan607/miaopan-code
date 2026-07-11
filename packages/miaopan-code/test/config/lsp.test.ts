@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
+import { t } from "@miaopan-code/core/i18n"
 import { ConfigLSPV1 } from "@miaopan-code/core/v1/config/lsp"
 
 // The LSP config refinement enforces: any custom (non-builtin) LSP server
@@ -44,7 +45,7 @@ describe("ConfigLSPV1.Info refinement", () => {
   })
 
   describe("rejected inputs", () => {
-    const expectedMessage = "For custom LSP servers, 'extensions' array is required."
+    const expectedMessage = t("zh-CN", "error.lsp_custom_extensions_required")
 
     test("custom server WITHOUT extensions fails via Effect decode", () => {
       expect(() => decodeEffect({ "my-lsp": { command: ["my-lsp-bin"] } })).toThrow(expectedMessage)

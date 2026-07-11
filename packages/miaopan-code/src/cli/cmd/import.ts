@@ -10,6 +10,7 @@ import { ShareNext } from "@/share/share-next"
 import { EOL } from "os"
 import path from "path"
 import { FSUtil } from "@miaopan-code/core/fs-util"
+import { UI } from "@/cli/ui"
 import { Effect, Schema } from "effect"
 import type { InstanceContext } from "@/project/instance-context"
 
@@ -82,16 +83,16 @@ type ExportData = { info: SDKSession; messages: Array<{ info: Message; parts: Pa
 
 export const ImportCommand = effectCmd({
   command: "import <file>",
-  describe: "import session data from JSON file or URL",
+  describe: UI.t("cli.import_session"),
   builder: (yargs) =>
     yargs.positional("file", {
-      describe: "path to JSON file or share URL",
+      describe: UI.t("cli.share_url"),
       type: "string",
       demandOption: true,
     }),
   handler: Effect.fn("Cli.import")(function* (args) {
     const ctx = yield* InstanceRef
-    if (!ctx) return yield* Effect.die("InstanceRef not provided")
+    if (!ctx) return yield* Effect.die(UI.t("error.instance_ref_missing"))
     return yield* runImport(args.file, ctx)
   }),
 })
@@ -109,7 +110,7 @@ const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: Ins
     const slug = parseShareUrl(file)
     if (!slug) {
       const baseUrl = yield* Effect.orDie(share.url())
-      process.stdout.write(`Invalid URL format. Expected: ${baseUrl}/share/<slug>`)
+      process.stdout.write(UI.t("cli.invalid_url", { url: `${baseUrl}/share/<slug>` }))
       process.stdout.write(EOL)
       return
     }
@@ -123,7 +124,7 @@ const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: Ins
         try: () => fetch(url, { headers }),
         catch: (e) =>
           new CliError({
-            message: `Failed to fetch share data: ${e instanceof Error ? e.message : String(e)}`,
+            message: UI.t("cli.fetch_share_data_failed", { error: e instanceof Error ? e.message : String(e) }),
           }),
       })
 
@@ -135,19 +136,19 @@ const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: Ins
     }
 
     if (!response.ok) {
-      process.stdout.write(`Failed to fetch share data: ${response.statusText}`)
+      process.stdout.write(UI.t("cli.fetch_share_failed", { status: response.statusText }))
       process.stdout.write(EOL)
       return
     }
 
     const shareData = yield* Effect.tryPromise({
       try: () => response.json() as Promise<ShareData[]>,
-      catch: () => new CliError({ message: "Share data was not valid JSON" }),
+      catch: () => new CliError({ message: UI.t("cli.share_data_invalid_json") }),
     })
     const transformed = transformShareData(shareData)
 
     if (!transformed) {
-      process.stdout.write(`Share not found or empty: ${slug}`)
+      process.stdout.write(UI.t("cli.share_empty", { slug }))
       process.stdout.write(EOL)
       return
     }
@@ -158,14 +159,14 @@ const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: Ins
       | NonNullable<typeof exportData>
       | undefined
     if (!exportData) {
-      process.stdout.write(`File not found: ${file}`)
+      process.stdout.write(UI.t("cli.file_missing", { path: file }))
       process.stdout.write(EOL)
       return
     }
   }
 
   if (!exportData) {
-    process.stdout.write(`Failed to read session data`)
+    process.stdout.write(UI.t("cli.read_session_failed"))
     process.stdout.write(EOL)
     return
   }
@@ -219,6 +220,6 @@ const runImport = Effect.fn("Cli.import.body")(function* (file: string, ctx: Ins
     }
   }
 
-  process.stdout.write(`Imported session: ${exportData.info.id}`)
+  process.stdout.write(UI.t("cli.session_imported", { id: exportData.info.id }))
   process.stdout.write(EOL)
 })

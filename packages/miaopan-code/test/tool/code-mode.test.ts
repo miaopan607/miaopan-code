@@ -11,6 +11,7 @@ import { Tool } from "@/tool/tool"
 import * as Truncate from "@/tool/truncate"
 import { MessageID, SessionID } from "@/session/schema"
 import { Cause, Effect, Exit, Layer, Schema } from "effect"
+import { t } from "@miaopan-code/core/i18n"
 
 const ctx: Tool.Context = {
   sessionID: SessionID.make("ses_code-mode"),
@@ -101,7 +102,7 @@ describe("code mode execute", () => {
     expect(Schema.toJsonSchemaDocument(Parameters).schema).toMatchObject({
       properties: {
         code: {
-          description: "Script body executed by the confined interpreter.",
+          description: t("zh-CN", "tool.param.code_body"),
         },
       },
     })
@@ -109,13 +110,13 @@ describe("code mode execute", () => {
 
   test("groups multi-underscore server names by longest matching prefix", () => {
     const description = describeFor({ my_server_do_thing: mcpTool("do_thing", () => "") }, ["my_server"])
-    expect(description).toContain("- my_server (1 tool)")
+    expect(description).toContain("- my_server (1 个工具)")
     expect(description).toContain("tools.my_server.do_thing(")
   })
 
   test("groupByServer uses the whole key as the server name when it has no underscore", () => {
     const description = describeFor({ standalone: mcpTool("standalone", () => "") }, [])
-    expect(description).toContain("- standalone (1 tool)")
+    expect(description).toContain("- standalone (1 个工具)")
     expect(description).toContain("tools.standalone.standalone(")
   })
 
@@ -139,8 +140,8 @@ describe("code mode execute", () => {
   test("the static base description carries no catalog; the registry appends it", async () => {
     const tool = await build({ github_list_issues: mcpTool("list_issues", () => "") })
     expect(tool.id).toBe(CODE_MODE_TOOL)
-    expect(tool.description).toBe("Run a confined orchestration script with access to connected MCP tools.")
-    expect(tool.description).not.toContain("Available tools")
+    expect(tool.description).toBe(t("zh-CN", "tool.description.code_mode"))
+    expect(tool.description).not.toContain("可用工具")
     expect(tool.description).not.toContain("list_issues")
   })
 
@@ -155,9 +156,9 @@ describe("code mode execute", () => {
       linear_search: mcpTool("search", () => ""),
     })
 
-    expect(description).toContain("Available tools (COMPLETE list")
-    expect(description).toContain("- github (2 tools)")
-    expect(description).toContain("- linear (1 tool)")
+    expect(description).toContain("可用工具（完整列表")
+    expect(description).toContain("- github (2 个工具)")
+    expect(description).toContain("- linear (1 个工具)")
     expect(description).toContain(
       "tools.github.create_issue(input: {\n  title: string,\n  body?: string,\n}): Promise<unknown>",
     )
@@ -165,12 +166,12 @@ describe("code mode execute", () => {
     expect(description).toContain("tools.linear.search(")
     expect(description).toContain("tools.linear.search(input: {}): Promise<unknown>")
     expect(description).not.toContain("$codemode")
-    expect(description).not.toContain("Browse one namespace")
-    expect(description).toContain("## Workflow")
-    expect(description).toContain("1. Pick a tool from the list under `## Available tools`")
+    expect(description).not.toContain("浏览一个命名空间")
+    expect(description).toContain("## 工作流程")
+    expect(description).toContain("1. 从 `## 可用工具` 下的列表中选择工具")
     expect(description).not.toContain("JSON.parse(res)")
-    expect(description).toContain("check that it is a non-null object and not an array")
-    expect(description).toContain("Return only the fields you need")
+    expect(description).toContain("检查它是非空对象且不是数组")
+    expect(description).toContain("只返回结构化结果中需要的字段")
     expect(description).not.toContain("total_count")
   })
 
@@ -212,9 +213,9 @@ describe("code mode execute", () => {
     })
     const description = describeFor(tools, ["alpha", "zeta"])
 
-    expect(description).toContain("Available tools (PARTIAL - ")
-    expect(description).toMatch(/- alpha \(150 tools, \d+ shown\)/)
-    expect(description).toContain("- zeta (1 tool)\n")
+    expect(description).toContain("可用工具（部分列表")
+    expect(description).toMatch(/- alpha \(150 个工具，已显示 \d+ 个\)/)
+    expect(description).toContain("- zeta (1 个工具)\n")
     expect(description).toContain(
       "tools.zeta.only_tool(input: {\n  /** Subject to look up */\n  topic: string,\n}): Promise<unknown>",
     )
@@ -223,10 +224,10 @@ describe("code mode execute", () => {
     expect(description).toContain("  remaining: number,\n  next: {")
     expect(description).toContain("      offset: number,\n    } | null,")
     expect(description).toContain(
-      '1. If needed, discover tools: `return await tools.$codemode.search({ query: "<intent + key nouns>" })`.',
+      '1. 如有需要，先发现工具：`return await tools.$codemode.search({ query: "<意图 + 关键名词>" })`。',
     )
     expect(description).toContain(
-      '- Browse one namespace: `await tools.$codemode.search({ query: "", namespace: "<name>" })`.',
+      '- 浏览一个命名空间：`await tools.$codemode.search({ query: "", namespace: "<name>" })`。',
     )
     expect(description).not.toContain("total_count")
     expect(description).toContain("tools.alpha.op_0(")
@@ -339,13 +340,19 @@ describe("code mode execute", () => {
   test("a program failure fails the tool with a readable error", async () => {
     const tool = await build({})
     const error = await failure(tool.execute({ code: "throw new Error('boom')" }, ctx))
+    expect(error.message).toBe("未捕获：boom")
+  })
+
+  test("uses English diagnostics when the tool context requests English", async () => {
+    const tool = await build({})
+    const error = await failure(tool.execute({ code: "throw new Error('boom')" }, { ...ctx, language: "en" }))
     expect(error.message).toBe("Uncaught: boom")
   })
 
   test("reports an unknown tool as a failed execution", async () => {
     const tool = await build({ known_tool: mcpTool("tool", () => "ok") })
     const error = await failure(tool.execute({ code: "return await tools.known.missing({})" }, ctx))
-    expect(error.message).toContain("Unknown tool 'known.missing'")
+    expect(error.message).toContain("未知工具“known.missing”")
   })
 
   test("propagates an MCP tool error into the program as a catchable failure", async () => {
@@ -521,7 +528,7 @@ describe("code mode execute", () => {
       shot_take: mcpTool("take", () => ({ content: [{ type: "image", data: "PNGDATA", mimeType: "image/png" }] })),
     })
     const out = await Effect.runPromise(tool.execute({ code: "return await tools.shot.take({})" }, ctx))
-    expect(out.output).toBe("[1 image attached to the result]")
+    expect(out.output).toBe(t("zh-CN", "tool.code_mode.attachments_images_one"))
     expect(out.attachments).toEqual([{ type: "file", mime: "image/png", url: "data:image/png;base64,PNGDATA" }])
   })
 
@@ -554,8 +561,8 @@ describe("code mode execute", () => {
     )
 
     expect(JSON.parse(out.output)).toEqual({
-      images: "[2 images attached to the result]",
-      mixed: "[2 files attached to the result]",
+      images: t("zh-CN", "tool.code_mode.attachments_images_many", { count: 2 }),
+      mixed: t("zh-CN", "tool.code_mode.attachments_files_many", { count: 2 }),
     })
     expect(out.output).not.toContain("PNG")
     expect(out.attachments).toEqual([
@@ -615,7 +622,7 @@ describe("code mode execute", () => {
         { ...ctx, abort: controller.signal },
       ),
     )
-    expect(output.output).toBe("Execution cancelled.")
+    expect(output.output).toBe(t("zh-CN", "tool.execution_cancelled"))
     expect(output.metadata.error).toBe(true)
     expect(output.metadata.toolCalls).toEqual([{ tool: "host.trigger", status: "running" }])
   })
@@ -628,7 +635,7 @@ describe("code mode execute", () => {
     const output = await Effect.runPromise(
       tool.execute({ code: "return await tools.host.touch({})" }, { ...ctx, abort: controller.signal }),
     )
-    expect(output.output).toBe("Execution cancelled.")
+    expect(output.output).toBe(t("zh-CN", "tool.execution_cancelled"))
     expect(ran).toEqual([])
   })
 
@@ -646,11 +653,11 @@ describe("code mode execute", () => {
     const ok = await Effect.runPromise(
       tool.execute({ code: "console.log('step one'); console.warn('careful'); return 'done'" }, ctx),
     )
-    expect(ok.output).toBe("done\n\nLogs:\nstep one\n[warn] careful")
+    expect(ok.output).toBe("done\n\n日志：\nstep one\n[warn] careful")
 
     const error = await failure(tool.execute({ code: "console.log('before the throw'); throw new Error('boom')" }, ctx))
-    expect(error.message).toContain("Uncaught: boom")
-    expect(error.message).toContain("Logs:\nbefore the throw")
+    expect(error.message).toContain("未捕获：boom")
+    expect(error.message).toContain("日志：\nbefore the throw")
   })
 })
 
@@ -667,7 +674,7 @@ describe("code mode permission visibility", () => {
     const description = describeFor(mcpTools, ["github"], [deny("github_create_issue")])
     expect(description).toContain("tools.github.list_issues(")
     expect(description).not.toContain("create_issue")
-    expect(description).toContain("- github (1 tool)")
+    expect(description).toContain("- github (1 个工具)")
   })
 
   test("an ask-level tool stays fully visible in the catalog", () => {
@@ -678,7 +685,7 @@ describe("code mode permission visibility", () => {
     const description = describeFor(mcpTools, ["github"], [askRule("github_create_issue")])
     expect(description).toContain("tools.github.create_issue(")
     expect(description).toContain("tools.github.list_issues(")
-    expect(description).toContain("- github (2 tools)")
+    expect(description).toContain("- github (2 个工具)")
   })
 
   test("a hard-denied tool is not dispatchable: the program gets the unknown-tool diagnostic", async () => {
@@ -696,7 +703,7 @@ describe("code mode permission visibility", () => {
     )
 
     const denied = await failure(tool.execute({ code: "return await tools.github.create_issue({ title: 'x' })" }, ctx))
-    expect(denied.message).toContain("Unknown tool 'github.create_issue'")
+    expect(denied.message).toContain("未知工具“github.create_issue”")
     expect(denied.message).not.toContain("permission")
     expect(called).toEqual([])
 

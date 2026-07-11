@@ -8,22 +8,29 @@
 //
 // The visual language uses a curated subset of the OC-2 semantic tokens.
 
+import { t, type Language } from "../i18n"
+
 export interface CallbackPageOptions {
   /** Friendly integration name shown as a subtitle, e.g. "xAI", "Snowflake", "MCP". */
   provider?: string
   /** Attempt to close the window shortly after success. Defaults to true. */
   autoClose?: boolean
+  language?: Language
 }
 
 export function success(options?: CallbackPageOptions) {
   const provider = options?.provider
+  const language = options?.language
   return renderDocument({
-    title: "Authorization successful",
+    language,
+    title: t(language, "oauth.success"),
     body: renderCard({
       status: "success",
-      headline: "Authorization successful",
-      message: provider ? `MiaopanCode is now connected to ${escapeHtml(provider)}.` : "MiaopanCode is now authorized.",
-      footnote: "You can close this window.",
+      headline: t(language, "oauth.success"),
+      message: provider
+        ? t(language, "oauth.connected", { provider: escapeHtml(provider) })
+        : t(language, "oauth.authorized"),
+      footnote: t(language, "oauth.close"),
     }),
     script: options?.autoClose === false ? undefined : AUTO_CLOSE_SCRIPT,
   })
@@ -31,16 +38,18 @@ export function success(options?: CallbackPageOptions) {
 
 export function error(detail: string, options?: CallbackPageOptions) {
   const provider = options?.provider
+  const language = options?.language
   return renderDocument({
-    title: "Authorization failed",
+    language,
+    title: t(language, "oauth.failed"),
     body: renderCard({
       status: "error",
-      headline: "Authorization failed",
+      headline: t(language, "oauth.failed"),
       message: provider
-        ? `MiaopanCode couldn't finish connecting to ${escapeHtml(provider)}.`
-        : "MiaopanCode couldn't complete authorization.",
+        ? t(language, "oauth.connect_failed", { provider: escapeHtml(provider) })
+        : t(language, "oauth.failed_message"),
       detail,
-      footnote: "Close this window and try again from MiaopanCode.",
+      footnote: t(language, "oauth.retry"),
     }),
   })
 }
@@ -49,6 +58,7 @@ export interface BootstrapOptions {
   /** Same-origin path the in-browser script POSTs the parsed callback to. */
   tokenPath: string
   provider?: string
+  language?: Language
 }
 
 // For flows where the credential arrives in the URL fragment (implicit grant),
@@ -57,14 +67,15 @@ export interface BootstrapOptions {
 // to the success or error state in place.
 export function bootstrap(options: BootstrapOptions) {
   return renderDocument({
-    title: "Finishing sign-in",
+    language: options.language,
+    title: t(options.language, "oauth.finishing"),
     body: renderCard({
       status: "pending",
-      headline: "Finishing sign-in",
+      headline: t(options.language, "oauth.finishing"),
       message: options.provider
-        ? `Completing your ${escapeHtml(options.provider)} authorization.`
-        : "Completing authorization.",
-      footnote: "You can close this window once sign-in finishes.",
+        ? t(options.language, "oauth.completing", { provider: escapeHtml(options.provider) })
+        : t(options.language, "oauth.completing_generic"),
+      footnote: t(options.language, "oauth.close_after"),
     }),
     script: bootstrapScript(options),
   })
@@ -90,9 +101,9 @@ function renderCard(input: { status: Status; headline: string; message: string; 
     </main>`
 }
 
-function renderDocument(input: { title: string; body: string; script?: string }) {
+function renderDocument(input: { title: string; body: string; script?: string; language?: Language }) {
   return `<!doctype html>
-<html lang="en">
+<html lang="${input.language === "en" ? "en" : "zh-CN"}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -111,10 +122,17 @@ const AUTO_CLOSE_SCRIPT = `setTimeout(function(){try{window.close()}catch(e){}},
 function bootstrapScript(options: BootstrapOptions) {
   return `var PROVIDER=${scriptString(options.provider ?? "")};
 var TOKEN_URL=new URL(${scriptString(options.tokenPath)},window.location.origin).href;
+var FAILURE_TITLE=${scriptString(t(options.language, "oauth.failed"))};
+var FAILURE_MESSAGE=${scriptString(options.provider ? t(options.language, "oauth.connect_failed", { provider: options.provider }) : t(options.language, "oauth.failed_message"))};
+var FAILURE_FOOTNOTE=${scriptString(t(options.language, "oauth.retry"))};
+var SUCCESS_TITLE=${scriptString(t(options.language, "oauth.success"))};
+var SUCCESS_MESSAGE=${scriptString(options.provider ? t(options.language, "oauth.connected", { provider: options.provider }) : t(options.language, "oauth.authorized"))};
+var SUCCESS_FOOTNOTE=${scriptString(t(options.language, "oauth.close"))};
+var CALLBACK_FAILURE=${scriptString(t(options.language, "oauth.callback_failed", { status: "__STATUS__" }))};
 (function(){
   var card=document.getElementById("oc-card"),headline=document.getElementById("oc-headline"),message=document.getElementById("oc-message"),detail=document.getElementById("oc-detail"),footnote=document.getElementById("oc-footnote");
-  function fail(text){card.dataset.status="error";headline.textContent="Authorization failed";message.textContent=PROVIDER?("MiaopanCode couldn't finish connecting to "+PROVIDER+"."):"MiaopanCode couldn't complete authorization.";if(text){detail.textContent=text;detail.hidden=false}footnote.textContent="Close this window and try again from MiaopanCode."}
-  function ok(){card.dataset.status="success";headline.textContent="Authorization successful";message.textContent=PROVIDER?("MiaopanCode is now connected to "+PROVIDER+"."):"MiaopanCode is now authorized.";detail.hidden=true;footnote.textContent="You can close this window.";setTimeout(function(){try{window.close()}catch(e){}},2500)}
+  function fail(text){card.dataset.status="error";headline.textContent=FAILURE_TITLE;message.textContent=FAILURE_MESSAGE;if(text){detail.textContent=text;detail.hidden=false}footnote.textContent=FAILURE_FOOTNOTE}
+  function ok(){card.dataset.status="success";headline.textContent=SUCCESS_TITLE;message.textContent=SUCCESS_MESSAGE;detail.hidden=true;footnote.textContent=SUCCESS_FOOTNOTE;setTimeout(function(){try{window.close()}catch(e){}},2500)}
   try{
     var hash=new URLSearchParams((window.location.hash||"").slice(1));
     var search=new URLSearchParams(window.location.search||"");
@@ -122,7 +140,7 @@ var TOKEN_URL=new URL(${scriptString(options.tokenPath)},window.location.origin)
     var errDescription=hash.get("error_description")||search.get("error_description");
     var body=err?{error:err,error_description:errDescription||""}:{access_token:hash.get("access_token")||"",expires_in:hash.get("expires_in")||"0",state:hash.get("state")||""};
     fetch(TOKEN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(res){
-      if(!res.ok)return res.text().catch(function(){return""}).then(function(t){throw new Error(t||("callback failed ("+res.status+")"))});
+      if(!res.ok)return res.text().catch(function(){return""}).then(function(t){throw new Error(t||CALLBACK_FAILURE.replace("__STATUS__",String(res.status)))});
       if(err){fail(errDescription||err);return}
       ok();
     }).catch(function(e){fail(String(e&&e.message?e.message:e))});

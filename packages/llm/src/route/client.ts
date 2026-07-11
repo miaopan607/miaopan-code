@@ -9,6 +9,7 @@ import type { Transport, TransportRuntime } from "./transport"
 import { WebSocketExecutor } from "./transport"
 import type { Protocol } from "./protocol"
 import { applyCachePolicy } from "../cache-policy"
+import { t, type Language } from "../i18n"
 import * as ProviderShared from "../protocols/shared"
 import type { LLMError, LLMEvent, PreparedRequestOf, ProtocolID, ProviderOptions } from "../schema"
 import {
@@ -60,9 +61,9 @@ export type AnyRoute = Route<any, any>
 
 export type HttpOptionsInput = HttpOptions.Input
 
-export type RouteModelInput = Omit<Model.Input, "provider" | "route">
+export type RouteModelInput = Omit<Model.Input, "provider" | "route"> & { readonly language?: Language }
 
-export type RouteRoutedModelInput = Omit<Model.Input, "route">
+export type RouteRoutedModelInput = Omit<Model.Input, "route"> & { readonly language?: Language }
 
 export interface RouteDefaults {
   readonly headers?: Record<string, string>
@@ -91,12 +92,12 @@ export interface RoutePatch<Body, Prepared> extends RouteDefaultsInput {
 type RouteMappedModelInput = RouteModelInput | RouteRoutedModelInput
 
 const makeRouteModel = (route: AnyRoute, mapped: RouteMappedModelInput) => {
-  const provider = route.provider ?? ("provider" in mapped ? mapped.provider : undefined)
-  if (!provider) throw new Error(`Route.model(${route.id}) requires a provider`)
-  if (!endpointBaseURL(route.endpoint))
-    throw new Error(`Route.model(${route.id}) requires an endpoint baseURL — configure it on the route first`)
+  const { language, ...modelInput } = mapped
+  const provider = route.provider ?? ("provider" in modelInput ? modelInput.provider : undefined)
+  if (!provider) throw new Error(t(language, "llm.route.provider_required", { route: route.id }))
+  if (!endpointBaseURL(route.endpoint)) throw new Error(t(language, "llm.route.base_url_required", { route: route.id }))
   return Model.make({
-    ...mapped,
+    ...modelInput,
     provider,
     route,
   })
@@ -229,12 +230,12 @@ function makeFromTransport<Body, Prepared, Frame, Event, State>(
   const protocol = input.protocol
   const encodeBody = Schema.encodeSync(Schema.fromJsonString(protocol.body.schema))
   const decodeEventEffect = Schema.decodeUnknownEffect(protocol.stream.event)
-  const decodeEvent = (route: string) => (frame: Frame) =>
+  const decodeEvent = (route: string, language?: Language) => (frame: Frame) =>
     decodeEventEffect(frame).pipe(
       Effect.mapError(() =>
         ProviderShared.eventError(
           input.id,
-          `Invalid ${route} stream event`,
+          t(language, "llm.route.invalid_stream_event", { route }),
           typeof frame === "string" ? frame : ProviderShared.encodeJson(frame),
         ),
       ),
@@ -281,7 +282,7 @@ function makeFromTransport<Body, Prepared, Frame, Event, State>(
         const events = routeInput.transport
           .frames(prepared, request, runtime)
           .pipe(
-            Stream.mapEffect(decodeEvent(route)),
+            Stream.mapEffect(decodeEvent(route, request.language)),
             protocol.stream.terminal ? Stream.takeUntil(protocol.stream.terminal) : (stream) => stream,
           )
         return events.pipe(
@@ -290,7 +291,9 @@ function makeFromTransport<Body, Prepared, Frame, Event, State>(
             protocol.stream.step,
             protocol.stream.onHalt ? { onHalt: protocol.stream.onHalt } : undefined,
           ),
-          Stream.catchCause((cause) => Stream.fail(streamError(route, `Failed to read ${route} stream`, cause))),
+          Stream.catchCause((cause) =>
+            Stream.fail(streamError(route, t(request.language, "llm.route.stream_read_failed", { route }), cause)),
+          ),
         )
       },
     } satisfies Route<Body, Prepared>
@@ -347,7 +350,7 @@ const compile = Effect.fn("LLM.compile")(function* (request: LLMRequest) {
 
   const body = yield* route.body
     .from(resolved)
-    .pipe(Effect.flatMap(ProviderShared.validateWith(Schema.decodeUnknownEffect(route.body.schema))))
+    .pipe(Effect.flatMap(ProviderShared.validateWith(Schema.decodeUnknownEffect(route.body.schema), resolved.language)))
   const prepared = yield* route.prepareTransport(body, resolved)
 
   return {
@@ -386,7 +389,7 @@ const generateWith = (stream: Interface["stream"]) =>
     if (response) return response
     return yield* ProviderShared.eventError(
       `${request.model.provider}/${request.model.route.id}`,
-      "Provider stream ended without a terminal finish event",
+      t(request.language, "llm.stream.ended_without_finish"),
     )
   })
 

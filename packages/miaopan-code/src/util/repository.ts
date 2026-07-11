@@ -2,6 +2,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { Schema } from "effect"
 import { Global } from "@miaopan-code/core/global"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 type BaseReference = {
   host: string
@@ -183,29 +184,28 @@ export function isRemoteRepositoryReference(reference: Reference): reference is 
   return !isFileRepositoryReference(reference)
 }
 
-export function parseRemoteRepositoryReference(input: string) {
+export function parseRemoteRepositoryReference(input: string, language?: Language) {
   const reference = parseRepositoryReference(input)
   if (!reference) {
     throw new InvalidRepositoryReferenceError({
       repository: input,
-      message: "Repository must be a git URL, host/path reference, or GitHub owner/repo shorthand",
+      message: t(language, "error.repository_invalid"),
     })
   }
   if (!isRemoteRepositoryReference(reference)) {
     throw new UnsupportedLocalRepositoryError({
       repository: input,
-      message: "Local file repositories are not supported",
+      message: t(language, "error.repository_local"),
     })
   }
   return reference
 }
 
-export function validateRepositoryBranch(branch: string) {
+export function validateRepositoryBranch(branch: string, language?: Language) {
   if (!/^[A-Za-z0-9/_.-]+$/.test(branch) || branch.startsWith("-") || branch.includes("..")) {
     throw new InvalidRepositoryBranchError({
       branch,
-      message:
-        "Branch must contain only alphanumeric characters, /, _, ., and -, and cannot start with - or contain ..",
+      message: t(language, "error.repository_branch_invalid"),
     })
   }
 }

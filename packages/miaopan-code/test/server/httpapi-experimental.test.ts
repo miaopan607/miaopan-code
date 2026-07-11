@@ -14,6 +14,7 @@ import { Worktree } from "../../src/worktree"
 import { resetDatabase } from "../fixture/db"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { I18n } from "@miaopan-code/core/i18n"
 import { httpApiLayer, requestInDirectory } from "./httpapi-layer"
 
 const it = testEffect(Layer.mergeAll(LayerNode.compile(LayerNode.group([Session.node, Database.node])), httpApiLayer))
@@ -209,7 +210,7 @@ describe("experimental HttpApi", () => {
       expect(response.status).toBe(400)
       expect(yield* json(response)).toEqual({
         name: "WorktreeNotGitError",
-        data: { message: "Worktrees are only supported for git projects" },
+        data: { message: I18n.t(undefined, "error.worktree_git_only") },
       })
     }),
   )

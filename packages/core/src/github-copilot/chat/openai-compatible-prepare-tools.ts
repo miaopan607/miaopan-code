@@ -1,11 +1,14 @@
 import { type LanguageModelV3CallOptions, type SharedV3Warning, UnsupportedFunctionalityError } from "@ai-sdk/provider"
+import { t, type Language } from "../../i18n"
 
 export function prepareTools({
   tools,
   toolChoice,
+  language,
 }: {
   tools: LanguageModelV3CallOptions["tools"]
   toolChoice?: LanguageModelV3CallOptions["toolChoice"]
+  language?: Language
 }): {
   tools:
     | undefined
@@ -40,7 +43,7 @@ export function prepareTools({
 
   for (const tool of tools) {
     if (tool.type === "provider") {
-      toolWarnings.push({ type: "unsupported", feature: `tool type: ${tool.type}` })
+      toolWarnings.push({ type: "unsupported", feature: t(language, "warning.copilot_tool_type", { type: tool.type }) })
     } else {
       openaiCompatTools.push({
         type: "function",
@@ -76,7 +79,7 @@ export function prepareTools({
     default: {
       const _exhaustiveCheck: never = type
       throw new UnsupportedFunctionalityError({
-        functionality: `tool choice type: ${_exhaustiveCheck}`,
+        functionality: t(language, "error.copilot_tool_choice_type", { type: _exhaustiveCheck }),
       })
     }
   }

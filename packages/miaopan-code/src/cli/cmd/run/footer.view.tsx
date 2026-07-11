@@ -10,6 +10,7 @@
 /** @jsxImportSource @opentui/solid */
 import { useTerminalDimensions } from "@opentui/solid"
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
+import { UI } from "../../ui"
 import { registerMiaopanCodeSpinner } from "@miaopan-code/tui/component/register-spinner"
 import { createColors, createFrames } from "@miaopan-code/tui/ui/spinner"
 import {
@@ -385,10 +386,10 @@ export function RunFooterView(props: RunFooterViewProps) {
   const stateStatus = createMemo(() => props.state().status.trim())
   const modeLabel = createMemo(() => {
     if (exiting()) {
-      return "EXIT"
+      return UI.t("cli.run.mode_exit")
     }
 
-    return shell() ? "SHELL" : "BUILD"
+    return shell() ? UI.t("cli.run.mode_shell") : UI.t("cli.run.mode_build")
   })
   const modeColor = createMemo(() => {
     if (exiting()) {
@@ -403,18 +404,18 @@ export function RunFooterView(props: RunFooterViewProps) {
   })
   const statusText = createMemo(() => {
     if (exiting()) {
-      return `Press ${clearShortcut() || "ctrl+c"} again to exit`
+      return UI.t("cli.run.exit_again", { shortcut: clearShortcut() || "ctrl+c" })
     }
 
     if (busy()) {
-      return armed() ? "again to interrupt" : "interrupt"
+      return UI.t(armed() ? "prompt.interrupt_again" : "prompt.interrupt_short")
     }
 
     if (stateStatus().length > 0) {
       return stateStatus()
     }
 
-    return shell() ? "Shell mode" : ""
+    return shell() ? UI.t("prompt.shell_mode") : ""
   })
   const activityMeta = createMemo(() => {
     if (!responsive().statusline.showActivityMeta || usage().length === 0) {
@@ -461,13 +462,13 @@ export function RunFooterView(props: RunFooterViewProps) {
 
     const items: Array<{ kind: string; key: string; label: string }> = []
     if (foregroundSubagents() && backgroundShortcut()) {
-      items.push({ kind: "background", key: backgroundShortcut(), label: "background" })
+      items.push({ kind: "background", key: backgroundShortcut(), label: UI.t("cli.run.context_background") })
     }
     if (queuedPrompts().length > 0 && queuedShortcut()) {
-      items.push({ kind: "queued", key: queuedShortcut(), label: `${queue()} queued` })
+      items.push({ kind: "queued", key: queuedShortcut(), label: UI.t("cli.run.queued_count", { count: queue() }) })
     }
     if (activeTabs().length > 0 && subagentShortcut()) {
-      items.push({ kind: "subagents", key: subagentShortcut(), label: "subagents" })
+      items.push({ kind: "subagents", key: subagentShortcut(), label: UI.t("cli.run.context_subagents") })
     }
 
     const limit = responsive().statusline.contextHintLimit
@@ -480,11 +481,11 @@ export function RunFooterView(props: RunFooterViewProps) {
     }
 
     if (shell()) {
-      return { key: "esc", label: "normal" }
+      return { key: "esc", label: UI.t("cli.run.context_normal") }
     }
 
     if (command()) {
-      return { key: command(), label: "cmd" }
+      return { key: command(), label: UI.t("cli.run.context_command") }
     }
   })
   const sectionSeparator = () => <span style={{ fg: theme().muted }}>· </span>
@@ -503,13 +504,13 @@ export function RunFooterView(props: RunFooterViewProps) {
     commands: [
       {
         name: "command.palette.show",
-        title: "Open command palette",
+        title: UI.t("cli.run.open_palette"),
         category: "Prompt",
         run: openCommand,
       },
       {
         name: "variant.cycle",
-        title: "Cycle model variant",
+        title: UI.t("cli.run.cycle_variant"),
         category: "Model",
         run: props.onCycle,
       },
@@ -527,7 +528,7 @@ export function RunFooterView(props: RunFooterViewProps) {
     commands: [
       {
         name: "session.background",
-        title: "Background subagents",
+        title: UI.t("cli.run.background_subagents"),
         category: "Session",
         run: () => props.onBackground?.(),
       },
@@ -541,7 +542,7 @@ export function RunFooterView(props: RunFooterViewProps) {
     commands: [
       {
         name: "session.child.first",
-        title: "View subagents",
+        title: UI.t("cli.run.view_subagents"),
         category: "Session",
         run: openSubagentMenu,
       },
@@ -555,7 +556,7 @@ export function RunFooterView(props: RunFooterViewProps) {
     commands: [
       {
         name: "session.queued_prompts",
-        title: "Manage queued prompts",
+        title: UI.t("cli.run.queued_prompts"),
         category: "Session",
         run: openQueuedMenu,
       },

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { ToolPart } from "@miaopan-code/sdk/v2"
 import { entryBody, entryCanStream, entryDone } from "@/cli/cmd/run/entry.body"
 import type { StreamCommit, ToolSnapshot } from "@/cli/cmd/run/types"
+import { UI } from "@/cli/ui"
 
 function commit(input: Partial<StreamCommit> & Pick<StreamCommit, "kind" | "text" | "phase" | "source">): StreamCommit {
   return input
@@ -126,7 +127,7 @@ describe("run entry body", () => {
       }),
       snapshot: {
         kind: "code",
-        title: "# Wrote src/a.ts",
+        title: UI.t("cli.run.wrote_snapshot", { path: "src/a.ts" }),
         content: "const x = 1\n",
         file: "src/a.ts",
       },
@@ -152,7 +153,7 @@ describe("run entry body", () => {
         kind: "diff",
         items: [
           {
-            title: "# Edited src/a.ts",
+            title: UI.t("cli.run.edited_snapshot", { path: "src/a.ts" }),
             diff: "@@ -1 +1 @@\n-old\n+new\n",
             file: "src/a.ts",
           },
@@ -185,7 +186,7 @@ describe("run entry body", () => {
         kind: "diff",
         items: [
           {
-            title: "# Patched src/a.ts",
+            title: UI.t("cli.run.patch_applied", { path: "src/a.ts" }),
             diff: "@@ -1 +1 @@\n-old\n+new\n",
             file: "src/a.ts",
             deletions: 0,
@@ -276,7 +277,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       kind: "task",
-      title: "# Explore Task",
+      title: `# ${UI.t("cli.run.task_title", { type: "Explore" })}`,
       rows: ["Inspect reducer"],
       tail: "",
     })
@@ -530,7 +531,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: "assistant interrupted",
+      content: UI.t("cli.run.assistant_interrupted"),
     })
   })
 })

@@ -7,6 +7,7 @@ import { makeGlobalNode, Node } from "@miaopan-code/core/effect/app-node"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { Provider } from "@/provider/provider"
 import { Context, Effect, Layer, SynchronizedRef } from "effect"
 
@@ -52,11 +53,13 @@ export interface Interface {
     readonly directory: string
     readonly providerID: ProviderV2.ID
     readonly modelID: ModelV2.ID
+    readonly language?: Language
   }) => Effect.Effect<number | undefined>
   readonly sendUpdate: (input: {
     readonly connection: UsageConnection
     readonly sessionID: string
     readonly directory: string
+    readonly language?: Language
   }) => Effect.Effect<void>
 }
 
@@ -146,20 +149,20 @@ const layer = Layer.effect(
       readonly directory: string
       readonly providerID: ProviderV2.ID
       readonly modelID: ModelV2.ID
+      readonly language?: Language
     }) {
       return yield* SynchronizedRef.modifyEffect(
         limits,
         Effect.fnUntraced(function* (items) {
-          const key = `${input.directory}\u0000${input.providerID}\u0000${input.modelID}`
+          const language = resolveLanguage(input.language)
+          const key = `${input.directory}\u0000${input.providerID}\u0000${input.modelID}\u0000${language}`
           const current = items.get(key)
           if (current) return [current, items] as const
           const next = yield* Effect.cached(
             contextLimitLoader.providers(input.directory).pipe(
               Effect.map((providers) => findContextLimit(providers, input.providerID, input.modelID)),
               Effect.catch((error) =>
-                Effect.logError("failed to get providers for usage context limit", { error: error }).pipe(
-                  Effect.as(undefined),
-                ),
+                Effect.logError(t(language, "log.acp_providers_failed"), { error: error }).pipe(Effect.as(undefined)),
               ),
             ),
           )
@@ -172,6 +175,7 @@ const layer = Layer.effect(
       readonly directory: string
       readonly providerID: ProviderV2.ID
       readonly modelID: ModelV2.ID
+      readonly language?: Language
     }) {
       return yield* yield* cachedLimit(input)
     })
@@ -180,12 +184,13 @@ const layer = Layer.effect(
       readonly connection: UsageConnection
       readonly sessionID: string
       readonly directory: string
+      readonly language?: Language
     }) {
       const messages = yield* messageLoader
         .messages({ sessionID: input.sessionID, directory: input.directory })
         .pipe(
           Effect.catch((error) =>
-            Effect.logError("failed to fetch messages for usage update", { error: error }).pipe(Effect.as(undefined)),
+            Effect.logError(t(input.language, "log.acp_messages_failed"), { error: error }).pipe(Effect.as(undefined)),
           ),
         )
       if (!messages) return
@@ -198,6 +203,7 @@ const layer = Layer.effect(
         directory: input.directory,
         providerID: ProviderV2.ID.make(message.providerID),
         modelID: ModelV2.ID.make(message.modelID),
+        language: input.language,
       })
       if (!size) return
 

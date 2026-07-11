@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import { HttpClient } from "effect/unstable/http"
 import type { Definition, JsonSchema } from "../tool.js"
+import type { Language } from "../i18n.js"
 
 /** A parsed OpenAPI 3.x document. YAML must be parsed by the host. */
 export type Document = Record<string, unknown>
@@ -46,6 +47,8 @@ export type AuthResolver = (context: {
 
 export type Options = {
   readonly spec: Document
+  /** Language used for generated tool failures. Defaults to Simplified Chinese. */
+  readonly language?: Language | undefined
   /** Overrides all document, path, and operation `servers`. Required when no applicable absolute server URL exists. */
   readonly baseUrl?: string | undefined
   /** Host credential resolution, keyed by security scheme name. */
@@ -96,6 +99,7 @@ export type OperationInput = {
 export type SecurityRequirement = Readonly<Record<string, ReadonlyArray<string>>>
 
 export type Plan = {
+  readonly language: Language | undefined
   readonly operation: Operation
   readonly url: string
   readonly fields: ReadonlyArray<InputField>

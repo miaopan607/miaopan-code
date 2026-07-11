@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { withTimeout } from "../../src/util/timeout"
+import { t } from "@miaopan-code/core/i18n"
 
 describe("util.timeout", () => {
   test("should resolve when promise completes before timeout", async () => {
@@ -16,6 +17,6 @@ describe("util.timeout", () => {
       setTimeout(() => resolve("slow"), 200)
     })
 
-    await expect(withTimeout(slowPromise, 50)).rejects.toThrow("Operation timed out after 50ms")
+    await expect(withTimeout(slowPromise, 50)).rejects.toThrow(t("zh-CN", "error.operation_timeout", { ms: 50 }))
   })
 })

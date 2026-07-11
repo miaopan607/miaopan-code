@@ -16,10 +16,12 @@ import { getScrollAcceleration } from "../../util/scroll"
 import { useTuiConfig } from "../../config"
 import { MIAOPAN_CODE_BASE_MODE, useBindings, useCommandShortcut } from "../../keymap"
 import { usePathFormatter } from "../../context/path-format"
+import { useI18n } from "../../context/i18n"
 
 type PermissionStage = "permission" | "always" | "reject"
 
 function EditBody(props: { request: PermissionRequest }) {
+  const i18n = useI18n()
   const themeState = useTheme()
   const theme = themeState.theme
   const syntax = themeState.syntax
@@ -80,7 +82,7 @@ function EditBody(props: { request: PermissionRequest }) {
       </Show>
       <Show when={!diff()}>
         <box paddingLeft={1}>
-          <text fg={theme.textMuted}>No diff provided</text>
+          <text fg={theme.textMuted}>{i18n.t("permission.no_diff")}</text>
         </box>
       </Show>
     </box>
@@ -109,6 +111,7 @@ function TextBody(props: { title: string; description?: string; icon?: string })
 }
 
 export function PermissionPrompt(props: { request: PermissionRequest; directory?: string }) {
+  const i18n = useI18n()
   const sdk = useSDK()
   const project = useProject()
   const sync = useSync()
@@ -137,15 +140,15 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
     <Switch>
       <Match when={store.stage === "always"}>
         <Prompt
-          title="Always allow"
+          title={i18n.t("permission.allow_always")}
           body={
             <Switch>
               <Match when={props.request.always.length === 1 && props.request.always[0] === "*"}>
-                <TextBody title={"This will allow " + props.request.permission + " until MiaopanCode is restarted."} />
+                <TextBody title={i18n.t("permission.allow_until_restart", { permission: props.request.permission })} />
               </Match>
               <Match when={true}>
                 <box paddingLeft={1} gap={1}>
-                  <text fg={theme.textMuted}>This will allow the following patterns until MiaopanCode is restarted</text>
+                  <text fg={theme.textMuted}>{i18n.t("permission.allow_patterns_until_restart")}</text>
                   <box>
                     <For each={props.request.always}>
                       {(pattern) => (
@@ -160,7 +163,7 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               </Match>
             </Switch>
           }
-          options={{ confirm: "Confirm", cancel: "Cancel" }}
+          options={{ confirm: i18n.t("permission.confirm"), cancel: i18n.t("permission.cancel") }}
           escapeKey="cancel"
           onSelect={(option) => {
             setStore("stage", "permission")
@@ -201,7 +204,7 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const filepath = typeof raw === "string" ? raw : ""
               return {
                 icon: "→",
-                title: `Edit ${pathFormatter.format(filepath)}`,
+                title: i18n.t("permission.edit_path", { path: pathFormatter.format(filepath) }),
                 body: <EditBody request={props.request} />,
               }
             }
@@ -211,11 +214,13 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const filePath = typeof raw === "string" ? raw : ""
               return {
                 icon: "→",
-                title: `Read ${pathFormatter.format(filePath)}`,
+                title: i18n.t("permission.read_path", { path: pathFormatter.format(filePath) }),
                 body: (
                   <Show when={filePath}>
                     <box paddingLeft={1}>
-                      <text fg={theme.textMuted}>{"Path: " + pathFormatter.format(filePath)}</text>
+                      <text fg={theme.textMuted}>
+                        {i18n.t("permission.path_label", { path: pathFormatter.format(filePath) })}
+                      </text>
                     </box>
                   </Show>
                 ),
@@ -226,11 +231,11 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const pattern = typeof data.pattern === "string" ? data.pattern : ""
               return {
                 icon: "✱",
-                title: `Glob "${pattern}"`,
+                title: i18n.t("permission.glob_pattern", { pattern }),
                 body: (
                   <Show when={pattern}>
                     <box paddingLeft={1}>
-                      <text fg={theme.textMuted}>{"Pattern: " + pattern}</text>
+                      <text fg={theme.textMuted}>{i18n.t("permission.pattern_label", { pattern })}</text>
                     </box>
                   </Show>
                 ),
@@ -241,11 +246,11 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const pattern = typeof data.pattern === "string" ? data.pattern : ""
               return {
                 icon: "✱",
-                title: `Grep "${pattern}"`,
+                title: i18n.t("permission.grep_pattern", { pattern }),
                 body: (
                   <Show when={pattern}>
                     <box paddingLeft={1}>
-                      <text fg={theme.textMuted}>{"Pattern: " + pattern}</text>
+                      <text fg={theme.textMuted}>{i18n.t("permission.pattern_label", { pattern })}</text>
                     </box>
                   </Show>
                 ),
@@ -257,11 +262,13 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const dir = typeof raw === "string" ? raw : ""
               return {
                 icon: "→",
-                title: `List ${pathFormatter.format(dir)}`,
+                title: i18n.t("permission.list_path", { path: pathFormatter.format(dir) }),
                 body: (
                   <Show when={dir}>
                     <box paddingLeft={1}>
-                      <text fg={theme.textMuted}>{"Path: " + pathFormatter.format(dir)}</text>
+                      <text fg={theme.textMuted}>
+                        {i18n.t("permission.path_label", { path: pathFormatter.format(dir) })}
+                      </text>
                     </box>
                   </Show>
                 ),
@@ -272,7 +279,7 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const command = typeof data.command === "string" ? data.command : ""
               return {
                 icon: "#",
-                title: "Shell command",
+                title: i18n.t("permission.shell_command"),
                 body: (
                   <Show when={command}>
                     <box paddingLeft={1}>
@@ -284,11 +291,12 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
             }
 
             if (permission === "task") {
-              const type = typeof data.subagent_type === "string" ? data.subagent_type : "Unknown"
+              const type =
+                typeof data.subagent_type === "string" ? data.subagent_type : i18n.t("permission.unknown_type")
               const desc = typeof data.description === "string" ? data.description : ""
               return {
                 icon: "#",
-                title: `${Locale.titlecase(type)} Task`,
+                title: i18n.t("permission.task_title", { type: Locale.titlecase(type) }),
                 body: (
                   <Show when={desc}>
                     <box paddingLeft={1}>
@@ -303,11 +311,11 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const url = typeof data.url === "string" ? data.url : ""
               return {
                 icon: "%",
-                title: `WebFetch ${url}`,
+                title: i18n.t("permission.webfetch_url", { url }),
                 body: (
                   <Show when={url}>
                     <box paddingLeft={1}>
-                      <text fg={theme.textMuted}>{"URL: " + url}</text>
+                      <text fg={theme.textMuted}>{i18n.t("permission.url_label", { url })}</text>
                     </box>
                   </Show>
                 ),
@@ -318,11 +326,11 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
               const query = typeof data.query === "string" ? data.query : ""
               return {
                 icon: "◈",
-                title: `${webSearchProviderLabel(data.provider)} "${query}"`,
+                title: i18n.t("permission.websearch_query", { provider: webSearchProviderLabel(data.provider), query }),
                 body: (
                   <Show when={query}>
                     <box paddingLeft={1}>
-                      <text fg={theme.textMuted}>{"Query: " + query}</text>
+                      <text fg={theme.textMuted}>{i18n.t("permission.query_label", { query })}</text>
                     </box>
                   </Show>
                 ),
@@ -343,11 +351,11 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
 
               return {
                 icon: "←",
-                title: `Access external directory ${dir}`,
+                title: i18n.t("permission.external_directory_title", { dir }),
                 body: (
                   <Show when={patterns.length > 0}>
                     <box paddingLeft={1} gap={1}>
-                      <text fg={theme.textMuted}>Patterns</text>
+                      <text fg={theme.textMuted}>{i18n.t("permission.patterns")}</text>
                       <box>
                         <For each={patterns}>{(p) => <text fg={theme.text}>{"- " + p}</text>}</For>
                       </box>
@@ -360,10 +368,10 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
             if (permission === "doom_loop") {
               return {
                 icon: "⟳",
-                title: "Continue after repeated failures",
+                title: i18n.t("permission.continue_failures"),
                 body: (
                   <box paddingLeft={1}>
-                    <text fg={theme.textMuted}>This keeps the session running despite repeated failures.</text>
+                    <text fg={theme.textMuted}>{i18n.t("permission.keep_running")}</text>
                   </box>
                 ),
               }
@@ -371,10 +379,10 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
 
             return {
               icon: "⚙",
-              title: `Call tool ${permission}`,
+              title: i18n.t("permission.call_tool", { permission }),
               body: (
                 <box paddingLeft={1}>
-                  <text fg={theme.textMuted}>{"Tool: " + permission}</text>
+                  <text fg={theme.textMuted}>{i18n.t("permission.tool_name", { permission })}</text>
                 </box>
               ),
             }
@@ -386,7 +394,7 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
             <box flexDirection="column" gap={0}>
               <box flexDirection="row" gap={1} flexShrink={0}>
                 <text fg={theme.warning}>{"△"}</text>
-                <text fg={theme.text}>Permission required</text>
+                <text fg={theme.text}>{i18n.t("permission.required")}</text>
               </box>
               <box flexDirection="row" gap={1} paddingLeft={2} flexShrink={0}>
                 <text fg={theme.textMuted} flexShrink={0}>
@@ -399,10 +407,14 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
 
           const body = (
             <Prompt
-              title="Permission required"
+              title={i18n.t("permission.required_title")}
               header={header()}
               body={current.body}
-              options={{ once: "Allow once", always: "Allow always", reject: "Reject" }}
+              options={{
+                once: i18n.t("permission.allow_once"),
+                always: i18n.t("permission.allow_always"),
+                reject: i18n.t("permission.reject"),
+              }}
               escapeKey="reject"
               fullscreen
               onSelect={(option) => {
@@ -445,26 +457,32 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
   const { theme } = useTheme()
   const tuiConfig = useTuiConfig()
   const dimensions = useTerminalDimensions()
+  const i18n = useI18n()
   const narrow = createMemo(() => dimensions().width < 80)
   useBindings(() => ({
     mode: MIAOPAN_CODE_BASE_MODE,
     commands: [
       {
         name: "app.exit",
-        title: "Cancel permission rejection",
-        category: "Permission",
+        title: i18n.t("permission.cancel_reject"),
+        category: i18n.t("tui.category_permission"),
         run() {
           props.onCancel()
         },
       },
     ],
     bindings: [
-      { key: "escape", desc: "Cancel permission rejection", group: "Permission", cmd: () => props.onCancel() },
+      {
+        key: "escape",
+        desc: i18n.t("permission.cancel_reject"),
+        group: i18n.t("tui.category_permission"),
+        cmd: () => props.onCancel(),
+      },
       ...tuiConfig.keybinds.get("app.exit"),
       {
         key: "return",
-        desc: "Confirm permission rejection",
-        group: "Permission",
+        desc: i18n.t("permission.confirm_reject"),
+        group: i18n.t("tui.category_permission"),
         cmd: () => props.onConfirm(input.plainText),
       },
     ],
@@ -480,10 +498,10 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
       <box gap={1} paddingLeft={1} paddingRight={3} paddingTop={1} paddingBottom={1}>
         <box flexDirection="row" gap={1} paddingLeft={1}>
           <text fg={theme.error}>{"△"}</text>
-          <text fg={theme.text}>Reject permission</text>
+          <text fg={theme.text}>{i18n.t("permission.reject")}</text>
         </box>
         <box paddingLeft={1}>
-          <text fg={theme.textMuted}>Tell MiaopanCode what to do differently</text>
+          <text fg={theme.textMuted}>{i18n.t("permission.tell_differently")}</text>
         </box>
       </box>
       <box
@@ -510,10 +528,10 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
         />
         <box flexDirection="row" gap={2} flexShrink={0}>
           <text fg={theme.text}>
-            enter <span style={{ fg: theme.textMuted }}>confirm</span>
+            enter <span style={{ fg: theme.textMuted }}>{i18n.t("permission.confirm")}</span>
           </text>
           <text fg={theme.text}>
-            esc <span style={{ fg: theme.textMuted }}>cancel</span>
+            esc <span style={{ fg: theme.textMuted }}>{i18n.t("permission.cancel")}</span>
           </text>
         </box>
       </box>
@@ -533,6 +551,7 @@ function Prompt<const T extends Record<string, string>>(props: {
   const { theme } = useTheme()
   const tuiConfig = useTuiConfig()
   const dimensions = useTerminalDimensions()
+  const i18n = useI18n()
   const keys = Object.keys(props.options) as (keyof T)[]
   const [store, setStore] = createStore({
     selected: keys[0],
@@ -546,8 +565,8 @@ function Prompt<const T extends Record<string, string>>(props: {
     commands: [
       {
         name: "app.exit",
-        title: "Reject permission",
-        category: "Permission",
+        title: i18n.t("permission.reject"),
+        category: i18n.t("tui.category_permission"),
         run() {
           if (!props.escapeKey) return
           props.onSelect(props.escapeKey)
@@ -555,8 +574,8 @@ function Prompt<const T extends Record<string, string>>(props: {
       },
       {
         name: "permission.prompt.fullscreen",
-        title: "Toggle permission fullscreen",
-        category: "Permission",
+        title: i18n.t("permission.toggle_fullscreen"),
+        category: i18n.t("tui.category_permission"),
         run() {
           if (!props.fullscreen) return
           setStore("expanded", (v) => !v)
@@ -566,8 +585,8 @@ function Prompt<const T extends Record<string, string>>(props: {
     bindings: [
       {
         key: "left",
-        desc: "Previous permission option",
-        group: "Permission",
+        desc: i18n.t("permission.previous_option"),
+        group: i18n.t("tui.category_permission"),
         cmd: () => {
           const idx = keys.indexOf(store.selected)
           const next = keys[(idx - 1 + keys.length) % keys.length]
@@ -576,8 +595,8 @@ function Prompt<const T extends Record<string, string>>(props: {
       },
       {
         key: "h",
-        desc: "Previous permission option",
-        group: "Permission",
+        desc: i18n.t("permission.previous_option"),
+        group: i18n.t("tui.category_permission"),
         cmd: () => {
           const idx = keys.indexOf(store.selected)
           const next = keys[(idx - 1 + keys.length) % keys.length]
@@ -586,8 +605,8 @@ function Prompt<const T extends Record<string, string>>(props: {
       },
       {
         key: "right",
-        desc: "Next permission option",
-        group: "Permission",
+        desc: i18n.t("permission.next_option"),
+        group: i18n.t("tui.category_permission"),
         cmd: () => {
           const idx = keys.indexOf(store.selected)
           const next = keys[(idx + 1) % keys.length]
@@ -596,7 +615,7 @@ function Prompt<const T extends Record<string, string>>(props: {
       },
       {
         key: "l",
-        desc: "Next permission option",
+        desc: i18n.t("permission.next_option"),
         group: "Permission",
         cmd: () => {
           const idx = keys.indexOf(store.selected)
@@ -606,7 +625,7 @@ function Prompt<const T extends Record<string, string>>(props: {
       },
       {
         key: "return",
-        desc: "Select permission option",
+        desc: i18n.t("permission.select_option"),
         group: "Permission",
         cmd: () => props.onSelect(store.selected),
       },
@@ -614,8 +633,8 @@ function Prompt<const T extends Record<string, string>>(props: {
         ? [
             {
               key: "escape",
-              desc: "Reject permission",
-              group: "Permission",
+              desc: i18n.t("permission.reject"),
+              group: i18n.t("tui.category_permission"),
               cmd: () => props.onSelect(props.escapeKey!),
             },
           ]
@@ -700,10 +719,10 @@ function Prompt<const T extends Record<string, string>>(props: {
             </text>
           </Show>
           <text fg={theme.text}>
-            {"⇆"} <span style={{ fg: theme.textMuted }}>select</span>
+            {"⇆"} <span style={{ fg: theme.textMuted }}>{i18n.t("select.select_item")}</span>
           </text>
           <text fg={theme.text}>
-            enter <span style={{ fg: theme.textMuted }}>confirm</span>
+            enter <span style={{ fg: theme.textMuted }}>{i18n.t("permission.confirm")}</span>
           </text>
         </box>
       </box>

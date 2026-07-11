@@ -31,10 +31,11 @@ import { ModelV2 } from "@miaopan-code/core/model"
 import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
+import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
-function wrapSSE(res: Response, ms: number, ctl: AbortController) {
+function wrapSSE(res: Response, ms: number, ctl: AbortController, language?: Language) {
   if (typeof ms !== "number" || ms <= 0) return res
   if (!res.body) return res
   if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
@@ -44,7 +45,7 @@ function wrapSSE(res: Response, ms: number, ctl: AbortController) {
     async pull(ctrl) {
       const part = await new Promise<Awaited<ReturnType<typeof reader.read>>>((resolve, reject) => {
         const id = setTimeout(() => {
-          const err = new ProviderError.ResponseStreamError("SSE read timed out")
+          const err = new ProviderError.ResponseStreamError(t(language, "error.aisdk_timeout"))
           ctl.abort(err)
           void reader.cancel(err)
           reject(err)
@@ -82,9 +83,9 @@ function wrapSSE(res: Response, ms: number, ctl: AbortController) {
   })
 }
 
-function timeoutController(ms: number) {
+function timeoutController(ms: number, language?: Language) {
   const ctl = new AbortController()
-  const id = setTimeout(() => ctl.abort(new ProviderError.HeaderTimeoutError(ms)), ms)
+  const id = setTimeout(() => ctl.abort(new ProviderError.HeaderTimeoutError(ms, language)), ms)
   return {
     signal: ctl.signal,
     clear: () => clearTimeout(id),
@@ -176,7 +177,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           },
         },
       }),
-    miaopanCode: Effect.fnUntraced(function* (input: Info) {
+    [ProviderV2.ID.miaopanCode]: Effect.fnUntraced(function* (input: Info) {
       const env = yield* dep.env()
       const hasKey = iife(() => {
         if (input.env.some((item) => env[item])) return true
@@ -731,13 +732,17 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
 
       const auth = yield* dep.auth(input.id)
       const env = yield* dep.env()
+      const language = (yield* dep.config()).language
       const accountId = env["CLOUDFLARE_ACCOUNT_ID"] || (auth?.type === "api" ? auth.metadata?.accountId : undefined)
       if (!accountId)
         return {
           autoload: false,
           async getModel() {
             throw new Error(
-              "CLOUDFLARE_ACCOUNT_ID is missing. Set it with: export CLOUDFLARE_ACCOUNT_ID=<your-account-id>",
+              t(language, "error.provider_env_missing", {
+                items: "CLOUDFLARE_ACCOUNT_ID",
+                exports: "export CLOUDFLARE_ACCOUNT_ID=<your-account-id>",
+              }),
             )
           },
         }
@@ -768,6 +773,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
 
       const auth = yield* dep.auth(input.id)
       const env = yield* dep.env()
+      const language = (yield* dep.config()).language
       const accountId = env["CLOUDFLARE_ACCOUNT_ID"] || (auth?.type === "api" ? auth.metadata?.accountId : undefined)
       // The Cloudflare auth prompt stores this value as gatewayId metadata.
       const gateway = env["CLOUDFLARE_GATEWAY_ID"] || (auth?.type === "api" ? auth.metadata?.gatewayId : undefined)
@@ -781,7 +787,10 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           autoload: false,
           async getModel() {
             throw new Error(
-              `${missing.join(" and ")} missing. Set with: ${missing.map((x) => `export ${x}=<value>`).join(" && ")}`,
+              t(language, "error.provider_env_missing", {
+                items: missing.join(" and "),
+                exports: missing.map((x) => `export ${x}=<value>`).join(" && "),
+              }),
             )
           },
         }
@@ -792,10 +801,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         env["CLOUDFLARE_API_TOKEN"] || env["CF_AIG_TOKEN"] || (auth?.type === "api" ? auth.key : undefined)
 
       if (!apiToken) {
-        throw new Error(
-          "CLOUDFLARE_API_TOKEN (or CF_AIG_TOKEN) is required for Cloudflare AI Gateway. " +
-            "Set it via environment variable or run `miaopanCode auth cloudflare-ai-gateway`.",
-        )
+        throw new Error(t(language, "error.cloudflare_gateway_token_required"))
       }
 
       // Use official ai-gateway-provider package (v2.x for AI SDK v5 compatibility)
@@ -860,6 +866,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
     "snowflake-cortex": Effect.fnUntraced(function* (input: Info) {
       const env = yield* dep.env()
       const auth = yield* dep.auth(input.id)
+      const language = (yield* dep.config()).language
 
       const account =
         env["SNOWFLAKE_ACCOUNT"] ??
@@ -879,9 +886,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         return {
           autoload: false,
           async getModel() {
-            throw new Error(
-              `Snowflake Cortex: missing credentials (${missing}). Provide a bearer token (OAuth, JWT, or PAT) via env var, miaopanCode auth, or provider options.`,
-            )
+            throw new Error(t(language, "error.snowflake_credentials", { missing }))
           },
         }
       }
@@ -1094,10 +1099,16 @@ export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundErr
   modelID: ModelV2.ID,
   suggestions: Schema.optional(Schema.Array(Schema.String)),
   cause: Schema.optional(Schema.Defect()),
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
-    const suggestions = this.suggestions?.length ? ` Did you mean: ${this.suggestions.join(", ")}?` : ""
-    return `Model not found: ${this.providerID}/${this.modelID}.${suggestions}`
+    const suggestions = this.suggestions?.length
+      ? t(this.language, "error.did_you_mean", { items: this.suggestions.join(", ") })
+      : ""
+    const message = t(this.language, "error.model_not_found", {
+      model: `${this.providerID}/${this.modelID}`,
+    })
+    return suggestions ? `${message}\n${suggestions}` : message
   }
 
   static isInstance(input: unknown): input is ModelNotFoundError {
@@ -1108,9 +1119,10 @@ export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundErr
 export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderInitError", {
   providerID: ProviderV2.ID,
   cause: Schema.optional(Schema.Defect()),
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
-    return `Failed to initialize provider: ${this.providerID}`
+    return t(this.language, "error.provider_init", { providerID: this.providerID })
   }
 
   static isInstance(input: unknown): input is InitError {
@@ -1118,9 +1130,11 @@ export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderIni
   }
 }
 
-export class NoProvidersError extends Schema.TaggedErrorClass<NoProvidersError>()("ProviderNoProvidersError", {}) {
+export class NoProvidersError extends Schema.TaggedErrorClass<NoProvidersError>()("ProviderNoProvidersError", {
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
+}) {
   override get message() {
-    return "No providers are available"
+    return t(this.language, "error.provider_no_providers")
   }
 
   static isInstance(input: unknown): input is NoProvidersError {
@@ -1130,9 +1144,10 @@ export class NoProvidersError extends Schema.TaggedErrorClass<NoProvidersError>(
 
 export class NoModelsError extends Schema.TaggedErrorClass<NoModelsError>()("ProviderNoModelsError", {
   providerID: ProviderV2.ID,
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
-    return `No models are available for provider: ${this.providerID}`
+    return t(this.language, "error.provider_no_models", { providerID: this.providerID })
   }
 
   static isInstance(input: unknown): input is NoModelsError {
@@ -1157,6 +1172,7 @@ export interface Interface {
 }
 
 interface State {
+  language: Language
   models: Map<string, LanguageModelV3>
   providers: Record<ProviderV2.ID, Info>
   catalog: Record<ProviderV2.ID, Info>
@@ -1253,6 +1269,21 @@ function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model
   }
 }
 
+function normalizeModelsDevProviders(input: Record<string, ModelsDev.Provider>) {
+  const legacy = input.opencode
+  if (!legacy) return input
+
+  const providers = Object.fromEntries(Object.entries(input).filter(([id]) => id !== "opencode"))
+  if (providers[ProviderV2.ID.miaopanCode]) return providers
+  return {
+    ...providers,
+    [ProviderV2.ID.miaopanCode]: {
+      ...legacy,
+      id: ProviderV2.ID.miaopanCode,
+    },
+  }
+}
+
 export function fromModelsDevProvider(provider: ModelsDev.Provider): Info {
   const models: Record<string, Model> = {}
   for (const [key, model] of Object.entries(provider.models)) {
@@ -1331,7 +1362,7 @@ const layer = Layer.effect(
       Effect.gen(function* () {
         const bridge = yield* EffectBridge.make()
         const cfg = yield* config.get()
-        const modelsDev = yield* modelsDevSvc.get()
+        const modelsDev = normalizeModelsDevProviders(yield* modelsDevSvc.get())
         const catalog = mapValues(modelsDev, fromModelsDevProvider)
         const database = mapValues(catalog, toPublicInfo)
 
@@ -1641,6 +1672,7 @@ const layer = Layer.effect(
         }
 
         return {
+          language: resolveLanguage(cfg.language),
           models: languages,
           providers,
           catalog,
@@ -1728,7 +1760,8 @@ const layer = Layer.effect(
           const opts = init ?? {}
           const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
           const headerTimeoutMs = headerTimeout === false ? undefined : headerTimeout
-          const headerTimeoutCtl = typeof headerTimeoutMs === "number" ? timeoutController(headerTimeoutMs) : undefined
+          const headerTimeoutCtl =
+            typeof headerTimeoutMs === "number" ? timeoutController(headerTimeoutMs, s.language) : undefined
           const signals: AbortSignal[] = []
 
           if (opts.signal) signals.push(opts.signal)
@@ -1747,7 +1780,7 @@ const layer = Layer.effect(
           }).finally(() => headerTimeoutCtl?.clear())
 
           if (!chunkAbortCtl) return res
-          return wrapSSE(res, chunkTimeout, chunkAbortCtl)
+          return wrapSSE(res, chunkTimeout, chunkAbortCtl, s.language)
         }
 
         const bundledLoader = BUNDLED_PROVIDERS[model.api.npm]
@@ -1766,7 +1799,8 @@ const layer = Layer.effect(
             return model.api.npm
           }
           const item = await Npm.add(model.api.npm)
-          if (!item.entrypoint) throw new Error(`Package ${model.api.npm} has no import entrypoint`)
+          if (!item.entrypoint)
+            throw new Error(t(s.language, "error.provider_entrypoint_missing", { package: model.api.npm }))
           return item.entrypoint
         })()
 
@@ -1783,7 +1817,7 @@ const layer = Layer.effect(
         s.sdk.set(key, loaded)
         return loaded as SDK
       } catch (e) {
-        throw new InitError({ providerID: model.providerID, cause: e })
+        throw new InitError({ providerID: model.providerID, cause: e, language: s.language })
       }
     }
 
@@ -1801,7 +1835,7 @@ const layer = Layer.effect(
           : fuzzysort
               .go(providerID, Object.keys({ ...s.catalog, ...s.providers }), { limit: 3, threshold: -10000 })
               .map((m) => m.target)
-        return yield* new ModelNotFoundError({ providerID, modelID, suggestions })
+        return yield* new ModelNotFoundError({ providerID, modelID, suggestions, language: s.language })
       }
 
       const info = provider.models[modelID]
@@ -1810,7 +1844,7 @@ const layer = Layer.effect(
         const suggestions = current.length
           ? current
           : modelSuggestions(s.catalog[providerID], modelID, runtimeFlags.enableExperimentalModels)
-        return yield* new ModelNotFoundError({ providerID, modelID, suggestions })
+        return yield* new ModelNotFoundError({ providerID, modelID, suggestions, language: s.language })
       }
       return info
     })
@@ -1841,7 +1875,7 @@ const layer = Layer.effect(
         },
         (cause) =>
           cause instanceof NoSuchModelError
-            ? new ModelNotFoundError({ modelID: model.id, providerID: model.providerID, cause })
+            ? new ModelNotFoundError({ modelID: model.id, providerID: model.providerID, cause, language: s.language })
             : undefined,
       )
     })
@@ -1953,9 +1987,9 @@ const layer = Layer.effect(
 
       const configured = Object.keys(cfg.provider ?? {})
       const provider = Object.values(s.providers).find((p) => configured.length === 0 || configured.includes(p.id))
-      if (!provider) return yield* new NoProvidersError()
+      if (!provider) return yield* new NoProvidersError({ language: resolveLanguage(cfg.language) })
       const [model] = sort(Object.values(provider.models))
-      if (!model) return yield* new NoModelsError({ providerID: provider.id })
+      if (!model) return yield* new NoModelsError({ providerID: provider.id, language: resolveLanguage(cfg.language) })
       return {
         providerID: provider.id,
         modelID: model.id,

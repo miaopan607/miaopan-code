@@ -6,9 +6,9 @@
 import * as path from "path"
 import { Effect, Schema, Semaphore } from "effect"
 import * as Tool from "./tool"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import { LSP } from "@/lsp/lsp"
 import { createTwoFilesPatch, diffLines } from "diff"
-import DESCRIPTION from "./edit.txt"
 import { FileSystem } from "@miaopan-code/core/filesystem"
 import { Watcher } from "@miaopan-code/core/filesystem/watcher"
 import { EventV2Bridge } from "@/event-v2-bridge"
@@ -18,6 +18,7 @@ import { Snapshot } from "@/snapshot"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import * as Bom from "@/util/bom"
+import { ToolI18n } from "./i18n"
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -44,16 +45,18 @@ function lock(filePath: string) {
   return next
 }
 
-export const Parameters = Schema.Struct({
-  filePath: Schema.String.annotate({ description: "The absolute path to the file to modify" }),
-  oldString: Schema.String.annotate({ description: "The text to replace" }),
-  newString: Schema.String.annotate({
-    description: "The text to replace it with (must be different from oldString)",
-  }),
-  replaceAll: Schema.optional(Schema.Boolean).annotate({
-    description: "Replace all occurrences of oldString (default false)",
-  }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    filePath: Schema.String.annotate({ description: t(language, "tool.param.edit_path") }),
+    oldString: Schema.String.annotate({ description: t(language, "tool.param.edit_old") }),
+    newString: Schema.String.annotate({
+      description: t(language, "tool.param.edit_new"),
+    }),
+    replaceAll: Schema.optional(Schema.Boolean).annotate({
+      description: t(language, "tool.param.edit_all"),
+    }),
+  })
+export const Parameters = makeParameters()
 
 export const EditTool = Tool.define(
   "edit",
@@ -62,18 +65,19 @@ export const EditTool = Tool.define(
     const afs = yield* FSUtil.Service
     const format = yield* Format.Service
     const events = yield* EventV2Bridge.Service
+    const language = yield* ToolI18n.language()
 
     return {
-      description: DESCRIPTION,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.edit"),
+      parameters: makeParameters(language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
           if (!params.filePath) {
-            throw new Error("filePath is required")
+            throw new Error(ToolI18n.text(ctx, "tool.file_required"))
           }
 
           if (params.oldString === params.newString) {
-            throw new Error("No changes to apply: oldString and newString are identical.")
+            throw new Error(ToolI18n.text(ctx, "tool.no_changes"))
           }
 
           const instance = yield* InstanceState.context
@@ -90,9 +94,7 @@ export const EditTool = Tool.define(
               if (params.oldString === "") {
                 const existed = yield* afs.existsSafe(filePath)
                 if (existed) {
-                  throw new Error(
-                    "oldString cannot be empty when editing an existing file. Provide the exact text to replace, or use write for an intentional full-file replacement.",
-                  )
+                  throw new Error(ToolI18n.text(ctx, "tool.error.edit_empty"))
                 }
                 const next = Bom.split(params.newString)
                 const desiredBom = next.bom
@@ -121,8 +123,9 @@ export const EditTool = Tool.define(
               }
 
               const info = yield* afs.stat(filePath).pipe(Effect.catch(() => Effect.succeed(undefined)))
-              if (!info) throw new Error(`File ${filePath} not found`)
-              if (info.type === "Directory") throw new Error(`Path is a directory, not a file: ${filePath}`)
+              if (!info) throw new Error(ToolI18n.text(ctx, "tool.file_not_found", { path: filePath }))
+              if (info.type === "Directory")
+                throw new Error(ToolI18n.text(ctx, "tool.directory_not_file", { path: filePath }))
               const source = yield* Bom.readFile(afs, filePath)
               contentOld = source.text
 
@@ -130,7 +133,7 @@ export const EditTool = Tool.define(
               const old = convertToLineEnding(normalizeLineEndings(params.oldString), ending)
               const replacement = convertToLineEnding(normalizeLineEndings(params.newString), ending)
 
-              const next = Bom.split(replace(contentOld, old, replacement, params.replaceAll))
+              const next = Bom.split(replace(contentOld, old, replacement, params.replaceAll, ctx.language))
               const desiredBom = source.bom || next.bom
               contentNew = next.text
 
@@ -193,12 +196,12 @@ export const EditTool = Tool.define(
             },
           })
 
-          let output = "Edit applied successfully."
+          let output = ToolI18n.text(ctx, "tool.output.edit_applied")
           yield* lsp.touchFile(filePath, "document")
           const diagnostics = yield* lsp.diagnostics()
           const normalizedFilePath = FSUtil.normalizePath(filePath)
           const block = LSP.Diagnostic.report(filePath, diagnostics[normalizedFilePath] ?? [])
-          if (block) output += `\n\nLSP errors detected in this file, please fix:\n${block}`
+          if (block) output += `\n\n${ToolI18n.text(ctx, "tool.output.lsp_errors")}\n${block}`
 
           return {
             metadata: {
@@ -679,14 +682,18 @@ export function trimDiff(diff: string): string {
   return trimmedLines.join("\n")
 }
 
-export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
+export function replace(
+  content: string,
+  oldString: string,
+  newString: string,
+  replaceAll = false,
+  language?: Language,
+): string {
   if (oldString === newString) {
-    throw new Error("No changes to apply: oldString and newString are identical.")
+    throw new Error(t(language, "tool.error.identical"))
   }
   if (oldString === "") {
-    throw new Error(
-      "oldString cannot be empty when editing an existing file. Provide the exact text to replace, or use write for an intentional full-file replacement.",
-    )
+    throw new Error(t(language, "tool.error.edit_empty"))
   }
 
   let notFound = true
@@ -707,9 +714,7 @@ export function replace(content: string, oldString: string, newString: string, r
       if (index === -1) continue
       notFound = false
       if (isDisproportionateMatch(search, oldString)) {
-        throw new Error(
-          "Refusing replacement because the matched span is much larger than oldString. Re-read the file and provide the full exact oldString for the intended replacement.",
-        )
+        throw new Error(t(language, "tool.error.edit_disproportionate"))
       }
       if (replaceAll) {
         return content.replaceAll(search, newString)
@@ -721,11 +726,9 @@ export function replace(content: string, oldString: string, newString: string, r
   }
 
   if (notFound) {
-    throw new Error(
-      "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.",
-    )
+    throw new Error(t(language, "tool.error.edit_missing"))
   }
-  throw new Error("Found multiple matches for oldString. Provide more surrounding context to make the match unique.")
+  throw new Error(t(language, "tool.error.edit_multiple"))
 }
 
 function isDisproportionateMatch(search: string, oldString: string) {

@@ -10,6 +10,7 @@ import { Git } from "./git"
 import { Global } from "./global"
 import { Location } from "./location"
 import { AbsolutePath, RelativePath } from "./schema"
+import { zh } from "./i18n"
 import { Hash } from "./util/hash"
 
 export const ID = Schema.String.pipe(Schema.brand("Snapshot.ID"))
@@ -100,12 +101,12 @@ const layer = Layer.effect(
     const scope = Effect.fnUntraced(function* () {
       const relative = path.relative(worktree, location.directory)
       if (relative.startsWith("..") || path.isAbsolute(relative))
-        return yield* new Error({ operation: "capture", message: "Location is outside the project" })
+        return yield* new Error({ operation: "capture", message: zh("error.snapshot_outside_project") })
       return RelativePath.make(relative.replaceAll("\\", "/") || ".")
     })
 
     const repository = Effect.fnUntraced(function* () {
-      if (!source) return yield* new Error({ operation: "capture", message: "Project is not a Git repository" })
+      if (!source) return yield* new Error({ operation: "capture", message: zh("error.snapshot_not_git") })
       if (yield* fs.existsSafe(path.join(gitDirectory, "HEAD")))
         return new Git.Repository({
           worktree,
@@ -139,7 +140,9 @@ const layer = Layer.effect(
           }),
         )
       }).pipe(
-        Effect.catch((cause) => Effect.logWarning("failed to capture snapshot", { cause }).pipe(Effect.as(undefined))),
+        Effect.catch((cause) =>
+          Effect.logWarning(zh("log.snapshot_capture_failed"), { cause }).pipe(Effect.as(undefined)),
+        ),
       )
     })
 
@@ -180,14 +183,14 @@ const layer = Layer.effect(
       for (const [file, snapshot] of input.files) {
         const absolute = path.resolve(worktree, file)
         if (!FSUtil.contains(worktree, absolute))
-          return yield* new Error({ operation, message: `Path escapes the project: ${file}` })
+          return yield* new Error({ operation, message: zh("error.snapshot_path_escape", { file }) })
         files.set(file, Git.TreeID.make(snapshot))
       }
       return files
     })
 
     const preview = Effect.fn("Snapshot.preview")(function* (input: PreviewInput) {
-      if (!(yield* enabled())) return yield* new Error({ operation: "preview", message: "Snapshots are disabled" })
+      if (!(yield* enabled())) return yield* new Error({ operation: "preview", message: zh("error.snapshot_disabled") })
       const repo = yield* repository().pipe(Effect.mapError((cause) => failure("preview", cause)))
       const files = yield* plan("preview", input)
       const current = yield* git.tree
@@ -209,7 +212,7 @@ const layer = Layer.effect(
     })
 
     const restore = Effect.fn("Snapshot.restore")(function* (input: RestoreInput) {
-      if (!(yield* enabled())) return yield* new Error({ operation: "restore", message: "Snapshots are disabled" })
+      if (!(yield* enabled())) return yield* new Error({ operation: "restore", message: zh("error.snapshot_disabled") })
       const repo = yield* repository().pipe(Effect.mapError((cause) => failure("restore", cause)))
       yield* git.tree
         .restore({ repository: repo, files: yield* plan("restore", input) })

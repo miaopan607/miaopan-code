@@ -1,6 +1,8 @@
 import type { Event } from "@miaopan-code/sdk/v2"
 import type { TuiAttentionSoundName, TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../../util/locale"
 
 const id = "internal:notifications"
 
@@ -18,12 +20,12 @@ function notify(api: TuiPluginApi, sessionID: string | undefined, message: strin
 }
 
 function sessionErrorMessage(error: SessionError) {
-  if (error?.name === "MessageAbortedError") return "Session aborted"
+  if (error?.name === "MessageAbortedError") return t(Locale.language(), "notification.session_aborted")
   const data = error?.data
   if (data && typeof data === "object" && "message" in data && data.message === "SSE read timed out") {
-    return "Model stopped responding"
+    return t(Locale.language(), "notification.model_stopped")
   }
-  return "Session error"
+  return t(Locale.language(), "notification.session_error")
 }
 
 const tui: TuiPlugin = async (api) => {
@@ -35,7 +37,7 @@ const tui: TuiPlugin = async (api) => {
   api.event.on("question.asked", (event) => {
     if (questions.has(event.properties.id)) return
     questions.add(event.properties.id)
-    notify(api, event.properties.sessionID, "Question needs input", "question")
+    notify(api, event.properties.sessionID, t(Locale.language(), "notification.question_input"), "question")
   })
 
   api.event.on("question.replied", (event) => {
@@ -49,7 +51,7 @@ const tui: TuiPlugin = async (api) => {
   api.event.on("permission.asked", (event) => {
     if (permissions.has(event.properties.id)) return
     permissions.add(event.properties.id)
-    notify(api, event.properties.sessionID, "Permission needs input", "permission")
+    notify(api, event.properties.sessionID, t(Locale.language(), "notification.permission_input"), "permission")
   })
 
   api.event.on("permission.replied", (event) => {
@@ -74,7 +76,12 @@ const tui: TuiPlugin = async (api) => {
     }
 
     const session = api.state.session.get(sessionID)
-    notify(api, sessionID, "Session done", session?.parentID ? "subagent_done" : "done")
+    notify(
+      api,
+      sessionID,
+      t(Locale.language(), "notification.session_complete"),
+      session?.parentID ? "subagent_done" : "done",
+    )
   })
 
   api.event.on("session.error", (event) => {

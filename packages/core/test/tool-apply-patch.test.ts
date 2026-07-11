@@ -130,6 +130,21 @@ const exists = (target: string) =>
 const it = testEffect(Layer.empty)
 
 describe("ApplyPatchTool", () => {
+  it.live("returns English validation errors when requested", () =>
+    Effect.acquireUseRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => {
+        reset()
+        return withTool(tmp.path, (registry) => executeTool(registry, call(""), "en")).pipe(
+          Effect.andThen((result) =>
+            Effect.sync(() => expect(result).toEqual({ type: "error", value: "patchText is required" })),
+          ),
+        )
+      },
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ),
+  )
+
   it.live("registers and sequentially applies add, update, and delete hunks", () =>
     Effect.acquireUseRelease(
       Effect.promise(() => tmpdir()),
@@ -152,7 +167,7 @@ describe("ApplyPatchTool", () => {
                 )
                 expect(settled.result).toEqual({
                   type: "text",
-                  value: "Applied patch sequentially:\nA nested/new.txt\nM update.txt\nD remove.txt",
+                  value: "已按顺序应用补丁：\nA nested/new.txt\nM update.txt\nD remove.txt",
                 })
                 expect(settled.output?.structured).toMatchObject({
                   applied: [
@@ -219,7 +234,7 @@ describe("ApplyPatchTool", () => {
                       "*** Begin Patch\n*** Add File: created.txt\n+created\n*** Update File: old.txt\n*** Move to: moved.txt\n@@\n-before\n+after\n*** End Patch",
                     ),
                   ),
-                ).toEqual({ type: "error", value: "apply_patch moves are not supported yet" })
+                ).toEqual({ type: "error", value: "暂不支持 apply_patch 移动操作" })
                 expect(yield* exists(path.join(tmp.path, "created.txt"))).toBe(false)
                 expect(assertions).toEqual([])
               }),
@@ -313,7 +328,7 @@ describe("ApplyPatchTool", () => {
                   "*** Begin Patch\n*** Add File: created.txt\n+created\n*** Update File: missing.txt\n@@\n-before\n+after\n*** End Patch",
                 ),
               ),
-            ).toEqual({ type: "error", value: "Unable to apply patch at missing.txt" })
+            ).toEqual({ type: "error", value: "无法在 missing.txt 应用补丁" })
             expect(yield* exists(path.join(tmp.path, "created.txt"))).toBe(false)
           }),
         )
@@ -337,7 +352,7 @@ describe("ApplyPatchTool", () => {
                     registry,
                     call("*** Begin Patch\n*** Add File: existing.txt\n+replacement\n*** End Patch"),
                   ),
-                ).toEqual({ type: "error", value: "Unable to apply patch at existing.txt" })
+                ).toEqual({ type: "error", value: "无法在 existing.txt 应用补丁" })
                 expect(yield* Effect.promise(() => fs.readFile(target, "utf8"))).toBe("sentinel\n")
               }),
             ),
@@ -362,7 +377,7 @@ describe("ApplyPatchTool", () => {
                 registry,
                 call("*** Begin Patch\n*** Add File: appeared.txt\n+replacement\n*** End Patch"),
               ),
-            ).toEqual({ type: "error", value: "Unable to apply patch at appeared.txt" })
+            ).toEqual({ type: "error", value: "无法在 appeared.txt 应用补丁" })
             expect(yield* Effect.promise(() => fs.readFile(target, "utf8"))).toBe("winner\n")
           }),
         )

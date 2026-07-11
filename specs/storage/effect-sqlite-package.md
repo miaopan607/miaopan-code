@@ -1,14 +1,16 @@
-# Effect Drizzle SQLite Package
+# Effect Drizzle SQLite 包
 
-## Goal
+语言：简体中文 · [English](effect-sqlite-package.en.md)
 
-Create a small workspace package that vendors the Drizzle `effect-sqlite` adapter shape for our repo. This is not an miaopan-code storage abstraction. It is a local package that ports the Drizzle Effect SQLite implementation so we can use it before/independently of upstream release timing.
+## 目标
 
-`packages/miaopan-code` will use it internally, but the package itself should be generic: Drizzle + Effect + SQLite. No miaopan-code paths, migrations, tables, transaction hooks, post-commit behavior, or domain language should live in this package.
+创建一个小型工作区包，将 Drizzle `effect-sqlite` 适配器的结构内置到本仓库。这不是 miaopan-code 的存储抽象，而是一个本地包，用于移植 Drizzle Effect SQLite 实现，使我们可以在上游发布前或不依赖上游发布时间使用它。
 
-## Package Shape
+`packages/miaopan-code` 会在内部使用它，但该包本身应保持通用：Drizzle + Effect + SQLite。此包中不应包含 miaopan-code 路径、迁移、表、事务钩子、提交后行为或领域语言。
 
-Add a focused workspace package with the same small, explicit surface as the other infrastructure packages:
+## 包结构
+
+添加一个专注的工作区包，与其他基础设施包一样保持小巧、明确的接口：
 
 - `packages/effect-drizzle-sqlite/package.json`
 - `packages/effect-drizzle-sqlite/src/index.ts`
@@ -16,11 +18,11 @@ Add a focused workspace package with the same small, explicit surface as the oth
 - `packages/effect-drizzle-sqlite/src/sqlite-core/effect/*`
 - `packages/effect-drizzle-sqlite/test/sqlite.test.ts`
 
-Package name:
+包名：
 
 - `@miaopan-code/effect-drizzle-sqlite`
 
-Initial exports:
+初始导出：
 
 ```ts
 export { EffectLogger } from "drizzle-orm/effect-core"
@@ -30,34 +32,34 @@ export { migrate } from "./effect-sqlite/migrator"
 export * as EffectDrizzleSqlite from "."
 ```
 
-The package should follow Drizzle's adapter naming and semantics as closely as possible. Think of it as a vendored `drizzle-orm/effect-sqlite` package surface, not as a new storage service API.
+该包应尽可能严格遵循 Drizzle 的适配器命名和语义。应将其视为内置的 `drizzle-orm/effect-sqlite` 包接口，而不是新的存储服务 API。
 
-## Upstream References
+## 上游参考资料
 
-Use these as implementation references instead of inventing a custom API:
+请使用以下内容作为实现参考，而不是自行设计自定义 API：
 
-- Drizzle Effect Postgres current RC:
+- Drizzle Effect Postgres 当前 RC：
   - `/Users/kit/code/open-source/drizzle-orm-rc4-pr/drizzle-orm/src/effect-core/query-effect.ts`
   - `/Users/kit/code/open-source/drizzle-orm-rc4-pr/integration-tests/tests/pg/effect-sql.test.ts`
-- SQLite Effect branch/reference:
+- SQLite Effect 分支/参考：
   - `/Users/kit/code/open-source/drizzle-orm-beta16/drizzle-orm/src/up-migrations/effect-sqlite.ts`
   - `/Users/kit/code/open-source/drizzle-orm-beta16/integration-tests/tests/sqlite/effect-sql.test.ts`
   - `/Users/kit/code/open-source/drizzle-orm-beta16/drizzle-orm/type-tests/sqlite/effect.ts`
-- Effect SQLite client source of truth:
+- Effect SQLite 客户端的事实来源：
   - `/Users/kit/code/open-source/effect-smol/packages/sql/sqlite-bun/src/SqliteClient.ts`
   - `/Users/kit/code/open-source/effect-smol/packages/sql/sqlite-node/test/Client.test.ts`
   - `/Users/kit/code/open-source/effect-smol/packages/sql/sqlite-node/test/SqliteMigrator.test.ts`
 
-Important API patterns from those references:
+这些参考资料中的重要 API 模式：
 
-- Drizzle queries are Effect-yieldable: `yield* db.select().from(table)`.
-- Transactions are Effect values: `yield* db.transaction((tx) => Effect.gen(...), { behavior: "immediate" })`.
-- SQLite clients come from Effect layers such as `SqliteClient.layer({ filename })`.
-- Migrations can run through Effect SQL/SQLite migrator mechanisms or Drizzle's `effect-sqlite/migrator` when available.
+- Drizzle 查询可以通过 Effect yield：`yield* db.select().from(table)`。
+- 事务是 Effect 值：`yield* db.transaction((tx) => Effect.gen(...), { behavior: "immediate" })`。
+- SQLite 客户端来自 `SqliteClient.layer({ filename })` 等 Effect 层。
+- 迁移可以通过 Effect SQL/SQLite 迁移器机制运行，或者在可用时通过 Drizzle 的 `effect-sqlite/migrator` 运行。
 
-## Public Surface
+## 公共接口
 
-Do not invent an `Interface<TDatabase>` abstraction unless the Drizzle port already has one. The public surface should mirror Drizzle's Effect adapters:
+除非 Drizzle 移植本身已有 `Interface<TDatabase>` 抽象，否则不要自行设计一个。公共接口应与 Drizzle 的 Effect 适配器保持一致：
 
 ```ts
 const db = yield * EffectDrizzleSqlite.make({ relations }).pipe(Effect.provide(EffectDrizzleSqlite.DefaultServices))
@@ -73,73 +75,73 @@ yield *
   )
 ```
 
-Notes:
+注意：
 
-- `make` / `makeWithDefaults` should match the Drizzle Effect SQLite branch as much as possible.
-- `DefaultServices` should provide Drizzle's default logger/cache services, same as Effect Postgres.
-- The package should depend on Effect SQL SQLite clients (`@effect/sql-sqlite-bun` and/or node) the same way the Drizzle branch does.
-- Application-specific path/channel selection stays in `packages/miaopan-code`.
+- `make` / `makeWithDefaults` 应尽可能与 Drizzle Effect SQLite 分支一致。
+- `DefaultServices` 应像 Effect Postgres 一样提供 Drizzle 的默认 logger/cache 服务。
+- 该包应以与 Drizzle 分支相同的方式依赖 Effect SQL SQLite 客户端（`@effect/sql-sqlite-bun` 和/或 node）。
+- 应用专用的路径/通道选择保留在 `packages/miaopan-code` 中。
 
-## Application Adoption Notes
+## 应用采用说明
 
-These are not package requirements, but they matter for the later miaopan-code adoption PR.
+以下内容不是该包的要求，但对后续 miaopan-code 采用 PR 很重要。
 
-The current `packages/miaopan-code/src/storage/db.ts` has two non-obvious semantics that the miaopan-code wrapper must preserve when it consumes this adapter:
+当前 `packages/miaopan-code/src/storage/db.ts` 有两项不明显的语义，miaopan-code 包装器使用此适配器时必须保留：
 
-- Nested `Database.use` inside `Database.transaction` sees the current transaction, not the root client.
-- `Database.effect` queues post-commit side effects while inside a transaction, and runs immediately outside a transaction.
+- `Database.transaction` 内嵌套的 `Database.use` 看到当前事务，而不是根客户端。
+- `Database.effect` 在事务内对提交后副作用排队，在事务外则立即运行。
 
-The miaopan-code wrapper can implement that using Effect context instead of `LocalContext`:
+miaopan-code 包装器可以使用 Effect context 而不是 `LocalContext` 实现：
 
-- A private transaction context holding `{ tx, afterCommit }`.
-- `withDb`/`db` methods read the current transaction context if present, otherwise use the root db.
-- `transaction` installs a transaction context around the effect.
-- Nested transactions can either reuse the existing tx initially, matching current behavior, or later use explicit savepoints if needed.
+- 保存 `{ tx, afterCommit }` 的私有事务 context。
+- `withDb`/`db` 方法在存在当前事务 context 时读取它，否则使用根 db。
+- `transaction` 在 Effect 周围安装事务 context。
+- 嵌套事务最初可以复用现有 tx，以匹配当前行为；或者以后在需要时使用显式 savepoint。
 
-Do not remove this behavior while moving miaopan-code to Effect SQLite. `SyncEvent.run` depends on transaction composability and `behavior: "immediate"` for sequencing correctness.
+将 miaopan-code 迁移到 Effect SQLite 时，不要移除这种行为。`SyncEvent.run` 依赖事务可组合性和 `behavior: "immediate"` 来保证顺序正确。
 
-## Migration Strategy
+## 迁移策略
 
-1. Add `@miaopan-code/effect-drizzle-sqlite` with a minimal in-memory/file SQLite test schema.
-2. Port the Drizzle Effect SQLite adapter from the SQLite branch into the package, preserving upstream names and API shape.
-3. Test adapter-level guarantees:
-   - query builders are yieldable Effect values,
-   - `transaction(..., { behavior: "immediate" })` commits successful writes,
-   - failed transaction rolls back,
-   - migrations run once and in order,
-   - close finalizer closes the underlying SQLite database.
-4. Add `@miaopan-code/effect-drizzle-sqlite` as a dependency of `packages/miaopan-code`.
-5. Port `packages/miaopan-code/src/storage/db.ts` to be a thin compatibility wrapper over the adapter plus miaopan-code-specific transaction/post-commit context.
-6. Keep existing call sites working first:
+1. 添加 `@miaopan-code/effect-drizzle-sqlite`，并使用最小的内存/文件 SQLite 测试 Schema。
+2. 将 SQLite 分支中的 Drizzle Effect SQLite 适配器移植到该包，保留上游名称和 API 结构。
+3. 测试适配器级保证：
+   - 查询构建器是可以 yield 的 Effect 值；
+   - `transaction(..., { behavior: "immediate" })` 会提交成功的写入；
+   - 失败的事务会回滚；
+   - 迁移只运行一次并按顺序运行；
+   - close finalizer 会关闭底层 SQLite 数据库。
+4. 将 `@miaopan-code/effect-drizzle-sqlite` 添加为 `packages/miaopan-code` 的依赖。
+5. 将 `packages/miaopan-code/src/storage/db.ts` 移植为薄兼容包装器，包装适配器以及 miaopan-code 专用事务/提交后 context。
+6. 首先保持现有调用位置正常工作：
    - `Database.Client()`
    - `Database.use(...)`
    - `Database.transaction(...)`
    - `Database.effect(...)`
-7. After compatibility is stable, migrate call sites from callback-style `Database.use` to yielding Effect Drizzle queries directly.
-8. Only then build domain stores like session/message/project stores on top of miaopan-code's storage wrapper.
+7. 兼容性稳定后，将调用位置从回调式 `Database.use` 迁移为直接 yield Effect Drizzle 查询。
+8. 只有完成上述工作后，才在 miaopan-code 存储包装器之上构建 session/message/project store 等领域 store。
 
-## Why This Is Cleaner Than Starting With SessionStorage
+## 为什么这比从 SessionStorage 开始更清晰
 
-`SessionStorage` is a useful domain seam, but it does not answer the core adapter problem: how to make Drizzle SQLite Effect-native in this repo.
+`SessionStorage` 是有用的领域接缝，但它没有解决核心适配器问题：如何让本仓库中的 Drizzle SQLite 成为 Effect 原生实现。
 
-An Effect Drizzle SQLite package lets us vendor the adapter once. Then miaopan-code can build its own storage wrapper on top, and `SessionStorage`, `MessageStorage`, event store, and projector writes can all share the same transaction and migration model.
+Effect Drizzle SQLite 包让我们只需内置一次适配器。随后，miaopan-code 可以在其上构建自己的存储包装器，而 `SessionStorage`、`MessageStorage`、event store 和 projector 写入都可以共享同一事务和迁移模型。
 
-## Open Questions
+## 待解决问题
 
-- Which client should the first package target: `@effect/sql-sqlite-bun`, `@effect/sql-sqlite-node`, or both behind separate layers?
-- How much source should we copy from the Drizzle branch versus import from catalog `drizzle-orm` internals?
-- What is the update path once Drizzle upstream ships `effect-sqlite`?
-- Should `afterCommit` stay miaopan-code-specific until event publishing moves? Default answer: yes.
-- Should the compatibility wrapper preserve synchronous return types temporarily, or should the migration intentionally force Effect call sites?
-- Do CLI/admin raw SQL and sqlite shell stay in `packages/miaopan-code`, or does the storage package expose backend capabilities for them?
+- 第一个包应面向哪个客户端：`@effect/sql-sqlite-bun`、`@effect/sql-sqlite-node`，还是通过不同层同时支持二者？
+- 应从 Drizzle 分支复制多少源代码，又应从 catalog `drizzle-orm` 内部导入多少？
+- Drizzle 上游发布 `effect-sqlite` 后，更新路径是什么？
+- 在事件发布迁移之前，`afterCommit` 是否应保持 miaopan-code 专用？默认答案：是。
+- 兼容包装器应暂时保留同步返回类型，还是应有意强制调用位置使用 Effect？
+- CLI/admin 原始 SQL 和 sqlite shell 应保留在 `packages/miaopan-code`，还是由存储包公开相应后端能力？
 
-## Recommended First PR
+## 推荐的第一个 PR
 
-Make the first PR package-only and intentionally boring:
+让第一个 PR 只涉及该包，并刻意保持简单：
 
-- Add `packages/effect-drizzle-sqlite`.
-- Use a tiny test schema, not miaopan-code domain tables.
-- Prove Effect Drizzle SQLite queries, transactions, and migrations.
-- Do not migrate `packages/miaopan-code` yet except possibly adding the dependency if needed for typechecking.
+- 添加 `packages/effect-drizzle-sqlite`。
+- 使用小型测试 Schema，而不是 miaopan-code 领域表。
+- 证明 Effect Drizzle SQLite 查询、事务和迁移正常工作。
+- 暂不迁移 `packages/miaopan-code`，除非类型检查需要添加依赖。
 
-That gives us a focused place to validate the Effect SQLite approach before disturbing miaopan-code's current database runtime.
+这样，我们就有一个专注的位置来验证 Effect SQLite 方案，而无需干扰 miaopan-code 当前的数据库运行时。

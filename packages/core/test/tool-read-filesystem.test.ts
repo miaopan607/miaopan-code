@@ -64,7 +64,7 @@ describe("ReadToolFileSystem", () => {
       const malformedError = yield* ReadToolFileSystem.read(fs, malformed, "malformed.txt").pipe(Effect.flip)
 
       expect(binaryError).toBeInstanceOf(ReadToolFileSystem.BinaryFileError)
-      expect(binaryError.message).toBe("Cannot read binary file: archive.dat")
+      expect(binaryError.message).toBe("无法读取二进制文件：archive.dat")
       expect(malformedError).toBeInstanceOf(ReadToolFileSystem.MalformedUtf8Error)
     }),
   )
@@ -78,7 +78,7 @@ describe("ReadToolFileSystem", () => {
       const error = yield* ReadToolFileSystem.read(fs, file, "short.txt", { offset: 2 }).pipe(Effect.flip)
 
       expect(error).toBeInstanceOf(ReadToolFileSystem.OffsetOutOfRangeError)
-      expect(error.message).toBe("Offset 2 is out of range")
+      expect(error.message).toBe("偏移量 2 超出范围")
     }),
   )
 
@@ -110,9 +110,7 @@ describe("ReadToolFileSystem", () => {
       const error = yield* ReadToolFileSystem.read(fs, file, "oversized.png").pipe(Effect.flip)
 
       expect(error).toBeInstanceOf(ReadToolFileSystem.MediaIngestLimitError)
-      expect(error.message).toBe(
-        `Media exceeds ${ReadToolFileSystem.MAX_MEDIA_INGEST_BYTES} byte ingestion limit: oversized.png`,
-      )
+      expect(error.message).toBe(`媒体超过 ${ReadToolFileSystem.MAX_MEDIA_INGEST_BYTES} 字节摄取限制：oversized.png`)
     }),
   )
 })

@@ -1,31 +1,39 @@
-import { type AstNode, InterpreterRuntimeError } from "../interpreter/model.js"
+import { type AstNode, InterpreterRuntimeError, languageOf } from "../interpreter/model.js"
 import { isBlockedMember } from "../tool-runtime.js"
 import { isSandboxValue, SandboxMap, SandboxURLSearchParams } from "../values.js"
 import { boundedData, coerceToString } from "./value.js"
+import { t, type Language } from "../i18n.js"
 
 export const objectStatics = new Set(["keys", "values", "entries", "hasOwn", "assign", "fromEntries"])
 
-export const invokeObjectMethod = (name: string, args: Array<unknown>, node: AstNode): unknown => {
-  if (!objectStatics.has(name)) throw new InterpreterRuntimeError(`Object.${name} is not available in CodeMode.`, node)
+export const invokeObjectMethod = (name: string, args: Array<unknown>, node: AstNode, language?: Language): unknown => {
+  language ??= languageOf(node)
+  if (!objectStatics.has(name))
+    throw new InterpreterRuntimeError(
+      t(language, "codemode.stdlib.unavailable_static", { namespace: "Object", name }),
+      node,
+    )
   const requireObject = (): Record<string, unknown> => {
-    const value = boundedData(args[0], `Object.${name} input`)
+    const method = `Object.${name}`
+    const value = boundedData(args[0], t(language, "codemode.stdlib.method_input", { name: method }), language)
     if (isSandboxValue(value)) return {}
     if (value === null || typeof value !== "object" || Array.isArray(value)) {
-      throw new InterpreterRuntimeError(`Object.${name} expects a data object.`, node)
+      throw new InterpreterRuntimeError(t(language, "codemode.stdlib.object_expected", { name: method }), node)
     }
     return value as Record<string, unknown>
   }
   const guardedSet = (out: Record<string, unknown>, key: string, item: unknown): void => {
-    if (isBlockedMember(key)) throw new InterpreterRuntimeError(`Property '${key}' is not available in CodeMode.`, node)
+    if (isBlockedMember(key))
+      throw new InterpreterRuntimeError(t(language, "codemode.stdlib.property_unavailable", { key }), node)
     out[key] = item
   }
   switch (name) {
     case "keys": {
-      const value = boundedData(args[0], "Object.keys input")
+      const value = boundedData(args[0], t(language, "codemode.stdlib.method_input", { name: "Object.keys" }), language)
       if (isSandboxValue(value)) return []
       if (Array.isArray(value)) return Object.keys(value)
       if (value === null || typeof value !== "object") {
-        throw new InterpreterRuntimeError("Object.keys expects a data object or array.", node)
+        throw new InterpreterRuntimeError(t(language, "codemode.stdlib.object_keys_expected"), node)
       }
       return Object.keys(value)
     }
@@ -39,10 +47,14 @@ export const invokeObjectMethod = (name: string, args: Array<unknown>, node: Ast
       const out: Record<string, unknown> = Object.create(null)
       for (const source of args) {
         if (source === null || source === undefined) continue
-        const value = boundedData(source, "Object.assign input")
+        const value = boundedData(
+          source,
+          t(language, "codemode.stdlib.method_input", { name: "Object.assign" }),
+          language,
+        )
         if (isSandboxValue(value)) continue
         if (value === null || typeof value !== "object" || Array.isArray(value)) {
-          throw new InterpreterRuntimeError("Object.assign expects data objects.", node)
+          throw new InterpreterRuntimeError(t(language, "codemode.stdlib.object_assign_expected"), node)
         }
         for (const [key, item] of Object.entries(value)) guardedSet(out, key, item)
       }
@@ -59,19 +71,26 @@ export const invokeObjectMethod = (name: string, args: Array<unknown>, node: Ast
         for (const [key, value] of args[0].params.entries()) guardedSet(out, key, value)
         return out
       }
-      const pairs = boundedData(args[0], "Object.fromEntries input")
+      const pairs = boundedData(
+        args[0],
+        t(language, "codemode.stdlib.method_input", { name: "Object.fromEntries" }),
+        language,
+      )
       if (!Array.isArray(pairs)) {
-        throw new InterpreterRuntimeError("Object.fromEntries expects an array of [key, value] pairs.", node)
+        throw new InterpreterRuntimeError(t(language, "codemode.stdlib.object_entries_array_expected"), node)
       }
       const out: Record<string, unknown> = Object.create(null)
       for (const pair of pairs) {
         if (!Array.isArray(pair)) {
-          throw new InterpreterRuntimeError("Object.fromEntries expects [key, value] pairs.", node)
+          throw new InterpreterRuntimeError(t(language, "codemode.stdlib.object_entry_expected"), node)
         }
         guardedSet(out, String(pair[0]), pair[1])
       }
       return out
     }
   }
-  throw new InterpreterRuntimeError(`Object.${name} is not available in CodeMode.`, node)
+  throw new InterpreterRuntimeError(
+    t(language, "codemode.stdlib.unavailable_static", { namespace: "Object", name }),
+    node,
+  )
 }

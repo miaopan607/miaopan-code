@@ -1,4 +1,6 @@
-export function withTimeout<T>(promise: Promise<T>, ms: number, label?: string): Promise<T> {
+import { t, type Language } from "@miaopan-code/core/i18n"
+
+export function withTimeout<T>(promise: Promise<T>, ms: number, label?: string, language?: Language): Promise<T> {
   let timeout: NodeJS.Timeout
   return Promise.race([
     promise.finally(() => {
@@ -6,7 +8,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label?: string):
     }),
     new Promise<never>((_, reject) => {
       timeout = setTimeout(() => {
-        reject(new Error(label ?? `Operation timed out after ${ms}ms`))
+        reject(new Error(label ?? t(language, "error.operation_timeout", { ms })))
       }, ms)
     }),
   ])

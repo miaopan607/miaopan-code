@@ -1,4 +1,6 @@
 import { createContext, Show, useContext, type ParentProps } from "solid-js"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 export function createSimpleContext<T, Props extends Record<string, any>>(input: {
   name: string
@@ -19,7 +21,7 @@ export function createSimpleContext<T, Props extends Record<string, any>>(input:
     },
     use() {
       const value = useContext(ctx)
-      if (!value) throw new Error(`${input.name} context must be used within a context provider`)
+      if (!value) throw new Error(t(Locale.language(), "tui.error.context_provider_missing", { name: input.name }))
       return value
     },
   }

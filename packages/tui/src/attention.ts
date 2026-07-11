@@ -19,6 +19,8 @@ import questionSoundPath from "./assets/audio/bip-bop-03.mp3" with { type: "file
 import permissionSoundPath from "./assets/audio/staplebops-06.mp3" with { type: "file" }
 import errorSoundPath from "./assets/audio/nope-03.mp3" with { type: "file" }
 import subagentDoneSoundPath from "./assets/audio/yup-01.mp3" with { type: "file" }
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./util/locale"
 
 type FocusState = "unknown" | "focused" | "blurred"
 
@@ -44,7 +46,7 @@ const TITLE_LIMIT = 80
 const MESSAGE_LIMIT = 240
 const BUILTIN_PACK: RegisteredSoundPack = {
   id: DEFAULT_PACK_ID,
-  name: "MiaopanCode Default",
+  name: t(Locale.language(), "attention.default_sound_pack"),
   builtin: true,
   sounds: {
     default: defaultSoundPath,

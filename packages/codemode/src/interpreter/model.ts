@@ -1,5 +1,6 @@
 import type { SafeObject } from "../tool-runtime.js"
 import type { SandboxURL } from "../values.js"
+import { t, type Language } from "../i18n.js"
 
 export type SourcePosition = {
   line: number
@@ -15,6 +16,30 @@ export type AstNode = {
   type: string
   loc?: SourceLocation
   [key: string]: unknown
+}
+
+const AstLanguage: unique symbol = Symbol("codemode.ast-language")
+
+export const languageOf = (node: AstNode | undefined): Language | undefined =>
+  node ? (node as AstNode & { [AstLanguage]?: Language })[AstLanguage] : undefined
+
+export const annotateLanguage = <Node extends AstNode>(root: Node, language: Language | undefined): Node => {
+  if (!language) return root
+  const seen = new WeakSet<object>()
+  const visit = (value: unknown): void => {
+    if (typeof value !== "object" || value === null || seen.has(value)) return
+    seen.add(value)
+    if (Array.isArray(value)) {
+      value.forEach(visit)
+      return
+    }
+    if (typeof (value as { type?: unknown }).type === "string") {
+      Object.defineProperty(value, AstLanguage, { value: language, configurable: true })
+    }
+    Object.values(value).forEach(visit)
+  }
+  visit(root)
+  return root
 }
 
 export type ProgramNode = AstNode & {
@@ -121,8 +146,9 @@ export type DiagnosticKind =
 
 export const OptionalShortCircuit: unique symbol = Symbol("codemode.optional-short-circuit")
 
-export const supportedSyntaxMessage =
-  "Supported orchestration syntax: tools.* calls (they return promises - resolve them with await), data literals, destructuring, optional chaining, template literals, conditionals, switch, loops (incl. for...of and for...in over object/array/tools keys), arrow functions, spread, try/catch, array methods (map/filter/find/findIndex/some/every/reduce/flatMap/forEach/sort/slice/concat/indexOf/lastIndexOf/at/flat/reverse/includes/join), string methods (incl. match/matchAll/replace/split with regular expressions), Date/RegExp/Map/Set/URL/URLSearchParams, URI encoding helpers, Object/Math/JSON helpers, captured console.log/warn/error/dir/table, and Promise.all/allSettled/race/resolve/reject over arrays mixing promises and plain values for parallel tool calls (promise chaining with .then/.catch is not supported - use await with try/catch)."
+export const supportedSyntaxMessageFor = (language?: Language) => t(language, "codemode.interpreter.supported_syntax")
+
+export const supportedSyntaxMessage = supportedSyntaxMessageFor()
 
 export class InterpreterRuntimeError extends Error {
   readonly node?: AstNode
@@ -145,57 +171,75 @@ export class InterpreterRuntimeError extends Error {
   }
 }
 
-export const unsupportedSyntax = (kind: string, node: AstNode): InterpreterRuntimeError =>
-  new InterpreterRuntimeError(
-    `Syntax '${kind}' is not supported in CodeMode. ${supportedSyntaxMessage}`,
+export const unsupportedSyntax = (kind: string, node: AstNode, language?: Language): InterpreterRuntimeError => {
+  const resolved = language ?? languageOf(node)
+  const supported = supportedSyntaxMessageFor(resolved)
+  return new InterpreterRuntimeError(
+    t(resolved, "codemode.interpreter.unsupported_syntax", { kind, supported }),
     node,
     "UnsupportedSyntax",
-    [supportedSyntaxMessage],
+    [supported],
   )
+}
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
-export const asNode = (value: unknown, context: string): AstNode => {
+export const asNode = (value: unknown, context: string, language?: Language): AstNode => {
+  const resolved =
+    language ?? (isRecord(value) && typeof value.type === "string" ? languageOf(value as AstNode) : undefined)
   if (!isRecord(value) || typeof value.type !== "string") {
-    throw new InterpreterRuntimeError(`Invalid AST node while reading ${context}.`)
+    throw new InterpreterRuntimeError(t(resolved, "codemode.interpreter.invalid_ast_node", { context }))
   }
   return value as AstNode
 }
 
-export const getArray = (node: AstNode, key: string): Array<unknown> => {
+export const getArray = (node: AstNode, key: string, language?: Language): Array<unknown> => {
   const value = node[key]
-  if (!Array.isArray(value)) throw new InterpreterRuntimeError(`Expected '${key}' to be an array.`, node)
+  if (!Array.isArray(value))
+    throw new InterpreterRuntimeError(
+      t(language ?? languageOf(node), "codemode.interpreter.expected_array", { key }),
+      node,
+    )
   return value
 }
 
-export const getString = (node: AstNode, key: string): string => {
+export const getString = (node: AstNode, key: string, language?: Language): string => {
   const value = node[key]
-  if (typeof value !== "string") throw new InterpreterRuntimeError(`Expected '${key}' to be a string.`, node)
+  if (typeof value !== "string")
+    throw new InterpreterRuntimeError(
+      t(language ?? languageOf(node), "codemode.interpreter.expected_string", { key }),
+      node,
+    )
   return value
 }
 
-export const getBoolean = (node: AstNode, key: string): boolean => {
+export const getBoolean = (node: AstNode, key: string, language?: Language): boolean => {
   const value = node[key]
-  if (typeof value !== "boolean") throw new InterpreterRuntimeError(`Expected '${key}' to be a boolean.`, node)
+  if (typeof value !== "boolean")
+    throw new InterpreterRuntimeError(
+      t(language ?? languageOf(node), "codemode.interpreter.expected_boolean", { key }),
+      node,
+    )
   return value
 }
 
-export const getOptionalNode = (node: AstNode, key: string): AstNode | undefined => {
+export const getOptionalNode = (node: AstNode, key: string, language?: Language): AstNode | undefined => {
   const value = node[key]
   if (value === undefined || value === null) return undefined
-  return asNode(value, key)
+  return asNode(value, key, language ?? languageOf(node))
 }
 
-export const getNode = (node: AstNode, key: string): AstNode => asNode(node[key], key)
+export const getNode = (node: AstNode, key: string, language?: Language): AstNode =>
+  asNode(node[key], key, language ?? languageOf(node))
 
 export const sourceLocation = (node: AstNode): { readonly line: number; readonly column: number } => ({
   line: Math.max(1, (node.loc?.start.line ?? 2) - 1),
   column: Math.max(1, (node.loc?.start.column ?? 4) - 3),
 })
 
-export const formatLocation = (node?: AstNode): string => {
+export const formatLocation = (node?: AstNode, language?: Language): string => {
   if (!node?.loc) return ""
   const location = sourceLocation(node)
-  return ` (line ${location.line}, col ${location.column})`
+  return t(language ?? languageOf(node), "codemode.interpreter.source_location", location)
 }

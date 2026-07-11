@@ -1,6 +1,7 @@
 export * as SystemContext from "./index"
 
 import { Effect, Option, Schema } from "effect"
+import { zh } from "../i18n"
 
 /**
  * Models privileged system context as independently refreshable typed sources.
@@ -84,7 +85,7 @@ export class InitializationBlocked extends Schema.TaggedErrorClass<Initializatio
   { keys: Schema.Array(Key) },
 ) {
   override get message() {
-    return `System context initialization blocked by unavailable sources: ${this.keys.join(", ")}`
+    return zh("error.system_context_unavailable", { keys: this.keys.join(", ") })
   }
 }
 
@@ -92,7 +93,7 @@ export class DuplicateKeyError extends Schema.TaggedErrorClass<DuplicateKeyError
   key: Key,
 }) {
   override get message() {
-    return `Duplicate system context key: ${this.key}`
+    return zh("error.system_context_duplicate", { key: this.key })
   }
 }
 
@@ -260,7 +261,7 @@ function reconcileObservation(
     }
     const compared = comparisons.get(entry.key)
     if (!compared || compared._tag === "Incompatible")
-      throw new Error(`Missing comparison for system context source ${entry.key}`)
+      throw new Error(zh("error.system_context_comparison_missing", { key: entry.key }))
     if (compared._tag === "Unchanged") {
       snapshot[entry.key] = stored
       continue
@@ -272,7 +273,7 @@ function reconcileObservation(
   for (const key of Object.keys(previous).sort()) {
     if (keys.has(Key.make(key))) continue
     const removed = previous[key].removed
-    if (removed === undefined) throw new Error(`Missing removal rendering for system context source ${key}`)
+    if (removed === undefined) throw new Error(zh("error.system_context_removal_missing", { key }))
     updates.push(removed)
   }
   if (updates.length === 0) return { _tag: "Unchanged" }
@@ -307,7 +308,7 @@ function isUnavailable(value: unknown): value is Unavailable {
 }
 
 function requireText(key: Key, kind: string, text: string) {
-  if (text.length === 0) throw new Error(`System context source ${key} rendered an empty ${kind}`)
+  if (text.length === 0) throw new Error(zh("error.system_context_empty", { key, kind }))
   return text
 }
 

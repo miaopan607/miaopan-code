@@ -1,11 +1,14 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
-import DESCRIPTION_WRITE from "./todowrite.txt"
+import { ToolI18n } from "./i18n"
 import { Todo } from "../session/todo"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-export const Parameters = Schema.Struct({
-  todos: Schema.mutable(Schema.Array(Todo.Info)).annotate({ description: "The updated todo list" }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    todos: Schema.mutable(Schema.Array(Todo.Info)).annotate({ description: t(language, "tool.param.todo_list") }),
+  })
+export const Parameters = makeParameters()
 
 type Metadata = {
   todos: Todo.Info[]
@@ -14,11 +17,12 @@ type Metadata = {
 export const TodoWriteTool = Tool.define<typeof Parameters, Metadata, Todo.Service>(
   "todowrite",
   Effect.gen(function* () {
+    const language = yield* ToolI18n.language()
     const todo = yield* Todo.Service
 
     return {
-      description: DESCRIPTION_WRITE,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.todowrite"),
+      parameters: makeParameters(language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context<Metadata>) =>
         Effect.gen(function* () {
           yield* ctx.ask({
@@ -34,7 +38,9 @@ export const TodoWriteTool = Tool.define<typeof Parameters, Metadata, Todo.Servi
           })
 
           return {
-            title: `${params.todos.filter((x) => x.status !== "completed").length} todos`,
+            title: ToolI18n.text(ctx, "tool.title.todos", {
+              count: params.todos.filter((x) => x.status !== "completed").length,
+            }),
             output: JSON.stringify(params.todos, null, 2),
             metadata: {
               todos: params.todos,

@@ -9,6 +9,7 @@ import {
   type ToolResultValue as ToolResultValueType,
 } from "./schema"
 import { type AnyTool, type Tools } from "./tool"
+import { t, type Language } from "./i18n"
 
 export interface ToolSettlement {
   readonly result: ToolResultValueType
@@ -20,13 +21,16 @@ export interface DispatchResult extends ToolSettlement {
 }
 
 /** Execute one canonical tool call without owning provider IO or continuation. */
-export const dispatch = (tools: Tools, call: ToolCallPart): Effect.Effect<DispatchResult> => {
+export const dispatch = (tools: Tools, call: ToolCallPart, language?: Language): Effect.Effect<DispatchResult> => {
   const tool = tools[call.name]
-  if (!tool) return Effect.succeed(result(call, { type: "error", value: `Unknown tool: ${call.name}` }))
+  if (!tool)
+    return Effect.succeed(result(call, { type: "error", value: t(language, "llm.tool.unknown", { name: call.name }) }))
   if (!tool.execute)
-    return Effect.succeed(result(call, { type: "error", value: `Tool has no execute handler: ${call.name}` }))
+    return Effect.succeed(
+      result(call, { type: "error", value: t(language, "llm.tool.no_execute_handler", { name: call.name }) }),
+    )
 
-  return decodeAndExecute(tool, call).pipe(
+  return decodeAndExecute(tool, call, language).pipe(
     Effect.map((value) => result(call, value)),
     Effect.catchTag("LLM.ToolFailure", (failure) =>
       Effect.succeed(result(call, { type: "error", value: failure.message }, failure.error)),
@@ -34,9 +38,15 @@ export const dispatch = (tools: Tools, call: ToolCallPart): Effect.Effect<Dispat
   )
 }
 
-const decodeAndExecute = (tool: AnyTool, call: ToolCallPart): Effect.Effect<ToolSettlement, ToolFailure> =>
+const decodeAndExecute = (
+  tool: AnyTool,
+  call: ToolCallPart,
+  language?: Language,
+): Effect.Effect<ToolSettlement, ToolFailure> =>
   tool._decode(call.input).pipe(
-    Effect.mapError((error) => new ToolFailure({ message: `Invalid tool input: ${error.message}` })),
+    Effect.mapError(
+      (error) => new ToolFailure({ message: t(language, "llm.tool.invalid_input", { error: error.message }) }),
+    ),
     Effect.flatMap((decoded) =>
       tool.execute!(decoded, { id: call.id, name: call.name }).pipe(
         Effect.flatMap((value) =>
@@ -44,7 +54,7 @@ const decodeAndExecute = (tool: AnyTool, call: ToolCallPart): Effect.Effect<Tool
             Effect.mapError(
               (error) =>
                 new ToolFailure({
-                  message: `Tool returned an invalid value for its success schema: ${error.message}`,
+                  message: t(language, "llm.tool.invalid_success_value", { error: error.message }),
                 }),
             ),
           ),

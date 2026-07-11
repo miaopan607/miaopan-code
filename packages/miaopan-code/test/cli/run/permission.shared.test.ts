@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import type { PermissionRequest } from "@miaopan-code/sdk/v2"
 import {
   createPermissionBodyState,
@@ -89,7 +90,7 @@ describe("run permission shared", () => {
         }),
       ),
     ).toMatchObject({
-      title: "Shell command",
+      title: t("zh-CN", "permission.shell_command"),
       lines: ["$ git status --short"],
     })
 
@@ -104,7 +105,7 @@ describe("run permission shared", () => {
         }),
       ),
     ).toMatchObject({
-      title: "General Task",
+      title: t("zh-CN", "permission.task_title", { type: "General" }),
       lines: ["◉ investigate stream"],
     })
 
@@ -116,27 +117,27 @@ describe("run permission shared", () => {
         }),
       ),
     ).toMatchObject({
-      title: "Access external directory /tmp/work",
+      title: t("zh-CN", "permission.external_directory", { dir: "/tmp/work" }),
       lines: ["- /tmp/work/**/*.ts", "- /tmp/work/**/*.tsx"],
     })
 
     expect(permissionInfo(req({ permission: "doom_loop" }))).toMatchObject({
-      title: "Continue after repeated failures",
+      title: t("zh-CN", "permission.continue_failures"),
     })
 
     expect(permissionInfo(req({ permission: "custom_tool" }))).toMatchObject({
-      title: "Call tool custom_tool",
-      lines: ["Tool: custom_tool"],
+      title: t("zh-CN", "permission.call_tool", { permission: "custom_tool" }),
+      lines: [t("zh-CN", "permission.tool_label", { permission: "custom_tool" })],
     })
   })
 
   test("formats always-allow copy for wildcard and explicit patterns", () => {
     expect(permissionAlwaysLines(req({ permission: "bash", always: ["*"] }))).toEqual([
-      "This will allow bash until MiaopanCode is restarted.",
+      t("zh-CN", "permission.allow_until_restart", { permission: "bash" }),
     ])
 
     expect(permissionAlwaysLines(req({ always: ["src/**/*.ts", "src/**/*.tsx"] }))).toEqual([
-      "This will allow the following patterns until MiaopanCode is restarted.",
+      t("zh-CN", "permission.allow_patterns_until_restart"),
       "- src/**/*.ts",
       "- src/**/*.tsx",
     ])

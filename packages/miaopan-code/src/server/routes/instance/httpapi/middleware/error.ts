@@ -2,6 +2,9 @@ import { NamedError } from "@miaopan-code/core/util/error"
 import { ConfigErrorV1 } from "@miaopan-code/core/v1/config/error"
 import { Cause, Effect } from "effect"
 import { HttpRouter, HttpServerError, HttpServerRespondable, HttpServerResponse } from "effect/unstable/http"
+import { text } from "../i18n"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 
 // Keep typed HttpApi failures on their declared error path; this boundary only replaces defect-only empty 500s.
 export const errorLayer = HttpRouter.middleware<{ handles: unknown }>()((effect) =>
@@ -27,14 +30,18 @@ export const errorLayer = HttpRouter.middleware<{ handles: unknown }>()((effect)
 
       const ref = `err_${crypto.randomUUID().slice(0, 8)}`
 
-      return Effect.logError("failed", { ref, error, cause: Cause.pretty(cause) }).pipe(
-        Effect.as(
-          HttpServerResponse.jsonUnsafe(
-            new NamedError.Unknown({
-              message: "Unexpected server error. Check server logs for details.",
-              ref,
-            }).toObject(),
-            { status: 500 },
+      return requestLanguage().pipe(
+        Effect.flatMap((language) =>
+          Effect.logError(t(language, "log.server_failed"), { ref, error, cause: Cause.pretty(cause) }).pipe(
+            Effect.as(
+              HttpServerResponse.jsonUnsafe(
+                new NamedError.Unknown({
+                  message: text(language, "error.unexpected_server"),
+                  ref,
+                }).toObject(),
+                { status: 500 },
+              ),
+            ),
           ),
         ),
       )

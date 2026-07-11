@@ -105,7 +105,7 @@ export function useMiaopanCodeModeStack() {
 
 export function getMiaopanCodeModeStack(keymap: OpenTuiKeymap) {
   const value = modeStacks.get(keymap)
-  if (!value) throw new Error("MiaopanCode mode stack is not registered for this keymap")
+  if (!value) throw new Error(t(Locale.language(), "tui.error.mode_stack_missing"))
   return value
 }
 
@@ -288,3 +288,5 @@ export function useCommandSlashes(): Accessor<readonly CommandSlashEntry[]> {
     }),
   )
 }
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./util/locale"

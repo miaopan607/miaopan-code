@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"
 import { dynamicTool, jsonSchema, type JSONSchema7, type Tool } from "ai"
 import { Effect } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 const DEFAULT_TIMEOUT = 30_000
 const MAX_LIST_PAGES = 1_000
@@ -18,6 +19,7 @@ const TolerantListToolsResultSchema = ListToolsResultSchema.extend({
 export async function paginate<T, R extends { nextCursor?: string }>(
   list: (cursor?: string) => Promise<R>,
   items: (result: R) => T[],
+  language?: Language,
 ) {
   const result: T[] = []
   const cursors = new Set<string>()
@@ -27,19 +29,20 @@ export async function paginate<T, R extends { nextCursor?: string }>(
     const page = await list(cursor)
     result.push(...items(page))
     if (page.nextCursor === undefined) return result
-    if (cursors.has(page.nextCursor)) throw new Error(`MCP list returned duplicate cursor: ${page.nextCursor}`)
+    if (cursors.has(page.nextCursor))
+      throw new Error(t(language, "error.mcp_list_duplicate_cursor", { cursor: page.nextCursor }))
     cursors.add(page.nextCursor)
     cursor = page.nextCursor
   }
 
-  throw new Error(`MCP list exceeded ${MAX_LIST_PAGES} pages`)
+  throw new Error(t(language, "error.mcp_list_exceeded_pages", { pages: MAX_LIST_PAGES }))
 }
 
-export function defs(client: Client, timeout?: number) {
-  return listTools(client, timeout ?? DEFAULT_TIMEOUT).pipe(Effect.catch(() => Effect.void))
+export function defs(client: Client, timeout?: number, language?: Language) {
+  return listTools(client, timeout ?? DEFAULT_TIMEOUT, language).pipe(Effect.catch(() => Effect.void))
 }
 
-export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: number): Tool {
+export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: number, language?: Language): Tool {
   const inputSchema: JSONSchema7 = {
     ...(mcpTool.inputSchema as JSONSchema7),
     type: "object",
@@ -70,7 +73,7 @@ export function convertTool(mcpTool: MCPToolDef, client: Client, timeout?: numbe
           result.content
             .flatMap((item) => (item.type === "text" ? [item.text] : []))
             .filter((text) => text.trim())
-            .join("\n\n") || "MCP tool returned an error",
+            .join("\n\n") || t(language, "error.mcp_tool_failed"),
         )
       if (result.content.length > 0 || result.structuredContent === undefined || result.structuredContent === null)
         return result
@@ -88,13 +91,14 @@ export function fetch<T extends { name: string }>(
   list: (client: Client) => Promise<T[]>,
   label: string,
   key?: (item: T) => string,
+  language?: Language,
 ) {
   return Effect.tryPromise({
     try: () => list(client),
     catch: (error) => error,
   }).pipe(
     Effect.tapError((error) =>
-      Effect.logWarning(`failed to get ${label}`, {
+      Effect.logWarning(t(language, "log.mcp_get_failed", { label }), {
         clientName,
         error: error instanceof Error ? error.message : String(error),
       }),
@@ -118,31 +122,34 @@ export const sanitize = (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, "_")
 
 export const toolName = (clientName: string, name: string) => sanitize(clientName) + "_" + sanitize(name)
 
-export function prompts(client: Client, timeout?: number) {
+export function prompts(client: Client, timeout?: number, language?: Language) {
   if (!client.getServerCapabilities()?.prompts) return Promise.resolve([])
   return paginate(
     (cursor) => client.listPrompts(cursor === undefined ? undefined : { cursor }, { timeout }),
     (result) => result.prompts,
+    language,
   )
 }
 
-export function resources(client: Client, timeout?: number) {
+export function resources(client: Client, timeout?: number, language?: Language) {
   if (!client.getServerCapabilities()?.resources) return Promise.resolve([])
   return paginate(
     (cursor) => client.listResources(cursor === undefined ? undefined : { cursor }, { timeout }),
     (result) => result.resources,
+    language,
   )
 }
 
-export function resourceTemplates(client: Client, timeout?: number) {
+export function resourceTemplates(client: Client, timeout?: number, language?: Language) {
   if (!client.getServerCapabilities()?.resources) return Promise.resolve([])
   return paginate(
     (cursor) => client.listResourceTemplates(cursor === undefined ? undefined : { cursor }, { timeout }),
     (result) => result.resourceTemplates,
+    language,
   )
 }
 
-function listTools(client: Client, timeout: number) {
+function listTools(client: Client, timeout: number, language?: Language) {
   return Effect.tryPromise({
     try: () =>
       paginate(
@@ -156,6 +163,7 @@ function listTools(client: Client, timeout: number) {
           }
         },
         (result) => result.tools,
+        language,
       ),
     catch: (error) => (error instanceof Error ? error : new Error(String(error))),
   })

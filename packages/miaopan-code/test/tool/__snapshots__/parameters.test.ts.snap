@@ -5,7 +5,7 @@ exports[`tool parameters JSON Schema (wire shape) apply_patch 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "patchText": {
-      "description": "The full patch text that describes all changes to be made",
+      "description": "描述所有要执行更改的完整补丁文本",
       "type": "string",
     },
   },
@@ -21,18 +21,18 @@ exports[`tool parameters JSON Schema (wire shape) bash 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "command": {
-      "description": "The command to execute",
+      "description": "要执行的 Shell 命令字符串",
       "type": "string",
     },
     "timeout": {
-      "description": "Optional timeout in milliseconds",
+      "description": "可选超时时间（毫秒）",
       "exclusiveMinimum": 0,
       "maximum": 9007199254740991,
       "minimum": -9007199254740991,
       "type": "integer",
     },
     "workdir": {
-      "description": "The working directory to run the command in. Defaults to the current directory. Use this instead of 'cd' commands.",
+      "description": "运行命令的工作目录；默认为当前目录。请使用此字段，而不是 cd 命令。",
       "type": "string",
     },
   },
@@ -48,19 +48,19 @@ exports[`tool parameters JSON Schema (wire shape) edit 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "filePath": {
-      "description": "The absolute path to the file to modify",
+      "description": "要修改的文件绝对路径",
       "type": "string",
     },
     "newString": {
-      "description": "The text to replace it with (must be different from oldString)",
+      "description": "用于替换的文本（必须与 oldString 不同）",
       "type": "string",
     },
     "oldString": {
-      "description": "The text to replace",
+      "description": "要替换的文本",
       "type": "string",
     },
     "replaceAll": {
-      "description": "Replace all occurrences of oldString (default false)",
+      "description": "替换 oldString 的所有出现位置（默认为 false）",
       "type": "boolean",
     },
   },
@@ -78,11 +78,11 @@ exports[`tool parameters JSON Schema (wire shape) glob 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "path": {
-      "description": "The directory to search in. If not specified, the current working directory will be used. IMPORTANT: Omit this field to use the default directory. DO NOT enter "undefined" or "null" - simply omit it for the default behavior. Must be a valid directory path if provided.",
+      "description": "要搜索的目录；未指定时使用当前工作目录。省略此字段即可使用默认目录，不要填写 undefined 或 null。",
       "type": "string",
     },
     "pattern": {
-      "description": "The glob pattern to match files against",
+      "description": "用于匹配文件的 glob 模式",
       "type": "string",
     },
   },
@@ -98,15 +98,15 @@ exports[`tool parameters JSON Schema (wire shape) grep 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "include": {
-      "description": "File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")",
+      "description": "要包含的文件模式（例如 *.js、*.{ts,tsx}）",
       "type": "string",
     },
     "path": {
-      "description": "The directory to search in. Defaults to the current working directory.",
+      "description": "要搜索的目录；默认为当前工作目录",
       "type": "string",
     },
     "pattern": {
-      "description": "The regex pattern to search for in file contents",
+      "description": "要搜索文件内容的正则表达式模式",
       "type": "string",
     },
   },
@@ -141,23 +141,23 @@ exports[`tool parameters JSON Schema (wire shape) lsp 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "character": {
-      "description": "The character offset (1-based, as shown in editors)",
+      "description": "字符偏移量（从 1 开始，与编辑器显示一致）",
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer",
     },
     "filePath": {
-      "description": "The absolute or relative path to the file",
+      "description": "文件的绝对或相对路径",
       "type": "string",
     },
     "line": {
-      "description": "The line number (1-based, as shown in editors)",
+      "description": "行号（从 1 开始，与编辑器显示一致）",
       "maximum": 9007199254740991,
       "minimum": 1,
       "type": "integer",
     },
     "operation": {
-      "description": "The LSP operation to perform",
+      "description": "要执行的 LSP 操作",
       "enum": [
         "goToDefinition",
         "findReferences",
@@ -172,7 +172,7 @@ exports[`tool parameters JSON Schema (wire shape) lsp 1`] = `
       "type": "string",
     },
     "query": {
-      "description": "Search query for workspaceSymbol. Empty string requests all symbols.",
+      "description": "workspaceSymbol 的搜索查询；空字符串请求全部符号",
       "type": "string",
     },
   },
@@ -199,27 +199,27 @@ exports[`tool parameters JSON Schema (wire shape) question 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "questions": {
-      "description": "Questions to ask",
+      "description": "要询问的问题",
       "items": {
         "properties": {
           "header": {
-            "description": "Very short label (max 30 chars)",
+            "description": "非常短的标签（最多 30 个字符）",
             "type": "string",
           },
           "multiple": {
-            "description": "Allow selecting multiple choices",
+            "description": "允许选择多个选项",
             "type": "boolean",
           },
           "options": {
-            "description": "Available choices",
+            "description": "可用选项",
             "items": {
               "properties": {
                 "description": {
-                  "description": "Explanation of choice",
+                  "description": "选项说明",
                   "type": "string",
                 },
                 "label": {
-                  "description": "Display text (1-5 words, concise)",
+                  "description": "显示文本（1-5 个词，简洁）",
                   "type": "string",
                 },
               },
@@ -232,7 +232,7 @@ exports[`tool parameters JSON Schema (wire shape) question 1`] = `
             "type": "array",
           },
           "question": {
-            "description": "Complete question",
+            "description": "完整问题",
             "type": "string",
           },
         },
@@ -258,17 +258,17 @@ exports[`tool parameters JSON Schema (wire shape) read 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "filePath": {
-      "description": "The absolute path to the file or directory to read",
+      "description": "要读取的文件或目录的绝对路径",
       "type": "string",
     },
     "limit": {
-      "description": "The maximum number of lines to read (defaults to 2000)",
+      "description": "要读取的最大行数（默认为 2000）",
       "maximum": 9007199254740991,
       "minimum": 0,
       "type": "integer",
     },
     "offset": {
-      "description": "The line number to start reading from (1-indexed)",
+      "description": "开始读取的行号（从 1 开始）",
       "maximum": 9007199254740991,
       "minimum": 0,
       "type": "integer",
@@ -286,7 +286,7 @@ exports[`tool parameters JSON Schema (wire shape) skill 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "name": {
-      "description": "The name of the skill from available_skills",
+      "description": "可用技能列表中的技能名称",
       "type": "string",
     },
   },
@@ -302,27 +302,27 @@ exports[`tool parameters JSON Schema (wire shape) task 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "background": {
-      "description": "Run the agent in the background. You will be notified when it completes. DO NOT sleep, poll, or proactively check on its progress",
+      "description": "在后台运行代理；完成后会收到通知。不要休眠、轮询或主动检查进度",
       "type": "boolean",
     },
     "command": {
-      "description": "The command that triggered this task",
+      "description": "触发此任务的命令",
       "type": "string",
     },
     "description": {
-      "description": "A short (3-5 words) description of the task",
+      "description": "任务的简短说明（3-5 个词）",
       "type": "string",
     },
     "prompt": {
-      "description": "The task for the agent to perform",
+      "description": "代理要执行的任务",
       "type": "string",
     },
     "subagent_type": {
-      "description": "The type of specialized agent to use for this task",
+      "description": "此任务要使用的专用代理类型",
       "type": "string",
     },
     "task_id": {
-      "description": "This should only be set if you mean to resume a previous task (you can pass a prior task_id and the task will continue the same subagent session as before instead of creating a fresh one)",
+      "description": "仅在要恢复之前的任务时设置；传入之前的 task_id 可继续同一代理会话，而不是创建新会话",
       "type": "string",
     },
   },
@@ -340,19 +340,19 @@ exports[`tool parameters JSON Schema (wire shape) todo 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "todos": {
-      "description": "The updated todo list",
+      "description": "更新后的任务列表",
       "items": {
         "properties": {
           "content": {
-            "description": "Brief description of the task",
+            "description": "任务的简要说明",
             "type": "string",
           },
           "priority": {
-            "description": "Priority level of the task: high, medium, low",
+            "description": "任务优先级：high、medium、low",
             "type": "string",
           },
           "status": {
-            "description": "Current status of the task: pending, in_progress, completed, cancelled",
+            "description": "任务的当前状态：pending、in_progress、completed、cancelled",
             "type": "string",
           },
         },
@@ -379,7 +379,7 @@ exports[`tool parameters JSON Schema (wire shape) webfetch 1`] = `
   "properties": {
     "format": {
       "default": "markdown",
-      "description": "The format to return the content in (text, markdown, or html). Defaults to markdown.",
+      "description": "返回内容的格式（text、markdown 或 html）；默认为 markdown",
       "enum": [
         "text",
         "markdown",
@@ -388,11 +388,11 @@ exports[`tool parameters JSON Schema (wire shape) webfetch 1`] = `
       "type": "string",
     },
     "timeout": {
-      "description": "Optional timeout in seconds (max 120)",
+      "description": "可选超时时间（秒，最大 120）",
       "type": "number",
     },
     "url": {
-      "description": "The URL to fetch content from",
+      "description": "要获取内容的 URL",
       "type": "string",
     },
   },
@@ -408,11 +408,11 @@ exports[`tool parameters JSON Schema (wire shape) websearch 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "contextMaxCharacters": {
-      "description": "Maximum characters for context string optimized for LLMs (default: 10000)",
+      "description": "为 LLM 优化的上下文字符串最大字符数（默认 10000）",
       "type": "number",
     },
     "livecrawl": {
-      "description": "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
+      "description": "实时抓取模式：fallback 在缓存不可用时备用，preferred 优先实时抓取",
       "enum": [
         "fallback",
         "preferred",
@@ -420,15 +420,15 @@ exports[`tool parameters JSON Schema (wire shape) websearch 1`] = `
       "type": "string",
     },
     "numResults": {
-      "description": "Number of search results to return (default: 8)",
+      "description": "要返回的搜索结果数量（默认 8）",
       "type": "number",
     },
     "query": {
-      "description": "Websearch query",
+      "description": "网页搜索查询",
       "type": "string",
     },
     "type": {
-      "description": "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
+      "description": "搜索类型：auto（均衡，默认）、fast（快速）或 deep（全面）",
       "enum": [
         "auto",
         "fast",
@@ -449,11 +449,11 @@ exports[`tool parameters JSON Schema (wire shape) write 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "content": {
-      "description": "The content to write to the file",
+      "description": "要写入文件的内容",
       "type": "string",
     },
     "filePath": {
-      "description": "The absolute path to the file to write (must be absolute, not relative)",
+      "description": "要写入文件的绝对路径（必须是绝对路径）",
       "type": "string",
     },
   },

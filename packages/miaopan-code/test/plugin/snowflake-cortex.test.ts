@@ -75,7 +75,7 @@ describe("plugin.snowflake-cortex", () => {
     expect(captured).toHaveLength(1)
     expect(captured[0].get("authorization")).toBe("Bearer access-live")
     expect(captured[0].get("x-keep")).toBe("yes")
-    expect(captured[0].get("user-agent")).toMatch(/^miaopanCode\//)
+    expect(captured[0].get("user-agent")).toMatch(/^miaopan-code\//)
   })
 
   test("loader refreshes expired token with single-flight and persists refreshed oauth", async () => {

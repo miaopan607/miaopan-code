@@ -1,13 +1,15 @@
 # CodeMode Design and Status
 
+Languages: [简体中文概览](README.md) · English
+
 This is the living design and status document for `@miaopan-code/codemode` and its existing V2 miaopan-code adapter.
 It records current behavior, intentional boundaries, durable rationale, and material remaining work.
 
 Completed implementation history, branch names, test counts, and closed findings belong in git, not here. Remove
 completed work instead of preserving checked-off chronology.
 
-Detailed package API documentation lives in [README.md](./README.md). OpenAPI-specific follow-ups live in
-[src/openapi/TODO.md](./src/openapi/TODO.md).
+Detailed package API documentation lives in [README.en.md](./README.en.md). OpenAPI-specific follow-ups live in
+[src/openapi/TODO.en.md](./src/openapi/TODO.en.md).
 
 ## How CodeMode Works
 

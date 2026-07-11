@@ -6,6 +6,7 @@ import { Cause, Effect, Exit, Layer } from "effect"
 import { ApplyPatchTool } from "../../src/tool/apply_patch"
 import { LSP } from "@/lsp/lsp"
 import { FSUtil } from "@miaopan-code/core/fs-util"
+import { t } from "@miaopan-code/core/i18n"
 import { Format } from "../../src/format"
 import { Agent } from "../../src/agent/agent"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
@@ -89,21 +90,29 @@ describe("tool.apply_patch freeform", () => {
   it.live("requires patchText", () =>
     Effect.gen(function* () {
       const { ctx } = makeCtx()
-      yield* expectFailure(execute({ patchText: "" }, ctx), "patchText is required")
+      yield* expectFailure(execute({ patchText: "" }, ctx), t("zh-CN", "tool.error.patch_required"))
     }),
   )
 
   it.live("rejects invalid patch format", () =>
     Effect.gen(function* () {
       const { ctx } = makeCtx()
-      yield* expectFailure(execute({ patchText: "invalid patch" }, ctx), "apply_patch verification failed")
+      yield* expectFailure(
+        execute({ patchText: "invalid patch" }, ctx),
+        t("zh-CN", "tool.error.patch_verify", {
+          error: `Error: ${t("zh-CN", "error.patch_invalid_format")}`,
+        }),
+      )
     }),
   )
 
   it.live("rejects empty patch", () =>
     Effect.gen(function* () {
       const { ctx } = makeCtx()
-      yield* expectFailure(execute({ patchText: "*** Begin Patch\n*** End Patch" }, ctx), "patch rejected: empty patch")
+      yield* expectFailure(
+        execute({ patchText: "*** Begin Patch\n*** End Patch" }, ctx),
+        t("zh-CN", "tool.error.patch_empty"),
+      )
     }),
   )
 
@@ -123,8 +132,11 @@ describe("tool.apply_patch freeform", () => {
 
         const result = yield* execute({ patchText }, ctx)
 
-        expect(result.title).toContain("Success. Updated the following files")
-        expect(result.output).toContain("Success. Updated the following files")
+        const output = t("zh-CN", "tool.output.patch_success", {
+          files: "A nested/new.txt\nD delete.txt\nM modify.txt",
+        })
+        expect(result.title).toBe(output)
+        expect(result.output).toBe(output)
         // Strict formatting assertions for slashes
         expect(result.output).toMatch(/A nested\/new\.txt/)
         expect(result.output).toMatch(/D delete\.txt/)
@@ -319,7 +331,7 @@ describe("tool.apply_patch freeform", () => {
 
       yield* expectFailure(
         execute({ patchText }, ctx),
-        "apply_patch verification failed: Failed to read file to update",
+        t("zh-CN", "tool.error.patch_read_file", { path: path.join((yield* TestInstance).directory, "missing.txt") }),
       )
     }),
   )
@@ -351,7 +363,7 @@ describe("tool.apply_patch freeform", () => {
       const { ctx } = makeCtx()
       const patchText = "*** Begin Patch\n*** Frobnicate File: foo\n*** End Patch"
 
-      yield* expectFailure(execute({ patchText }, ctx), "apply_patch verification failed")
+      yield* expectFailure(execute({ patchText }, ctx), t("zh-CN", "tool.error.patch_no_hunks"))
     }),
   )
 
@@ -364,7 +376,12 @@ describe("tool.apply_patch freeform", () => {
 
       const patchText = "*** Begin Patch\n*** Update File: modify.txt\n@@\n-missing\n+changed\n*** End Patch"
 
-      yield* expectFailure(execute({ patchText }, ctx), "apply_patch verification failed")
+      yield* expectFailure(
+        execute({ patchText }, ctx),
+        t("zh-CN", "tool.error.patch_verify", {
+          error: `Error: ${t("zh-CN", "error.patch_lines_missing", { path: target, lines: "missing" })}`,
+        }),
+      )
       expect(yield* readText(target)).toBe("line1\nline2\n")
     }),
   )

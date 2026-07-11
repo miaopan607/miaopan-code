@@ -2,6 +2,7 @@ export * as InstructionContext from "./instruction-context"
 
 import { Array, Effect, Layer, Schema } from "effect"
 import { isAbsolute, join, relative, sep } from "path"
+import { Config } from "./config"
 import { FSUtil } from "./fs-util"
 import { Flag } from "./flag/flag"
 import { Global } from "./global"
@@ -10,6 +11,7 @@ import { AbsolutePath } from "./schema"
 import { SystemContext } from "./system-context/index"
 import { SystemContextRegistry } from "./system-context/registry"
 import { makeLocationNode } from "./effect/app-node"
+import { t, type Language } from "./i18n"
 
 class File extends Schema.Class<File>("InstructionContext.File")({
   path: AbsolutePath,
@@ -21,20 +23,22 @@ const key = SystemContext.Key.make("core/instructions")
 
 const layer = Layer.effectDiscard(
   Effect.gen(function* () {
+    const config = yield* Config.Service
     const fs = yield* FSUtil.Service
     const global = yield* Global.Service
     const location = yield* Location.Service
     const registry = yield* SystemContextRegistry.Service
+    const language = Config.latest(yield* config.entries(), "language")
 
     const source = (value: ReadonlyArray<File> | SystemContext.Unavailable) =>
       SystemContext.make({
         key,
         codec: Schema.toCodecJson(Files),
         load: Effect.succeed(value),
-        baseline: render,
+        baseline: (current) => render(current, language),
         update: (_previous, current) =>
-          `These instructions replace all previously loaded ambient instructions.\n\n${render(current)}`,
-        removed: () => "Previously loaded instructions no longer apply.",
+          t(language, "prompt.instructions_replaced", { instructions: render(current, language) }),
+        removed: () => t(language, "prompt.instructions_removed"),
       })
 
     const observe = Effect.fn("InstructionContext.observe")(function* () {
@@ -93,9 +97,11 @@ const layer = Layer.effectDiscard(
 export const node = makeLocationNode({
   name: "instruction-context",
   layer,
-  deps: [FSUtil.node, Global.node, Location.node, SystemContextRegistry.node],
+  deps: [Config.node, FSUtil.node, Global.node, Location.node, SystemContextRegistry.node],
 })
 
-function render(files: ReadonlyArray<File>) {
-  return files.map((file) => `Instructions from: ${file.path}\n${file.content}`).join("\n\n")
+function render(files: ReadonlyArray<File>, language: Language | undefined) {
+  return files
+    .map((file) => t(language, "prompt.instructions_from", { source: file.path, content: file.content }))
+    .join("\n\n")
 }

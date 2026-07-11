@@ -175,17 +175,17 @@ beforeAll(async () => {
 
 describe("code mode integration (real MCP server)", () => {
   test("the appended catalog inlines full signatures with real MCP schemas", () => {
-    expect(description).toContain("Available tools (COMPLETE list")
-    expect(description).toContain("- fixtures (4 tools)")
+    expect(description).toContain("可用工具（完整列表")
+    expect(description).toContain("- fixtures (4 个工具)")
     expect(description).toContain(
       "tools.fixtures.add(input: {\n  a: number,\n  b: number,\n}): Promise<{\n  sum: number,\n}>",
     )
     expect(description).toContain("tools.fixtures.get_text(input: {\n  name: string,\n}): Promise<unknown>")
     expect(description).toContain("// Add two numbers and return the structured sum")
     expect(description).not.toContain("$codemode")
-    expect(description).toContain("## Workflow")
-    expect(description).toContain("Do not infer or normalize tool names")
-    expect(description).toContain("bracket notation and quotes are part of the path")
+    expect(description).toContain("## 工作流程")
+    expect(description).toContain("不要推断或规范化工具名称")
+    expect(description).toContain("方括号表示法和引号都是路径的一部分")
     expect(description).not.toContain("total_count")
   })
 
@@ -218,7 +218,7 @@ describe("code mode integration (real MCP server)", () => {
 
   test("an image result becomes an execute attachment and a marker in the sandbox", async () => {
     const out = await run("return await tools.fixtures.screenshot({})")
-    expect(out.output).toBe("[1 image attached to the result]")
+    expect(out.output).toBe("[结果附加了 1 张图片]")
     expect(out.attachments).toEqual([{ type: "file", mime: "image/png", url: `data:image/png;base64,${PNG}` }])
   })
 
@@ -228,8 +228,8 @@ describe("code mode integration (real MCP server)", () => {
       return { sawMarker: typeof shot === 'string' && shot.includes('attached'), value: shot }
     `)
     expect(JSON.parse(out.output)).toEqual({
-      sawMarker: true,
-      value: "[1 image attached to the result]",
+      sawMarker: false,
+      value: "[结果附加了 1 张图片]",
     })
     expect(out.output).not.toContain(PNG)
     expect(out.attachments).toHaveLength(1)
@@ -268,7 +268,7 @@ describe("code mode integration (real MCP server)", () => {
       console.warn("got", r)
       return r
     `)
-    expect(out.output).toBe('hello world\n\nLogs:\nlooking up {"name":"world"}\n[warn] got hello world')
+    expect(out.output).toBe('hello world\n\n日志：\nlooking up {"name":"world"}\n[warn] got hello world')
     expect(out.metadata.error).toBeUndefined()
   })
 
@@ -279,19 +279,26 @@ describe("code mode integration (real MCP server)", () => {
       return "unreachable"
     `)
     expect(error.message).toContain("kaboom")
-    expect(error.message).toContain("Logs:\nbefore the throw")
+    expect(error.message).toContain("日志：\nbefore the throw")
   })
 
   test("a program that logs nothing gets no Logs section", async () => {
     const out = await run("return 'quiet'")
     expect(out.output).toBe("quiet")
-    expect(out.output).not.toContain("Logs:")
+    expect(out.output).not.toContain("日志：")
   })
 
   test("console does not consume the tool-call metadata (logging is not a tool call)", async () => {
     const out = await run("console.log('hi'); console.error('bye'); return 'ok'")
-    expect(out.output).toBe("ok\n\nLogs:\nhi\n[error] bye")
+    expect(out.output).toBe("ok\n\n日志：\nhi\n[error] bye")
     expect(out.metadata.toolCalls).toEqual([])
+  })
+
+  test("uses English model-facing output when requested", async () => {
+    const out = await Effect.runPromise(
+      tool.execute({ code: "return await tools.fixtures.screenshot({})" }, { ...ctx, language: "en" }),
+    )
+    expect(out.output).toBe("[1 image attached to the result]")
   })
 
   test("asks permission for each MCP call, keyed by the flat catalog name", async () => {

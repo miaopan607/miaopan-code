@@ -23,6 +23,8 @@ import { Project } from "../../src/project/project"
 import { InstancePaths } from "../../src/server/routes/instance/httpapi/groups/instance"
 import { testEffect } from "../lib/effect"
 import { httpApiLayer, requestInDirectory } from "./httpapi-layer"
+import { I18n } from "@miaopan-code/core/i18n"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const originalWorkspaces = Flag.MIAOPAN_CODE_EXPERIMENTAL_WORKSPACES
 const appLayer = AppNodeBuilder.build(
@@ -188,8 +190,8 @@ describe("workspace HttpApi", () => {
       expect(adapters.status).toBe(200)
       expect(yield* adapters.json).toContainEqual({
         type: "worktree",
-        name: "Worktree",
-        description: "Create a git worktree",
+        name: I18n.t(undefined, "worktree.name"),
+        description: I18n.t(undefined, "worktree.create"),
       })
 
       expect(workspaces.status).toBe(200)
@@ -273,7 +275,7 @@ describe("workspace HttpApi", () => {
       expect(response.status).toBe(404)
       expect(yield* response.json).toEqual({
         name: "NotFoundError",
-        data: { message: `Workspace not found: ${workspaceID}` },
+        data: { message: t(undefined, "error.workspace_not_found", { id: workspaceID }) },
       })
     }),
   )

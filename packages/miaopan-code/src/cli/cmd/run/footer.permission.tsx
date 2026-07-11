@@ -33,6 +33,7 @@ import { footerWidthPolicy } from "./footer.width"
 import { toolFiletype } from "./tool"
 import { transparent, type RunBlockTheme, type RunFooterTheme } from "./theme"
 import type { PermissionReply, RunDiffStyle } from "./types"
+import { UI } from "../../ui"
 
 function buttons(
   list: PermissionOption[],
@@ -100,7 +101,7 @@ export function RejectField(props: {
       minHeight={1}
       maxHeight={3}
       wrapMode="word"
-      placeholder="Tell MiaopanCode what to do differently"
+      placeholder={UI.t("permission.tell_differently_placeholder")}
       placeholderColor={props.theme.muted}
       textColor={props.theme.text}
       focusedTextColor={props.theme.text}
@@ -145,14 +146,14 @@ export function RunPermissionBody(props: {
   const busy = createMemo(() => state().submitting)
   const title = createMemo(() => {
     if (state().stage === "always") {
-      return "Always allow"
+      return UI.t("permission.always_allow")
     }
 
     if (state().stage === "reject") {
-      return "Reject permission"
+      return UI.t("permission.reject")
     }
 
-    return "Permission required"
+    return UI.t("permission.required")
   })
 
   createEffect(() => {

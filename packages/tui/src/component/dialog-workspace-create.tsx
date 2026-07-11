@@ -10,6 +10,8 @@ import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogWorkspaceFileChanges } from "./dialog-workspace-file-changes"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 type Adapter = ExperimentalWorkspaceAdapterListResponse[number]
 
@@ -46,7 +48,7 @@ export function recentConnectedWorkspaces<WorkspaceInfo extends { id: string; ti
 }
 
 export function warpReminderText(dir: string) {
-  return `<system-reminder>The user has changed the current working directory to "${dir}". This is still the same project but at a possibly new location; take this into account when working with any files from now on.</system-reminder>`
+  return t(Locale.language(), "prompt.directory_changed_reminder", { directory: dir })
 }
 
 async function loadWorkspaceAdapters(input: {
@@ -61,7 +63,7 @@ async function loadWorkspaceAdapters(input: {
     return response.data
   } catch (err) {
     input.toast.show({
-      title: "Failed to load workspace adapters",
+      title: t(Locale.language(), "workspace.adapters_load_failed"),
       message: errorMessage(err),
       variant: "error",
     })
@@ -106,7 +108,7 @@ export async function warpWorkspaceSession(input: {
     })
   } catch (err) {
     input.toast.show({
-      title: "Failed to warp session",
+      title: t(Locale.language(), "workspace.warp_failed"),
       message: errorMessage(err),
       variant: "error",
     })
@@ -116,15 +118,15 @@ export async function warpWorkspaceSession(input: {
     if (result?.error && "name" in result.error && result.error.name === "VcsApplyError") {
       await DialogAlert.show(
         input.dialog,
-        "Unable to Warp Session",
-        "Unable to apply file changes to this workspace. It has existing changes that conflict or is based off a different branch. Session has not been warped.",
+        t(Locale.language(), "workspace.warp_unavailable_title"),
+        t(Locale.language(), "workspace.warp_unavailable_message"),
       )
       return false
     }
 
     input.toast.show({
-      title: "Failed to warp session",
-      message: errorMessage(result?.error ?? "no response"),
+      title: t(Locale.language(), "workspace.warp_failed"),
+      message: errorMessage(result?.error ?? t(Locale.language(), "error.no_response")),
       variant: "error",
     })
     return false
@@ -211,13 +213,13 @@ export function DialogWorkspaceSelect(props: {
         title: adapter.name,
         value: { type: "new" as const, workspaceType: adapter.type, workspaceName: adapter.name },
         description: adapter.description,
-        category: "New workspace",
+        category: t(Locale.language(), "workspace.new_category"),
       })),
       {
-        title: "None",
+        title: t(Locale.language(), "dialog.none"),
         value: { type: "none" as const },
-        description: "Use the local project",
-        category: "Choose workspace",
+        description: t(Locale.language(), "workspace.use_local_project"),
+        category: t(Locale.language(), "workspace.choose_category"),
       },
       ...recent.map((workspace: Workspace) => ({
         title: workspace.name,
@@ -228,15 +230,15 @@ export function DialogWorkspaceSelect(props: {
           workspaceType: workspace.type,
           workspaceName: workspace.name,
         },
-        category: "Choose workspace",
+        category: t(Locale.language(), "workspace.choose_category"),
       })),
       ...(hasMore
         ? [
             {
-              title: "View all workspaces",
+              title: t(Locale.language(), "workspace.view_all"),
               value: { type: "existing-list" as const },
-              description: "Choose from all workspaces",
-              category: "Choose workspace",
+              description: t(Locale.language(), "workspace.choose_all"),
+              category: t(Locale.language(), "workspace.choose_category"),
             },
           ]
         : []),
@@ -246,7 +248,7 @@ export function DialogWorkspaceSelect(props: {
   if (!adapters()) return null
   return (
     <DialogSelect<WorkspaceSelectValue>
-      title="Warp"
+      title={t(Locale.language(), "tui.warp")}
       skipFilter={true}
       renderFilter={false}
       options={options()}
@@ -293,7 +295,7 @@ function DialogExistingWorkspaceSelect(props: {
 
   return (
     <DialogSelect<ExistingWorkspaceSelectValue>
-      title="Existing Workspace"
+      title={t(Locale.language(), "tui.existing_workspace")}
       options={options()}
       onSelect={(option) => {
         void props.onSelect({

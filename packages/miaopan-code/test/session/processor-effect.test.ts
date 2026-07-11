@@ -26,6 +26,7 @@ import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { SessionProjector } from "@miaopan-code/core/session/projector"
 import { LLMEvent } from "@miaopan-code/llm"
+import { t } from "@miaopan-code/core/i18n"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -825,7 +826,7 @@ it.live("session.processor effect tests mark pending tools as aborted on cleanup
         expect(yield* llm.calls).toBe(1)
         expect(call?.state.status).toBe("error")
         if (call?.state.status === "error") {
-          expect(call.state.error).toBe("Tool execution aborted")
+          expect(call.state.error).toBe(t("zh-CN", "error.tool_execution_aborted"))
           expect(call.state.metadata?.interrupted).toBe(true)
           expect(call.state.time.end).toBeDefined()
         }

@@ -28,6 +28,8 @@ import { useTuiStartup } from "./runtime"
 import { createSimpleContext } from "./helper"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 import { batch, onMount } from "solid-js"
 import path from "path"
 import { useKV } from "./kv"
@@ -532,7 +534,7 @@ export const {
           })
         })
         .catch(async (e) => {
-          console.error("tui bootstrap failed", {
+          console.error(t(Locale.language(), "tui.bootstrap_failed"), {
             error: e instanceof Error ? e.message : String(e),
             name: e instanceof Error ? e.name : undefined,
             stack: e instanceof Error ? e.stack : undefined,

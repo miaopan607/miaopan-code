@@ -13,6 +13,7 @@ import type {
 import type { AssistantMessage, MiaopanCodeClient } from "@miaopan-code/sdk/v2"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import type { Language } from "@miaopan-code/core/i18n"
 import { Effect } from "effect"
 import * as ACPService from "@/acp/service"
 import * as ACPError from "@/acp/error"
@@ -147,6 +148,7 @@ describe("ACP service sessions", () => {
     options?: {
       abort?: (input: { sessionID: string }) => Promise<{ data: boolean }>
       prompt?: (input: unknown) => Promise<{ data: { info: ReturnType<typeof assistantInfo> } }>
+      language?: Language
     },
   ) => {
     const updates: SessionNotification[] = []
@@ -264,7 +266,7 @@ describe("ACP service sessions", () => {
     })
 
     return {
-      service: ACPService.make({ sdk, connection, usage }),
+      service: ACPService.make({ sdk, connection, usage, language: options?.language }),
       updates,
       mcpAdds,
       aborts,
@@ -275,6 +277,24 @@ describe("ACP service sessions", () => {
       usageUpdates,
     }
   }
+
+  it("uses the configured language for initialization and session options", async () => {
+    const { service } = makeService([], { language: "en" })
+    const initialized = await Effect.runPromise(
+      service.initialize({
+        protocolVersion: 1,
+        clientCapabilities: { _meta: { "terminal-auth": true } },
+      }),
+    )
+    const session = await Effect.runPromise(service.newSession({ cwd: "/workspace", mcpServers: [] }))
+
+    expect(initialized.authMethods?.[0]).toMatchObject({
+      name: "Login with miaopanCode",
+      description: "Run `miaopanCode auth login` in the terminal",
+      _meta: { "terminal-auth": { label: "MiaopanCode Login" } },
+    })
+    expect(session.configOptions?.map((option) => option.name)).toEqual(["Model", "Effort", "Session Mode"])
+  })
 
   it("creates a backed session with config options and command update", async () => {
     const { service, updates, mcpAdds } = makeService()

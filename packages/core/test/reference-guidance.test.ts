@@ -1,14 +1,30 @@
 import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
+import { Config } from "@miaopan-code/core/config"
+import { t } from "@miaopan-code/core/i18n"
 import { AbsolutePath } from "@miaopan-code/core/schema"
 import { Reference } from "@miaopan-code/core/reference"
 import { ReferenceGuidance } from "@miaopan-code/core/reference/guidance"
 import { SystemContext } from "@miaopan-code/core/system-context/index"
 import { it } from "./lib/effect"
 
-const guidanceLayer = (referenceLayer: Layer.Layer<Reference.Service>) =>
-  AppNodeBuilder.build(ReferenceGuidance.node, [[Reference.node, referenceLayer]])
+const guidanceLayer = (referenceLayer: Layer.Layer<Reference.Service>, language?: "zh-CN" | "en") =>
+  AppNodeBuilder.build(ReferenceGuidance.node, [
+    [Reference.node, referenceLayer],
+    [
+      Config.node,
+      Layer.succeed(
+        Config.Service,
+        Config.Service.of({
+          entries: () =>
+            Effect.succeed(
+              language ? [new Config.Document({ type: "document", info: new Config.Info({ language }) })] : [],
+            ),
+        }),
+      ),
+    ],
+  ])
 
 describe("ReferenceGuidance", () => {
   it.effect("lists available references in the system context", () =>
@@ -69,6 +85,35 @@ describe("ReferenceGuidance", () => {
                 }),
               ]),
           }),
+        ),
+      ),
+    ),
+  )
+
+  it.effect("renders English guidance when configured", () =>
+    Effect.gen(function* () {
+      const guidance = yield* ReferenceGuidance.Service
+      const generation = yield* SystemContext.initialize(yield* guidance.load())
+      expect(generation.baseline).toContain(t("en", "prompt.reference_guidance_intro"))
+    }).pipe(
+      Effect.provide(
+        guidanceLayer(
+          Layer.mock(Reference.Service, {
+            list: () =>
+              Effect.succeed([
+                new Reference.Info({
+                  name: "docs",
+                  path: AbsolutePath.make("/docs"),
+                  description: "Use for product documentation",
+                  source: Reference.LocalSource.make({
+                    type: "local",
+                    path: AbsolutePath.make("/docs"),
+                    description: "Use for product documentation",
+                  }),
+                }),
+              ]),
+          }),
+          "en",
         ),
       ),
     ),

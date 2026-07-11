@@ -1,6 +1,7 @@
 export * as Event from "./event"
 
 import { Schema } from "effect"
+import { t, type Language } from "./i18n"
 import { optional } from "./schema"
 import { ascending } from "./identifier"
 import { Location } from "./location"
@@ -73,7 +74,7 @@ export function inventory<const Definitions extends ReadonlyArray<Definition>>(.
   return Object.freeze(definitions)
 }
 
-export function latest(definitions: ReadonlyArray<Definition>) {
+export function latest(definitions: ReadonlyArray<Definition>, language?: Language) {
   return readonlyMap(
     definitions.reduce((result, definition) => {
       const existing = result.get(definition.type)
@@ -85,7 +86,7 @@ export function latest(definitions: ReadonlyArray<Definition>) {
         if (definition.durable.version > existing.durable.version) result.set(definition.type, definition)
         return result
       }
-      if (definition !== existing) throw new Error(`Duplicate latest event definition for ${definition.type}`)
+      if (definition !== existing) throw new Error(t(language, "event_duplicate_latest", { type: definition.type }))
       return result
     }, new Map<string, Definition>()),
   )
@@ -95,12 +96,15 @@ export function versionedType(type: string, version: number) {
   return `${type}.${version}`
 }
 
-export function durable<const Definitions extends ReadonlyArray<Definition>>(definitions: Definitions) {
+export function durable<const Definitions extends ReadonlyArray<Definition>>(
+  definitions: Definitions,
+  language?: Language,
+) {
   return readonlyMap(
     definitions.reduce((result, definition) => {
       if (!definition.durable) return result
       const key = versionedType(definition.type, definition.durable.version)
-      if (result.has(key)) throw new Error(`Duplicate durable event definition for ${key}`)
+      if (result.has(key)) throw new Error(t(language, "event_duplicate_durable", { key }))
       result.set(key, definition)
       return result
     }, new Map<string, Definitions[number]>()),

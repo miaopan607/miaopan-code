@@ -1,5 +1,7 @@
 # TUI plugins
 
+Languages: [简体中文索引](README.md) · English
+
 Technical reference for the current TUI plugin system.
 
 ## Overview

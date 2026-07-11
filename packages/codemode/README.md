@@ -1,23 +1,25 @@
 # @miaopan-code/codemode
 
-Effect-native confined code execution over explicit, schema-described tools.
+语言：简体中文 · [English](README.en.md)
 
-CodeMode lets a model write a small JavaScript program that can call only the tools supplied by the host. The program can sequence calls, transform plain data, branch, loop, and run independent calls in parallel without receiving ambient filesystem, process, network, module, or application authority.
+基于 Effect、通过显式且由 Schema 描述的工具执行受限代码。
 
-The package is currently private to this workspace. Its API is designed around one-shot and reusable execution:
+CodeMode 让模型编写一小段 JavaScript 程序，该程序只能调用宿主提供的工具。程序可以对调用排序、转换普通数据、分支、循环，并行运行相互独立的调用，同时不会获得环境中的文件系统、进程、网络、模块或应用权限。
+
+此包目前仅供本工作区内部使用。其 API 围绕单次执行和可复用执行设计：
 
 ```ts
-// One execution
+// 单次执行
 yield * CodeMode.execute({ tools, code })
 
-// A reusable runtime
+// 可复用的运行时
 const runtime = CodeMode.make({ tools, limits })
 yield * runtime.execute(code)
 ```
 
-## Install
+## 安装
 
-Within this workspace:
+在本工作区内：
 
 ```json
 {
@@ -27,11 +29,11 @@ Within this workspace:
 }
 ```
 
-Hosts interact with CodeMode through `effect` (tool `run` implementations, `Effect`-typed results), so they should depend on `effect` themselves.
+宿主通过 `effect` 与 CodeMode 交互（工具 `run` 实现、`Effect` 类型的结果），因此宿主自身也应依赖 `effect`。
 
-## Quick Start
+## 快速开始
 
-Define tools with Effect Schema, then place them in the object tree exposed to programs as `tools`:
+使用 Effect Schema 定义工具，然后将其放入以 `tools` 形式暴露给程序的对象树中：
 
 ```ts
 import { CodeMode, Tool } from "@miaopan-code/codemode"
@@ -60,9 +62,9 @@ const result =
 `)
 ```
 
-`result` is always a `CodeMode.Result`. Program, validation, limit, and tool failures are returned as diagnostics rather than failing the Effect. Host interruption remains interruption.
+`result` 始终是 `CodeMode.Result`。程序、验证、限制和工具失败会以诊断形式返回，而不会使 Effect 失败。宿主中断仍保持为中断。
 
-Successful result values are JSON-safe data. A program that returns `undefined`, including by reaching the end without `return`, produces `null`; nested `undefined` values are normalized to `null` as well.
+成功结果值是 JSON 安全数据。程序返回 `undefined`（包括执行到结尾但没有 `return`）时会产生 `null`；嵌套的 `undefined` 值同样会规范化为 `null`。
 
 ## API
 
@@ -71,23 +73,23 @@ Successful result values are JSON-safe data. A program that returns `undefined`,
 ```ts
 const tool = Tool.make({
   description,
-  input, // Effect Schema (validating) or JSON Schema (render-only)
-  output, // optional; same choice
+  input, // Effect Schema（验证）或 JSON Schema（仅渲染）
+  output, // 可选；选择同上
   run,
 })
 ```
 
-`input` and `output` each accept a validating Effect Schema or a render-only JSON Schema document (the natural shape for adapter-provided tools whose schemas arrive as JSON Schema, e.g. MCP definitions). Effect Schema input is decoded before `run` is invoked, and `run` returns the encoded representation of an Effect Schema `output`, which CodeMode decodes and copies before exposing it to the program. JSON Schemas only shape the model-visible signature; values pass through unvalidated (they still cross the plain-data boundary).
+`input` 和 `output` 都接受验证型 Effect Schema 或仅渲染型 JSON Schema 文档（对于 Schema 以 JSON Schema 形式传入的适配器工具，例如 MCP 定义，这是自然结构）。在调用 `run` 前会解码 Effect Schema 输入；`run` 返回 Effect Schema `output` 的编码表示，CodeMode 会先将其解码并复制，再暴露给程序。JSON Schema 只决定模型可见签名的结构；值不会经过验证而直接传递（但仍会跨越普通数据边界）。
 
-`output` is optional. Without it the tool's signature advertises `Promise<unknown>` and the host result is exposed as-is.
+`output` 是可选的。省略时，工具签名会声明 `Promise<unknown>`，宿主结果将按原样暴露。
 
-The description and schemas are part of the model-visible tool contract. Keep descriptions concrete and put authorization in `run` or in the service it calls.
+描述和 Schema 是模型可见工具契约的一部分。请让描述具体明确，并将授权逻辑放在 `run` 或其调用的服务中。
 
-Public tool types are grouped under the same namespace: `Tool.Definition`, `Tool.Options`, `Tool.SchemaType`, and `Tool.JsonSchema`.
+公共工具类型归入同一命名空间：`Tool.Definition`、`Tool.Options`、`Tool.SchemaType` 和 `Tool.JsonSchema`。
 
 ### `CodeMode.execute`
 
-Use `CodeMode.execute` for a single execution:
+使用 `CodeMode.execute` 进行单次执行：
 
 ```ts
 const result =
@@ -101,11 +103,11 @@ const result =
   })
 ```
 
-The Effect environment is inferred from the supplied tools. CodeMode does not erase service requirements introduced by tool implementations.
+Effect 环境会根据提供的工具推导。CodeMode 不会抹除工具实现引入的服务要求。
 
 ### `CodeMode.make`
 
-Use `CodeMode.make` when the tool set and execution policy are reused:
+当工具集和执行策略需要复用时，请使用 `CodeMode.make`：
 
 ```ts
 const runtime = CodeMode.make({
@@ -113,16 +115,16 @@ const runtime = CodeMode.make({
   limits: { timeoutMs: 30_000 },
 })
 
-runtime.catalog() // structured tool descriptions
-runtime.instructions() // model-facing syntax and tool guide
+runtime.catalog() // 结构化工具描述
+runtime.instructions() // 面向模型的语法和工具指南
 runtime.execute(source) // CodeMode.Result
 ```
 
-`CodeMode.Input`, `CodeMode.Result`, `CodeMode.Success`, `CodeMode.Failure`, `CodeMode.Diagnostic`, and `CodeMode.DiagnosticKind` are both Effect schemas and their inferred TypeScript types. Hosts can combine `CodeMode.Input` and `CodeMode.Result` with `runtime.instructions()` and `runtime.execute()` when constructing a framework-specific agent tool.
+`CodeMode.Input`、`CodeMode.Result`、`CodeMode.Success`、`CodeMode.Failure`、`CodeMode.Diagnostic` 和 `CodeMode.DiagnosticKind` 既是 Effect Schema，也是由其推导的 TypeScript 类型。宿主构造框架专用代理工具时，可以将 `CodeMode.Input` 和 `CodeMode.Result` 与 `runtime.instructions()`、`runtime.execute()` 组合使用。
 
-All other CodeMode types use the same namespace: `CodeMode.Options`, `CodeMode.ExecuteOptions`, `CodeMode.Runtime`, `CodeMode.ExecutionLimits`, `CodeMode.DiscoveryOptions`, `CodeMode.DataValue`, `CodeMode.ToolDescription`, and the `CodeMode.ToolCall*` observation types.
+所有其他 CodeMode 类型也使用同一命名空间：`CodeMode.Options`、`CodeMode.ExecuteOptions`、`CodeMode.Runtime`、`CodeMode.ExecutionLimits`、`CodeMode.DiscoveryOptions`、`CodeMode.DataValue`、`CodeMode.ToolDescription` 以及 `CodeMode.ToolCall*` 观测类型。
 
-### Results
+### 结果
 
 ```ts
 type Result = Success | Failure
@@ -144,17 +146,17 @@ interface Failure {
 }
 ```
 
-`toolCalls` contains the names of calls admitted by the runtime in call order. It is retained on failure so hosts can audit partial execution without exposing inputs or host failures. `truncated` is present when the value or logs were cut to fit `maxOutputBytes` (see Execution Limits).
+`toolCalls` 按调用顺序包含运行时接纳的调用名称。失败时仍会保留它，以便宿主在不暴露输入或宿主失败的情况下审计部分执行。值或日志为了符合 `maxOutputBytes` 而被裁剪时会出现 `truncated`（参见“执行限制”）。
 
-### Tool-call hooks
+### 工具调用钩子
 
-`onToolCallStart` receives `{ index, name, input }` after input decoding and before tool execution. The input is decoded host-side data and may include values produced by schema transformations; applications should avoid logging sensitive tool arguments indiscriminately.
+输入解码后、工具执行前，`onToolCallStart` 会收到 `{ index, name, input }`。输入是宿主侧解码后的数据，可能包含由 Schema 转换产生的值；应用不应不加选择地记录敏感工具参数。
 
-`onToolCallEnd` receives `{ index, name, input, durationMs, outcome, message? }` when an admitted call settles. `outcome` is `"success"` or `"failure"`; `message` is the model-safe failure message and is present only on failure. Interrupted calls (for example when the execution timeout fires) do not produce an end event. Both hooks are Effect-returning and must not fail.
+接纳的调用结束时，`onToolCallEnd` 会收到 `{ index, name, input, durationMs, outcome, message? }`。`outcome` 为 `"success"` 或 `"failure"`；`message` 是对模型安全的失败消息，仅在失败时存在。被中断的调用（例如执行超时触发时）不会产生结束事件。两个钩子都返回 Effect，且不得失败。
 
-### OpenAPI tools
+### OpenAPI 工具
 
-`OpenAPI.fromSpec` turns an OpenAPI 3.x document into a tool subtree - one tool per operation. Dotted `operationId` values form namespaces such as `v2.session.get`. Missing IDs receive a flat method/path fallback such as `getUsersById`; names are sanitized and deduplicated. The host places the subtree under a key in its `tools` tree; that key is the model-visible namespace.
+`OpenAPI.fromSpec` 将 OpenAPI 3.x 文档转换为工具子树——每个操作对应一个工具。带点号的 `operationId` 值形成 `v2.session.get` 等命名空间。缺少 ID 时会使用 `getUsersById` 这类扁平的方法/路径回退名称；名称会被清理并去重。宿主将子树放在其 `tools` 树的某个 key 下；该 key 就是模型可见命名空间。
 
 ```ts
 import { CodeMode, OpenAPI } from "@miaopan-code/codemode"
@@ -162,7 +164,7 @@ import { Effect } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
 
 const api = OpenAPI.fromSpec({
-  spec: await Bun.file("openapi.json").json(), // parsed document (no YAML)
+  spec: await Bun.file("openapi.json").json(), // 已解析文档（不支持 YAML）
   auth: {
     resolve: ({ name, scopes, operation }) =>
       name === "BearerAuth" ? Effect.succeed({ type: "bearer", token }) : Effect.succeed(undefined),
@@ -173,15 +175,15 @@ const runtime = CodeMode.make({ tools: { miaopan-code: api.tools } })
 const result = await Effect.runPromise(runtime.execute(code).pipe(Effect.provide(FetchHttpClient.layer)))
 ```
 
-`fromSpec` is synchronous and returns `{ tools, skipped }`. The initial adapter supports query `form`/`deepObject`, path/header `simple`, JSON request bodies, JSON responses, and text responses; unsupported parameter encodings, non-JSON request bodies, binary responses, and streaming operations land in `skipped` instead of producing broken tools. Operation and path servers take precedence over document servers unless `baseUrl` explicitly overrides all of them. Tool inputs flatten path, query, header, and closed object-body fields into one model-facing object while retaining their HTTP locations internally. Cross-location name collisions receive a location prefix such as `path_id` and `query_id`; composed, nullable, dictionary, conditionally-required, and non-object JSON bodies remain under `body`. Auth is never model-visible. Responses are limited to 50 MiB, and non-2xx responses become safe tool failures carrying the status and a size-capped body summary. Deferred capabilities are tracked in `src/openapi/TODO.md`.
+`fromSpec` 是同步函数，返回 `{ tools, skipped }`。初始适配器支持查询参数的 `form`/`deepObject`、路径/标头参数的 `simple`、JSON 请求体、JSON 响应和文本响应；不受支持的参数编码、非 JSON 请求体、二进制响应和流式操作会进入 `skipped`，而不是生成不可用的工具。操作服务器和路径服务器优先于文档服务器，除非 `baseUrl` 明确覆盖所有服务器。工具输入将路径、查询、标头和封闭对象请求体字段扁平化为一个面向模型的对象，同时在内部保留它们的 HTTP 位置。跨位置名称冲突会获得 `path_id`、`query_id` 等位置前缀；组合型、可空、字典、条件必填和非对象 JSON 请求体仍保留在 `body` 下。认证永远不会对模型可见。响应限制为 50 MiB，非 2xx 响应会转为安全的工具失败，并携带状态和受大小限制的响应体摘要。延期功能记录在 `src/openapi/TODO.md` 中。
 
-Supported bearer, basic, header, and query authentication follows OpenAPI `security` semantics and is resolved host-side via `auth.resolve` - credential storage, OAuth flows, and token refresh never enter the compiler. Cookie authentication alternatives are discarded; an operation is skipped when it has no supported alternative. See the option docstrings in `src/openapi/types.ts` for the full semantics. Generated tools require `HttpClient.HttpClient` (from `effect/unstable/http`) in the Effect environment - provide `FetchHttpClient.layer` or a custom/test client layer at execution. The supplied client owns redirect policy; credentialed hosts should reject redirects or strip credentials when the origin changes.
+受支持的 bearer、basic、标头和查询认证遵循 OpenAPI `security` 语义，并由宿主侧的 `auth.resolve` 解析——凭据存储、OAuth 流程和 token 刷新永远不会进入编译器。Cookie 认证备选项会被丢弃；如果操作没有受支持的备选项，该操作会被跳过。完整语义参见 `src/openapi/types.ts` 中的选项文档字符串。生成的工具要求 Effect 环境中存在 `HttpClient.HttpClient`（来自 `effect/unstable/http`）——执行时请提供 `FetchHttpClient.layer` 或自定义/测试客户端层。所提供的客户端拥有重定向策略；对需要凭据的主机，应在源发生变化时拒绝重定向或移除凭据。
 
-## Discovery
+## 发现
 
-The agent-tool instructions use a budgeted catalog. Every tool namespace is always listed with its tool count regardless of budget, and as many complete, JSDoc-annotated tool signatures (each with a one-line description) as fit an estimated-token budget are inlined. Schema field descriptions and tags are part of each signature's measured cost. Selection is round-robin across namespaces for fairness: in each round (namespaces alphabetical), every namespace still holding un-inlined tools attempts to place its next-cheapest signature against the shared budget, and a namespace whose next signature does not fit drops out while the others keep going - so every namespace gets some representation before any namespace gets everything. The instructions state exactly how comprehensive the list is, both overall (`COMPLETE list` vs `PARTIAL - N of M shown`) and per namespace (`(3 tools)`, `(3 tools, 1 shown)`, `(3 tools, none shown)`).
+代理工具指令使用受预算限制的目录。无论预算如何，每个工具命名空间始终会连同工具数量一起列出；在估算 token 预算内会内联尽可能多的完整、带 JSDoc 注释的工具签名（每个附带一行描述）。Schema 字段描述和标签也计入各签名的成本。为保证公平，选择过程按命名空间轮询：在每轮中（命名空间按字母排序），每个仍有未内联工具的命名空间都会尝试将其下一个成本最低的签名放入共享预算；下一个签名无法容纳的命名空间退出，其他命名空间继续——因此，在任何命名空间获得全部表示前，每个命名空间都会先获得一些表示。指令会准确说明列表的完备程度，包括整体（`COMPLETE list` 与 `PARTIAL - N of M shown`）和每个命名空间（`(3 tools)`、`(3 tools, 1 shown)`、`(3 tools, none shown)`）。
 
-The catalog-entry budget defaults to 2,000 estimated tokens (characters / 4, the same heuristic miaopan-code uses). It applies only to full tool entries shown in the catalog; fixed instructions and namespace summaries are not counted. Override it when constructing a runtime:
+目录条目预算默认为 2,000 个估算 token（字符数 / 4，与 miaopan-code 使用相同的启发式算法）。它只应用于目录中展示的完整工具条目；固定指令和命名空间摘要不计入。构造运行时时可以覆盖它：
 
 ```ts
 const runtime = CodeMode.make({
@@ -190,20 +192,20 @@ const runtime = CodeMode.make({
 })
 ```
 
-The budget must be a non-negative safe integer.
+预算必须是非负安全整数。
 
-The runtime search tool is always registered - including when the catalog is fully inlined - so a speculative `tools.$codemode.search` call never fails as an unknown tool. It is only advertised in the instructions when the inlined list is partial:
+运行时搜索工具始终会注册——包括目录已完整内联时——因此试探性调用 `tools.$codemode.search` 永远不会因未知工具而失败。它只在内联列表不完整时出现在指令中：
 
 ```ts
 const matches = await tools.$codemode.search({
   query: "order status",
-  namespace: "orders", // optional: scope to one top-level namespace
+  namespace: "orders", // 可选：限定到一个顶级命名空间
   limit: 10,
   offset: 0,
 })
 ```
 
-`search` performs deterministic, additive field-weighted matching. The query is tokenized (camelCase boundaries split; every non-alphanumeric character is a separator; empties and `*` are dropped), and each term scores every tool: exact path or path-segment match (20), path substring (8), description substring (4), and searchable-text substring (2). Each term also carries naive singular variants (trailing `s`/`es` stripped), and a field check passes when the term or any variant matches - so a plural query term (`issues`) still finds a tool whose text only says `issue`, without changing the weights. The searchable text also includes the input schema's property names and their description strings, so a query naming a parameter finds its tool, and substring matching means partial words match. Scores sum across terms; matches are sorted by score (ties broken alphabetically by path), then sliced from the zero-based `offset` (default 0) to the configured `limit` (default 10). `remaining` counts matches after the current page. `next` is `{ offset }` when another page exists and `null` on the final page; spread it into the original request to preserve its query, namespace, and limit.
+`search` 执行确定性的累加字段加权匹配。查询会被分词（拆分 camelCase 边界；每个非字母数字字符都是分隔符；丢弃空项和 `*`），每个词项为每个工具计分：精确路径或路径段匹配（20）、路径子字符串（8）、描述子字符串（4）和可搜索文本子字符串（2）。每个词项还带有简单的单数变体（移除末尾 `s`/`es`）；词项或其任一变体匹配时，字段检查即通过——因此复数查询词（`issues`）仍能找到文本中只出现 `issue` 的工具，而不会改变权重。可搜索文本还包括输入 Schema 的属性名称及描述字符串，因此，以参数命名的查询能找到对应工具；子字符串匹配也意味着部分单词可以匹配。各词项得分相加；匹配项按得分排序（并列时按路径字母顺序），然后从基于零的 `offset`（默认 0）切片到配置的 `limit`（默认 10）。`remaining` 统计当前页之后的匹配项。存在下一页时，`next` 为 `{ offset }`；最后一页为 `null`。请将其展开到原始请求中，以保留查询、命名空间和限制。
 
 ```ts
 const request = { query: "order status", namespace: "orders", limit: 10 }
@@ -211,7 +213,7 @@ const page = await tools.$codemode.search(request)
 const nextPage = page.next ? await tools.$codemode.search({ ...request, ...page.next }) : undefined
 ```
 
-Each result contains the path, description, and the same generated TypeScript signature used by the inline catalog, so no second lookup is needed. Signatures use the JSDoc-annotated multiline form: each described input/output field carries its schema `description` as a `/** ... */` comment, and constraints TypeScript cannot express ride along as tags (`@deprecated`, `@default`, `@format`, `@minItems`, `@maxItems`).
+每个结果都包含路径、描述以及内联目录所用的同一份生成 TypeScript 签名，因此无需二次查找。签名使用带 JSDoc 注释的多行形式：每个有描述的输入/输出字段都以 `/** ... */` 注释携带其 Schema `description`，TypeScript 无法表达的约束则以标签形式附带（`@deprecated`、`@default`、`@format`、`@minItems`、`@maxItems`）。
 
 ```ts
 tools.github.list_issues(input: {
@@ -227,47 +229,47 @@ tools.github.list_issues(input: {
 }): Promise<unknown>
 ```
 
-Result paths are rendered as JavaScript expressions rooted at `tools` (`tools.orders.lookup`, or `tools.context7["resolve-library-id"]` for non-identifier segments), so each `path` is directly usable as the call site. An empty query browses the catalog alphabetically by path; combined with `namespace` (`{ query: "", namespace: "orders" }`) it lists everything in that namespace. A query that names one tool path exactly (canonical path, `tools.`-prefixed path, or rendered JavaScript expression) is treated as a lookup and returns that tool alone.
+结果路径会渲染为以 `tools` 为根的 JavaScript 表达式（`tools.orders.lookup`，对于非标识符路径段则是 `tools.context7["resolve-library-id"]`），因此每个 `path` 都能直接作为调用位置。空查询会按路径字母顺序浏览目录；结合 `namespace`（`{ query: "", namespace: "orders" }`）时，它会列出该命名空间中的所有内容。精确命名一个工具路径（标准路径、带 `tools.` 前缀的路径或渲染后的 JavaScript 表达式）的查询会被视为查找，并且只返回该工具。
 
-The instructions are structured markdown, ordered so the workflow sits at the top and the catalog at the bottom: a `## Workflow` section with numbered steps (find a tool via search when the catalog is partial, or pick from the inlined list when it is complete; call the exact path as-is; return only the needed fields), a `## Rules` section holding only guidance the workflow does not already cover (only listed/search-result Code Mode tools and internal runtime tools exist inside `tools`; filter and aggregate collections in code; narrow `Promise<unknown>` results at runtime; run independent calls through `Promise.all`; enumerate `tools` with `Object.keys`/`for...in`; browse a namespace and paginate search results when search is advertised), a short `## Language` section that identifies the runtime as a restricted JavaScript orchestration language and names its major unavailable capabilities, and the budgeted `## Available tools` catalog. Example call forms use explicit `<namespace>.<tool>`/`<field>` placeholders - never a real or fabricated tool name.
+指令采用结构化 Markdown，并按工作流在顶部、目录在底部的顺序组织：`## Workflow` 部分包含编号步骤（目录不完整时通过搜索寻找工具，完整时从内联列表中选择；按原样调用准确路径；只返回需要的字段）；`## Rules` 部分只包含工作流尚未覆盖的指导（`tools` 中只存在列出/搜索结果中的 Code Mode 工具和内部运行时工具；在代码中过滤和聚合集合；运行时收窄 `Promise<unknown>` 结果；通过 `Promise.all` 运行独立调用；使用 `Object.keys`/`for...in` 枚举 `tools`；搜索可用时浏览命名空间并对搜索结果分页）；简短的 `## Language` 部分说明运行时是一种受限 JavaScript 编排语言，并列出主要不可用功能；最后是受预算限制的 `## Available tools` 目录。示例调用形式使用显式 `<namespace>.<tool>`/`<field>` 占位符——绝不使用真实或虚构的工具名称。
 
-A host cannot define its own `$codemode` top-level namespace.
+宿主不能定义自己的 `$codemode` 顶级命名空间。
 
-## Supported Programs
+## 支持的程序
 
-CodeMode executes a deliberately bounded JavaScript subset. It supports:
+CodeMode 执行经过刻意限制的 JavaScript 子集。它支持：
 
-- Plain data literals, property access, assignment, and destructuring.
-- `if`, conditional expressions, `switch`, `for`, `for...of` (arrays, strings, Maps, Sets), `for...in` (own keys of plain objects, index strings of arrays, and namespace/tool names of `tools` references - anything else is an error suggesting `for...of` or `Object.keys`, rather than real JS's surprising behavior of indices for strings and zero iterations for Maps/Sets), `while`, and `do...while`.
-- Arrow functions and function declarations with closures, defaults, rest parameters, and destructuring.
-- Optional chaining, nullish coalescing, templates, spread (arrays, strings, Maps, Sets), and `try`/`catch`.
-- Common array, string, number, `Object`, `Math`, and `JSON` operations. Mutating array methods include `push`/`pop`/`shift`/`unshift`/`splice` (removes in place and returns the removed elements)/`fill`/`copyWithin`; array `keys`/`values`/`entries` return **arrays** (matching the Map/Set convention) and work with `for...of` and spread. String methods include `localeCompare` (locale/options arguments ignored), `normalize`, and the `trimLeft`/`trimRight` aliases. `Object.keys` also accepts arrays (index strings, as in JS) and tool references: `Object.keys(tools)` lists the top-level namespaces, including `$codemode`, and `Object.keys(tools.ns)` lists the names at that node (a callable tool enumerates as `[]`; an unknown path is an `UnknownTool` diagnostic). `Object.values`/`Object.entries` on a tool reference fail with a pointer at `Object.keys(tools)` and `tools.$codemode.search`.
-- `Date` - `Date.now()`/`Date.parse()`/`Date.UTC()`, `new Date(...)`, the getter methods, and date arithmetic/comparison via the time value. Dates stringify as ISO (`toString` included, for determinism across host timezones).
-- Regular expressions - `/literals/` and `new RegExp(...)` with `test`/`exec` (stateful `lastIndex` for `g`), plus string `match`/`matchAll`/`replace`/`replaceAll`/`split`/`search` with patterns. Match results are arrays carrying `index` and named `groups` as own properties (`input` is omitted). `replace` and `replaceAll` accept function replacers with captures, offset, input, and named groups; callbacks run sequentially, may await tool calls, and have their results coerced to strings. Invalid patterns, invalid flags, and missing-`g` calls fail with catchable errors that say what was wrong and how to fix it (escaping hints, the exact `/pattern/g` to write). Patterns run on the host engine, so pathological backtracking is bounded only by the execution timeout.
-- `Map` and `Set` - construction from entries/arrays/strings, `get`/`set`/`add`/`has`/`delete`/`clear`/`size`/`forEach`, and `keys`/`values`/`entries` returning **arrays** (not iterators).
-- URL helpers - `URL` resolution and mutation, linked `URLSearchParams`, `URL.canParse`/`URL.parse`, URI and URI-component encoding/decoding, and query parameter construction, lookup, mutation, sorting, callbacks, and materialization. URLSearchParams iteration methods return arrays, matching the Map/Set convention.
-- First-class promises - an un-awaited `tools.ns.tool(...)` is a promise value whose call starts immediately on a supervised fiber; `await` resolves it (awaiting a non-promise value is a no-op, and `return tools.ns.tool(...)` resolves like an async-function return). `Promise.all`, `Promise.allSettled`, and `Promise.race` accept any array mixing promises and plain values (built inline, beforehand, or via spread); `Promise.resolve`/`Promise.reject` construct settled promises. `Promise.allSettled` rejection reasons are the same plain `{ name?, message }` data a `catch` binding sees, and `Promise.race` interrupts its losing in-flight calls. At most 8 tool calls run concurrently. When a program completes, still-running un-awaited calls are awaited before the execution ends; a failure from a call that was never awaited surfaces as an unhandled-rejection diagnostic.
-- `throw value` and `throw new Error(message)` for explicit program failure. `Error` (and `TypeError`/`RangeError`/`SyntaxError`/`ReferenceError`/`EvalError`/`URIError`) are real constructors, callable with or without `new`; error values are plain `{ name, message }` data that additionally satisfy `instanceof Error` (a specific type matches itself and `Error`, as in JS). Every caught failure - thrown errors, interpreter runtime errors, and tool failures - is `instanceof Error` in a `catch` block; a thrown non-error value (`throw "text"`) is not, matching JS. Caught failures carry the `name` the equivalent real-JS failure would have - `JSON.parse` and invalid regex patterns produce a `SyntaxError` (satisfying `instanceof SyntaxError`), an unknown identifier a `ReferenceError`, assigning to a constant a `TypeError`, a bad `normalize` form a `RangeError`; failures with no specific analogue (including tool failures) are named `"Error"`. `instanceof` also recognizes `Date`, `RegExp`, `Map`, `Set`, `URL`, `URLSearchParams`, `Array`, `Object`, and `Promise`; any other right-hand side is a catchable error.
+- 普通数据字面量、属性访问、赋值和解构。
+- `if`、条件表达式、`switch`、`for`、`for...of`（数组、字符串、Map、Set）、`for...in`（普通对象的自有 key、数组索引字符串，以及 `tools` 引用的命名空间/工具名称——其他值会产生错误并建议使用 `for...of` 或 `Object.keys`，而不会采用真实 JS 对字符串枚举索引、对 Map/Set 零次迭代这种意外行为）、`while` 和 `do...while`。
+- 带闭包、默认参数、剩余参数和解构的箭头函数及函数声明。
+- 可选链、空值合并、模板、展开（数组、字符串、Map、Set）以及 `try`/`catch`。
+- 常用的数组、字符串、数字、`Object`、`Math` 和 `JSON` 操作。会修改数组的方法包括 `push`/`pop`/`shift`/`unshift`/`splice`（原地移除并返回被移除元素）/`fill`/`copyWithin`；数组的 `keys`/`values`/`entries` 返回**数组**（与 Map/Set 约定一致），可与 `for...of` 和展开配合使用。字符串方法包括 `localeCompare`（忽略 locale/options 参数）、`normalize` 和 `trimLeft`/`trimRight` 别名。`Object.keys` 也接受数组（与 JS 一样返回索引字符串）和工具引用：`Object.keys(tools)` 列出包括 `$codemode` 在内的顶级命名空间，`Object.keys(tools.ns)` 列出该节点的名称（可调用工具枚举为 `[]`；未知路径产生 `UnknownTool` 诊断）。对工具引用使用 `Object.values`/`Object.entries` 会失败，并提示使用 `Object.keys(tools)` 和 `tools.$codemode.search`。
+- `Date`——`Date.now()`/`Date.parse()`/`Date.UTC()`、`new Date(...)`、getter 方法，以及通过时间值进行日期算术/比较。日期序列化为 ISO（包括 `toString`，确保不同宿主时区下的确定性）。
+- 正则表达式——`/literals/` 和带 `test`/`exec` 的 `new RegExp(...)`（`g` 使用有状态的 `lastIndex`），以及字符串的 `match`/`matchAll`/`replace`/`replaceAll`/`split`/`search` 模式操作。匹配结果是带有自有属性 `index` 和命名 `groups` 的数组（省略 `input`）。`replace` 和 `replaceAll` 接受函数替换器，参数包含捕获项、偏移量、输入和命名组；回调按顺序运行，可以等待工具调用，其结果会被强制转换为字符串。无效模式、无效 flag 和缺少 `g` 的调用会产生可捕获错误，说明错误原因和修复方法（转义提示、应编写的准确 `/pattern/g`）。模式在宿主引擎上运行，因此病态回溯只受执行超时限制。
+- `Map` 和 `Set`——从条目/数组/字符串构造，支持 `get`/`set`/`add`/`has`/`delete`/`clear`/`size`/`forEach`，并且 `keys`/`values`/`entries` 返回**数组**（而不是迭代器）。
+- URL 辅助工具——`URL` 解析和修改、关联的 `URLSearchParams`、`URL.canParse`/`URL.parse`、URI 和 URI 组件编解码，以及查询参数构造、查找、修改、排序、回调和具体化。URLSearchParams 迭代方法返回数组，与 Map/Set 约定一致。
+- 一等 Promise——未等待的 `tools.ns.tool(...)` 是 Promise 值，其调用会立即在受监管 fiber 上启动；`await` 解析它（等待非 Promise 值不执行操作，`return tools.ns.tool(...)` 则像异步函数返回一样解析）。`Promise.all`、`Promise.allSettled` 和 `Promise.race` 接受混合 Promise 与普通值的任意数组（可内联构建、提前构建或通过展开构建）；`Promise.resolve`/`Promise.reject` 构造已结算 Promise。`Promise.allSettled` 的拒绝原因与 `catch` 绑定看到的普通 `{ name?, message }` 数据相同，`Promise.race` 会中断落败的进行中调用。最多并发运行 8 个工具调用。程序完成时，仍在运行的未等待调用会在执行结束前被等待；从未等待的调用失败时，会作为未处理拒绝诊断显示。
+- 使用 `throw value` 和 `throw new Error(message)` 明确让程序失败。`Error`（以及 `TypeError`/`RangeError`/`SyntaxError`/`ReferenceError`/`EvalError`/`URIError`）是真实构造器，使用或不使用 `new` 均可调用；错误值是普通 `{ name, message }` 数据，同时满足 `instanceof Error`（与 JS 一样，特定类型既匹配自身也匹配 `Error`）。每个捕获的失败——抛出的错误、解释器运行时错误和工具失败——在 `catch` 块中都满足 `instanceof Error`；抛出的非错误值（`throw "text"`）则不满足，与 JS 一致。捕获的失败带有真实 JS 等价失败所具有的 `name`——`JSON.parse` 和无效正则模式产生 `SyntaxError`（满足 `instanceof SyntaxError`），未知标识符产生 `ReferenceError`，向常量赋值产生 `TypeError`，错误的 `normalize` 形式产生 `RangeError`；没有特定对应项的失败（包括工具失败）名为 `"Error"`。`instanceof` 还识别 `Date`、`RegExp`、`Map`、`Set`、`URL`、`URLSearchParams`、`Array`、`Object` 和 `Promise`；任何其他右侧值都会产生可捕获错误。
 
-Inside a program, standard-library values stay live everywhere: the internal data checkpoints (`Object.*` helpers, spread, coercion inputs) preserve the instances, so `Object.values({ d: date })[0].getTime()` and a spread copy of an object holding a Map keep working. Only at the host boundary (final result, tool arguments, `JSON.stringify`) do they serialize exactly as `JSON.stringify` would: Date and URL become strings (an invalid Date becomes `null`), while RegExp, Map, Set, and URLSearchParams become `{}`. Promise values never cross a data boundary: an un-awaited promise in a result or tool argument produces a diagnostic that says to await it, instead of serializing to `{}`.
+在程序内部，标准库值始终保持活性：内部数据检查点（`Object.*` 辅助工具、展开、强制转换输入）会保留实例，因此 `Object.values({ d: date })[0].getTime()` 和包含 Map 的对象的展开副本仍可工作。只有在宿主边界（最终结果、工具参数、`JSON.stringify`）上，它们才会完全按照 `JSON.stringify` 的方式序列化：Date 和 URL 变成字符串（无效 Date 变成 `null`），RegExp、Map、Set 和 URLSearchParams 变成 `{}`。Promise 值永远不能跨越数据边界：结果或工具参数中未等待的 Promise 会产生诊断，要求等待该 Promise，而不是将其序列化为 `{}`。
 
-It does not expose `eval`, dynamic imports, modules, classes, generators, timers, host globals, prototype mutation, custom promise constructors (`new Promise`), promise chaining (`.then`/`.catch`/`.finally` - `await` with `try`/`catch` is the supported style), or arbitrary method calls. Unsupported syntax returns an `UnsupportedSyntax` diagnostic with a source location when available.
+它不公开 `eval`、动态导入、模块、类、生成器、计时器、宿主全局变量、原型修改、自定义 Promise 构造器（`new Promise`）、Promise 链（`.then`/`.catch`/`.finally`——支持的风格是配合 `try`/`catch` 使用 `await`）或任意方法调用。不受支持的语法会在可用时返回带源代码位置的 `UnsupportedSyntax` 诊断。
 
-CodeMode is an orchestration language, not a general JavaScript runtime.
+CodeMode 是编排语言，而不是通用 JavaScript 运行时。
 
-## Execution Limits
+## 执行限制
 
-The limits are exactly three knobs:
+限制恰好有三个调节项：
 
-| Limit            |              Default | Bounds                                                               |
-| ---------------- | -------------------: | -------------------------------------------------------------------- |
-| `timeoutMs`      |    none - no timeout | Wall-clock execution time.                                           |
-| `maxToolCalls`   |     none - unlimited | Tool calls admitted during the execution.                            |
-| `maxOutputBytes` | none - no truncation | Model-facing output: the serialized result value plus captured logs. |
+| 限制             |              默认值 | 边界                                               |
+| ---------------- | ------------------: | -------------------------------------------------- |
+| `timeoutMs`      |        无——不超时   | 墙钟执行时间。                                     |
+| `maxToolCalls`   |        无——无限制   | 执行期间接纳的工具调用。                           |
+| `maxOutputBytes` |        无——不截断   | 面向模型的输出：序列化结果值加上捕获的日志。       |
 
-No limit has a default, on purpose: execution budgets are host policy, not library policy - a host that wants a bound sets one; a host that can interrupt the execution fiber (as miaopan-code does on user cancel) may set no timeout, and a host with its own tool-output truncation (as miaopan-code has) may leave `maxOutputBytes` unset. A host with neither should set `maxOutputBytes`, or oversized results silently flood model context.
+所有限制都刻意没有默认值：执行预算属于宿主策略，而不是库策略——需要边界的宿主自行设置；可以中断执行 fiber 的宿主（miaopan-code 会在用户取消时这样做）可以不设置超时；拥有自身工具输出截断机制的宿主（miaopan-code 具备该机制）可以不设置 `maxOutputBytes`。二者都没有的宿主应设置 `maxOutputBytes`，否则超大结果会悄无声息地淹没模型上下文。
 
-Pass only the overrides you need:
+只传入需要的覆盖值：
 
 ```ts
 const runtime = CodeMode.make({
@@ -279,32 +281,32 @@ const runtime = CodeMode.make({
 })
 ```
 
-Limits are safe integers. `timeoutMs` must be at least `1`; the others may be `0`. Invalid configuration throws a `RangeError` when `CodeMode.make` or `CodeMode.execute` is called. An explicitly `undefined` value is the same as leaving the limit unset.
+限制必须是安全整数。`timeoutMs` 至少为 `1`；其他限制可以为 `0`。无效配置会在调用 `CodeMode.make` 或 `CodeMode.execute` 时抛出 `RangeError`。显式设置为 `undefined` 等同于省略该限制。
 
-Exceeding a configured `maxOutputBytes` never fails the execution. An oversized result value is replaced by its truncated serialized text plus an explanatory marker, logs are kept from the start until the remaining budget is exhausted (with a final marker line noting the cut), and the result carries `truncated: true`.
+超过配置的 `maxOutputBytes` 永远不会使执行失败。超大结果值会被替换为截断后的序列化文本和解释性标记；日志会从开头保留，直到剩余预算耗尽（最后附上一行标记，说明发生了截断）；结果带有 `truncated: true`。
 
-When configured, the timeout interrupts in-flight tool Effects, including eagerly started calls the program has not awaited (their fibers are supervised by the execution). The interpreter yields cooperatively between steps, so the timeout also interrupts pure busy loops (`while (true) {}`) - no separate work budget exists. Tool implementations remain responsible for making their external operations interruptible or independently bounded.
+配置超时后，它会中断进行中的工具 Effect，包括程序尚未等待但已积极启动的调用（它们的 fiber 由执行过程监管）。解释器会在步骤之间协作式让出，因此超时也会中断纯忙循环（`while (true) {}`）——不存在单独的工作预算。工具实现仍有责任确保其外部操作可被中断或具有独立边界。
 
-Two interpreter internals are fixed constants rather than knobs: at most 8 tool calls run concurrently, and values crossing a data boundary may nest at most 32 levels deep (deeper values fail as `InvalidDataValue`, which reads better than a native stack-overflow error). Neither is part of the public contract.
+有两个解释器内部设置是固定常量，而不是调节项：最多同时运行 8 个工具调用，跨越数据边界的值最多嵌套 32 层（更深的值以 `InvalidDataValue` 失败，比原生堆栈溢出错误更易理解）。二者都不属于公共契约。
 
-## Diagnostics
+## 诊断
 
-Failures are data:
+失败以数据表示：
 
-| Kind                    | Meaning                                                                                                  |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| `ParseError`            | Source is empty or cannot be parsed.                                                                     |
-| `UnsupportedSyntax`     | Parsed JavaScript is outside the supported subset.                                                       |
-| `UnknownTool`           | A program referenced a tool the host did not provide.                                                    |
-| `InvalidToolInput`      | Tool input failed schema decoding or safe-data copying.                                                  |
-| `InvalidToolOutput`     | Tool output failed schema decoding or safe-data copying.                                                 |
-| `InvalidDataValue`      | Program data violated the plain-data contract (depth, circularity, blocked properties, non-data values). |
-| `ToolCallLimitExceeded` | Calls exceeded `maxToolCalls`.                                                                           |
-| `TimeoutExceeded`       | Execution exceeded `timeoutMs`.                                                                          |
-| `ToolFailure`           | A tool refused or failed.                                                                                |
-| `ExecutionFailure`      | The program threw or another execution error occurred.                                                   |
+| 种类                    | 含义                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `ParseError`            | 源代码为空或无法解析。                                                               |
+| `UnsupportedSyntax`     | 已解析的 JavaScript 超出支持的子集。                                                  |
+| `UnknownTool`           | 程序引用了宿主未提供的工具。                                                         |
+| `InvalidToolInput`      | 工具输入未通过 Schema 解码或安全数据复制。                                           |
+| `InvalidToolOutput`     | 工具输出未通过 Schema 解码或安全数据复制。                                           |
+| `InvalidDataValue`      | 程序数据违反普通数据契约（深度、循环引用、被阻止的属性、非数据值）。                 |
+| `ToolCallLimitExceeded` | 调用超过 `maxToolCalls`。                                                            |
+| `TimeoutExceeded`       | 执行超过 `timeoutMs`。                                                               |
+| `ToolFailure`           | 工具拒绝执行或执行失败。                                                             |
+| `ExecutionFailure`      | 程序抛出异常或发生其他执行错误。                                                     |
 
-Unknown host failures, defects, invalid outputs, and copying failures are sanitized. To return a safe operational refusal, fail with `toolError`:
+未知宿主失败、缺陷、无效输出和复制失败会被净化。若要返回安全的操作拒绝，请以 `toolError` 失败：
 
 ```ts
 import { toolError } from "@miaopan-code/codemode"
@@ -312,58 +314,58 @@ import { toolError } from "@miaopan-code/codemode"
 run: ({ id }) => (authorized(id) ? loadOrder(id) : Effect.fail(toolError("Order is unavailable")))
 ```
 
-Only the supplied message is model-visible. The optional cause is never returned in `CodeMode.Result`; hosts should perform any required internal logging before crossing this boundary.
+只有提供的消息对模型可见。可选 cause 永远不会在 `CodeMode.Result` 中返回；宿主应在跨越该边界前完成任何必要的内部日志记录。
 
-## Authority Boundary
+## 权限边界
 
-CodeMode confines programs to the supplied tool tree, but it does not decide what those tools may do.
+CodeMode 将程序限制在提供的工具树中，但不决定这些工具可以做什么。
 
-The host owns:
+宿主负责：
 
-- Authentication and authorization.
-- Tool selection and immutable scope.
-- Credentials and network clients.
-- Persistence, idempotency, approval, and durable side effects.
-- Logging and redaction policy.
+- 身份认证和授权。
+- 工具选择和不可变作用域。
+- 凭据和网络客户端。
+- 持久化、幂等性、审批和持久副作用。
+- 日志记录和脱敏策略。
 
-CodeMode owns:
+CodeMode 负责：
 
-- Parsing and interpreting the supported subset without `eval`.
-- Schema boundaries around tool calls.
-- Plain-data copying and blocked prototype members.
-- Resource limits, call accounting, and normalized diagnostics.
-- Model-facing tool discovery and instructions.
+- 在不使用 `eval` 的情况下解析并解释受支持子集。
+- 工具调用周围的 Schema 边界。
+- 普通数据复制和被阻止的原型成员。
+- 资源限制、调用计数和规范化诊断。
+- 面向模型的工具发现和指令。
 
-A program cannot gain authority through prose or generated code. It can only exercise authority already present in the supplied tools. Do not expose a broad tool and expect the prompt to restrict it.
+程序无法通过文字或生成的代码获得权限。它只能行使所提供工具中已经存在的权限。不要公开一个宽泛的工具，然后寄希望于提示词限制它。
 
-## Laws
+## 定律
 
-The public contract is guided by these equivalences:
+公共契约遵循以下等价关系：
 
-- `CodeMode.execute({ ...options, code })` is equivalent to `CodeMode.make(options).execute(code)`.
-- A tool implementation is not invoked unless its input has decoded successfully.
-- A tool result is not visible to the program unless its output has decoded and crossed the plain-data boundary successfully.
-- Unknown host failures do not become model-visible diagnostics; `ToolError` is the explicit safe-message channel.
-- Host interruption remains interruption rather than a `CodeMode.Failure`.
+- `CodeMode.execute({ ...options, code })` 等价于 `CodeMode.make(options).execute(code)`。
+- 工具输入成功解码前，不会调用工具实现。
+- 工具结果只有在输出成功解码并越过普通数据边界后，才对程序可见。
+- 未知宿主失败不会成为模型可见诊断；`ToolError` 是显式的安全消息通道。
+- 宿主中断保持为中断，而不会变成 `CodeMode.Failure`。
 
-## Non-Goals
+## 非目标
 
-- Generic permission prompts or approval workflows.
-- Durable pause/resume, replay, or storage adapters.
-- Exactly-once external side effects.
-- Application authorization or product policy.
-- A filesystem or process sandbox for arbitrary JavaScript.
-- Compatibility with the full JavaScript language or npm ecosystem.
+- 通用权限提示或审批工作流。
+- 持久化暂停/恢复、重放或存储适配器。
+- 恰好一次的外部副作用。
+- 应用授权或产品策略。
+- 面向任意 JavaScript 的文件系统或进程沙箱。
+- 与完整 JavaScript 语言或 npm 生态系统兼容。
 
-Applications that need approval or durable consequences should model those above CodeMode and expose only the currently authorized tools.
+需要审批或持久后果的应用，应在 CodeMode 之上对其建模，并且只公开当前已获授权的工具。
 
-## Testing
+## 测试
 
-From the package directory:
+从包目录运行：
 
 ```sh
 bun test
 bun run typecheck
 ```
 
-The direct suite covers public projections, discovery, schema boundaries, diagnostic sanitization, resource limits, tool-call observation, and interruption.
+直接测试套件覆盖公共投影、发现、Schema 边界、诊断净化、资源限制、工具调用观测和中断。

@@ -1,7 +1,10 @@
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./locale"
+
 export function webSearchProviderLabel(provider: unknown) {
-  if (provider === "parallel") return "Parallel Web Search"
-  if (provider === "exa") return "Exa Web Search"
-  return "Web Search"
+  if (provider === "parallel") return t(Locale.language(), "tui.web_search_parallel")
+  if (provider === "exa") return t(Locale.language(), "tui.web_search_exa")
+  return t(Locale.language(), "tui.web_search")
 }
 
 export function toolDisplayMetadata(state: unknown): Record<string, unknown> {

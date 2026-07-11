@@ -1,5 +1,7 @@
 # Effect Guide
 
+Languages: [简体中文索引](../README.md) · English
+
 How we write Effect code in `packages/miaopan-code`. The companion roadmap is
 [`todo.md`](./todo.md).
 

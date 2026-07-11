@@ -1,19 +1,14 @@
-# OpenAPI Follow-ups
+# OpenAPI 后续工作
 
-The initial adapter intentionally skips operations it cannot execute correctly. Future work may add:
+语言版本：[简体中文](TODO.md) · [English](TODO.en.md)
 
-- Cookie parameters, authentication, and cookie-header merging.
-- Matrix, label, space-delimited, pipe-delimited, `allowReserved`, and parameter `content` serialization.
-- External references and complete nested `$defs` support.
-- Relative or templated server URLs and server variables.
-- Base URLs containing query strings or fragments.
-- Runtime response-schema validation and full content negotiation.
-- Binary response values and explicit byte-oriented return types.
-- Request/response projection for `readOnly` and `writeOnly` properties.
-- SSE, WebSocket, and other streaming transports.
-- Recovery of responses rejected by a status-filtering `HttpClient`.
-- Configurable request and response size limits.
-- Adapter-enforced redirect policy independent of the supplied `HttpClient`.
-- Strict UTF-8 and empty-body validation for JSON responses.
-- Compile-time rejection of parameter schemas with nested values unsupported by their serialization style; runtime rejects them before auth resolution.
-- Complete malformed-security-scheme validation and broader auth-combination coverage.
+CodeMode 的 OpenAPI 适配器会跳过当前无法正确执行的操作。后续工作包括：
+
+- Cookie 参数、认证和 Cookie Header 合并；
+- 各种参数序列化格式、外部引用和嵌套 `$defs`；
+- 模板 Server URL、查询字符串/片段基础 URL；
+- 响应 Schema 校验、内容协商、二进制和流式传输；
+- 响应投影（`readOnly`/`writeOnly`）、重定向策略和请求/响应大小限制；
+- JSON 响应的 UTF-8/空响应体校验，以及更完整的安全方案组合校验。
+
+完整清单和实现边界请参阅 [英文后续工作文档](TODO.en.md)。协议字段、Schema 名称和代码标识保持原样。

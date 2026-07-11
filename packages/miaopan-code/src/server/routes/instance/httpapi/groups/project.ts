@@ -7,6 +7,7 @@ import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
 import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { t, type Language } from "../i18n"
 
 const root = "/project"
 const UpdatePayload = Schema.Struct({
@@ -15,79 +16,82 @@ const UpdatePayload = Schema.Struct({
   commands: Schema.optional(Project.Info.fields.commands),
 })
 
-export const ProjectApi = HttpApi.make("project")
-  .add(
-    HttpApiGroup.make("project")
-      .add(
-        HttpApiEndpoint.get("list", root, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Project.Info), "List of projects"),
-        }).annotateMerge(
+export const makeProjectApi = (language?: Language) =>
+  HttpApi.make("project")
+    .add(
+      HttpApiGroup.make("project")
+        .add(
+          HttpApiEndpoint.get("list", root, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Project.Info), t(language, "response_project_list")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "project.list",
+              summary: t(language, "project_list"),
+              description: t(language, "project_list_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("current", `${root}/current`, {
+            query: WorkspaceRoutingQuery,
+            success: described(Project.Info, t(language, "response_current_project")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "project.current",
+              summary: t(language, "project_current"),
+              description: t(language, "project_current_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("initGit", `${root}/git/init`, {
+            query: WorkspaceRoutingQuery,
+            success: described(Project.Info, t(language, "response_project_after_git_init")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "project.initGit",
+              summary: t(language, "project_init_git"),
+              description: t(language, "project_init_git_description"),
+            }),
+          ),
+          HttpApiEndpoint.patch("update", `${root}/:projectID`, {
+            params: { projectID: ProjectV2.ID },
+            query: WorkspaceRoutingQuery,
+            payload: UpdatePayload,
+            success: described(Project.Info, t(language, "response_project_updated")),
+            error: [HttpApiError.BadRequest, ProjectNotFoundError],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "project.update",
+              summary: t(language, "project_update"),
+              description: t(language, "project_update_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("directories", `${root}/:projectID/directories`, {
+            params: { projectID: ProjectV2.ID },
+            query: WorkspaceRoutingQuery,
+            success: described(ProjectV2.Directories, t(language, "response_project_directories")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "project.directories",
+              summary: t(language, "project_directories"),
+              description: t(language, "project_directories_description"),
+            }),
+          ),
+        )
+        .annotateMerge(
           OpenApi.annotations({
-            identifier: "project.list",
-            summary: "List all projects",
-            description: "Get a list of projects that have been opened with MiaopanCode.",
+            title: "project",
+            description: t(language, "project_routes"),
           }),
-        ),
-        HttpApiEndpoint.get("current", `${root}/current`, {
-          query: WorkspaceRoutingQuery,
-          success: described(Project.Info, "Current project information"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "project.current",
-            summary: "Get current project",
-            description: "Retrieve the currently active project that MiaopanCode is working with.",
-          }),
-        ),
-        HttpApiEndpoint.post("initGit", `${root}/git/init`, {
-          query: WorkspaceRoutingQuery,
-          success: described(Project.Info, "Project information after git initialization"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "project.initGit",
-            summary: "Initialize git repository",
-            description: "Create a git repository for the current project and return the refreshed project info.",
-          }),
-        ),
-        HttpApiEndpoint.patch("update", `${root}/:projectID`, {
-          params: { projectID: ProjectV2.ID },
-          query: WorkspaceRoutingQuery,
-          payload: UpdatePayload,
-          success: described(Project.Info, "Updated project information"),
-          error: [HttpApiError.BadRequest, ProjectNotFoundError],
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "project.update",
-            summary: "Update project",
-            description: "Update project properties such as name, icon, and commands.",
-          }),
-        ),
-        HttpApiEndpoint.get("directories", `${root}/:projectID/directories`, {
-          params: { projectID: ProjectV2.ID },
-          query: WorkspaceRoutingQuery,
-          success: described(ProjectV2.Directories, "Project directories"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "project.directories",
-            summary: "List project directories",
-            description: "List known local absolute directories for a project.",
-          }),
-        ),
-      )
-      .annotateMerge(
-        OpenApi.annotations({
-          title: "project",
-          description: "Experimental HttpApi project routes.",
-        }),
-      )
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode experimental HttpApi",
-      version: "0.0.1",
-      description: "Experimental HttpApi surface for selected instance routes.",
-    }),
-  )
+        )
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "httpapi_title"),
+        version: "0.0.1",
+        description: t(language, "httpapi_title"),
+      }),
+    )
+
+export const ProjectApi = makeProjectApi()

@@ -20,6 +20,7 @@ import { resolveModelInfo, resolveRunTuiConfig, resolveSessionInfo } from "./run
 import { createRuntimeLifecycle } from "./runtime.lifecycle"
 import { trace } from "./trace"
 import { cycleVariant, formatModelLabel, resolveSavedVariant, resolveVariant, saveVariant } from "./variant.shared"
+import { UI } from "../../ui"
 import type { LocalReplayAnchor, LocalReplayRow, RunInput, RunPrompt, RunProvider, StreamCommit } from "./types"
 
 /** @internal Exported for testing */
@@ -105,7 +106,7 @@ function createSessionResolver(fn?: CreateSession) {
   return async (ctx: BootContext, input: CreateSessionInput): Promise<ResolvedSession> => {
     const created = await fn(ctx.sdk, input)
     if (!created.id) {
-      throw new Error("Failed to create session")
+      throw new Error(UI.t("cli.run.session_create_failed"))
     }
 
     return {
@@ -269,14 +270,16 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
     onCycleVariant: () => {
       if (!state.model || state.variants.length === 0) {
         return {
-          status: "no variants available",
+          status: UI.t("cli.run.no_variants"),
         }
       }
 
       state.activeVariant = cycleVariant(state.activeVariant, state.variants)
       saveVariant(state.model, state.activeVariant)
       return {
-        status: state.activeVariant ? `variant ${state.activeVariant}` : "variant default",
+        status: state.activeVariant
+          ? UI.t("cli.run.variant_selected", { variant: state.activeVariant })
+          : UI.t("cli.run.variant_default"),
         modelLabel: formatModelLabel(state.model, state.activeVariant, state.providers),
         variant: state.activeVariant,
       }
@@ -310,7 +313,7 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
 
       return {
         modelLabel: formatModelLabel(model, state.activeVariant, state.providers),
-        status: `model ${model.modelID}`,
+        status: UI.t("cli.run.model_selected", { model: model.modelID }),
         variant: state.activeVariant,
         variants: state.variants,
       }
@@ -318,20 +321,22 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
     onVariantSelect: async (variant) => {
       if (!state.model || state.variants.length === 0) {
         return {
-          status: "no variants available",
+          status: UI.t("cli.run.no_variants"),
         }
       }
 
       if (variant && !state.variants.includes(variant)) {
         return {
-          status: `variant ${variant} unavailable`,
+          status: UI.t("cli.run.variant_unavailable", { variant }),
         }
       }
 
       state.activeVariant = variant
       saveVariant(state.model, state.activeVariant)
       return {
-        status: state.activeVariant ? `variant ${state.activeVariant}` : "variant default",
+        status: state.activeVariant
+          ? UI.t("cli.run.variant_selected", { variant: state.activeVariant })
+          : UI.t("cli.run.variant_default"),
         modelLabel: formatModelLabel(state.model, state.activeVariant, state.providers),
         variant: state.activeVariant,
         variants: state.variants,
@@ -464,12 +469,12 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
     const next = (async () => {
       await ensureSession()
       if (footer.isClosed) {
-        throw new Error("runtime closed")
+        throw new Error(UI.t("run.runtime_closed"))
       }
 
       const mod = await streamTask
       if (footer.isClosed) {
-        throw new Error("runtime closed")
+        throw new Error(UI.t("run.runtime_closed"))
       }
 
       const handle = await mod.createSessionTransport({
@@ -486,7 +491,7 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
       })
       if (footer.isClosed) {
         await handle.close()
-        throw new Error("runtime closed")
+        throw new Error(UI.t("run.runtime_closed"))
       }
 
       state.selectSubagent = (sessionID) => handle.selectSubagent(sessionID)
@@ -612,7 +617,7 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
               })
               footer.append({
                 kind: "system",
-                text: `new session ${state.sessionID}`,
+                text: UI.t("cli.run.new_session_created", { id: state.sessionID }),
                 phase: "final",
                 source: "system",
               })
@@ -622,7 +627,7 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
                 type: "stream.patch",
                 patch: {
                   phase: "idle",
-                  status: "failed to start new session",
+                  status: UI.t("cli.run.session_create_failed"),
                 },
               })
               const commit = {
@@ -755,7 +760,7 @@ export async function runInteractiveLocalMode(input: RunLocalInput): Promise<voi
 
       session = Promise.all([input.resolveAgent(), input.session(sdk)]).then(([agent, next]) => {
         if (!next?.id) {
-          throw new Error("Session not found")
+          throw new Error(UI.t("run.session_not_found"))
         }
 
         void input.share(sdk, next.id).catch(() => {})

@@ -4,6 +4,7 @@ import { Location } from "@miaopan-code/schema/location"
 import type { Definition } from "@miaopan-code/schema/event"
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
+import { t, type Language } from "../i18n"
 
 const fields = {
   id: Event.ID,
@@ -26,7 +27,7 @@ const schema = <const Definitions extends ReadonlyArray<Definition>>(definitions
         ]),
   ]).annotate({ identifier: "V2Event" })
 
-const make = <const Definitions extends ReadonlyArray<Definition>>(definitions: Definitions) => {
+const make = <const Definitions extends ReadonlyArray<Definition>>(definitions: Definitions, language?: Language) => {
   const EventSchema = schema(definitions)
   return {
     schema: EventSchema,
@@ -37,17 +38,21 @@ const make = <const Definitions extends ReadonlyArray<Definition>>(definitions: 
         }).annotateMerge(
           OpenApi.annotations({
             identifier: "v2.event.subscribe",
-            summary: "Subscribe to events",
-            description: "Subscribe to native event payloads for the server.",
+            summary: t(language, "event_subscribe"),
+            description: t(language, "event_subscribe_description"),
           }),
         ),
       )
-      .annotateMerge(OpenApi.annotations({ title: "events", description: "Experimental event stream route." })),
+      .annotateMerge(
+        OpenApi.annotations({ title: t(language, "event_title"), description: t(language, "event_description") }),
+      ),
   }
 }
 
-export const makeEventGroup = <const Definitions extends ReadonlyArray<Definition>>(definitions: Definitions) =>
-  make(definitions).group
+export const makeEventGroup = <const Definitions extends ReadonlyArray<Definition>>(
+  definitions: Definitions,
+  language?: Language,
+) => make(definitions, language).group
 
 const event = make(EventManifest.ServerDefinitions)
 export const EventGroup = event.group

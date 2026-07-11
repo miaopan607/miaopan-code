@@ -21,6 +21,7 @@ import { Config } from "@/config/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Git } from "@/git"
 import { Filesystem } from "@/util/filesystem"
+import { t } from "@miaopan-code/core/i18n"
 
 const toolLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   LayerNode.compile(
@@ -92,7 +93,9 @@ describe("tool.grep", () => {
         ),
       )
       expect(result.metadata.matches).toBeGreaterThan(0)
-      expect(result.output).toContain("Found")
+      expect(result.output).toContain(
+        t("zh-CN", "tool.matches", { count: result.metadata.matches, suffix: "" }).split(" ")[0],
+      )
     }),
   )
 
@@ -110,7 +113,7 @@ describe("tool.grep", () => {
         ctx,
       )
       expect(result.metadata.matches).toBe(0)
-      expect(result.output).toBe("No files found")
+      expect(result.output).toBe(t("zh-CN", "tool.no_files"))
     }),
   )
 
@@ -145,7 +148,7 @@ describe("tool.grep", () => {
       const grep = yield* info.init()
       const result = yield* grep.execute({ pattern: "needle", path: test.directory, include: "*.txt" }, ctx)
 
-      expect(result.output).toContain("(Results truncated. Consider using a more specific path or pattern.)")
+      expect(result.output).toContain(t("zh-CN", "tool.results_truncated"))
       expect(result.output).not.toMatch(/showing \d+ of \d+ matches/)
     }),
   )

@@ -6,6 +6,8 @@ import { setTimeout as sleep } from "node:timers/promises"
 import { createServer } from "http"
 import { OpenAIWebSocketPool } from "./ws-pool"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { pluginLanguage } from "../language"
 
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 const ISSUER = "https://auth.openai.com"
@@ -102,9 +104,15 @@ interface CodexAuthPluginOptions {
   issuer?: string
   codexApiEndpoint?: string
   experimentalWebSockets?: boolean
+  language?: Language
 }
 
-async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: PkceCodes): Promise<TokenResponse> {
+async function exchangeCodeForTokens(
+  code: string,
+  redirectUri: string,
+  pkce: PkceCodes,
+  language?: Language,
+): Promise<TokenResponse> {
   const response = await fetch(`${ISSUER}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -117,12 +125,12 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
     }).toString(),
   })
   if (!response.ok) {
-    throw new Error(`Token exchange failed: ${response.status}`)
+    throw new Error(t(language, "error.oauth_token_exchange", { status: response.status }))
   }
   return response.json()
 }
 
-async function refreshAccessToken(refreshToken: string, issuer = ISSUER): Promise<TokenResponse> {
+async function refreshAccessToken(refreshToken: string, issuer = ISSUER, language?: Language): Promise<TokenResponse> {
   const response = await fetch(`${issuer}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -133,19 +141,21 @@ async function refreshAccessToken(refreshToken: string, issuer = ISSUER): Promis
     }).toString(),
   })
   if (!response.ok) {
-    throw new Error(`Token refresh failed: ${response.status}`)
+    throw new Error(t(language, "error.oauth_token_refresh", { status: response.status }))
   }
   return response.json()
 }
 
 // Kept as a named export for plugin.codex tests; delegates to the shared branded page.
-export const renderOAuthError = (error: string) => OauthCallbackPage.error(error, { provider: "ChatGPT" })
+export const renderOAuthError = (error: string, language?: Language) =>
+  OauthCallbackPage.error(error, { provider: "ChatGPT", language })
 
 interface PendingOAuth {
   pkce: PkceCodes
   state: string
   resolve: (tokens: TokenResponse) => void
   reject: (error: Error) => void
+  language: Language
 }
 
 let oauthServer: ReturnType<typeof createServer> | undefined
@@ -167,53 +177,57 @@ async function startOAuthServer(): Promise<{ port: number; redirectUri: string }
 
       if (error) {
         const errorMsg = errorDescription || error
+        const language = pendingOAuth?.language
         pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-        res.end(renderOAuthError(errorMsg))
+        res.end(renderOAuthError(errorMsg, language))
         return
       }
 
       if (!code) {
-        const errorMsg = "Missing authorization code"
+        const language = pendingOAuth?.language
+        const errorMsg = t(language, "error.oauth_code_missing")
         pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" })
-        res.end(renderOAuthError(errorMsg))
+        res.end(renderOAuthError(errorMsg, language))
         return
       }
 
       if (!pendingOAuth || state !== pendingOAuth.state) {
-        const errorMsg = "Invalid state - potential CSRF attack"
+        const language = pendingOAuth?.language
+        const errorMsg = t(language, "error.oauth_state_invalid")
         pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" })
-        res.end(renderOAuthError(errorMsg))
+        res.end(renderOAuthError(errorMsg, language))
         return
       }
 
       const current = pendingOAuth
       pendingOAuth = undefined
 
-      exchangeCodeForTokens(code, `http://localhost:${OAUTH_PORT}/auth/callback`, current.pkce)
+      exchangeCodeForTokens(code, `http://localhost:${OAUTH_PORT}/auth/callback`, current.pkce, current.language)
         .then((tokens) => current.resolve(tokens))
         .catch((err) => current.reject(err))
 
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-      res.end(OauthCallbackPage.success({ provider: "ChatGPT" }))
+      res.end(OauthCallbackPage.success({ provider: "ChatGPT", language: current.language }))
       return
     }
 
     if (url.pathname === "/cancel") {
-      pendingOAuth?.reject(new Error("Login cancelled"))
+      const language = pendingOAuth?.language
+      pendingOAuth?.reject(new Error(t(language, "error.oauth_cancelled")))
       pendingOAuth = undefined
       res.writeHead(200)
-      res.end("Login cancelled")
+      res.end(t(language, "error.oauth_login_cancelled"))
       return
     }
 
     res.writeHead(404)
-    res.end("Not found")
+    res.end(t(pendingOAuth?.language, "error.oauth_not_found"))
   })
 
   await new Promise<void>((resolve, reject) => {
@@ -233,13 +247,13 @@ function stopOAuthServer() {
   }
 }
 
-function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResponse> {
+function waitForOAuthCallback(pkce: PkceCodes, state: string, language: Language): Promise<TokenResponse> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(
       () => {
         if (pendingOAuth) {
           pendingOAuth = undefined
-          reject(new Error("OAuth callback timeout - authorization took too long"))
+          reject(new Error(t(language, "error.oauth_timeout")))
         }
       },
       5 * 60 * 1000,
@@ -248,6 +262,7 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
     pendingOAuth = {
       pkce,
       state,
+      language,
       resolve: (tokens) => {
         clearTimeout(timeout)
         resolve(tokens)
@@ -261,6 +276,7 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
 }
 
 export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPluginOptions = {}): Promise<Hooks> {
+  const language = pluginLanguage(options)
   const issuer = options.issuer ?? ISSUER
   const codexApiEndpoint = options.codexApiEndpoint ?? CODEX_API_ENDPOINT
   let websocketFetchInstalled = false
@@ -314,7 +330,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
       async loader(getAuth) {
         const auth = await getAuth()
         const websocketFetch = options.experimentalWebSockets
-          ? OpenAIWebSocketPool.createWebSocketFetch({ httpFetch: fetch })
+          ? OpenAIWebSocketPool.createWebSocketFetch({ httpFetch: fetch, language })
           : undefined
         if (websocketFetch) {
           websocketFetches.push(websocketFetch)
@@ -352,7 +368,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
 
             if (!currentAuth.access || currentAuth.expires < Date.now()) {
               if (!refreshPromise) {
-                refreshPromise = refreshAccessToken(currentAuth.refresh, issuer)
+                refreshPromise = refreshAccessToken(currentAuth.refresh, issuer, language)
                   .then(async (tokens) => {
                     const accountId = extractAccountId(tokens) || authWithAccount.accountId
                     await input.client.auth.set({
@@ -419,7 +435,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
       },
       methods: [
         {
-          label: "ChatGPT Pro/Plus (browser)",
+          label: t(language, "plugin.codex.browser"),
           type: "oauth",
           authorize: async () => {
             const { redirectUri } = await startOAuthServer()
@@ -427,11 +443,11 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
             const state = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)).buffer)
             const authUrl = buildAuthorizeUrl(redirectUri, pkce, state)
 
-            const callbackPromise = waitForOAuthCallback(pkce, state)
+            const callbackPromise = waitForOAuthCallback(pkce, state, language)
 
             return {
               url: authUrl,
-              instructions: "Complete authorization in your browser. This window will close automatically.",
+              instructions: t(language, "plugin.oauth.browser_instructions"),
               method: "auto" as const,
               callback: async () => {
                 const tokens = await callbackPromise
@@ -449,7 +465,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
           },
         },
         {
-          label: "ChatGPT Pro/Plus (headless)",
+          label: t(language, "plugin.codex.headless"),
           type: "oauth",
           authorize: async () => {
             const deviceResponse = await fetch(`${ISSUER}/api/accounts/deviceauth/usercode`, {
@@ -461,7 +477,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
               body: JSON.stringify({ client_id: CLIENT_ID }),
             })
 
-            if (!deviceResponse.ok) throw new Error("Failed to initiate device authorization")
+            if (!deviceResponse.ok) throw new Error(t(language, "plugin.github.device_auth_failed"))
 
             const deviceData = (await deviceResponse.json()) as {
               device_auth_id: string
@@ -472,7 +488,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
 
             return {
               url: `${ISSUER}/codex/device`,
-              instructions: `Enter code: ${deviceData.user_code}`,
+              instructions: t(language, "plugin.oauth.enter_code", { code: deviceData.user_code }),
               method: "auto" as const,
               async callback() {
                 while (true) {
@@ -507,7 +523,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
                     })
 
                     if (!tokenResponse.ok) {
-                      throw new Error(`Token exchange failed: ${tokenResponse.status}`)
+                      throw new Error(t(language, "error.oauth_token_exchange", { status: tokenResponse.status }))
                     }
 
                     const tokens: TokenResponse = await tokenResponse.json()
@@ -532,7 +548,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
           },
         },
         {
-          label: "Manually enter API Key",
+          label: t(language, "plugin.enter_api_key"),
           type: "api",
         },
       ],
@@ -540,7 +556,8 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
     "chat.headers": async (input, output) => {
       if (input.model.providerID !== "openai") return
       output.headers.originator = "miaopan-code"
-      output.headers["User-Agent"] = `miaopan-code/${InstallationVersion} (${os.platform()} ${os.release()}; ${os.arch()})`
+      output.headers["User-Agent"] =
+        `miaopan-code/${InstallationVersion} (${os.platform()} ${os.release()}; ${os.arch()})`
       output.headers["session-id"] = input.sessionID
       // Temporary fetch-layer hack: title generation currently shares the conversation
       // session ID, so the OpenAI plugin marks it for HTTP fallback until transport

@@ -15,6 +15,7 @@ import { WorkspaceV2 } from "../workspace"
 import { SessionContextEpoch } from "./context-epoch"
 import { MessageTable, PartTable, SessionInputTable, SessionMessageTable, SessionTable } from "./sql"
 import type { DeepMutable } from "../schema"
+import { zh } from "../i18n"
 
 type DatabaseService = Database.Interface["db"]
 
@@ -114,7 +115,7 @@ function run(db: DatabaseService, event: SessionEvent.Event) {
     const decodeRow = (row: typeof SessionMessageTable.$inferSelect) =>
       decodeMessage({ ...row.data, id: row.id, type: row.type })
     const updateMessage = (message: SessionMessage.Message) => {
-      if (event.durable === undefined) return Effect.die("Durable Session event is missing aggregate sequence")
+      if (event.durable === undefined) return Effect.die(zh("error.session_event_sequence_missing"))
       const encoded = encodeMessage(message)
       const { id, type, ...data } = encoded
       return db
@@ -191,7 +192,7 @@ function run(db: DatabaseService, event: SessionEvent.Event) {
 }
 
 function insertMessage(db: DatabaseService, event: SessionEvent.Event, message: SessionMessage.Message) {
-  if (event.durable === undefined) return Effect.die("Durable Session event is missing aggregate sequence")
+  if (event.durable === undefined) return Effect.die(zh("error.session_event_sequence_missing"))
   const encoded = encodeMessage(message)
   const { id, type, ...data } = encoded
   return db
@@ -349,7 +350,7 @@ const layer = Layer.effectDiscard(
     )
     yield* events.project(SessionEvent.Prompted, (event) =>
       Effect.gen(function* () {
-        if (event.durable === undefined) return yield* Effect.die("Durable Session event is missing aggregate sequence")
+        if (event.durable === undefined) return yield* Effect.die(zh("error.session_event_sequence_missing"))
         yield* SessionInput.projectPrompted(db, {
           id: event.data.messageID,
           sessionID: event.data.sessionID,
@@ -363,7 +364,7 @@ const layer = Layer.effectDiscard(
     )
     yield* events.project(SessionEvent.PromptAdmitted, (event) =>
       Effect.gen(function* () {
-        if (event.durable === undefined) return yield* Effect.die("Durable Session event is missing aggregate sequence")
+        if (event.durable === undefined) return yield* Effect.die(zh("error.session_event_sequence_missing"))
         yield* SessionInput.projectAdmitted(db, {
           admittedSeq: event.durable.seq,
           id: event.data.messageID,
@@ -425,7 +426,7 @@ const layer = Layer.effectDiscard(
           )
           .get()
           .pipe(Effect.orDie)
-        if (!boundary) return yield* Effect.die(`Revert boundary message not found: ${event.data.messageID}`)
+        if (!boundary) return yield* Effect.die(zh("error.revert_boundary_not_found", { id: event.data.messageID }))
         yield* db
           .delete(SessionMessageTable)
           .where(

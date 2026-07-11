@@ -8,6 +8,7 @@ import { FSUtil } from "../fs-util"
 import { Global } from "../global"
 import { makeGlobalNode } from "../effect/app-node"
 import { Hash } from "./hash"
+import { zh } from "../i18n"
 
 export namespace EffectFlock {
   // ---------------------------------------------------------------------------
@@ -233,17 +234,18 @@ export namespace EffectFlock {
         Effect.gen(function* () {
           const raw = yield* fs.readFileString(handle.metaPath).pipe(
             Effect.catch((err) => {
-              if (isPathGone(err)) return Effect.die(new ReleaseError({ detail: "metadata missing" }))
+              if (isPathGone(err)) return Effect.die(new ReleaseError({ detail: zh("error.flock_metadata_missing") }))
               return Effect.die(err)
             }),
           )
 
           const parsed = yield* Effect.try({
             try: () => decodeMeta(raw),
-            catch: (cause) => new ReleaseError({ detail: "metadata invalid", cause }),
+            catch: (cause) => new ReleaseError({ detail: zh("error.flock_metadata_invalid"), cause }),
           }).pipe(Effect.orDie)
 
-          if (parsed.token !== handle.token) return yield* Effect.die(new ReleaseError({ detail: "token mismatch" }))
+          if (parsed.token !== handle.token)
+            return yield* Effect.die(new ReleaseError({ detail: zh("error.flock_release_token_mismatch") }))
 
           yield* forceRemove(handle.lockDir)
         })

@@ -12,6 +12,7 @@ import { SessionInput } from "./input"
 import { SessionMessage } from "./message"
 import { SessionSchema } from "./schema"
 import { SessionContextEpochTable } from "./sql"
+import { zh } from "../i18n"
 
 type DatabaseService = Database.Interface["db"]
 
@@ -155,7 +156,7 @@ const replace = Effect.fnUntraced(function* (
     .returning({ sessionID: SessionContextEpochTable.session_id })
     .get()
     .pipe(Effect.orDie)
-  if (!updated) return yield* Effect.die("Context Epoch not found")
+  if (!updated) return yield* Effect.die(zh("error.context_epoch_not_found"))
 })
 
 const advance = Effect.fnUntraced(function* (
@@ -170,5 +171,5 @@ const advance = Effect.fnUntraced(function* (
     .returning({ sessionID: SessionContextEpochTable.session_id })
     .get()
     .pipe(Effect.orDie)
-  if (!updated) return yield* Effect.die("Context Epoch not found")
+  if (!updated) return yield* Effect.die(zh("error.context_epoch_not_found"))
 })

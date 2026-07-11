@@ -18,6 +18,7 @@ import { AzureAuthPlugin } from "./azure"
 import { DigitalOceanAuthPlugin } from "./digitalocean"
 import { XaiAuthPlugin } from "./xai"
 import { SnowflakeCortexAuthPlugin } from "./snowflake-cortex"
+import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { Effect, Layer, Context } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { InstanceState } from "@/effect/instance-state"
@@ -29,6 +30,7 @@ import type { WorkspaceAdapter } from "@/control-plane/types"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { InstallationChannel } from "@miaopan-code/core/installation/version"
+import { pluginLanguage } from "./language"
 
 type State = {
   hooks: Hooks[]
@@ -63,9 +65,10 @@ export function experimentalWebSocketsEnabled(input: { enabled: boolean; channel
 function internalPlugins(flags: RuntimeFlags.Info): PluginInstance[] {
   return [
     // Temporary rollout: pre-release builds use WebSockets by default; releases require explicit opt-in.
-    (input) =>
+    (input, options) =>
       CodexAuthPlugin(input, {
         experimentalWebSockets: experimentalWebSocketsEnabled({ enabled: flags.experimentalWebSockets }),
+        language: pluginLanguage(options),
       }),
     CopilotAuthPlugin,
     CloudflareWorkersAuthPlugin,
@@ -88,7 +91,7 @@ function getServerPlugin(value: unknown) {
   return value.server
 }
 
-function getLegacyPlugins(mod: Record<string, unknown>) {
+function getLegacyPlugins(mod: Record<string, unknown>, language: Language) {
   const seen = new Set<unknown>()
   const result: PluginInstance[] = []
 
@@ -96,23 +99,31 @@ function getLegacyPlugins(mod: Record<string, unknown>) {
     if (seen.has(entry)) continue
     seen.add(entry)
     const plugin = getServerPlugin(entry)
-    if (!plugin) throw new TypeError("Plugin export is not a function")
+    if (!plugin) throw new TypeError(t(language, "error.plugin_export_invalid"))
     result.push(plugin)
   }
 
   return result
 }
 
-async function applyPlugin(load: PluginLoader.Loaded, input: PluginInput, hooks: Hooks[]) {
-  const plugin = readV1Plugin(load.mod, load.spec, "server", "detect")
+async function applyPlugin(load: PluginLoader.Loaded, input: PluginInput, hooks: Hooks[], language: Language) {
+  const options = { language, ...load.options }
+  const plugin = readV1Plugin(load.mod, load.spec, "server", "detect", language)
   if (plugin) {
-    await resolvePluginId(load.source, load.spec, load.target, readPluginId(plugin.id, load.spec), load.pkg)
-    hooks.push(await (plugin as PluginModule).server(input, load.options))
+    await resolvePluginId(
+      load.source,
+      load.spec,
+      load.target,
+      readPluginId(plugin.id, load.spec, language),
+      load.pkg,
+      language,
+    )
+    hooks.push(await (plugin as PluginModule).server(input, options))
     return
   }
 
-  for (const server of getLegacyPlugins(load.mod)) {
-    hooks.push(await server(input, load.options))
+  for (const server of getLegacyPlugins(load.mod, language)) {
+    hooks.push(await server(input, options))
   }
 }
 
@@ -142,6 +153,7 @@ const layer = Layer.effect(
           ...(serverUrl ? {} : { fetch: async (...args) => Server.Default().app.fetch(...args) }),
         })
         const cfg = yield* config.get()
+        const language = resolveLanguage(cfg.language)
         const input: PluginInput = {
           client,
           project: ctx.project,
@@ -161,10 +173,12 @@ const layer = Layer.effect(
 
         for (const plugin of flags.disableDefaultPlugins ? [] : internalPlugins(flags)) {
           const init = yield* Effect.tryPromise({
-            try: () => plugin(input),
+            try: () => plugin(input, { language }),
             catch: errorMessage,
           }).pipe(
-            Effect.tapError((error) => Effect.logError("failed to load internal plugin", { name: plugin.name, error })),
+            Effect.tapError((error) =>
+              Effect.logError(t(language, "log.plugin_internal_failed"), { name: plugin.name, error }),
+            ),
             Effect.option,
           )
           if (init._tag === "Some") hooks.push(init.value)
@@ -179,6 +193,7 @@ const layer = Layer.effect(
           PluginLoader.loadExternal({
             items: plugins,
             kind: "server",
+            language,
             report: {
               start(candidate) {},
               missing(candidate, _retry, message) {},
@@ -189,21 +204,23 @@ const layer = Layer.effect(
 
                 if (stage === "install") {
                   const parsed = parsePluginSpecifier(spec)
-                  publishPluginError(`Failed to install plugin ${parsed.pkg}@${parsed.version}: ${message}`)
+                  publishPluginError(
+                    t(language, "error.plugin_install_failed", { spec: `${parsed.pkg}@${parsed.version}`, message }),
+                  )
                   return
                 }
 
                 if (stage === "compatibility") {
-                  publishPluginError(`Plugin ${spec} skipped: ${message}`)
+                  publishPluginError(t(language, "error.plugin_skipped", { spec, message }))
                   return
                 }
 
                 if (stage === "entry") {
-                  publishPluginError(`Failed to load plugin ${spec}: ${message}`)
+                  publishPluginError(t(language, "error.plugin_load_failed", { spec, message }))
                   return
                 }
 
-                publishPluginError(`Failed to load plugin ${spec}: ${message}`)
+                publishPluginError(t(language, "error.plugin_load_failed", { spec, message }))
               },
             },
           }),
@@ -214,13 +231,15 @@ const layer = Layer.effect(
           // Keep plugin execution sequential so hook registration and execution
           // order remains deterministic across plugin runs.
           yield* Effect.tryPromise({
-            try: () => applyPlugin(load, input, hooks),
+            try: () => applyPlugin(load, input, hooks, language),
             catch: (err) => {
               const message = errorMessage(err)
               return message
             },
           }).pipe(
-            Effect.tapError((error) => Effect.logError("failed to load plugin", { path: load.spec, error })),
+            Effect.tapError((error) =>
+              Effect.logError(t(language, "log.plugin_load_failed"), { path: load.spec, error }),
+            ),
             Effect.catch(() => {
               // TODO: make proper events for this
               // events.publish(Session.Event.Error, {
@@ -239,7 +258,7 @@ const layer = Layer.effect(
             try: () => Promise.resolve((hook as any).config?.(cfg)),
             catch: errorMessage,
           }).pipe(
-            Effect.tapError((error) => Effect.logError("plugin config hook failed", { error })),
+            Effect.tapError((error) => Effect.logError(t(language, "log.plugin_config_failed"), { error })),
             Effect.ignore,
           )
         }
@@ -262,7 +281,7 @@ const layer = Layer.effect(
                 try: () => Promise.resolve(hook.dispose?.()),
                 catch: errorMessage,
               }).pipe(
-                Effect.tapError((error) => Effect.logError("plugin dispose hook failed", { error })),
+                Effect.tapError((error) => Effect.logError(t(language, "log.plugin_dispose_failed"), { error })),
                 Effect.ignore,
               ),
             { discard: true },

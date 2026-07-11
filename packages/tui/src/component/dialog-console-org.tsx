@@ -7,6 +7,8 @@ import { useToast } from "../ui/toast"
 import { useTheme } from "../context/theme"
 import { errorMessage } from "../util/error"
 import type { ExperimentalConsoleListOrgsResponse } from "@miaopan-code/sdk/v2"
+import { Locale } from "../util/locale"
+import { t } from "@miaopan-code/core/i18n"
 
 type OrgOption = ExperimentalConsoleListOrgsResponse["orgs"][number]
 
@@ -51,7 +53,7 @@ export function DialogConsoleOrg() {
     if (listed === undefined) {
       return [
         {
-          title: "Loading orgs...",
+          title: t(Locale.language(), "dialog.loading_orgs"),
           value: "loading",
           onSelect: () => {},
         },
@@ -61,7 +63,7 @@ export function DialogConsoleOrg() {
     if (listed.length === 0) {
       return [
         {
-          title: "No orgs found",
+          title: t(Locale.language(), "dialog.no_orgs"),
           value: "empty",
           onSelect: () => {},
         },
@@ -105,7 +107,7 @@ export function DialogConsoleOrg() {
 
           await sdk.client.instance.dispose()
           toast.show({
-            message: `Switched to ${item.orgName}`,
+            message: t(Locale.language(), "account.switched_org_toast", { org: item.orgName }),
             variant: "info",
           })
           dialog.clear()
@@ -115,7 +117,7 @@ export function DialogConsoleOrg() {
 
   return (
     <DialogSelect<string | OrgOption>
-      title="Switch org"
+      title={t(Locale.language(), "account.switch_org")}
       options={options()}
       current={current()}
       renderFilter={!showError()}
@@ -124,7 +126,7 @@ export function DialogConsoleOrg() {
         showError() ? (
           <box paddingLeft={4} paddingRight={4}>
             <text fg={theme.error} attributes={TextAttributes.BOLD}>
-              Could not load orgs
+              {t(Locale.language(), "dialog.load_orgs_failed")}
             </text>
             <text fg={theme.textMuted}>{errorMessage(loadError())}</text>
           </box>

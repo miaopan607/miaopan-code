@@ -5,6 +5,7 @@ import { Flag } from "@miaopan-code/core/flag/flag"
 import { Global } from "@miaopan-code/core/global"
 import { Filesystem } from "@/util/filesystem"
 import { Flock } from "@miaopan-code/core/util/flock"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 import { parsePluginSpecifier, pluginSource } from "./shared"
 
@@ -158,11 +159,16 @@ export async function touchMany(items: Touch[]): Promise<Array<{ state: State; e
   })
 }
 
-export async function touch(spec: string, target: string, id: string): Promise<{ state: State; entry: Entry }> {
+export async function touch(
+  spec: string,
+  target: string,
+  id: string,
+  language?: Language,
+): Promise<{ state: State; entry: Entry }> {
   return touchMany([{ spec, target, id }]).then((item) => {
     const hit = item[0]
     if (hit) return hit
-    throw new Error("Failed to touch plugin metadata.")
+    throw new Error(t(language, "error.plugin_metadata_touch"))
   })
 }
 

@@ -1,13 +1,23 @@
 import { Config, Effect, Redacted } from "effect"
 import { Headers } from "effect/unstable/http"
 import { AuthenticationReason, InvalidRequestReason, LLMError, type LLMRequest } from "../schema"
+import { t, type Language } from "../i18n"
+
+const VALUE_SOURCE = "auth.value"
+const OPTIONAL_SOURCE = "auth.optional"
 
 export class MissingCredentialError extends Error {
   readonly _tag = "MissingCredentialError"
 
   constructor(readonly source: string) {
-    super(`Missing auth credential: ${source}`)
+    super(t(undefined, "llm.auth.missing_credential", { source: sourceLabel(undefined, source) }))
   }
+}
+
+const sourceLabel = (language: Language | undefined, source: string) => {
+  if (source === VALUE_SOURCE) return t(language, "llm.auth.source_value")
+  if (source === OPTIONAL_SOURCE) return t(language, "llm.auth.source_optional_value")
+  return source
 }
 
 export type CredentialError = MissingCredentialError | Config.ConfigError
@@ -82,9 +92,9 @@ const credentialFromSecret = (secret: Secret, source: string) => {
   )
 }
 
-export const value = (secret: string, source = "value") => credentialFromSecret(secret, source)
+export const value = (secret: string, source = VALUE_SOURCE) => credentialFromSecret(secret, source)
 
-export const optional = (secret: Secret | undefined, source = "optional value") =>
+export const optional = (secret: Secret | undefined, source = OPTIONAL_SOURCE) =>
   secret === undefined
     ? credential(Effect.fail(new MissingCredentialError(source)))
     : credentialFromSecret(secret, source)
@@ -106,7 +116,7 @@ export const passthrough = none
 
 const credentialInput = (source: Secret | Credential) =>
   typeof source === "string" || Redacted.isRedacted(source) || Config.isConfig(source)
-    ? credentialFromSecret(source, "value")
+    ? credentialFromSecret(source, VALUE_SOURCE)
     : source
 
 export function bearer(source: Secret | Credential): Auth
@@ -134,15 +144,18 @@ export function bearerHeader(name: string, source?: Secret | Credential) {
   return render(source)
 }
 
-const toLLMError = (error: AuthError): LLMError => {
+const toLLMError = (error: AuthError, language?: Language): LLMError => {
   if (error instanceof MissingCredentialError || error instanceof Config.ConfigError) {
     return new LLMError({
       module: "Auth",
       method: "apply",
       reason:
         error instanceof MissingCredentialError
-          ? new AuthenticationReason({ message: error.message, kind: "missing" })
-          : new InvalidRequestReason({ message: `Failed to resolve auth config: ${error.message}` }),
+          ? new AuthenticationReason({
+              message: t(language, "llm.auth.missing_credential", { source: sourceLabel(language, error.source) }),
+              kind: "missing",
+            })
+          : new InvalidRequestReason({ message: t(language, "llm.auth.config_failed", { error: error.message }) }),
     })
   }
   return error
@@ -151,6 +164,6 @@ const toLLMError = (error: AuthError): LLMError => {
 export const toEffect =
   (input: Auth) =>
   (authInput: AuthInput): Effect.Effect<Headers.Headers, LLMError> =>
-    input.apply(authInput).pipe(Effect.mapError(toLLMError))
+    input.apply(authInput).pipe(Effect.mapError((error) => toLLMError(error, authInput.request.language)))
 
 export * as Auth from "./auth"

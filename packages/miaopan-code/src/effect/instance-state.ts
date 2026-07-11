@@ -3,6 +3,7 @@ import type { InstanceContext } from "@/project/instance-context"
 import { InstanceRef, WorkspaceRef } from "./instance-ref"
 import { registerDisposer } from "./instance-registry"
 import { WorkspaceContext } from "@/control-plane/workspace-context"
+import { t } from "@miaopan-code/core/i18n"
 
 const TypeId = "~miaopanCode/InstanceState"
 
@@ -13,7 +14,7 @@ export interface InstanceState<A, E = never, R = never> {
 
 export const context = Effect.gen(function* () {
   const ctx = yield* InstanceRef
-  if (!ctx) return yield* Effect.die(new Error("InstanceRef not provided"))
+  if (!ctx) return yield* Effect.die(new Error(t(undefined, "error.instance_ref_missing")))
   return ctx
 })
 

@@ -1,4 +1,5 @@
 import { runtimeModules as keymapRuntimeModules } from "@opentui/keymap/runtime-modules"
+import { resolveLanguage, t, type Language, type MessageKey, type MessageParameters } from "@miaopan-code/core/i18n"
 import { ensureRuntimePluginSupport } from "@opentui/solid/runtime-plugin-support/configure"
 import {
   type TuiDispose,
@@ -16,6 +17,7 @@ import { fileURLToPath } from "url"
 import { TuiConfig } from "@/config/tui"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { errorData, errorMessage } from "@miaopan-code/tui/util/error"
+import { Locale } from "@miaopan-code/tui/util/locale"
 import { isRecord } from "@miaopan-code/tui/util/record"
 import { resolveHostAttentionSoundPaths } from "@/config/tui-host-attention"
 import {
@@ -109,6 +111,7 @@ const ScopedKeymapMethods = new Set<PropertyKey>([
 
 type RuntimeState = {
   directory: string
+  language: Language
   api: Api
   view: PluginRuntime
   dispose?: () => void
@@ -125,7 +128,13 @@ const EMPTY_TUI: TuiPluginModule = {
   tui: async () => {},
 }
 
-function fail(message: string, data: Record<string, unknown>) {
+function fail(
+  key: MessageKey,
+  data: Record<string, unknown>,
+  parameters?: MessageParameters,
+  language: Language = runtime?.language ?? "zh-CN",
+) {
+  const message = t(language, key, parameters)
   if (!("error" in data)) {
     console.error(`[tui.plugin] ${message}`, data)
     return
@@ -136,8 +145,13 @@ function fail(message: string, data: Record<string, unknown>) {
   console.error(`[tui.plugin] ${text}`, next)
 }
 
-function warn(message: string, data: Record<string, unknown>) {
-  console.warn(`[tui.plugin] ${message}`, data)
+function warn(
+  key: MessageKey,
+  data: Record<string, unknown>,
+  parameters?: MessageParameters,
+  language: Language = runtime?.language ?? "zh-CN",
+) {
+  console.warn(`[tui.plugin] ${t(language, key, parameters)}`, data)
 }
 
 function createScopedKeymap(keymap: TuiPluginApi["keymap"], scope: PluginScope): TuiPluginApi["keymap"] {
@@ -253,9 +267,9 @@ function createThemeInstaller(
     const name = path.basename(src, path.extname(src))
     const source_dir = path.dirname(meta.source)
     const local_dir =
-      path.basename(source_dir) === ".miaopanCode"
+      path.basename(source_dir) === ".miaopan-code"
         ? path.join(source_dir, "themes")
-        : path.join(source_dir, ".miaopanCode", "themes")
+        : path.join(source_dir, ".miaopan-code", "themes")
     const dest_dir = meta.scope === "local" ? local_dir : path.join(Global.Path.config, "themes")
     const dest = path.join(dest_dir, `${name}.json`)
     const stat = await Filesystem.statAsync(src)
@@ -365,11 +379,15 @@ async function readThemeFiles(spec: string, pkg?: PluginPackage) {
   return Promise.resolve()
     .then(() => readPackageThemes(spec, pkg))
     .catch((error) => {
-      warn("invalid tui plugin oc-themes", {
-        path: spec,
-        pkg: pkg.pkg,
-        error,
-      })
+      warn(
+        "error.plugin_themes_invalid",
+        {
+          path: spec,
+          pkg: pkg.pkg,
+          error,
+        },
+        { spec },
+      )
       return [] as string[]
     })
 }
@@ -380,7 +398,7 @@ async function syncPluginThemes(plugin: PluginEntry) {
   const install = createThemeInstaller(plugin.load.origin, plugin.load.plugin_root, plugin.load.spec, plugin)
   for (const file of plugin.load.theme_files) {
     await install(file).catch((error) => {
-      warn("failed to sync tui plugin oc-themes", { path: plugin.load.spec, id: plugin.id, theme: file, error })
+      warn("tui.plugins_load_failed", { path: plugin.load.spec, id: plugin.id, theme: file, error })
     })
   }
 }
@@ -431,7 +449,7 @@ function createPluginScope(load: PluginLoad, id: string, disposeTimeoutMs: numbe
     for (const item of queue) {
       const left = until - Date.now()
       if (left <= 0) {
-        fail("timed out cleaning up tui plugin", {
+        fail("tui.plugins_dispose_failed", {
           path: load.spec,
           id,
           timeout: disposeTimeoutMs,
@@ -442,7 +460,7 @@ function createPluginScope(load: PluginLoad, id: string, disposeTimeoutMs: numbe
       const out = await runCleanup(item.fn, left)
       if (out.type === "ok") continue
       if (out.type === "timeout") {
-        fail("timed out cleaning up tui plugin", {
+        fail("tui.plugins_dispose_failed", {
           path: load.spec,
           id,
           timeout: disposeTimeoutMs,
@@ -451,7 +469,7 @@ function createPluginScope(load: PluginLoad, id: string, disposeTimeoutMs: numbe
       }
 
       if (out.type === "error") {
-        fail("failed to clean up tui plugin", {
+        fail("tui.plugins_dispose_failed", {
           path: load.spec,
           id,
           error: out.error,
@@ -530,7 +548,7 @@ async function activatePluginEntry(state: RuntimeState, plugin: PluginEntry, per
       return true
     })
     .catch((error) => {
-      fail("failed to initialize tui plugin", {
+      fail("tui.plugins_load_failed", {
         path: plugin.load.spec,
         id: plugin.id,
         error,
@@ -652,7 +670,7 @@ function pluginApi(runtime: RuntimeState, plugin: PluginEntry, scope: PluginScop
 
 function addPluginEntry(state: RuntimeState, plugin: PluginEntry) {
   if (state.plugins_by_id.has(plugin.id)) {
-    fail("duplicate tui plugin id", {
+    fail("tui.plugins_load_failed", {
       id: plugin.id,
       path: plugin.load.spec,
     })
@@ -684,7 +702,7 @@ async function resolveExternalPlugins(list: ConfigPlugin.Origin[], wait: () => P
       const mod = await Promise.resolve()
         .then(() => readV1Plugin(loaded.mod as Record<string, unknown>, loaded.spec, "tui") as TuiPluginModule)
         .catch((error) => {
-          fail("failed to load tui plugin", {
+          fail("tui.plugins_load_failed", {
             path: loaded.spec,
             target: loaded.entry,
             retry,
@@ -701,7 +719,7 @@ async function resolveExternalPlugins(list: ConfigPlugin.Origin[], wait: () => P
         readPluginId(mod.id, loaded.spec),
         loaded.pkg,
       ).catch((error) => {
-        fail("failed to load tui plugin", { path: loaded.spec, target: loaded.target, retry, error })
+        fail("tui.plugins_load_failed", { path: loaded.spec, target: loaded.target, retry, error })
         return
       })
       if (!id) return
@@ -730,7 +748,7 @@ async function resolveExternalPlugins(list: ConfigPlugin.Origin[], wait: () => P
           ? loaded.pkg.json.name.trim()
           : undefined
       const id = await resolvePluginId(loaded.source, loaded.spec, loaded.target, name, loaded.pkg).catch((error) => {
-        fail("failed to load tui plugin", { path: loaded.spec, target: loaded.target, retry, error })
+        fail("tui.plugins_load_failed", { path: loaded.spec, target: loaded.target, retry, error })
         return
       })
       if (!id) return
@@ -751,23 +769,30 @@ async function resolveExternalPlugins(list: ConfigPlugin.Origin[], wait: () => P
     report: {
       start() {},
       missing(candidate, retry, message) {
-        warn("tui plugin has no entrypoint", { path: candidate.plan.spec, retry, message })
+        warn(
+          "error.plugin_entrypoint_missing",
+          { path: candidate.plan.spec, retry, message },
+          {
+            spec: candidate.plan.spec,
+            kind: "tui",
+          },
+        )
       },
       error(candidate, retry, stage, error, resolved) {
         const spec = candidate.plan.spec
         if (stage === "install") {
-          fail("failed to resolve tui plugin", { path: spec, retry, error })
+          fail("tui.plugins_load_failed", { path: spec, retry, stage, error })
           return
         }
         if (stage === "compatibility") {
-          fail("tui plugin incompatible", { path: spec, retry, error })
+          fail("tui.plugins_load_failed", { path: spec, retry, stage, error })
           return
         }
         if (stage === "entry") {
-          fail("failed to resolve tui plugin entry", { path: spec, retry, error })
+          fail("tui.plugins_load_failed", { path: spec, retry, stage, error })
           return
         }
-        fail("failed to load tui plugin", { path: spec, target: resolved?.entry, retry, error })
+        fail("tui.plugins_load_failed", { path: spec, target: resolved?.entry, retry, stage, error })
       },
     },
   })
@@ -814,7 +839,7 @@ function defaultPluginOrigin(state: RuntimeState, spec: string): ConfigPlugin.Or
   return {
     spec,
     scope: "local",
-    source: state.api.state.path.config || path.join(state.directory, ".miaopanCode", "tui.json"),
+    source: state.api.state.path.config || path.join(state.directory, ".miaopan-code", "tui.json"),
   }
 }
 
@@ -857,7 +882,7 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
     return true
   }
   const ready = await resolveExternalPlugins([cfg], () => TuiConfig.waitForDependencies()).catch((error) => {
-    fail("failed to add tui plugin", { path: next, error })
+    fail("tui.plugins_load_failed", { path: next, error })
     return [] as PluginLoad[]
   })
   if (!ready.length) {
@@ -866,7 +891,7 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
 
   const first = ready[0]
   if (!first) {
-    fail("failed to add tui plugin", { path: next })
+    fail("tui.plugins_load_failed", { path: next })
     return false
   }
   if (state.plugins_by_id.has(first.id)) {
@@ -883,7 +908,7 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
 
   if (ok) state.pending.delete(spec)
   if (!ok) {
-    fail("failed to add tui plugin", { path: next })
+    fail("tui.plugins_load_failed", { path: next })
   }
   return ok
 }
@@ -896,7 +921,7 @@ async function installPluginBySpec(
   if (!state) {
     return {
       ok: false,
-      message: "Plugin runtime is not ready.",
+      message: t(resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE), "error.plugin_runtime_not_ready"),
     }
   }
 
@@ -904,7 +929,7 @@ async function installPluginBySpec(
   if (!spec) {
     return {
       ok: false,
-      message: "Plugin package name is required",
+      message: t(state.language, "error.plugin_package_required"),
     }
   }
 
@@ -912,7 +937,7 @@ async function installPluginBySpec(
   if (!dir.directory) {
     return {
       ok: false,
-      message: "Paths are still syncing. Try again in a moment.",
+      message: t(state.language, "error.plugin_paths_syncing"),
     }
   }
 
@@ -931,13 +956,13 @@ async function installPluginBySpec(
     if (manifest.code === "manifest_no_targets") {
       return {
         ok: false,
-        message: `"${spec}" does not expose plugin entrypoints or oc-themes in package.json`,
+        message: t(state.language, "error.plugin_no_entrypoints_or_themes", { spec }),
       }
     }
 
     return {
       ok: false,
-      message: `Installed "${spec}" but failed to read ${manifest.file}`,
+      message: t(state.language, "plugin.cli.installed_manifest_failed", { mod: spec, file: manifest.file }),
     }
   }
 
@@ -953,7 +978,12 @@ async function installPluginBySpec(
     if (patch.code === "invalid_json") {
       return {
         ok: false,
-        message: `Invalid JSON in ${patch.file} (${patch.parse} at line ${patch.line}, column ${patch.col})`,
+        message: t(state.language, "plugin.cli.invalid_config_json", {
+          file: patch.file,
+          parse: patch.parse,
+          line: patch.line,
+          col: patch.col,
+        }),
       }
     }
 
@@ -995,7 +1025,7 @@ export async function init(input: {
   const cwd = process.cwd()
   if (loaded) {
     if (dir !== cwd) {
-      throw new Error(`TuiPluginRuntime.init() called with a different working directory. expected=${dir} got=${cwd}`)
+      throw new Error(t(Locale.language(), "error.tui_plugin_directory", { expected: dir, actual: cwd }))
     }
     return loaded
   }
@@ -1030,14 +1060,14 @@ export async function dispose() {
   const task = loaded
   loaded = undefined
   dir = ""
-  if (task) await task.catch((error) => fail("failed to finish loading tui plugins during disposal", { error }))
+  if (task) await task.catch((error) => fail("tui.plugins_dispose_failed", { error }))
   const state = runtime
   runtime = undefined
   if (!state) return
   const queue = [...state.plugins].reverse()
   for (const plugin of queue) {
     await deactivatePluginEntry(state, plugin, false).catch((error) =>
-      fail("failed to dispose tui plugin", { id: plugin.id, error }),
+      fail("tui.plugins_dispose_failed", { id: plugin.id, error }, undefined, state.language),
     )
   }
   try {
@@ -1060,6 +1090,7 @@ async function load(input: {
   const slots = input.runtime.setupSlots(api)
   const next: RuntimeState = {
     directory: cwd,
+    language: Locale.language(),
     api,
     view: input.runtime,
     dispose: input.dispose,
@@ -1117,7 +1148,7 @@ async function load(input: {
     }
     next.view.update({ status: listPluginStatus(next) })
   } catch (error) {
-    fail("failed to load tui plugins", { directory: cwd, error })
+    fail("tui.plugins_load_failed", { directory: cwd, error }, undefined, next.language)
   }
 }
 

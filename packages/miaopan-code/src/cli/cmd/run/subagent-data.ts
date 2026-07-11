@@ -8,6 +8,8 @@ import {
   type SessionData,
 } from "./session-data"
 import type { FooterSubagentState, FooterSubagentTab, StreamCommit } from "./types"
+import { Language, t } from "@miaopan-code/core/i18n"
+import { UI } from "../../ui"
 
 export const SUBAGENT_BOOTSTRAP_LIMIT = 200
 export const SUBAGENT_CALL_BOOTSTRAP_LIMIT = 80
@@ -298,7 +300,10 @@ function taskStatus(part: ToolPart): FooterSubagentTab["status"] {
   }
 
   if (part.state.status === "error") {
-    if (metadata(part, "interrupted") === true || text(part.state.error) === "Tool execution aborted") {
+    if (
+      metadata(part, "interrupted") === true ||
+      Language.map((language) => t(language, "error.tool_execution_aborted")).includes(text(part.state.error) ?? "")
+    ) {
       return "cancelled"
     }
 
@@ -446,7 +451,7 @@ function ensureBlockerTab(
 
     const next = {
       ...current,
-      description: kind === "permission" ? "Pending permission" : "Pending question",
+      description: UI.t(kind === "permission" ? "cli.run.pending_permission" : "cli.run.pending_question"),
       status: "running" as const,
       title: current.title ?? title,
       lastUpdatedAt: Date.now(),
@@ -464,7 +469,7 @@ function ensureBlockerTab(
     partID: `bootstrap:${sessionID}`,
     callID: `bootstrap:${sessionID}`,
     label: text(title) ?? Locale.titlecase(kind),
-    description: kind === "permission" ? "Pending permission" : "Pending question",
+    description: UI.t(kind === "permission" ? "cli.run.pending_permission" : "cli.run.pending_question"),
     status: "running",
     lastUpdatedAt: Date.now(),
   })

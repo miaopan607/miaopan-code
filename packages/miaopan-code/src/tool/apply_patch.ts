@@ -1,6 +1,7 @@
 import * as path from "path"
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
+import { ToolI18n } from "./i18n"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Watcher } from "@miaopan-code/core/filesystem/watcher"
 import { InstanceState } from "@/effect/instance-state"
@@ -10,18 +11,21 @@ import { assertExternalDirectoryEffect } from "./external-directory"
 import { trimDiff } from "./edit"
 import { LSP } from "@/lsp/lsp"
 import { FSUtil } from "@miaopan-code/core/fs-util"
-import DESCRIPTION from "./apply_patch.txt"
 import { FileSystem } from "@miaopan-code/core/filesystem"
 import { Format } from "../format"
 import * as Bom from "@/util/bom"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-export const Parameters = Schema.Struct({
-  patchText: Schema.String.annotate({ description: "The full patch text that describes all changes to be made" }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    patchText: Schema.String.annotate({ description: t(language, "tool.param.apply_patch") }),
+  })
+export const Parameters = makeParameters()
 
 export const ApplyPatchTool = Tool.define(
   "apply_patch",
   Effect.gen(function* () {
+    const language = yield* ToolI18n.language()
     const lsp = yield* LSP.Service
     const afs = yield* FSUtil.Service
     const format = yield* Format.Service
@@ -32,24 +36,24 @@ export const ApplyPatchTool = Tool.define(
       ctx: Tool.Context,
     ) {
       if (!params.patchText) {
-        return yield* Effect.fail(new Error("patchText is required"))
+        return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.patch_required")))
       }
 
       // Parse the patch to get hunks
       let hunks: Patch.Hunk[]
       try {
-        const parseResult = Patch.parsePatch(params.patchText)
+        const parseResult = Patch.parsePatch(params.patchText, ctx.language)
         hunks = parseResult.hunks
       } catch (error) {
-        return yield* Effect.fail(new Error(`apply_patch verification failed: ${error}`))
+        return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.patch_verify", { error: String(error) })))
       }
 
       if (hunks.length === 0) {
         const normalized = params.patchText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim()
         if (normalized === "*** Begin Patch\n*** End Patch") {
-          return yield* Effect.fail(new Error("patch rejected: empty patch"))
+          return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.patch_empty")))
         }
-        return yield* Effect.fail(new Error("apply_patch verification failed: no hunks found"))
+        return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.patch_no_hunks")))
       }
 
       const instance = yield* InstanceState.context
@@ -107,9 +111,7 @@ export const ApplyPatchTool = Tool.define(
             // Check if file exists for update
             const stats = yield* afs.stat(filePath).pipe(Effect.catch(() => Effect.succeed(undefined)))
             if (!stats || stats.type === "Directory") {
-              return yield* Effect.fail(
-                new Error(`apply_patch verification failed: Failed to read file to update: ${filePath}`),
-              )
+              return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.patch_read_file", { path: filePath })))
             }
 
             const source = yield* Bom.readFile(afs, filePath)
@@ -123,11 +125,14 @@ export const ApplyPatchTool = Tool.define(
                 filePath,
                 hunk.chunks,
                 Bom.join(source.text, source.bom),
+                ctx.language,
               )
               newContent = fileUpdate.content
               bom = fileUpdate.bom
             } catch (error) {
-              return yield* Effect.fail(new Error(`apply_patch verification failed: ${error}`))
+              return yield* Effect.fail(
+                new Error(ToolI18n.text(ctx, "tool.error.patch_verify", { error: String(error) })),
+              )
             }
 
             const diff = trimDiff(createTwoFilesPatch(filePath, filePath, oldContent, newContent))
@@ -163,7 +168,9 @@ export const ApplyPatchTool = Tool.define(
               Effect.catch((error) =>
                 Effect.fail(
                   new Error(
-                    `apply_patch verification failed: ${error instanceof Error ? error.message : String(error)}`,
+                    ToolI18n.text(ctx, "tool.error.patch_verify", {
+                      error: error instanceof Error ? error.message : String(error),
+                    }),
                   ),
                 ),
               ),
@@ -281,7 +288,7 @@ export const ApplyPatchTool = Tool.define(
         const target = change.movePath ?? change.filePath
         return `M ${path.relative(instance.worktree, target).replaceAll("\\", "/")}`
       })
-      let output = `Success. Updated the following files:\n${summaryLines.join("\n")}`
+      let output = ToolI18n.text(ctx, "tool.output.patch_success", { files: summaryLines.join("\n") })
 
       for (const change of fileChanges) {
         if (change.type === "delete") continue
@@ -289,7 +296,7 @@ export const ApplyPatchTool = Tool.define(
         const block = LSP.Diagnostic.report(target, diagnostics[FSUtil.normalizePath(target)] ?? [])
         if (!block) continue
         const rel = path.relative(instance.worktree, target).replaceAll("\\", "/")
-        output += `\n\nLSP errors detected in ${rel}, please fix:\n${block}`
+        output += `\n\n${ToolI18n.text(ctx, "tool.output.lsp_errors_file", { file: rel, errors: block })}`
       }
 
       return {
@@ -304,8 +311,8 @@ export const ApplyPatchTool = Tool.define(
     })
 
     return {
-      description: DESCRIPTION,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.apply_patch"),
+      parameters: makeParameters(language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         run(params, ctx).pipe(Effect.orDie),
     }

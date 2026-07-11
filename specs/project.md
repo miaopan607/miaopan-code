@@ -1,6 +1,8 @@
 ## project
 
-The goal is to let a single instance of miaopan-code run sessions for multiple projects and different worktrees per project.
+语言：简体中文 · [English](project.en.md)
+
+目标是让单个 miaopan-code 实例能够运行多个项目的会话，并支持每个项目的不同 worktree。
 
 ### api
 
@@ -53,10 +55,10 @@ GET /project/:projectID/session/:sessionID/file/status -> File[]
 
 POST /log
 
-// These are awkward
+// 这些接口不太自然
 
 GET /provider?directory=<resolve path> -> Provider
-GET /config?directory=<resolve path> -> Config // think only tui uses this?
+GET /config?directory=<resolve path> -> Config // 似乎只有 TUI 使用？
 
 GET /project/:projectID/agent?directory=<resolve path> -> Agent
 GET /project/:projectID/find/file?directory=<resolve path> -> File

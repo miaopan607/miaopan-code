@@ -17,6 +17,8 @@ import { FSUtil } from "@miaopan-code/core/fs-util"
 import { AppProcess } from "@miaopan-code/core/process"
 import { InstanceState } from "@/effect/instance-state"
 import { WorktreeEvent } from "@miaopan-code/schema/worktree-event"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { Config } from "@/config/config"
 
 export const Event = WorktreeEvent
 
@@ -29,9 +31,7 @@ export type Info = Schema.Schema.Type<typeof Info>
 
 export const CreateInput = Schema.Struct({
   name: Schema.optional(Schema.String),
-  startCommand: Schema.optional(
-    Schema.String.annotate({ description: "Additional startup script to run after the project's start command" }),
-  ),
+  startCommand: Schema.optional(Schema.String.annotate({ description: t(undefined, "worktree.startup_script") })),
 }).annotate({ identifier: "WorktreeCreateInput" })
 export type CreateInput = Schema.Schema.Type<typeof CreateInput>
 
@@ -139,6 +139,7 @@ const layer: Layer.Layer<
   | Project.Service
   | InstanceStore.Service
   | Database.Service
+  | Config.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -150,6 +151,8 @@ const layer: Layer.Layer<
     const gitSvc = yield* Git.Service
     const project = yield* Project.Service
     const store = yield* InstanceStore.Service
+    const config = yield* Config.Service
+    const getLanguage = yield* Effect.cached(Effect.map(config.get(), (value) => value.language))
 
     const git = Effect.fnUntraced(
       function* (args: string[], opts?: { cwd?: string }) {
@@ -177,6 +180,7 @@ const layer: Layer.Layer<
       name?: string
       detached?: boolean
     }) {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       for (const attempt of Array.from({ length: MAX_NAME_ATTEMPTS }, (_, i) => i)) {
         const name = input.name ? (attempt === 0 ? input.name : `${input.name}-${Slug.create()}`) : Slug.create()
@@ -193,16 +197,17 @@ const layer: Layer.Layer<
 
         return { name, directory, ...(branch ? { branch } : {}) }
       }
-      return yield* new NameGenerationFailedError({ message: "Failed to generate a unique worktree name" })
+      return yield* new NameGenerationFailedError({ message: t(language, "error.worktree_name_failed") })
     })
 
     const makeWorktreeInfo = Effect.fn("Worktree.makeWorktreeInfo")(function* (input?: {
       name?: string
       detached?: boolean
     }) {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       if (ctx.project.vcs !== "git") {
-        return yield* new NotGitError({ message: "Worktrees are only supported for git projects" })
+        return yield* new NotGitError({ message: t(language, "error.worktree_git_only") })
       }
 
       const root = pathSvc.join(Global.Path.data, "worktree", ctx.project.id)
@@ -212,6 +217,7 @@ const layer: Layer.Layer<
     })
 
     const setup = Effect.fnUntraced(function* (info: Info) {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       const created = yield* git(
         info.branch
@@ -221,14 +227,15 @@ const layer: Layer.Layer<
       )
       if (created.code !== 0) {
         return yield* new CreateFailedError({
-          message: created.stderr || created.text || "Failed to create git worktree",
+          message: created.stderr || created.text || t(language, "error.worktree_create_git"),
         })
       }
 
-      yield* project.addSandbox(ctx.project.id, info.directory).pipe(Effect.catch(() => Effect.void))
+      yield* project.addSandbox(ctx.project.id, info.directory, language).pipe(Effect.catch(() => Effect.void))
     })
 
     const boot = Effect.fnUntraced(function* (info: Info, startCommand?: string) {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       const workspaceID = yield* InstanceState.workspaceID
       const projectID = ctx.project.id
@@ -236,8 +243,8 @@ const layer: Layer.Layer<
 
       const populated = yield* git(["reset", "--hard"], { cwd: info.directory })
       if (populated.code !== 0) {
-        const message = populated.stderr || populated.text || "Failed to populate worktree"
-        yield* Effect.logError("worktree checkout failed", { directory: info.directory, message })
+        const message = populated.stderr || populated.text || t(language, "error.worktree_populate")
+        yield* Effect.logError(t(language, "log.worktree_checkout_failed"), { directory: info.directory, message })
         GlobalBus.emit("event", {
           directory: info.directory,
           project: ctx.project.id,
@@ -247,12 +254,12 @@ const layer: Layer.Layer<
         return
       }
 
-      const booted = yield* store.load({ directory: info.directory }).pipe(
+      const booted = yield* store.load({ directory: info.directory, language }).pipe(
         Effect.as(true),
         Effect.catch((error) =>
           Effect.gen(function* () {
             const message = errorMessage(error)
-            yield* Effect.logError("worktree bootstrap failed", { directory: info.directory, message })
+            yield* Effect.logError(t(language, "log.worktree_bootstrap_failed"), { directory: info.directory, message })
             GlobalBus.emit("event", {
               directory: info.directory,
               project: ctx.project.id,
@@ -279,9 +286,10 @@ const layer: Layer.Layer<
     })
 
     const createFromInfo = Effect.fn("Worktree.createFromInfo")(function* (info: Info, startCommand?: string) {
+      const language = yield* getLanguage
       yield* setup(info)
       yield* boot(info, startCommand).pipe(
-        Effect.catchCause((cause) => Effect.logError("worktree bootstrap failed", { cause })),
+        Effect.catchCause((cause) => Effect.logError(t(language, "log.worktree_bootstrap_failed"), { cause })),
         Effect.forkIn(scope),
       )
     })
@@ -331,6 +339,7 @@ const layer: Layer.Layer<
     })
 
     const list = Effect.fn("Worktree.list")(function* () {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       if (ctx.project.vcs !== "git") {
         return []
@@ -338,7 +347,9 @@ const layer: Layer.Layer<
 
       const result = yield* git(["worktree", "list", "--porcelain"], { cwd: ctx.worktree })
       if (result.code !== 0) {
-        return yield* new ListFailedError({ message: result.stderr || result.text || "Failed to read git worktrees" })
+        return yield* new ListFailedError({
+          message: result.stderr || result.text || t(language, "error.worktree_read_git"),
+        })
       }
 
       const primary = yield* canonical(ctx.project.worktree)
@@ -365,7 +376,7 @@ const layer: Layer.Layer<
       )
     }
 
-    function cleanDirectory(target: string) {
+    function cleanDirectory(target: string, language?: Language) {
       return Effect.tryPromise({
         try: async () => {
           const fsp = await import("fs/promises")
@@ -381,14 +392,15 @@ const layer: Layer.Layer<
           }
         },
         catch: (error) =>
-          new RemoveFailedError({ message: errorMessage(error) || "Failed to remove git worktree directory" }),
+          new RemoveFailedError({ message: errorMessage(error) || t(language, "error.worktree_remove_directory") }),
       })
     }
 
     const remove = Effect.fn("Worktree.remove")(function* (input: RemoveInput) {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       if (ctx.project.vcs !== "git") {
-        return yield* new NotGitError({ message: "Worktrees are only supported for git projects" })
+        return yield* new NotGitError({ message: t(language, "error.worktree_git_only") })
       }
 
       const directory = yield* canonical(input.directory)
@@ -398,7 +410,9 @@ const layer: Layer.Layer<
 
       const list = yield* git(["worktree", "list", "--porcelain"], { cwd: ctx.worktree })
       if (list.code !== 0) {
-        return yield* new RemoveFailedError({ message: list.stderr || list.text || "Failed to read git worktrees" })
+        return yield* new RemoveFailedError({
+          message: list.stderr || list.text || t(language, "error.worktree_read_git"),
+        })
       }
 
       const entries = parseWorktreeList(list.text)
@@ -408,7 +422,7 @@ const layer: Layer.Layer<
         const directoryExists = yield* fs.exists(directory).pipe(Effect.orDie)
         if (directoryExists) {
           yield* stopFsmonitor(directory)
-          yield* cleanDirectory(directory)
+          yield* cleanDirectory(directory, language)
         }
         return true
       }
@@ -421,26 +435,27 @@ const layer: Layer.Layer<
         const next = yield* git(["worktree", "list", "--porcelain"], { cwd: ctx.worktree })
         if (next.code !== 0) {
           return yield* new RemoveFailedError({
-            message: removed.stderr || removed.text || next.stderr || next.text || "Failed to remove git worktree",
+            message:
+              removed.stderr || removed.text || next.stderr || next.text || t(language, "error.worktree_remove_git"),
           })
         }
 
         const stale = yield* locateWorktree(parseWorktreeList(next.text), directory)
         if (stale?.path) {
           return yield* new RemoveFailedError({
-            message: removed.stderr || removed.text || "Failed to remove git worktree",
+            message: removed.stderr || removed.text || t(language, "error.worktree_remove_git"),
           })
         }
       }
 
-      yield* cleanDirectory(entry.path)
+      yield* cleanDirectory(entry.path, language)
 
       const branch = entry.branch?.replace(/^refs\/heads\//, "")
       if (branch) {
         const deleted = yield* git(["branch", "-D", branch], { cwd: ctx.worktree })
         if (deleted.code !== 0) {
           return yield* new RemoveFailedError({
-            message: deleted.stderr || deleted.text || "Failed to delete worktree branch",
+            message: deleted.stderr || deleted.text || t(language, "error.worktree_delete_branch"),
           })
         }
       }
@@ -470,11 +485,12 @@ const layer: Layer.Layer<
     )
 
     const runStartScript = Effect.fnUntraced(function* (directory: string, cmd: string, kind: string) {
+      const language = yield* getLanguage
       const text = cmd.trim()
       if (!text) return true
       const result = yield* runStartCommand(directory, text)
       if (result.code === 0) return true
-      yield* Effect.logError("worktree start command failed", { kind, directory, message: result.stderr })
+      yield* Effect.logError(t(language, "log.worktree_start_failed"), { kind, directory, message: result.stderr })
       return false
     })
 
@@ -523,32 +539,35 @@ const layer: Layer.Layer<
     })
 
     const reset = Effect.fn("Worktree.reset")(function* (input: ResetInput) {
+      const language = yield* getLanguage
       const ctx = yield* InstanceState.context
       if (ctx.project.vcs !== "git") {
-        return yield* new NotGitError({ message: "Worktrees are only supported for git projects" })
+        return yield* new NotGitError({ message: t(language, "error.worktree_git_only") })
       }
 
       const directory = yield* canonical(input.directory)
       const primary = yield* canonical(ctx.worktree)
       if (directory === primary) {
-        return yield* new ResetFailedError({ message: "Cannot reset the primary workspace" })
+        return yield* new ResetFailedError({ message: t(language, "error.worktree_reset_primary") })
       }
 
       const list = yield* git(["worktree", "list", "--porcelain"], { cwd: ctx.worktree })
       if (list.code !== 0) {
-        return yield* new ResetFailedError({ message: list.stderr || list.text || "Failed to read git worktrees" })
+        return yield* new ResetFailedError({
+          message: list.stderr || list.text || t(language, "error.worktree_read_git"),
+        })
       }
 
       const entry = yield* locateWorktree(parseWorktreeList(list.text), directory)
       if (!entry?.path) {
-        return yield* new ResetFailedError({ message: "Worktree not found" })
+        return yield* new ResetFailedError({ message: t(language, "error.worktree_not_found") })
       }
 
       const worktreePath = entry.path
 
       const base = yield* gitSvc.defaultBranch(ctx.worktree)
       if (!base) {
-        return yield* new ResetFailedError({ message: "Default branch not found" })
+        return yield* new ResetFailedError({ message: t(language, "error.worktree_default_branch_missing") })
       }
 
       const sep = base.ref.indexOf("/")
@@ -558,52 +577,59 @@ const layer: Layer.Layer<
         yield* gitExpect(
           ["fetch", remote, branch],
           { cwd: ctx.worktree },
-          (r) => new ResetFailedError({ message: r.stderr || r.text || `Failed to fetch ${base.ref}` }),
+          (r) =>
+            new ResetFailedError({
+              message: r.stderr || r.text || t(language, "error.worktree_fetch", { ref: base.ref }),
+            }),
         )
       }
 
       yield* gitExpect(
         ["reset", "--hard", base.ref],
         { cwd: worktreePath },
-        (r) => new ResetFailedError({ message: r.stderr || r.text || "Failed to reset worktree to target" }),
+        (r) => new ResetFailedError({ message: r.stderr || r.text || t(language, "error.worktree_reset_target") }),
       )
 
       const cleanResult = yield* sweep(worktreePath)
       if (cleanResult.code !== 0) {
         return yield* new ResetFailedError({
-          message: cleanResult.stderr || cleanResult.text || "Failed to clean worktree",
+          message: cleanResult.stderr || cleanResult.text || t(language, "error.worktree_clean"),
         })
       }
 
       yield* gitExpect(
         ["submodule", "update", "--init", "--recursive", "--force"],
         { cwd: worktreePath },
-        (r) => new ResetFailedError({ message: r.stderr || r.text || "Failed to update submodules" }),
+        (r) => new ResetFailedError({ message: r.stderr || r.text || t(language, "error.worktree_update_submodules") }),
       )
 
       yield* gitExpect(
         ["submodule", "foreach", "--recursive", "git", "reset", "--hard"],
         { cwd: worktreePath },
-        (r) => new ResetFailedError({ message: r.stderr || r.text || "Failed to reset submodules" }),
+        (r) => new ResetFailedError({ message: r.stderr || r.text || t(language, "error.worktree_reset_submodules") }),
       )
 
       yield* gitExpect(
         ["submodule", "foreach", "--recursive", "git", "clean", "-fdx"],
         { cwd: worktreePath },
-        (r) => new ResetFailedError({ message: r.stderr || r.text || "Failed to clean submodules" }),
+        (r) => new ResetFailedError({ message: r.stderr || r.text || t(language, "error.worktree_clean_submodules") }),
       )
 
       const status = yield* git(["-c", "core.fsmonitor=false", "status", "--porcelain=v1"], { cwd: worktreePath })
       if (status.code !== 0) {
-        return yield* new ResetFailedError({ message: status.stderr || status.text || "Failed to read git status" })
+        return yield* new ResetFailedError({
+          message: status.stderr || status.text || t(language, "error.worktree_git_status"),
+        })
       }
 
       if (status.text.trim()) {
-        return yield* new ResetFailedError({ message: `Worktree reset left local changes:\n${status.text.trim()}` })
+        return yield* new ResetFailedError({
+          message: t(language, "error.worktree_local_changes", { status: status.text.trim() }),
+        })
       }
 
       yield* runStartScripts(worktreePath, { projectID: ctx.project.id }).pipe(
-        Effect.catchCause((cause) => Effect.logError("worktree start task failed", { cause })),
+        Effect.catchCause((cause) => Effect.logError(t(language, "log.worktree_task_failed"), { cause })),
         Effect.forkIn(scope),
       )
 
@@ -617,7 +643,7 @@ const layer: Layer.Layer<
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [FSUtil.node, path, AppProcess.node, Git.node, Project.node, InstanceStore.node, Database.node],
+  deps: [FSUtil.node, path, AppProcess.node, Git.node, Project.node, InstanceStore.node, Database.node, Config.node],
 })
 
 export * as Worktree from "."

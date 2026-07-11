@@ -6,6 +6,7 @@ import { Cause, Context, Effect, Layer, Schema, Scope } from "effect"
 import { ModelV2 } from "./model"
 import { ProviderV2 } from "./provider"
 import { State } from "./state"
+import { zh } from "./i18n"
 
 type SDK = any
 
@@ -33,7 +34,7 @@ function wrapSSE(res: Response, ms: number, ctl: AbortController) {
     async pull(ctrl) {
       const part = await new Promise<Awaited<ReturnType<typeof reader.read>>>((resolve, reject) => {
         const id = setTimeout(() => {
-          const err = new Error("SSE read timed out")
+          const err = new Error(zh("error.aisdk_timeout"))
           ctl.abort(err)
           void reader.cancel(err)
           reject(err)
@@ -202,7 +203,7 @@ export const locationLayer = Layer.effect(
         if (model.api.type !== "aisdk")
           return yield* new InitError({
             providerID: model.providerID,
-            cause: new Error(`Unsupported api ${model.api.type}`),
+            cause: new Error(zh("error.aisdk_unsupported_api", { api: model.api.type })),
           })
 
         const options = prepareOptions(model, model.api.package)
@@ -217,7 +218,7 @@ export const locationLayer = Layer.effect(
         if (!sdk)
           return yield* new InitError({
             providerID: model.providerID,
-            cause: new Error("No AISDK provider plugin returned an SDK"),
+            cause: new Error(zh("error.aisdk_provider_missing")),
           })
         sdks.set(sdkKey, sdk)
         const result = yield* service.runLanguage({ model, sdk, options }).pipe(initError(model.providerID))

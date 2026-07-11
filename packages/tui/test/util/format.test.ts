@@ -1,7 +1,10 @@
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 import { formatDuration } from "../../src/util/format"
+import { Locale } from "../../src/util/locale"
+import { t } from "@miaopan-code/core/i18n"
 
 describe("util.format", () => {
+  beforeEach(() => Locale.setLanguage("en"))
   describe("formatDuration", () => {
     test("returns empty string for zero or negative values", () => {
       expect(formatDuration(0)).toBe("")
@@ -55,5 +58,12 @@ describe("util.format", () => {
       expect(formatDuration(604799)).toBe("~6 days")
       expect(formatDuration(604800)).toBe("~1 week")
     })
+  })
+
+  test("defaults to localized Chinese duration text", () => {
+    Locale.setLanguage("zh-CN")
+    expect(formatDuration(1)).toBe(t("zh-CN", "locale.second", { value: 1 }))
+    expect(formatDuration(61)).toBe(t("zh-CN", "locale.minute_second", { minutes: 1, seconds: 1 }))
+    expect(formatDuration(86400)).toBe(t("zh-CN", "locale.approx_day"))
   })
 })

@@ -14,6 +14,7 @@ import semver from "semver"
 import { InstallationChannel, InstallationVersion } from "@miaopan-code/core/installation/version"
 import { NpmConfig } from "@miaopan-code/core/npm-config"
 import { InstallationEvent } from "@miaopan-code/schema/installation-event"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "scoop" | "choco" | "unknown"
 
@@ -72,7 +73,7 @@ export interface Interface {
   readonly info: () => Effect.Effect<Info>
   readonly method: () => Effect.Effect<Method>
   readonly latest: (method?: Method) => Effect.Effect<string>
-  readonly upgrade: (method: Method, target: string) => Effect.Effect<void, UpgradeFailedError>
+  readonly upgrade: (method: Method, target: string, language?: Language) => Effect.Effect<void, UpgradeFailedError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/Installation") {}
@@ -118,10 +119,14 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
       Effect.catch((err) => Effect.succeed({ code: 1, stdout: "", stderr: errorMessage(err) })),
     )
 
-    const upgradeFailure = (method: Method, result?: { code: number; stdout: string; stderr: string }) => {
-      if (method === "choco") return "not running from an elevated command shell"
-      if (result) return `Upgrade failed for ${method} (exit code ${result.code}).`
-      return `Upgrade failed for ${method}.`
+    const upgradeFailure = (
+      method: Method,
+      result?: { code: number; stdout: string; stderr: string },
+      language?: Language,
+    ) => {
+      if (method === "choco") return t(language, "error.installation_elevated")
+      if (result) return t(language, "error.installation_upgrade_failed_code", { method, code: result.code })
+      return t(language, "error.installation_upgrade_failed", { method })
     }
 
     const upgradeScriptShell = Effect.fnUntraced(function* () {
@@ -132,7 +137,9 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
 
     const upgradeCurl = Effect.fnUntraced(
       function* (target: string) {
-        const response = yield* httpOk.execute(HttpClientRequest.get("https://github.com/miaopan607/miaopan-code/install"))
+        const response = yield* httpOk.execute(
+          HttpClientRequest.get("https://github.com/miaopan607/miaopan-code/install"),
+        )
         const body = yield* response.text
         const bodyBytes = new TextEncoder().encode(body)
         const shell = yield* upgradeScriptShell()
@@ -232,7 +239,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
         const data = yield* HttpClientResponse.schemaBodyJson(GitHubRelease)(response)
         return data.tag_name.replace(/^v/, "")
       }, Effect.orDie),
-      upgrade: Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
+      upgrade: Effect.fn("Installation.upgrade")(function* (m: Method, target: string, language?: Language) {
         let upgradeResult: { code: number; stdout: string; stderr: string } | undefined
         switch (m) {
           case "curl":
@@ -254,12 +261,14 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
             upgradeResult = yield* run(["scoop", "install", `miaopanCode@${target}`])
             break
           default:
-            return yield* new UpgradeFailedError({ stderr: `Unknown installation method: ${m}` })
+            return yield* new UpgradeFailedError({
+              stderr: t(language, "error.installation_method_unknown", { method: m }),
+            })
         }
         if (!upgradeResult || upgradeResult.code !== 0) {
-          return yield* new UpgradeFailedError({ stderr: upgradeFailure(m, upgradeResult) })
+          return yield* new UpgradeFailedError({ stderr: upgradeFailure(m, upgradeResult, language) })
         }
-        yield* Effect.logInfo("upgraded", {
+        yield* Effect.logInfo(t(language, "log.upgraded"), {
           method: m,
           target,
           stdout: upgradeResult.stdout,

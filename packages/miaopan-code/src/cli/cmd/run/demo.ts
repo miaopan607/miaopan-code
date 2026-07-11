@@ -19,6 +19,7 @@ import type { Event, ToolPart } from "@miaopan-code/sdk/v2"
 import { createSessionData, reduceSessionData, type SessionData } from "./session-data"
 import { writeSessionOutput } from "./stream"
 import type { FooterApi, PermissionReply, QuestionReject, QuestionReply, RunPrompt, StreamCommit } from "./types"
+import { UI } from "../../ui"
 
 const KINDS = [
   "markdown",
@@ -54,8 +55,8 @@ function questionKind(value: string | undefined): QuestionKind | undefined {
 const SAMPLE_MARKDOWN = [
   "# Direct Mode Demo",
   "",
-  "This is a realistic assistant response for direct-mode formatting checks.",
-  "It mixes **bold**, _italic_, `inline code`, links, code fences, and tables in one streamed reply.",
+  UI.t("cli.demo.response_realistic"),
+  UI.t("cli.demo.response_formatting"),
   "",
   "## Summary",
   "",
@@ -85,7 +86,7 @@ const SAMPLE_MARKDOWN = [
   "| `footer.ts` | Keep active surfaces across footer-height-only resizes |",
   "| `footer.test.ts` | Capture real split-footer markdown payloads during idle completion |",
   "",
-  "Next step: run `/fmt table` if you want a tighter table-only sample.",
+  UI.t("cli.demo.response_next_step"),
 ].join("\n")
 
 const SAMPLE_TABLE = [
@@ -586,7 +587,7 @@ async function emitBash(state: State, signal?: AbortSignal): Promise<void> {
   const ref = make(state, "bash", {
     command: "git status",
     workdir: process.cwd(),
-    description: "Show git status",
+    description: UI.t("cli.demo.git_status"),
   })
   startTool(state, ref)
   await wait(70, signal)
@@ -657,11 +658,11 @@ function emitPatch(state: State): void {
 
 function emitTask(state: State): void {
   const ref = make(state, "task", {
-    description: "Scan run/* for reducer touchpoints",
+    description: UI.t("cli.demo.reducer"),
     subagent_type: "explore",
   })
   doneTool(state, ref, {
-    title: "Reducer touchpoints found",
+    title: UI.t("cli.demo.reducer_found"),
     output: "",
     metadata: {
       toolcalls: 4,
@@ -691,21 +692,21 @@ function emitTask(state: State): void {
     sessionID: "sub_demo_1",
     partID: ref.part,
     callID: ref.call,
-    label: "Explore",
-    description: "Scan run/* for reducer touchpoints",
+    label: UI.t("cli.demo.explore"),
+    description: UI.t("cli.demo.reducer"),
     status: "completed",
-    title: "Reducer touchpoints found",
+    title: UI.t("cli.demo.reducer_found"),
     toolCalls: 4,
     commits: [
       {
         kind: "user",
-        text: "Scan run/* for reducer touchpoints",
+        text: UI.t("cli.demo.scan_reducer"),
         phase: "start",
         source: "system",
       },
       {
         kind: "reasoning",
-        text: "Thinking: tracing reducer and footer boundaries",
+        text: UI.t("cli.demo.thinking_reducer"),
         phase: "progress",
         source: "reasoning",
         messageID: "sub_demo_msg_reasoning",
@@ -713,7 +714,7 @@ function emitTask(state: State): void {
       },
       {
         kind: "tool",
-        text: "running read",
+        text: UI.t("cli.demo.running_read"),
         phase: "start",
         source: "tool",
         messageID: "sub_demo_msg_tool",
@@ -723,7 +724,7 @@ function emitTask(state: State): void {
       },
       {
         kind: "assistant",
-        text: "Footer updates flow through stream.ts into RunFooter",
+        text: UI.t("cli.demo.footer_flow"),
         phase: "progress",
         source: "assistant",
         messageID: "sub_demo_msg_text",
@@ -737,15 +738,15 @@ function emitTodo(state: State): void {
   const ref = make(state, "todowrite", {
     todos: [
       {
-        content: "Trigger permission UI",
+        content: UI.t("cli.demo.trigger_permission"),
         status: "completed",
       },
       {
-        content: "Trigger question UI",
+        content: UI.t("cli.demo.trigger_question"),
         status: "in_progress",
       },
       {
-        content: "Tune tool formatting",
+        content: UI.t("cli.demo.tune_tool"),
         status: "pending",
       },
     ],
@@ -762,19 +763,19 @@ function emitQuestionTool(state: State): void {
     questions: [
       {
         header: "Style",
-        question: "Which output style do you want to inspect?",
+        question: UI.t("cli.demo.question_output_style"),
         options: [
-          { label: "Diff", description: "Show diff block" },
-          { label: "Code", description: "Show code block" },
+          { label: UI.t("tui.diff"), description: UI.t("cli.demo.diff") },
+          { label: UI.t("tui.code"), description: UI.t("cli.demo.code") },
         ],
         multiple: false,
       },
       {
         header: "Extras",
-        question: "Pick extra rows",
+        question: UI.t("cli.demo.question_extra_rows"),
         options: [
-          { label: "Usage", description: "Add usage row" },
-          { label: "Duration", description: "Add duration row" },
+          { label: UI.t("tui.usage"), description: UI.t("cli.demo.usage") },
+          { label: UI.t("tui.duration"), description: UI.t("cli.demo.duration") },
         ],
         multiple: true,
         custom: true,
@@ -799,7 +800,7 @@ function emitPermission(state: State, kind: PermissionKind = "edit"): void {
     const ref = make(state, "bash", {
       command,
       workdir: root,
-      description: "Inspect worktree changes",
+      description: UI.t("cli.demo.inspect_worktree"),
     })
     askPermission(state, {
       ref,
@@ -840,7 +841,7 @@ function emitPermission(state: State, kind: PermissionKind = "edit"): void {
 
   if (kind === "task") {
     const ref = make(state, "task", {
-      description: "Inspect footer spacing across direct-mode prompts",
+      description: UI.t("cli.demo.inspect_footer"),
       subagent_type: "explore",
     })
     askPermission(state, {
@@ -849,7 +850,7 @@ function emitPermission(state: State, kind: PermissionKind = "edit"): void {
       patterns: ["explore"],
       always: ["*"],
       done: {
-        title: "Footer spacing checked",
+        title: UI.t("cli.demo.footer_spacing_checked"),
         output: "",
         metadata: {
           toolcalls: 3,
@@ -888,7 +889,7 @@ function emitPermission(state: State, kind: PermissionKind = "edit"): void {
 
   if (kind === "doom") {
     const ref = make(state, "task", {
-      description: "Retry the formatter after repeated failures",
+      description: UI.t("cli.demo.retry_formatter"),
       subagent_type: "general",
     })
     askPermission(state, {
@@ -897,8 +898,8 @@ function emitPermission(state: State, kind: PermissionKind = "edit"): void {
       patterns: ["*"],
       always: ["*"],
       done: {
-        title: "Retry allowed",
-        output: "Continuing after repeated failures.\n",
+        title: UI.t("cli.demo.retry_allowed"),
+        output: UI.t("cli.demo.continuing_failures"),
         metadata: {},
       },
     })
@@ -932,11 +933,11 @@ function emitQuestion(state: State, kind: QuestionKind = "multi"): void {
       return [
         {
           header: "Mode",
-          question: "Which footer should be the reference for spacing checks?",
+          question: UI.t("cli.demo.question_spacing_reference"),
           options: [
-            { label: "Permission", description: "Inspect the permission footer" },
-            { label: "Question", description: "Keep this question footer open" },
-            { label: "Prompt", description: "Return to the normal composer" },
+            { label: UI.t("permission.title"), description: UI.t("cli.demo.permission") },
+            { label: UI.t("question.title"), description: UI.t("cli.demo.question") },
+            { label: UI.t("prompt.title"), description: UI.t("cli.demo.prompt") },
           ],
           multiple: false,
           custom: false,
@@ -948,12 +949,12 @@ function emitQuestion(state: State, kind: QuestionKind = "multi"): void {
       return [
         {
           header: "Checks",
-          question: "Select the direct-mode cases you want to inspect next",
+          question: UI.t("cli.demo.question_direct_cases"),
           options: [
-            { label: "Diff", description: "Show an edit diff in the footer" },
-            { label: "Task", description: "Show a structured task summary" },
-            { label: "Todo", description: "Show a todo snapshot" },
-            { label: "Error", description: "Show an error transcript row" },
+            { label: UI.t("tui.diff"), description: UI.t("cli.demo.diff_footer") },
+            { label: UI.t("tui.task"), description: UI.t("cli.demo.task") },
+            { label: UI.t("tui.todo"), description: UI.t("cli.demo.todo") },
+            { label: UI.t("error.title"), description: UI.t("cli.demo.error") },
           ],
           multiple: true,
           custom: false,
@@ -965,10 +966,10 @@ function emitQuestion(state: State, kind: QuestionKind = "multi"): void {
       return [
         {
           header: "Reply",
-          question: "What custom answer should appear in the footer preview?",
+          question: UI.t("cli.demo.question_custom_answer"),
           options: [
-            { label: "Short note", description: "Keep the answer to one line" },
-            { label: "Wrapped note", description: "Use a longer answer to test wrapping" },
+            { label: UI.t("cli.demo.short_note"), description: UI.t("cli.demo.short_note") },
+            { label: UI.t("cli.demo.wrapped_note"), description: UI.t("cli.demo.wrapped_note") },
           ],
           multiple: false,
           custom: true,
@@ -979,20 +980,20 @@ function emitQuestion(state: State, kind: QuestionKind = "multi"): void {
     return [
       {
         header: "Layout",
-        question: "Which footer view should stay active while testing?",
+        question: UI.t("cli.demo.question_active_footer"),
         options: [
-          { label: "Prompt", description: "Return to prompt" },
-          { label: "Question", description: "Keep question open" },
+          { label: UI.t("prompt.title"), description: UI.t("cli.demo.prompt") },
+          { label: UI.t("question.title"), description: UI.t("cli.demo.question") },
         ],
         multiple: false,
       },
       {
         header: "Rows",
-        question: "Pick formatting previews",
+        question: UI.t("cli.demo.question_formatting_previews"),
         options: [
-          { label: "Diff", description: "Emit edit diff" },
-          { label: "Task", description: "Emit task card" },
-          { label: "Todo", description: "Emit todo card" },
+          { label: UI.t("tui.diff"), description: UI.t("cli.demo.emit_diff") },
+          { label: UI.t("tui.task"), description: UI.t("cli.demo.emit_task") },
+          { label: UI.t("tui.todo"), description: UI.t("cli.demo.emit_todo") },
         ],
         multiple: true,
         custom: true,
@@ -1037,7 +1038,7 @@ async function emitFmt(state: State, kind: string, body: string, signal?: AbortS
   }
 
   if (kind === "reasoning") {
-    await emitReasoning(state, body || "Planning next steps [REDACTED] while preserving reducer ordering.", signal)
+    await emitReasoning(state, body || UI.t("cli.demo.planning_fallback"), signal)
     return true
   }
 
@@ -1077,14 +1078,14 @@ async function emitFmt(state: State, kind: string, body: string, signal?: AbortS
   }
 
   if (kind === "error") {
-    emitError(state, body || "demo error event")
+    emitError(state, body || UI.t("cli.demo.demo_error"))
     return true
   }
 
   if (kind === "mix") {
     await emitText(state, SAMPLE_MARKDOWN, signal)
     await wait(50, signal)
-    await emitReasoning(state, "Thinking through formatter edge cases [REDACTED].", signal)
+    await emitReasoning(state, UI.t("cli.demo.thinking_formatter"), signal)
     await wait(50, signal)
     await emitBash(state, signal)
     emitWrite(state)
@@ -1093,7 +1094,7 @@ async function emitFmt(state: State, kind: string, body: string, signal?: AbortS
     emitTask(state)
     emitTodo(state)
     emitQuestionTool(state)
-    emitError(state, "demo mixed scenario error")
+    emitError(state, UI.t("cli.demo.mixed_error"))
     return true
   }
 
@@ -1104,7 +1105,7 @@ function intro(state: State): void {
   note(
     state.footer,
     [
-      "Demo slash commands enabled for interactive mode.",
+      UI.t("cli.demo.slash_enabled"),
       `- /permission [kind] (${PERMISSIONS.join(", ")})`,
       `- /question [kind] (${QUESTIONS.join(", ")})`,
       `- /fmt <kind> (${KINDS.join(", ")})`,
@@ -1153,7 +1154,7 @@ export function createRunDemo(input: Input) {
     if (cmd === "/permission") {
       const kind = permissionKind(list[1])
       if (!kind) {
-        note(state.footer, `Pick a permission kind: ${PERMISSIONS.join(", ")}`)
+        note(state.footer, UI.t("cli.demo.pick_permission_kind", { items: PERMISSIONS.join(", ") }))
         return true
       }
 
@@ -1164,7 +1165,7 @@ export function createRunDemo(input: Input) {
     if (cmd === "/question") {
       const kind = questionKind(list[1])
       if (!kind) {
-        note(state.footer, `Pick a question kind: ${QUESTIONS.join(", ")}`)
+        note(state.footer, UI.t("cli.demo.pick_question_kind", { items: QUESTIONS.join(", ") }))
         return true
       }
 
@@ -1176,7 +1177,7 @@ export function createRunDemo(input: Input) {
       const kind = (list[1] || "").toLowerCase()
       const body = list.slice(2).join(" ")
       if (!kind) {
-        note(state.footer, `Pick a kind: ${KINDS.join(", ")}`)
+        note(state.footer, UI.t("cli.demo.pick_kind", { items: KINDS.join(", ") }))
         return true
       }
 
@@ -1185,7 +1186,7 @@ export function createRunDemo(input: Input) {
         return true
       }
 
-      note(state.footer, `Unknown kind "${kind}". Use: ${KINDS.join(", ")}`)
+      note(state.footer, UI.t("cli.demo.unknown_kind", { kind, items: KINDS.join(", ") }))
       return true
     }
 
@@ -1211,7 +1212,7 @@ export function createRunDemo(input: Input) {
     feed(state, event)
 
     if (input.reply === "reject") {
-      failTool(state, item.ref, input.message || "permission rejected")
+      failTool(state, item.ref, input.message || UI.t("cli.demo.permission_rejected"))
       return true
     }
 
@@ -1260,7 +1261,7 @@ export function createRunDemo(input: Input) {
         requestID: input.requestID,
       },
     } as Event)
-    failTool(state, ask.ref, "question rejected")
+    failTool(state, ask.ref, UI.t("cli.demo.question_rejected"))
     return true
   }
 

@@ -2,22 +2,27 @@ export * as CommandPlugin from "./command"
 
 import { define } from "./internal"
 import { Effect } from "effect"
+import { Config } from "../config"
 import { Location } from "../location"
-import PROMPT_INITIALIZE from "./command/initialize.txt"
-import PROMPT_REVIEW from "./command/review.txt"
+import { t } from "../i18n"
+import { CommandPrompt } from "./command/prompt"
 
 export const Plugin = define({
   id: "command",
   effect: Effect.fn(function* (ctx) {
+    const config = yield* Config.Service
     const location = yield* Location.Service
+    const language = Config.latest(yield* config.entries(), "language")
+    const initialize = CommandPrompt.text(language, "initialize")
+    const review = CommandPrompt.text(language, "review")
     yield* ctx.command.transform((draft) => {
       draft.update("init", (command) => {
-        command.template = PROMPT_INITIALIZE.replace("${path}", location.project.directory)
-        command.description = "guided AGENTS.md setup"
+        command.template = initialize.replace("${path}", location.project.directory)
+        command.description = t(language, "command.init_description")
       })
       draft.update("review", (command) => {
-        command.template = PROMPT_REVIEW.replace("${path}", location.project.directory)
-        command.description = "review changes [commit|branch|pr], defaults to uncommitted"
+        command.template = review.replace("${path}", location.project.directory)
+        command.description = t(language, "command.review_description")
         command.subtask = true
       })
     })

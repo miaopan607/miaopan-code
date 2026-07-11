@@ -23,10 +23,12 @@ import {
   UnknownProviderReason,
 } from "../schema"
 import { isContextOverflow } from "../provider-error"
+import { t, type Language } from "../i18n"
 
 export interface Interface {
   readonly execute: (
     request: HttpClientRequest.HttpClientRequest,
+    language?: Language,
   ) => Effect.Effect<HttpClientResponse.HttpClientResponse, LLMError>
 }
 
@@ -201,9 +203,10 @@ const responseBody = (body: string | void, request: HttpClientRequest.HttpClient
   return { body: redacted.slice(0, BODY_LIMIT), bodyTruncated: true }
 }
 
-const providerMessage = (status: number, body: { readonly body?: string }) => {
-  if (body.body && body.body.length <= 500) return `Provider request failed with HTTP ${status}: ${body.body}`
-  return `Provider request failed with HTTP ${status}`
+const providerMessage = (status: number, body: { readonly body?: string }, language?: Language) => {
+  if (body.body && body.body.length <= 500)
+    return t(language, "llm.http.provider_failed_body", { status, body: body.body })
+  return t(language, "llm.http.provider_failed", { status })
 }
 
 const responseHttp = (input: {
@@ -275,7 +278,7 @@ const statusReason = (input: {
 }
 
 const statusError =
-  (request: HttpClientRequest.HttpClientRequest, redactedNames: ReadonlyArray<string | RegExp>) =>
+  (request: HttpClientRequest.HttpClientRequest, redactedNames: ReadonlyArray<string | RegExp>, language?: Language) =>
   (response: HttpClientResponse.HttpClientResponse) =>
     Effect.gen(function* () {
       if (response.status < 400) return response
@@ -289,7 +292,7 @@ const statusError =
         method: "execute",
         reason: statusReason({
           status: response.status,
-          message: providerMessage(response.status, details),
+          message: providerMessage(response.status, details, language),
           retryAfterMs: retryAfter,
           rateLimit,
           http: responseHttp({
@@ -304,7 +307,7 @@ const statusError =
       })
     })
 
-const toHttpError = (redactedNames: ReadonlyArray<string | RegExp>) => (error: unknown) => {
+const toHttpError = (redactedNames: ReadonlyArray<string | RegExp>, language?: Language) => (error: unknown) => {
   const transportError = (input: {
     readonly message: string
     readonly kind?: string | undefined
@@ -322,21 +325,24 @@ const toHttpError = (redactedNames: ReadonlyArray<string | RegExp>) => (error: u
     })
 
   if (Cause.isTimeoutError(error)) {
-    return transportError({ message: error.message, kind: "Timeout" })
+    return transportError({ message: t(language, "llm.transport.timeout", { error: error.message }), kind: "Timeout" })
   }
   if (!HttpClientError.isHttpClientError(error)) {
-    return transportError({ message: "HTTP transport failed" })
+    return transportError({ message: t(language, "llm.transport.http_failed") })
   }
   const request = "request" in error ? error.request : undefined
   if (error.reason._tag === "TransportError") {
     return transportError({
-      message: error.reason.description ?? "HTTP transport failed",
+      message:
+        error.reason.description === undefined
+          ? t(language, "llm.transport.http_failed")
+          : t(language, "llm.transport.http_error", { error: error.reason.description }),
       kind: error.reason._tag,
       request,
     })
   }
   return transportError({
-    message: `HTTP transport failed: ${error.reason._tag}`,
+    message: t(language, "llm.transport.http_failed_kind", { kind: error.reason._tag }),
     kind: error.reason._tag,
     request,
   })
@@ -367,15 +373,18 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient> = Layer.e
   Service,
   Effect.gen(function* () {
     const http = yield* HttpClient.HttpClient
-    const executeOnce = (request: HttpClientRequest.HttpClientRequest) =>
+    const executeOnce = (request: HttpClientRequest.HttpClientRequest, language?: Language) =>
       Effect.gen(function* () {
         const redactedNames = yield* Headers.CurrentRedactedNames
         return yield* http
           .execute(request)
-          .pipe(Effect.mapError(toHttpError(redactedNames)), Effect.flatMap(statusError(request, redactedNames)))
+          .pipe(
+            Effect.mapError(toHttpError(redactedNames, language)),
+            Effect.flatMap(statusError(request, redactedNames, language)),
+          )
       })
     return Service.of({
-      execute: (request) => retryStatusFailures(executeOnce(request)),
+      execute: (request, language) => retryStatusFailures(executeOnce(request, language)),
     })
   }),
 )

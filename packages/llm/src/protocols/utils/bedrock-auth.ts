@@ -1,6 +1,7 @@
 import { AwsV4Signer } from "aws4fetch"
 import { Effect } from "effect"
 import { Headers } from "effect/unstable/http"
+import { t } from "../../i18n"
 import { Auth, type AuthInput } from "../../route/auth"
 import { ProviderShared } from "../shared"
 
@@ -22,6 +23,7 @@ const signRequest = (input: {
   readonly body: string
   readonly headers: Headers.Headers
   readonly credentials: Credentials
+  readonly language?: AuthInput["request"]["language"]
 }) =>
   Effect.tryPromise({
     try: async () => {
@@ -40,7 +42,9 @@ const signRequest = (input: {
     },
     catch: (error) =>
       ProviderShared.invalidRequest(
-        `Bedrock Converse SigV4 signing failed: ${error instanceof Error ? error.message : String(error)}`,
+        t(input.language, "llm.bedrock.sigv4_failed", {
+          error: error instanceof Error ? error.message : String(error),
+        }),
       ),
   })
 
@@ -49,9 +53,7 @@ export const sigV4 = (credentials: Credentials | undefined) =>
   Auth.custom((input: AuthInput) => {
     return Effect.gen(function* () {
       if (!credentials) {
-        return yield* ProviderShared.invalidRequest(
-          "Bedrock Converse requires either route bearer auth or AWS credentials configured on the route",
-        )
+        return yield* ProviderShared.invalidRequest(t(input.request.language, "llm.bedrock.auth_required"))
       }
       const headersForSigning = Headers.set(input.headers, "content-type", "application/json")
       const signed = yield* signRequest({
@@ -59,6 +61,7 @@ export const sigV4 = (credentials: Credentials | undefined) =>
         body: input.body,
         headers: headersForSigning,
         credentials,
+        language: input.request.language,
       })
       return Headers.setAll(headersForSigning, signed)
     })

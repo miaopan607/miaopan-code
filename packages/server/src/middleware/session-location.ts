@@ -11,6 +11,8 @@ import { HttpRouter } from "effect/unstable/http"
 import { HttpApiMiddleware } from "effect/unstable/httpapi"
 import { InvalidRequestError, SessionNotFoundError } from "@miaopan-code/protocol/errors"
 import type { LocationServices } from "../location"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
 export class SessionLocationMiddleware extends HttpApiMiddleware.Service<
   SessionLocationMiddleware,
@@ -29,12 +31,13 @@ export const sessionLocationLayer = Layer.effect(
 
     return SessionLocationMiddleware.of((effect) =>
       Effect.gen(function* () {
+        const language = yield* requestLanguage()
         const route = yield* HttpRouter.RouteContext
         const sessionID = yield* decodeSessionID(route.params.sessionID).pipe(
           Effect.mapError(
             () =>
               new InvalidRequestError({
-                message: "Invalid session ID",
+                message: t(language, "error.invalid_session_id"),
                 field: "sessionID",
               }),
           ),
@@ -48,7 +51,7 @@ export const sessionLocationLayer = Layer.effect(
         if (!row)
           return yield* new SessionNotFoundError({
             sessionID,
-            message: `Session not found: ${sessionID}`,
+            message: t(language, "error.session_not_found", { id: sessionID }),
           })
 
         return yield* effect.pipe(

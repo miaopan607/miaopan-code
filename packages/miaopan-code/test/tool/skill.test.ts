@@ -2,6 +2,7 @@ import { PermissionV1 } from "@miaopan-code/core/v1/permission"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { Ripgrep } from "@miaopan-code/core/ripgrep"
+import { t } from "@miaopan-code/core/i18n"
 import { Cause, Effect, Exit, Layer } from "effect"
 import { afterEach, describe, expect } from "bun:test"
 import path from "path"
@@ -33,7 +34,7 @@ describe("tool.skill", () => {
   it.instance("execute returns skill content block with files", () =>
     Effect.gen(function* () {
       const dir = (yield* TestInstance).directory
-      const skill = path.join(dir, ".miaopanCode", "skill", "tool-skill")
+      const skill = path.join(dir, ".miaopan-code", "skill", "tool-skill")
       yield* Effect.promise(() =>
         Bun.write(
           path.join(skill, "SKILL.md"),
@@ -88,7 +89,7 @@ Use this skill.
       expect(requests[0].always).toContain("tool-skill")
       expect(result.metadata.dir).toBe(skill)
       expect(result.output).toContain(`<skill_content name="tool-skill">`)
-      expect(result.output).toContain(`Base directory for this skill: ${skill}`)
+      expect(result.output).toContain(t("zh-CN", "tool.skill_base", { base: skill }))
       expect(result.output).toContain(`<file>${file}</file>`)
     }),
   )
@@ -127,7 +128,13 @@ Use this skill.
       if (Exit.isFailure(exit)) {
         const error = Cause.squash(exit.cause)
         expect(error).toBeInstanceOf(Error)
-        if (error instanceof Error) expect(error.message).toContain('Skill "missing-skill" not found.')
+        if (error instanceof Error)
+          expect(error.message).toBe(
+            t("zh-CN", "error.skill_not_found", {
+              name: "missing-skill",
+              available: "customize-miaopanCode",
+            }),
+          )
       }
     }),
   )

@@ -1,4 +1,5 @@
 import type { CommandModule } from "yargs"
+import { resolveLanguage } from "../../server/routes/instance/httpapi/i18n"
 
 type Args = {}
 
@@ -7,7 +8,7 @@ export const GenerateCommand = {
   builder: (yargs) => yargs,
   handler: async () => {
     const { Server } = await import("../../server/server")
-    const specs = (await Server.openapi()) as {
+    const specs = (await Server.openapi(resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE))) as {
       paths: Record<string, Record<string, any>>
     }
     for (const item of Object.values(specs.paths)) {

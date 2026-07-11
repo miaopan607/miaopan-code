@@ -273,7 +273,7 @@ describe("util.effect-flock", () => {
         .pipe(Effect.exit)
 
       expect(Exit.isFailure(result)).toBe(true)
-      expect(Exit.isFailure(result) ? Cause.pretty(result.cause) : "").toContain("missing")
+      expect(Exit.isFailure(result) ? Cause.pretty(result.cause) : "").toContain("缺少元数据")
       yield* Effect.promise(() => fs.rm(tmp, { recursive: true, force: true }))
     }),
   )
@@ -301,7 +301,7 @@ describe("util.effect-flock", () => {
         .pipe(Effect.exit)
 
       expect(Exit.isFailure(result)).toBe(true)
-      expect(Exit.isFailure(result) ? Cause.pretty(result.cause) : "").toContain("token mismatch")
+      expect(Exit.isFailure(result) ? Cause.pretty(result.cause) : "").toContain("令牌不匹配")
       expect(yield* Effect.promise(() => exists(lockDir))).toBe(true)
       yield* Effect.promise(() => fs.rm(tmp, { recursive: true, force: true }))
     }),
@@ -310,7 +310,7 @@ describe("util.effect-flock", () => {
   it.live(
     "fails on unwritable lock roots",
     Effect.gen(function* () {
-      if (process.platform === "win32") return
+      if (process.platform === "win32" || process.getuid?.() === 0) return
       const flock = yield* EffectFlock.Service
       const tmp = yield* Effect.promise(() => fs.mkdtemp(path.join(os.tmpdir(), "eflock-test-")))
       const dir = path.join(tmp, "locks")

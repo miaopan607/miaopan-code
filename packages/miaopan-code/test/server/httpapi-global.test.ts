@@ -16,6 +16,7 @@ import { globalHandlers } from "../../src/server/routes/instance/httpapi/handler
 import { authorizationLayer } from "../../src/server/routes/instance/httpapi/middleware/authorization"
 import { schemaErrorLayer } from "../../src/server/routes/instance/httpapi/middleware/schema-error"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const apiLayer = HttpRouter.serve(
   HttpApiBuilder.layer(RootHttpApi).pipe(
@@ -60,7 +61,7 @@ describe("global HttpApi", () => {
       )
 
       expect(response.status).toBe(400)
-      expect(yield* response.json).toEqual({ success: false, error: "Invalid request body" })
+      expect(yield* response.json).toEqual({ success: false, error: t(undefined, "error.invalid_request_body") })
     }),
   )
 })

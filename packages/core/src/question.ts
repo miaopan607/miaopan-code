@@ -5,6 +5,7 @@ import { Context, Deferred, Effect, Layer, Schema } from "effect"
 import { Question } from "@miaopan-code/schema/question"
 import { EventV2 } from "./event"
 import { SessionSchema } from "./session/schema"
+import { zh } from "./i18n"
 
 export const ID = Question.ID
 export type ID = typeof ID.Type
@@ -34,7 +35,7 @@ export const Event = Question.Event
 
 export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("QuestionV2.RejectedError", {}) {
   override get message() {
-    return "The user dismissed this question"
+    return zh("question.dismissed")
   }
 }
 

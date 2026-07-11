@@ -1,5 +1,5 @@
 import { PermissionV1 } from "@miaopan-code/core/v1/permission"
-import { describe, expect } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { Cause, Effect, Exit, Layer } from "effect"
 import type * as Scope from "effect/Scope"
@@ -8,6 +8,7 @@ import path from "path"
 import { Config } from "@/config/config"
 import { Shell } from "@miaopan-code/core/shell"
 import { ShellTool } from "../../src/tool/shell"
+import { ShellPrompt } from "../../src/tool/shell/prompt"
 import { Filesystem } from "@/util/filesystem"
 import { provideInstance, testInstanceStoreLayer, tmpdirScoped } from "../fixture/fixture"
 import type { Permission } from "../../src/permission"
@@ -181,6 +182,16 @@ const mustTruncate = (result: {
 }
 
 describe("tool.shell", () => {
+  test("renders the Chinese prompt by default", () => {
+    const prompt = ShellPrompt.render("bash", "linux", { maxLines: 100, maxBytes: 1000 }, 120_000)
+    expect(prompt.description).toContain("默认 120000ms")
+  })
+
+  test("renders the English prompt when requested", () => {
+    const prompt = ShellPrompt.render("bash", "linux", { maxLines: 100, maxBytes: 1000 }, 120_000, "en")
+    expect(prompt.description).toContain("commands will time out after 120000ms")
+  })
+
   each("basic", () =>
     runIn(
       projectRoot,
@@ -1033,7 +1044,7 @@ describe("tool.shell abort", () => {
             },
           )
           expect(res.output).toContain("before")
-          expect(res.output).toContain("User aborted the command")
+          expect(res.output).toContain("用户中止了命令")
           expect(collected.length).toBeGreaterThan(0)
         }),
       ),
@@ -1050,8 +1061,8 @@ describe("tool.shell abort", () => {
             command: `sleep 60`,
             timeout: 500,
           })
-          expect(result.output).toContain("shell tool terminated command after exceeding timeout")
-          expect(result.output).toContain("retry with a larger timeout value in milliseconds")
+          expect(result.output).toContain("shell 工具在超过 500 毫秒超时后终止了命令")
+          expect(result.output).toContain("请使用更大的毫秒超时值重试")
         }),
       ),
     15_000,
@@ -1064,14 +1075,14 @@ describe("tool.shell abort", () => {
         projectRoot,
         Effect.gen(function* () {
           const tool = yield* initShell()
-          expect(tool.description).toContain("commands will time out after 500ms")
+          expect(tool.description).toContain("默认 500ms")
           const result = yield* tool.execute(
             {
               command: `sleep 60`,
             },
             ctx,
           )
-          expect(result.output).toContain("exceeding timeout 500 ms")
+          expect(result.output).toContain("超过 500 毫秒超时")
         }),
       ).pipe(Effect.provide(RuntimeFlags.layer({ bashDefaultTimeoutMs: 500 }))),
     15_000,
@@ -1141,8 +1152,8 @@ describe("tool.shell truncation", () => {
           command: fill("lines", lineCount),
         })
         mustTruncate(result)
-        expect(result.output).toMatch(/\.\.\.output truncated\.\.\./)
-        expect(result.output).toMatch(/Full output saved to:\s+\S+/)
+        expect(result.output).toContain("……输出已截断……")
+        expect(result.output).toMatch(/完整输出已保存到：\s*\S+/)
       }),
     ),
   )
@@ -1156,8 +1167,8 @@ describe("tool.shell truncation", () => {
           command: fill("bytes", byteCount),
         })
         mustTruncate(result)
-        expect(result.output).toMatch(/\.\.\.output truncated\.\.\./)
-        expect(result.output).toMatch(/Full output saved to:\s+\S+/)
+        expect(result.output).toContain("……输出已截断……")
+        expect(result.output).toMatch(/完整输出已保存到：\s*\S+/)
       }),
     ),
   )

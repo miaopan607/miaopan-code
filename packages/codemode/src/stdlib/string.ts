@@ -35,9 +35,14 @@ export const stringMethods = new Set([
 
 export const stringStatics = new Set(["fromCharCode", "fromCodePoint"])
 
-export const invokeStringStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeStringStatic = (name: string, args: Array<unknown>, node: AstNode, language?: Language): unknown => {
+  language ??= languageOf(node)
   const codes = args.map((arg) => {
-    if (typeof arg !== "number") throw new InterpreterRuntimeError(`String.${name} expects number arguments.`, node)
+    if (typeof arg !== "number")
+      throw new InterpreterRuntimeError(
+        t(language, "codemode.stdlib.expects_number_arguments", { name: `String.${name}` }),
+        node,
+      )
     return arg
   })
   switch (name) {
@@ -46,7 +51,11 @@ export const invokeStringStatic = (name: string, args: Array<unknown>, node: Ast
     case "fromCodePoint":
       return String.fromCodePoint(...codes)
     default:
-      throw new InterpreterRuntimeError(`String.${name} is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        t(language, "codemode.stdlib.unavailable_static", { namespace: "String", name }),
+        node,
+      )
   }
 }
-import { type AstNode, InterpreterRuntimeError } from "../interpreter/model.js"
+import { type AstNode, InterpreterRuntimeError, languageOf } from "../interpreter/model.js"
+import { t, type Language } from "../i18n.js"

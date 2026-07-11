@@ -1,13 +1,10 @@
-# miaopan-code V2 Effect Plugin API
+# miaopan-code V2 Effect 插件 API
 
-The Effect plugin API grants plugins two in-process capabilities:
+语言版本：简体中文 · [English](README.en.md)
 
-- `hook` installs behavior at an miaopan-code extension point.
-- `reload` reruns every transform hook for a stateful domain.
+Effect 插件 API 为插件提供两个进程内能力：`hook` 在 miaopan-code 扩展点安装行为，`reload` 重新运行某个有状态域的全部 transform hook。公共 Server Client 将单独提供，暂不属于 `PluginContext`。
 
-The public server client will be exposed separately. It is intentionally not part of `PluginContext` yet.
-
-## Defining A Plugin
+## 定义插件
 
 ```ts
 import { define } from "@miaopan-code/plugin/v2/effect"
@@ -25,87 +22,8 @@ export const Plugin = define({
 })
 ```
 
-Plugin setup registers hooks imperatively. It does not return a hook object.
+插件配置通过 `ctx.options` 提供。注册项归插件作用域所有，作用域关闭时会自动移除，也可调用 `dispose` 提前移除。
 
-Configuration supplied for the plugin is available as `ctx.options`.
+## Hook 类型
 
-Registrations are owned by the plugin scope. Closing the scope removes them automatically; a registration may also be removed early through `dispose`.
-
-## Transform Hooks
-
-Transform hooks contribute to stateful domains:
-
-```ts
-yield *
-  ctx.agent.transform((agent) => {
-    agent.update("reviewer", (item) => {
-      item.description = "Reviews code for regressions"
-      item.mode = "subagent"
-    })
-  })
-```
-
-miaopan-code rebuilds the domain when a transform is registered or disposed. A rebuild starts from fresh domain state and runs every active transform in registration order.
-
-Available transform hooks are namespaced by domain:
-
-```ts
-ctx.agent.transform
-ctx.catalog.transform
-ctx.command.transform
-ctx.integration.transform
-ctx.reference.transform
-ctx.skill.transform
-```
-
-## Runtime Hooks
-
-Runtime hooks intercept live operations rather than rebuilding domain state:
-
-```ts
-yield *
-  ctx.aisdk.sdk(
-    Effect.fn(function* (event) {
-      if (event.package !== "@ai-sdk/xai") return
-      const mod = yield* Effect.promise(() => import("@ai-sdk/xai"))
-      event.sdk = mod.createXai(event.options)
-    }),
-  )
-
-yield *
-  ctx.aisdk.language((event) => {
-    if (event.model.providerID !== "xai") return
-    event.language = event.sdk.responses(event.model.api.id)
-  })
-```
-
-Hooks run sequentially in registration order. Later hooks observe mutations made by earlier hooks.
-
-## Reloading A Domain
-
-When data captured by a transform changes, reload the affected domain:
-
-```ts
-let data = yield * loadCatalog()
-
-yield *
-  ctx.catalog.transform((catalog) => {
-    applyCatalog(data, catalog)
-  })
-
-data = yield * loadCatalog()
-yield * ctx.catalog.reload()
-```
-
-Reload belongs to the domain, not an individual registration. `ctx.catalog.reload()` reruns every active catalog transform and publishes the rebuilt catalog.
-
-Available reload operations are:
-
-```ts
-ctx.agent.reload()
-ctx.catalog.reload()
-ctx.command.reload()
-ctx.integration.reload()
-ctx.reference.reload()
-ctx.skill.reload()
-```
+Transform hook 用于修改 agent、catalog、command、integration、reference 和 skill 等状态域；runtime hook 用于拦截实时操作，例如替换 AI SDK 或模型语言实现。完整示例和生命周期说明请参阅 [英文文档](README.en.md)。

@@ -2,6 +2,7 @@ import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { httpClient } from "@miaopan-code/core/effect/app-node-platform"
 import { Cache, Clock, Duration, Effect, Layer, Option, Schema, SchemaGetter, Context } from "effect"
 import { serviceUse } from "@miaopan-code/core/effect/service-use"
+import { resolveLanguage, type Language } from "@miaopan-code/core/i18n"
 import {
   FetchHttpClient,
   HttpClient,
@@ -15,11 +16,13 @@ import { AccountRepo, type AccountRow } from "./repo"
 import { normalizeServerUrl } from "./url"
 import {
   type AccountError,
+  AccountRepoError,
   AccessToken,
   AccountID,
   DeviceCode,
   Info,
   RefreshToken,
+  type AccountServiceMessageKey,
   AccountServiceError,
   AccountTransportError,
   Login,
@@ -142,44 +145,57 @@ const isTokenFresh = (tokenExpiry: number | null, now: number) =>
   tokenExpiry != null && tokenExpiry > now + eagerRefreshThresholdMs
 
 const mapAccountServiceError =
-  (message = "Account service operation failed") =>
+  (language: Language, messageKey: AccountServiceMessageKey = "error.account_operation_failed") =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, AccountError, R> =>
-    effect.pipe(Effect.mapError((cause) => accountErrorFromCause(cause, message)))
+    effect.pipe(Effect.mapError((cause) => accountErrorFromCause(cause, language, messageKey)))
 
-const accountErrorFromCause = (cause: unknown, message: string): AccountError => {
-  if (cause instanceof AccountServiceError || cause instanceof AccountTransportError) {
+const accountErrorFromCause = (
+  cause: unknown,
+  language: Language,
+  messageKey: AccountServiceMessageKey,
+): AccountError => {
+  if (
+    cause instanceof AccountRepoError ||
+    cause instanceof AccountServiceError ||
+    cause instanceof AccountTransportError
+  ) {
     return cause
   }
 
   if (HttpClientError.isHttpClientError(cause)) {
     switch (cause.reason._tag) {
       case "TransportError": {
-        return AccountTransportError.fromHttpClientError(cause.reason)
+        return AccountTransportError.fromHttpClientError(cause.reason, language)
       }
       default: {
-        return new AccountServiceError({ message, cause })
+        return new AccountServiceError({ language, messageKey, cause })
       }
     }
   }
 
-  return new AccountServiceError({ message, cause })
+  return new AccountServiceError({ language, messageKey, cause })
 }
 
 export interface Interface {
-  readonly active: () => Effect.Effect<Option.Option<Info>, AccountError>
-  readonly activeOrg: () => Effect.Effect<Option.Option<ActiveOrg>, AccountError>
-  readonly list: () => Effect.Effect<Info[], AccountError>
-  readonly orgsByAccount: () => Effect.Effect<readonly AccountOrgs[], AccountError>
-  readonly remove: (accountID: AccountID) => Effect.Effect<void, AccountError>
-  readonly use: (accountID: AccountID, orgID: Option.Option<OrgID>) => Effect.Effect<void, AccountError>
-  readonly orgs: (accountID: AccountID) => Effect.Effect<readonly Org[], AccountError>
+  readonly active: (language?: Language) => Effect.Effect<Option.Option<Info>, AccountError>
+  readonly activeOrg: (language?: Language) => Effect.Effect<Option.Option<ActiveOrg>, AccountError>
+  readonly list: (language?: Language) => Effect.Effect<Info[], AccountError>
+  readonly orgsByAccount: (language?: Language) => Effect.Effect<readonly AccountOrgs[], AccountError>
+  readonly remove: (accountID: AccountID, language?: Language) => Effect.Effect<void, AccountError>
+  readonly use: (
+    accountID: AccountID,
+    orgID: Option.Option<OrgID>,
+    language?: Language,
+  ) => Effect.Effect<void, AccountError>
+  readonly orgs: (accountID: AccountID, language?: Language) => Effect.Effect<readonly Org[], AccountError>
   readonly config: (
     accountID: AccountID,
     orgID: OrgID,
+    language?: Language,
   ) => Effect.Effect<Option.Option<Record<string, unknown>>, AccountError>
-  readonly token: (accountID: AccountID) => Effect.Effect<Option.Option<AccessToken>, AccountError>
-  readonly login: (url: string) => Effect.Effect<Login, AccountError>
-  readonly poll: (input: Login) => Effect.Effect<PollResult, AccountError>
+  readonly token: (accountID: AccountID, language?: Language) => Effect.Effect<Option.Option<AccessToken>, AccountError>
+  readonly login: (url: string, language?: Language) => Effect.Effect<Login, AccountError>
+  readonly poll: (input: Login, language?: Language) => Effect.Effect<PollResult, AccountError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/Account") {}
@@ -189,31 +205,34 @@ export const use = serviceUse(Service)
 const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpClient> = Layer.effect(
   Service,
   Effect.gen(function* () {
+    const defaultLanguage = resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
     const repo = yield* AccountRepo.Service
     const http = yield* HttpClient.HttpClient
     const httpRead = withTransientReadRetry(http)
     const httpOk = HttpClient.filterStatusOk(http)
     const httpReadOk = HttpClient.filterStatusOk(httpRead)
 
-    const executeRead = (request: HttpClientRequest.HttpClientRequest) =>
-      httpRead.execute(request).pipe(mapAccountServiceError("HTTP request failed"))
+    const currentLanguage = (requestedLanguage?: Language) => resolveLanguage(requestedLanguage ?? defaultLanguage)
 
-    const executeReadOk = (request: HttpClientRequest.HttpClientRequest) =>
-      httpReadOk.execute(request).pipe(mapAccountServiceError("HTTP request failed"))
+    const executeRead = (request: HttpClientRequest.HttpClientRequest, language: Language) =>
+      httpRead.execute(request).pipe(mapAccountServiceError(language, "error.account_http_request_failed"))
 
-    const executeEffectOk = <E>(request: Effect.Effect<HttpClientRequest.HttpClientRequest, E>) =>
+    const executeReadOk = (request: HttpClientRequest.HttpClientRequest, language: Language) =>
+      httpReadOk.execute(request).pipe(mapAccountServiceError(language, "error.account_http_request_failed"))
+
+    const executeEffectOk = <E>(request: Effect.Effect<HttpClientRequest.HttpClientRequest, E>, language: Language) =>
       request.pipe(
         Effect.flatMap((req) => httpOk.execute(req)),
-        mapAccountServiceError("HTTP request failed"),
+        mapAccountServiceError(language, "error.account_http_request_failed"),
       )
 
-    const executeEffect = <E>(request: Effect.Effect<HttpClientRequest.HttpClientRequest, E>) =>
+    const executeEffect = <E>(request: Effect.Effect<HttpClientRequest.HttpClientRequest, E>, language: Language) =>
       request.pipe(
         Effect.flatMap((req) => http.execute(req)),
-        mapAccountServiceError("HTTP request failed"),
+        mapAccountServiceError(language, "error.account_http_request_failed"),
       )
 
-    const refreshToken = Effect.fnUntraced(function* (row: AccountRow) {
+    const refreshToken = Effect.fnUntraced(function* (row: AccountRow, language: Language) {
       const now = yield* Clock.currentTimeMillis
 
       const response = yield* executeEffectOk(
@@ -227,10 +246,11 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
             }),
           ),
         ),
+        language,
       )
 
       const parsed = yield* HttpClientResponse.schemaBodyJson(TokenRefresh)(response).pipe(
-        mapAccountServiceError("Failed to decode response"),
+        mapAccountServiceError(language, "error.account_decode_response_failed"),
       )
 
       const expiry = Option.some(now + Duration.toMillis(parsed.expires_in))
@@ -240,18 +260,21 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
         accessToken: parsed.access_token,
         refreshToken: parsed.refresh_token,
         expiry,
+        language,
       })
 
       return parsed.access_token
     })
 
-    const refreshTokenCache = yield* Cache.make<AccountID, AccessToken, AccountError>({
+    const refreshTokenCache = yield* Cache.make<readonly [AccountID, Language], AccessToken, AccountError>({
       capacity: Number.POSITIVE_INFINITY,
       timeToLive: Duration.zero,
-      lookup: Effect.fnUntraced(function* (accountID) {
-        const maybeAccount = yield* repo.getRow(accountID)
+      lookup: Effect.fnUntraced(function* ([accountID, language]) {
+        const maybeAccount = yield* repo.getRow(accountID, language)
         if (Option.isNone(maybeAccount)) {
-          return yield* Effect.fail(new AccountServiceError({ message: "Account not found during token refresh" }))
+          return yield* Effect.fail(
+            new AccountServiceError({ language, messageKey: "error.account_not_found_refresh" }),
+          )
         }
 
         const account = maybeAccount.value
@@ -260,78 +283,99 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
           return account.access_token
         }
 
-        return yield* refreshToken(account)
+        return yield* refreshToken(account, language)
       }),
     })
 
-    const resolveToken = Effect.fnUntraced(function* (row: AccountRow) {
+    const resolveToken = Effect.fnUntraced(function* (row: AccountRow, language: Language) {
       const now = yield* Clock.currentTimeMillis
       if (isTokenFresh(row.token_expiry, now)) {
         return row.access_token
       }
 
-      return yield* Cache.get(refreshTokenCache, row.id)
+      return yield* Cache.get(refreshTokenCache, [row.id, language] as const)
     })
 
-    const resolveAccess = Effect.fnUntraced(function* (accountID: AccountID) {
-      const maybeAccount = yield* repo.getRow(accountID)
+    const resolveAccess = Effect.fnUntraced(function* (accountID: AccountID, language: Language) {
+      const maybeAccount = yield* repo.getRow(accountID, language)
       if (Option.isNone(maybeAccount)) return Option.none()
 
       const account = maybeAccount.value
-      const accessToken = yield* resolveToken(account)
+      const accessToken = yield* resolveToken(account, language)
       return Option.some({ account, accessToken })
     })
 
-    const fetchOrgs = Effect.fnUntraced(function* (url: string, accessToken: AccessToken) {
+    const fetchOrgs = Effect.fnUntraced(function* (url: string, accessToken: AccessToken, language: Language) {
       const response = yield* executeReadOk(
         HttpClientRequest.get(`${url}/api/orgs`).pipe(
           HttpClientRequest.acceptJson,
           HttpClientRequest.bearerToken(accessToken),
         ),
+        language,
       )
 
       return yield* HttpClientResponse.schemaBodyJson(Schema.Array(Org))(response).pipe(
-        mapAccountServiceError("Failed to decode response"),
+        mapAccountServiceError(language, "error.account_decode_response_failed"),
       )
     })
 
-    const fetchUser = Effect.fnUntraced(function* (url: string, accessToken: AccessToken) {
+    const fetchUser = Effect.fnUntraced(function* (url: string, accessToken: AccessToken, language: Language) {
       const response = yield* executeReadOk(
         HttpClientRequest.get(`${url}/api/user`).pipe(
           HttpClientRequest.acceptJson,
           HttpClientRequest.bearerToken(accessToken),
         ),
+        language,
       )
 
       return yield* HttpClientResponse.schemaBodyJson(User)(response).pipe(
-        mapAccountServiceError("Failed to decode response"),
+        mapAccountServiceError(language, "error.account_decode_response_failed"),
       )
     })
 
-    const token = Effect.fn("Account.token")((accountID: AccountID) =>
-      resolveAccess(accountID).pipe(Effect.map(Option.map((r) => r.accessToken))),
+    const token = Effect.fn("Account.token")((accountID: AccountID, requestedLanguage?: Language) =>
+      resolveAccess(accountID, currentLanguage(requestedLanguage)).pipe(Effect.map(Option.map((r) => r.accessToken))),
     )
 
-    const activeOrg = Effect.fn("Account.activeOrg")(function* () {
-      const activeAccount = yield* repo.active()
+    const active = Effect.fn("Account.active")((requestedLanguage?: Language) =>
+      repo.active(currentLanguage(requestedLanguage)),
+    )
+
+    const list = Effect.fn("Account.list")((requestedLanguage?: Language) =>
+      repo.list(currentLanguage(requestedLanguage)),
+    )
+
+    const remove = Effect.fn("Account.remove")((accountID: AccountID, requestedLanguage?: Language) =>
+      repo.remove(accountID, currentLanguage(requestedLanguage)),
+    )
+
+    const useAccount = Effect.fn("Account.use")(
+      (accountID: AccountID, orgID: Option.Option<OrgID>, requestedLanguage?: Language) =>
+        repo.use(accountID, orgID, currentLanguage(requestedLanguage)),
+    )
+
+    const activeOrg = Effect.fn("Account.activeOrg")(function* (requestedLanguage?: Language) {
+      const language = currentLanguage(requestedLanguage)
+      const activeAccount = yield* repo.active(language)
       if (Option.isNone(activeAccount)) return Option.none<ActiveOrg>()
 
       const account = activeAccount.value
       if (!account.active_org_id) return Option.none<ActiveOrg>()
 
-      const accountOrgs = yield* orgs(account.id)
+      const accountOrgs = yield* orgs(account.id, language)
       const org = accountOrgs.find((item) => item.id === account.active_org_id)
       if (!org) return Option.none<ActiveOrg>()
 
       return Option.some({ account, org })
     })
 
-    const orgsByAccount = Effect.fn("Account.orgsByAccount")(function* () {
-      const accounts = yield* repo.list()
+    const orgsByAccount = Effect.fn("Account.orgsByAccount")(function* (requestedLanguage?: Language) {
+      const language = currentLanguage(requestedLanguage)
+      const accounts = yield* repo.list(language)
       return yield* Effect.forEach(
         accounts,
         (account) =>
-          orgs(account.id).pipe(
+          orgs(account.id, language).pipe(
             Effect.catch(() => Effect.succeed([] as readonly Org[])),
             Effect.map((orgs) => ({ account, orgs })),
           ),
@@ -339,17 +383,23 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
       )
     })
 
-    const orgs = Effect.fn("Account.orgs")(function* (accountID: AccountID) {
-      const resolved = yield* resolveAccess(accountID)
+    const orgs = Effect.fn("Account.orgs")(function* (accountID: AccountID, requestedLanguage?: Language) {
+      const language = currentLanguage(requestedLanguage)
+      const resolved = yield* resolveAccess(accountID, language)
       if (Option.isNone(resolved)) return []
 
       const { account, accessToken } = resolved.value
 
-      return yield* fetchOrgs(account.url, accessToken)
+      return yield* fetchOrgs(account.url, accessToken, language)
     })
 
-    const config = Effect.fn("Account.config")(function* (accountID: AccountID, orgID: OrgID) {
-      const resolved = yield* resolveAccess(accountID)
+    const config = Effect.fn("Account.config")(function* (
+      accountID: AccountID,
+      orgID: OrgID,
+      requestedLanguage?: Language,
+    ) {
+      const language = currentLanguage(requestedLanguage)
+      const resolved = yield* resolveAccess(accountID, language)
       if (Option.isNone(resolved)) return Option.none()
 
       const { account, accessToken } = resolved.value
@@ -360,29 +410,32 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
           HttpClientRequest.bearerToken(accessToken),
           HttpClientRequest.setHeaders({ "x-org-id": orgID }),
         ),
+        language,
       )
 
       if (response.status === 404) return Option.none()
 
-      const ok = yield* HttpClientResponse.filterStatusOk(response).pipe(mapAccountServiceError())
+      const ok = yield* HttpClientResponse.filterStatusOk(response).pipe(mapAccountServiceError(language))
 
       const parsed = yield* HttpClientResponse.schemaBodyJson(RemoteConfig)(ok).pipe(
-        mapAccountServiceError("Failed to decode response"),
+        mapAccountServiceError(language, "error.account_decode_response_failed"),
       )
       return Option.some(parsed.config)
     })
 
-    const login = Effect.fn("Account.login")(function* (server: string) {
+    const login = Effect.fn("Account.login")(function* (server: string, requestedLanguage?: Language) {
+      const language = currentLanguage(requestedLanguage)
       const normalizedServer = normalizeServerUrl(server)
       const response = yield* executeEffectOk(
         HttpClientRequest.post(`${normalizedServer}/auth/device/code`).pipe(
           HttpClientRequest.acceptJson,
           HttpClientRequest.schemaBodyJson(ClientId)(new ClientId({ client_id: clientId })),
         ),
+        language,
       )
 
       const parsed = yield* HttpClientResponse.schemaBodyJson(DeviceAuth)(response).pipe(
-        mapAccountServiceError("Failed to decode response"),
+        mapAccountServiceError(language, "error.account_decode_response_failed"),
       )
       return new Login({
         code: parsed.device_code,
@@ -394,7 +447,8 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
       })
     })
 
-    const poll = Effect.fn("Account.poll")(function* (input: Login) {
+    const poll = Effect.fn("Account.poll")(function* (input: Login, requestedLanguage?: Language) {
+      const language = currentLanguage(requestedLanguage)
       const response = yield* executeEffect(
         HttpClientRequest.post(`${input.server}/auth/device/token`).pipe(
           HttpClientRequest.acceptJson,
@@ -406,17 +460,18 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
             }),
           ),
         ),
+        language,
       )
 
       const parsed = yield* HttpClientResponse.schemaBodyJson(DeviceToken)(response).pipe(
-        mapAccountServiceError("Failed to decode response"),
+        mapAccountServiceError(language, "error.account_decode_response_failed"),
       )
 
       if (parsed instanceof DeviceTokenError) return parsed.toPollResult()
       const accessToken = parsed.access_token
 
-      const user = fetchUser(input.server, accessToken)
-      const orgs = fetchOrgs(input.server, accessToken)
+      const user = fetchUser(input.server, accessToken, language)
+      const orgs = fetchOrgs(input.server, accessToken, language)
 
       const [account, remoteOrgs] = yield* Effect.all([user, orgs], { concurrency: 2 })
 
@@ -435,18 +490,19 @@ const layer: Layer.Layer<Service, never, AccountRepo.Service | HttpClient.HttpCl
         refreshToken,
         expiry,
         orgID: firstOrgID,
+        language,
       })
 
       return new PollSuccess({ email: account.email })
     })
 
     return Service.of({
-      active: repo.active,
+      active,
       activeOrg,
-      list: repo.list,
+      list,
       orgsByAccount,
-      remove: repo.remove,
-      use: repo.use,
+      remove,
+      use: useAccount,
       orgs,
       config,
       token,

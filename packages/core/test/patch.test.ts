@@ -56,13 +56,13 @@ describe("Patch", () => {
 
   test("rejects malformed hunk bodies", () => {
     expect(() => Patch.parse("*** Begin Patch\n*** Add File: add.txt\nmissing plus\n*** End Patch")).toThrow(
-      "Invalid add file line",
+      "补丁行无效：missing plus",
     )
     expect(() => Patch.parse("*** Begin Patch\n*** Update File: update.txt\n*** End Patch")).toThrow(
-      "expected at least one @@ chunk",
+      "update.txt 的更新补丁块无效：至少需要一个 @@ 块",
     )
     expect(() => Patch.parse("*** Begin Patch\n*** Delete File: delete.txt\nunexpected body\n*** End Patch")).toThrow(
-      "Invalid patch line",
+      "补丁行无效：unexpected body",
     )
   })
 })

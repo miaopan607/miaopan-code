@@ -2,32 +2,33 @@ import type { Argv, InferredOptionTypes } from "yargs"
 import { ConfigV1 } from "@miaopan-code/core/v1/config/config"
 import type { Config } from "@/config/config"
 import { Effect } from "effect"
+import { UI } from "./ui"
 
 const options = {
   port: {
     type: "number" as const,
-    describe: "port to listen on",
+    describe: UI.t("config.v1.port"),
     default: 0,
   },
   hostname: {
     type: "string" as const,
-    describe: "hostname to listen on",
+    describe: UI.t("config.v1.hostname"),
     default: "127.0.0.1",
   },
   mdns: {
     type: "boolean" as const,
-    describe: "enable mDNS service discovery (defaults hostname to 0.0.0.0)",
+    describe: UI.t("config.v1.mdns"),
     default: false,
   },
   "mdns-domain": {
     type: "string" as const,
-    describe: "custom domain name for mDNS service (default: miaopanCode.local)",
+    describe: UI.t("config.v1.mdns_domain"),
     default: "miaopanCode.local",
   },
   cors: {
     type: "string" as const,
     array: true,
-    describe: "additional domains to allow for CORS",
+    describe: UI.t("config.v1.cors"),
     default: [] as string[],
   },
 }

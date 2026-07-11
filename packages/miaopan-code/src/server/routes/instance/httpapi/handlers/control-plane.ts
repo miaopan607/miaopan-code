@@ -4,6 +4,8 @@ import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { RootHttpApi } from "../api"
 import { ApiMoveSessionError, MoveSessionPayload } from "../groups/control-plane"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 
 export const controlPlaneHandlers = HttpApiBuilder.group(RootHttpApi, "controlPlane", (handlers) =>
   Effect.gen(function* () {
@@ -12,12 +14,13 @@ export const controlPlaneHandlers = HttpApiBuilder.group(RootHttpApi, "controlPl
     const moveSession = Effect.fn("ControlPlaneHttpApi.moveSession")(function* (ctx: {
       payload: typeof MoveSessionPayload.Type
     }) {
+      const language = yield* requestLanguage()
       yield* service.moveSession(ctx.payload).pipe(
         Effect.mapError(
           (error) =>
             new ApiMoveSessionError({
               name: "MoveSessionError",
-              data: { message: message(error) },
+              data: { message: message(error, language) },
             }),
         ),
       )
@@ -27,11 +30,10 @@ export const controlPlaneHandlers = HttpApiBuilder.group(RootHttpApi, "controlPl
   }),
 )
 
-function message(error: MoveSession.Error) {
-  if (error instanceof SessionV2.NotFoundError) return `Session not found: ${error.sessionID}`
+function message(error: MoveSession.Error, language: Language) {
+  if (error instanceof SessionV2.NotFoundError) return t(language, "error.session_not_found", { id: error.sessionID })
   if (error instanceof MoveSession.DestinationProjectMismatchError)
-    return "Destination directory belongs to another project"
-  if (error instanceof MoveSession.ApplyChangesError)
-    return `Unable to apply your changes in the destination directory. The files may conflict with existing changes.`
+    return t(language, "error.destination_project_mismatch")
+  if (error instanceof MoveSession.ApplyChangesError) return t(language, "error.destination_apply_changes")
   return error.message
 }

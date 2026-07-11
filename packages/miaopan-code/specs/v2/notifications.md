@@ -1,5 +1,7 @@
 # TUI Notifications Default
 
+Languages: [简体中文索引](../README.md) · English
+
 Problem:
 
 - v1 defaults `attention.enabled` to `false`

@@ -6,6 +6,7 @@ import { Server } from "../../src/server/server"
 import { resetDatabase } from "../fixture/db"
 import { TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const context = Context.empty() as Context.Context<unknown>
 const testStateLayer = Layer.effectDiscard(
@@ -169,7 +170,7 @@ describe("mcp HttpApi", () => {
 
             expect(response).toEqual({
               status: 400,
-              body: JSON.stringify({ error: "MCP server demo does not support OAuth" }),
+              body: JSON.stringify({ error: t(undefined, "error.mcp_oauth_unsupported", { name: "demo" }) }),
             })
           }),
         )
@@ -214,7 +215,7 @@ describe("mcp HttpApi", () => {
           expect(yield* json(response)).toEqual({
             _tag: "McpServerNotFoundError",
             name: "missing",
-            message: "MCP server not found: missing",
+            message: t(undefined, "error.mcp_not_found", { name: "missing" }),
           })
         }
       }),

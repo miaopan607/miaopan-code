@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import { InstanceRef, WorkspaceRef } from "@/effect/instance-ref"
 import { type WorkspaceAdapter, type WorkspaceAdapterContext, WorkspaceInfo } from "../types"
 
@@ -14,26 +15,31 @@ async function loadWorktree() {
   return { AppRuntime, Worktree }
 }
 
-function requireInstance(context: WorkspaceAdapterContext | undefined) {
-  if (!context?.instance) throw new Error("Worktree adapter requires an instance context")
+function requireInstance(context: WorkspaceAdapterContext | undefined, language?: Language) {
+  if (!context?.instance) throw new Error(t(language, "error.worktree_instance_context"))
   return context.instance
 }
 
-const provideContext = <A, E, R>(effect: Effect.Effect<A, E, R>, context: WorkspaceAdapterContext | undefined) =>
+const provideContext = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  context: WorkspaceAdapterContext | undefined,
+  language?: Language,
+) =>
   effect.pipe(
-    Effect.provideService(InstanceRef, requireInstance(context)),
+    Effect.provideService(InstanceRef, requireInstance(context, language)),
     Effect.provideService(WorkspaceRef, context?.workspaceID),
   )
 
-export const WorktreeAdapter: WorkspaceAdapter = {
-  name: "Worktree",
-  description: "Create a git worktree",
+export const makeWorktreeAdapter = (language?: Language): WorkspaceAdapter => ({
+  name: t(language, "worktree.name"),
+  description: t(language, "worktree.create"),
   async configure(info, context) {
     const { AppRuntime, Worktree } = await loadWorktree()
     const next = await AppRuntime.runPromise(
       provideContext(
         Worktree.Service.use((svc) => svc.makeWorktreeInfo({ detached: true })),
         context,
+        language,
       ),
     )
     return {
@@ -55,17 +61,19 @@ export const WorktreeAdapter: WorkspaceAdapter = {
           }),
         ),
         context,
+        language,
       ),
     )
   },
   async list(context) {
     const { AppRuntime, Worktree } = await loadWorktree()
-    const ctx = requireInstance(context)
+    const ctx = requireInstance(context, language)
     return (
       await AppRuntime.runPromise(
         provideContext(
           Worktree.Service.use((svc) => svc.list()),
           context,
+          language,
         ),
       )
     ).map((info) => ({
@@ -83,6 +91,7 @@ export const WorktreeAdapter: WorkspaceAdapter = {
       provideContext(
         Worktree.Service.use((svc) => svc.remove({ directory: config.directory })),
         context,
+        language,
       ),
     )
   },
@@ -93,4 +102,6 @@ export const WorktreeAdapter: WorkspaceAdapter = {
       directory: config.directory,
     }
   },
-}
+})
+
+export const WorktreeAdapter = makeWorktreeAdapter()

@@ -2,6 +2,9 @@
 import { Script } from "@miaopan-code/script"
 import { $ } from "bun"
 import { fileURLToPath } from "url"
+import { resolveLanguage, t } from "../src/i18n"
+
+const language = resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
@@ -18,7 +21,7 @@ const pkg = JSON.parse(originalText) as {
   exports: Record<string, string>
 }
 if (await published(pkg.name, pkg.version)) {
-  console.log(`already published ${pkg.name}@${pkg.version}`)
+  console.log(t(language, "publish_already_published", { name: pkg.name, version: pkg.version }))
 } else {
   for (const [key, value] of Object.entries(pkg.exports)) {
     const file = value.replace("./src/", "./dist/").replace(".ts", "")

@@ -192,7 +192,7 @@ describe("Gemini route", () => {
         const error = yield* LLMClient.prepare(
           LLM.request({ model, messages: [Message.user({ type: "media", ...media })] }),
         ).pipe(Effect.flip)
-        expect(error.message).toMatch(/does not support|does not match|valid base64/)
+        expect(error.message).toMatch(/不支持|不匹配|有效的 base64/)
       }),
     )
 
@@ -210,7 +210,7 @@ describe("Gemini route", () => {
           ],
         }),
       ).pipe(Effect.flip)
-      expect(error.message).toContain("encoded limit")
+      expect(error.message).toContain("编码后大小限制")
     }),
   )
 
@@ -562,7 +562,7 @@ describe("Gemini route", () => {
 
       expect(error).toBeInstanceOf(LLMError)
       expect(error.reason).toMatchObject({ _tag: "InvalidProviderOutput" })
-      expect(error.message).toContain("Invalid google/gemini stream event")
+      expect(error.message).toContain("无效的 google/gemini 流事件")
     }),
   )
 
@@ -576,9 +576,7 @@ describe("Gemini route", () => {
         }),
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain(
-        "Gemini assistant messages only support text, reasoning, and tool-call content for now",
-      )
+      expect(error.message).toContain("Gemini 的 assistant 消息目前只支持文本、推理和工具调用内容")
     }),
   )
 })

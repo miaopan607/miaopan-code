@@ -12,6 +12,7 @@ import * as Locale from "@/util/locale"
 import { MessageID, PartID } from "@/session/schema"
 import { isExitCommand, isNewCommand } from "./prompt.shared"
 import type { FooterApi, FooterEvent, FooterQueuedPrompt, RunPrompt } from "./types"
+import { UI } from "../../ui"
 
 type Trace = {
   write(type: string, data?: unknown): void
@@ -133,11 +134,11 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
                 {
                   type: "stream.patch",
                   patch: {
-                    status: "new sessions unavailable",
+                    status: UI.t("cli.run.new_sessions_unavailable"),
                   },
                 },
                 {
-                  status: "new sessions unavailable",
+                  status: UI.t("cli.run.new_sessions_unavailable"),
                 },
               )
               continue
@@ -148,13 +149,13 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
                 type: "stream.patch",
                 patch: {
                   phase: "running",
-                  status: "starting new session",
+                  status: UI.t("cli.run.starting_new_session"),
                   queue: state.queue.length,
                 },
               },
               {
                 phase: "running",
-                status: "starting new session",
+                status: UI.t("cli.run.starting_new_session"),
                 queue: state.queue.length,
               },
             )
@@ -178,7 +179,7 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
             },
             {
               phase: "running",
-              status: "sending prompt",
+              status: UI.t("cli.run.sending_prompt"),
               queue: state.queue.length,
             },
           )

@@ -1,5 +1,6 @@
 import { RequestError } from "@agentclientprotocol/sdk"
 import { Schema } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export class SessionNotFoundError extends Schema.TaggedErrorClass<SessionNotFoundError>()("ACPSessionNotFoundError", {
   sessionId: Schema.String,
@@ -60,25 +61,37 @@ export type Error =
   | UnsupportedOperationError
   | ServiceFailureError
 
-export function toRequestError(error: Error) {
+export function toRequestError(error: Error, language?: Language) {
   switch (error._tag) {
     case "ACPSessionNotFoundError":
-      return RequestError.invalidParams({ sessionId: error.sessionId }, `session not found: ${error.sessionId}`)
+      return RequestError.invalidParams(
+        { sessionId: error.sessionId },
+        t(language, "acp.session_not_found", { id: error.sessionId }),
+      )
     case "ACPInvalidConfigOptionError":
-      return RequestError.invalidParams({ configId: error.configId }, `unknown config option: ${error.configId}`)
+      return RequestError.invalidParams(
+        { configId: error.configId },
+        t(language, "acp.config_unknown", { id: error.configId }),
+      )
     case "ACPInvalidModelError":
       return RequestError.invalidParams(
         { providerId: error.providerId, modelId: error.modelId },
-        `model not found: ${error.modelId}`,
+        t(language, "acp.model_not_found", { id: error.modelId }),
       )
     case "ACPInvalidEffortError":
-      return RequestError.invalidParams({ effort: error.effort }, `effort not found: ${error.effort}`)
+      return RequestError.invalidParams(
+        { effort: error.effort },
+        t(language, "acp.effort_not_found", { value: error.effort }),
+      )
     case "ACPInvalidModeError":
-      return RequestError.invalidParams({ mode: error.mode }, `mode not found: ${error.mode}`)
+      return RequestError.invalidParams({ mode: error.mode }, t(language, "acp.mode_not_found", { value: error.mode }))
     case "ACPAuthRequiredError":
-      return RequestError.authRequired({ providerId: error.providerId }, "provider authentication required")
+      return RequestError.authRequired({ providerId: error.providerId }, t(language, "acp.provider_auth_required"))
     case "ACPUnknownAuthMethodError":
-      return RequestError.invalidParams({ methodId: error.methodId }, `unknown auth method: ${error.methodId}`)
+      return RequestError.invalidParams(
+        { methodId: error.methodId },
+        t(language, "acp.auth_method_unknown", { id: error.methodId }),
+      )
     case "ACPUnsupportedOperationError":
       return RequestError.methodNotFound(error.method)
     case "ACPServiceFailureError":
@@ -92,6 +105,6 @@ export function toRequestError(error: Error) {
   }
 }
 
-export function fromUnknownDefect(_defect: unknown, safeMessage = "Internal service failure") {
-  return new ServiceFailureError({ safeMessage })
+export function fromUnknownDefect(_defect: unknown, language?: Language) {
+  return new ServiceFailureError({ safeMessage: t(language, "acp.internal_service_failure") })
 }

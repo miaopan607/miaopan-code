@@ -5,6 +5,7 @@ import {
 } from "@ai-sdk/provider"
 import type { OpenAICompatibleChatPrompt } from "./openai-compatible-api-types"
 import { convertToBase64 } from "@ai-sdk/provider-utils"
+import { zh } from "../../i18n"
 
 function getOpenAIMetadata(message: { providerOptions?: SharedV3ProviderOptions }) {
   return message?.providerOptions?.copilot ?? {}
@@ -161,7 +162,7 @@ export function convertToOpenAICompatibleChatMessages(prompt: LanguageModelV3Pro
 
       default: {
         const _exhaustiveCheck: never = role
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`)
+        throw new Error(zh("error.copilot_role_unsupported", { role: _exhaustiveCheck }))
       }
     }
   }

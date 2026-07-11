@@ -151,7 +151,7 @@ describe("request option precedence", () => {
 
       expect(error.reason).toMatchObject({
         _tag: "InvalidRequest",
-        message: "http.body cannot overlay protocol-owned field(s): model, messages, tools",
+        message: "http.body 不能覆盖协议拥有的字段：model, messages, tools",
       })
     }),
   )

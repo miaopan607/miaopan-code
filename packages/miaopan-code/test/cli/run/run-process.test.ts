@@ -7,6 +7,7 @@ import { describe, expect } from "bun:test"
 import { Effect } from "effect"
 import { reply } from "../../lib/llm-server"
 import { cliIt } from "../../lib/cli-process"
+import { UI } from "../../../src/cli/ui"
 
 describe("miaopanCode run (non-interactive subprocess)", () => {
   // Happy path: prompt completes, output reaches stdout, process exits 0.
@@ -52,7 +53,7 @@ describe("miaopanCode run (non-interactive subprocess)", () => {
         yield* llm.reason("  considering  ", { text: "  answer  " })
         const thinking = yield* miaopanCode.run("think", { extraArgs: ["--thinking"] })
         miaopanCode.expectExit(thinking, 0)
-        expect(thinking.stdout).toBe("Thinking: considering\nanswer\n")
+        expect(thinking.stdout).toBe(`${UI.t("cli.run.thinking", { text: "considering" })}\nanswer\n`)
 
         yield* llm.reason("hidden", { text: "visible" })
         const plain = yield* miaopanCode.run("think again")
@@ -249,7 +250,9 @@ describe("miaopanCode run (non-interactive subprocess)", () => {
         yield* llm.text("continued after rejection")
         const denied = yield* miaopanCode.run("request permission", { permission: { bash: "ask" } })
         miaopanCode.expectExit(denied, 0)
-        expect(denied.stderr).toContain("permission requested: bash")
+        expect(denied.stderr).toContain(
+          UI.t("cli.run.permission_auto_reject", { permission: "bash", patterns: "rm -f denied-file" }),
+        )
         expect(denied.stdout).toBe("")
 
         yield* llm.reset
@@ -260,7 +263,9 @@ describe("miaopanCode run (non-interactive subprocess)", () => {
           extraArgs: ["--dangerously-skip-permissions"],
         })
         miaopanCode.expectExit(allowed, 0)
-        expect(allowed.stderr).not.toContain("permission requested: bash")
+        expect(allowed.stderr).not.toContain(
+          UI.t("cli.run.permission_auto_reject", { permission: "bash", patterns: "rm -f allowed-file" }),
+        )
         expect(allowed.stdout).toContain("continued after approval")
 
         yield* llm.reset
@@ -308,7 +313,7 @@ describe("miaopanCode run (non-interactive subprocess)", () => {
         })
 
         expect(result.exitCode).not.toBe(0)
-        expect(result.stderr).toContain("Cannot attach local directory without a shared filesystem")
+        expect(result.stderr).toContain(UI.t("cli.attach_directory_shared_fs", { path: home }))
       }),
     30_000,
   )

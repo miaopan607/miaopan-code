@@ -9,6 +9,7 @@ import { makeGlobalNode, makeLocationNode } from "./effect/app-node"
 import { SessionSchema } from "./session/schema"
 import { Identifier } from "./util/identifier"
 import type { ToolOutput } from "@miaopan-code/llm"
+import { resolveLanguage, t, type Language } from "./i18n"
 
 export const MAX_LINES = 2_000
 export const MAX_BYTES = 50 * 1024
@@ -30,10 +31,13 @@ export interface BoundResult {
 export class StorageError extends Schema.TaggedErrorClass<StorageError>()("ToolOutputStore.StorageError", {
   operation: Schema.Literals(["encode", "write"]),
   cause: Schema.Defect(),
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
     const detail = this.cause instanceof Error ? this.cause.message : String(this.cause)
-    return `Failed to ${this.operation} tool output${detail ? `: ${detail}` : ""}`
+    return t(this.language, this.operation === "encode" ? "error.tool_output_encode" : "error.tool_output_write", {
+      detail: detail ? `: ${detail}` : "",
+    })
   }
 }
 
@@ -126,24 +130,32 @@ const layer = Layer.effect(
       return { maxLines: configured.max_lines ?? MAX_LINES, maxBytes: configured.max_bytes ?? MAX_BYTES }
     })
 
-    const write = Effect.fn("ToolOutputStore.write")(function* (content: string) {
+    const language = Effect.fn("ToolOutputStore.language")(function* () {
+      if (Option.isNone(config)) return "zh-CN"
+      return resolveLanguage(Config.latest(yield* config.value.entries(), "language"))
+    })
+
+    const write = Effect.fn("ToolOutputStore.write")(function* (content: string, currentLanguage: Language) {
       const file = path.join(directory, `tool_${Identifier.ascending()}`)
-      yield* fs.ensureDir(directory).pipe(Effect.mapError((cause) => new StorageError({ operation: "write", cause })))
+      yield* fs
+        .ensureDir(directory)
+        .pipe(Effect.mapError((cause) => new StorageError({ operation: "write", cause, language: currentLanguage })))
       yield* fs
         .writeFileString(file, content, { flag: "wx" })
-        .pipe(Effect.mapError((cause) => new StorageError({ operation: "write", cause })))
+        .pipe(Effect.mapError((cause) => new StorageError({ operation: "write", cause, language: currentLanguage })))
       return file
     })
 
     const bound = Effect.fn("ToolOutputStore.bound")(function* (input: BoundInput) {
       const outputLimits = yield* limits()
+      const currentLanguage = yield* language()
       const media = input.output.content.filter((item) => item.type === "file")
       const text = input.output.content.filter((item) => item.type === "text")
       const contextual =
         input.output.content.length === 0
           ? yield* Effect.try({
               try: () => JSON.stringify(input.output.structured, null, 2) ?? String(input.output.structured),
-              catch: (cause) => new StorageError({ operation: "encode", cause }),
+              catch: (cause) => new StorageError({ operation: "encode", cause, language: currentLanguage }),
             })
           : text.map((item) => item.text).join("")
       if (
@@ -155,8 +167,8 @@ const layer = Layer.effect(
           outputPaths: [],
         }
 
-      const outputPath = yield* write(contextual)
-      const marker = `... output truncated; full content saved to ${outputPath} ...`
+      const outputPath = yield* write(contextual, currentLanguage)
+      const marker = t(currentLanguage, "tool.output.truncated", { path: outputPath })
 
       return {
         output: {

@@ -4,6 +4,7 @@ import type { JSONSchema7 } from "@ai-sdk/provider"
 import type * as Provider from "./provider"
 import type * as ModelsDev from "@miaopan-code/core/models-dev"
 import { iife } from "@/util/iife"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
@@ -66,6 +67,7 @@ function normalizeMessages(
   msgs: ModelMessage[],
   model: Provider.Model,
   _options: Record<string, unknown>,
+  language?: Language,
 ): ModelMessage[] {
   const sanitizeToolResultOutput = (content: ToolResultPart) => {
     if (content.output.type === "text" || content.output.type === "error-text") {
@@ -256,7 +258,7 @@ function normalizeMessages(
           content: [
             {
               type: "text",
-              text: "Done.",
+              text: t(language, "prompt.sequence_done"),
             },
           ],
         })
@@ -371,7 +373,7 @@ function applyCaching(msgs: ModelMessage[], model: Provider.Model): ModelMessage
   return msgs
 }
 
-function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMessage[] {
+function unsupportedParts(msgs: ModelMessage[], model: Provider.Model, language?: Language): ModelMessage[] {
   return msgs.map((msg) => {
     if (msg.role !== "user" || !Array.isArray(msg.content)) return msg
 
@@ -386,7 +388,7 @@ function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMes
           if (match && (!match[2] || match[2].length === 0)) {
             return {
               type: "text" as const,
-              text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
+              text: t(language, "error.provider_image_empty"),
             }
           }
         }
@@ -401,7 +403,7 @@ function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMes
       const name = filename ? `"${filename}"` : modality
       return {
         type: "text" as const,
-        text: `ERROR: Cannot read ${name} (this model does not support ${modality} input). Inform the user.`,
+        text: t(language, "error.provider_modality_unsupported", { name, modality }),
       }
     })
 
@@ -427,9 +429,14 @@ function mapProviderOptions(
   })
 }
 
-export function message(msgs: ModelMessage[], model: Provider.Model, options: Record<string, unknown>) {
-  msgs = unsupportedParts(msgs, model)
-  msgs = normalizeMessages(msgs, model, options)
+export function message(
+  msgs: ModelMessage[],
+  model: Provider.Model,
+  options: Record<string, unknown>,
+  language?: Language,
+) {
+  msgs = unsupportedParts(msgs, model, language)
+  msgs = normalizeMessages(msgs, model, options, language)
   if (
     (model.providerID === "anthropic" ||
       model.providerID === "google-vertex-anthropic" ||

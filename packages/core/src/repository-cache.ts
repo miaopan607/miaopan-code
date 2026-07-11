@@ -7,6 +7,7 @@ import { Repository } from "./repository"
 import { AbsolutePath } from "./schema"
 import { makeGlobalNode } from "./effect/app-node"
 import { EffectFlock } from "./util/effect-flock"
+import { zh } from "./i18n"
 
 export type Result = {
   readonly repository: string
@@ -171,7 +172,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | Git.Service | EffectFl
 
                 if (status === "refreshed") {
                   if (!existing)
-                    return yield* new FetchFailedError({ repository, message: "Repository is unavailable" })
+                    return yield* new FetchFailedError({ repository, message: zh("error.repository_unavailable") })
                   yield* git.sync
                     .fetchRemotes(existing)
                     .pipe(Effect.mapError((error) => new FetchFailedError({ repository, message: error.message })))

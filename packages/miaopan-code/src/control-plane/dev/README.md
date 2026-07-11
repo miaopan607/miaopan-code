@@ -1,19 +1,11 @@
-This is a plugin to simulate a remote environment locally. Add this to `.miaopan-code/miaopan-code.jsonc`:
+# 本地远程环境调试插件
+
+语言版本：简体中文 · [English](README.en.md)
+
+该插件用于在本地模拟远程环境。将以下配置加入 `.miaopan-code/miaopan-code.jsonc`：
 
 ```json
-  "plugin": ["../packages/miaopan-code/src/control-plane/dev/debug-workspace-plugin.ts"],
+{ "plugin": ["../packages/miaopan-code/src/control-plane/dev/debug-workspace-plugin.ts"] }
 ```
 
-In a separate terminal, run a separate miaopan-code server. This will act like a remote server and the local instance will proxy all requests to it:
-
-```
-./packages/miaopan-code/script/run-workspace-server
-```
-
-With the plugin install, you can now run miaopan-code and create a `debug` workspace type. This will create a "remote" workspace which talks to the second workspace server started above.
-
-How this works:
-
-- The workspace server needs to know the workspace id and port to run. It waits for this information to be written to a file and starts the server when the data is written.
-- The debug plugin writes this information in the `create` call to the workspace. So create a `debug` workspace will always kick off a new external server.
-- The server script watches for file changes, so whenver you create a new `debug` workspace it will restart with the new information. This means that there is only ever one working `debug` workspace at a time; when you create a new one all previous sessions will show that it can't connect because previous debug workspaces do not exist.
+另开终端运行 `./packages/miaopan-code/script/run-workspace-server`，再启动 miaopan-code 并创建 `debug` 类型工作区。插件会通过文件传递工作区 ID 和端口；调试服务器监视文件变化，因此同一时间只有一个 `debug` 工作区可用。完整机制请参阅 [英文说明](README.en.md)。

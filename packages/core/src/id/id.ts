@@ -1,4 +1,5 @@
 import { create as createIdentifier } from "@miaopan-code/schema/identifier"
+import { zh } from "../i18n"
 
 const prefixes = {
   job: "job",
@@ -27,7 +28,7 @@ function generateID(prefix: keyof typeof prefixes, direction: "descending" | "as
   }
 
   if (!given.startsWith(prefixes[prefix])) {
-    throw new Error(`ID ${given} does not start with ${prefixes[prefix]}`)
+    throw new Error(zh("error.id_prefix", { given, prefix: prefixes[prefix] }))
   }
   return given
 }

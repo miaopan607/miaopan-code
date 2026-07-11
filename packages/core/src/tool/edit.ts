@@ -18,18 +18,18 @@ import { PermissionV2 } from "../permission"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "edit"
 
 export const Input = Schema.Struct({
   path: Schema.String.annotate({
-    description:
-      "File path to edit. Relative paths resolve within the active Location. Absolute paths inside that Location are accepted; external absolute paths require external_directory approval.",
+    description: zh("tool.param.core_edit_path"),
   }),
-  oldString: Schema.String.annotate({ description: "Exact text to replace" }),
-  newString: Schema.String.annotate({ description: "Replacement text, which must differ from oldString" }),
+  oldString: Schema.String.annotate({ description: zh("tool.param.edit_old") }),
+  newString: Schema.String.annotate({ description: zh("tool.param.edit_new") }),
   replaceAll: Schema.Boolean.pipe(Schema.optional).annotate({
-    description: "Replace all exact occurrences of oldString (default false)",
+    description: zh("tool.param.edit_all"),
   }),
 })
 
@@ -70,10 +70,10 @@ const previewLines = (value: string, prefix: "+" | "-") => {
   return shown
 }
 
-export const toModelOutput = (output: Output, oldString: string, newString: string) =>
+export const toModelOutput = (output: Output, oldString: string, newString: string, language?: Language) =>
   [
-    `Edited file successfully: ${output.files[0]?.file}`,
-    `Replacements: ${output.replacements}`,
+    t(language, "tool.output.edit_success", { file: output.files[0]?.file }),
+    t(language, "tool.output.replacements", { count: output.replacements }),
     "```diff",
     ...previewLines(oldString, "-"),
     ...previewLines(newString, "+"),
@@ -99,12 +99,11 @@ const layer = Layer.effectDiscard(
       .register({
         [name]: Tool.withPermission(
           Tool.make({
-            description:
-              "Replace exact text in one file. Relative paths resolve within the active Location. Absolute paths inside the Location are accepted. Explicit external absolute paths require external_directory approval before edit approval.",
+            description: zh("tool.description.core_edit"),
             input: Input,
             output: Output,
-            toModelOutput: ({ input, output }) => [
-              { type: "text", text: toModelOutput(output, input.oldString, input.newString) },
+            toModelOutput: ({ input, output, context }) => [
+              { type: "text", text: toModelOutput(output, input.oldString, input.newString, context.language) },
             ],
             execute: (input, context) => {
               const unableToEdit = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -112,9 +111,9 @@ const layer = Layer.effectDiscard(
                   Effect.mapError((error) =>
                     error instanceof FileMutation.StaleContentError
                       ? new ToolFailure({
-                          message: "File changed after permission approval. Read it again before editing.",
+                          message: t(context.language, "tool.error.file_changed"),
                         })
-                      : new ToolFailure({ message: `Unable to edit ${input.path}` }),
+                      : new ToolFailure({ message: t(context.language, "tool.error.edit", { path: input.path }) }),
                   ),
                 )
 
@@ -126,12 +125,12 @@ const layer = Layer.effectDiscard(
                 }
                 if (input.oldString === input.newString) {
                   return yield* new ToolFailure({
-                    message: "No changes to apply: oldString and newString are identical.",
+                    message: t(context.language, "tool.error.identical"),
                   })
                 }
                 if (input.oldString === "") {
                   return yield* new ToolFailure({
-                    message: "oldString must not be empty. Use write to create or overwrite a file.",
+                    message: t(context.language, "tool.error.empty_old"),
                   })
                 }
 
@@ -165,14 +164,12 @@ const layer = Layer.effectDiscard(
                 const replacements = countOccurrences(source.text, oldString)
                 if (replacements === 0) {
                   return yield* new ToolFailure({
-                    message:
-                      "Could not find oldString in the file. It must match exactly, including whitespace and indentation.",
+                    message: t(context.language, "tool.error.edit_missing"),
                   })
                 }
                 if (replacements > 1 && input.replaceAll !== true) {
                   return yield* new ToolFailure({
-                    message:
-                      "Found multiple exact matches for oldString. Provide more surrounding context or set replaceAll to true.",
+                    message: t(context.language, "tool.error.edit_multiple"),
                   })
                 }
 

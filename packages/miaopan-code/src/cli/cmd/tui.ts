@@ -71,43 +71,43 @@ export function resolveThreadDirectory(project?: string, envPWD = process.env.PW
 
 export const TuiThreadCommand = cmd({
   command: "$0 [project]",
-  describe: "start miaopanCode tui",
+  describe: UI.t("tui.start"),
   builder: (yargs) =>
     withNetworkOptions(yargs)
       .positional("project", {
         type: "string",
-        describe: "path to start miaopanCode in",
+        describe: UI.t("cli.directory"),
       })
       .option("model", {
         type: "string",
         alias: ["m"],
-        describe: "model to use in the format of provider/model",
+        describe: UI.t("cli.model_format"),
       })
       .option("continue", {
         alias: ["c"],
-        describe: "continue the last session",
+        describe: UI.t("cli.continue_last"),
         type: "boolean",
       })
       .option("session", {
         alias: ["s"],
         type: "string",
-        describe: "session id to continue",
+        describe: UI.t("cli.session_id"),
       })
       .option("fork", {
         type: "boolean",
-        describe: "fork the session when continuing (use with --continue or --session)",
+        describe: UI.t("cli.fork_session"),
       })
       .option("prompt", {
         type: "string",
-        describe: "prompt to use",
+        describe: UI.t("prompt.submit"),
       })
       .option("agent", {
         type: "string",
-        describe: "agent to use",
+        describe: UI.t("cli.agent_to_use"),
       })
       .option("auto", {
         type: "boolean",
-        describe: "auto-approve permissions that are not explicitly denied (dangerous!)",
+        describe: UI.t("cli.auto_approve"),
         default: false,
       })
       .option("yolo", {
@@ -122,7 +122,7 @@ export const TuiThreadCommand = cmd({
       })
       .option("mini", {
         type: "boolean",
-        describe: "start the minimal interactive interface",
+        describe: UI.t("cli.direct_mode"),
         default: false,
       })
       .option("replay", {
@@ -131,11 +131,11 @@ export const TuiThreadCommand = cmd({
       })
       .option("no-replay", {
         type: "boolean",
-        describe: "disable mini session history replay on resume and after resize",
+        describe: UI.t("cli.replay_history"),
       })
       .option("replay-limit", {
         type: "number",
-        describe: "cap visible mini replay to the newest N messages",
+        describe: UI.t("cli.replay_limit"),
       })
       .option("demo", {
         type: "boolean",
@@ -143,7 +143,7 @@ export const TuiThreadCommand = cmd({
       }),
   handler: async (args) => {
     if (args.replay === true) {
-      UI.error("--replay is not supported; replay is enabled by default")
+      UI.error(UI.t("cli.replay_unsupported"))
       process.exitCode = 1
       return
     }
@@ -154,7 +154,7 @@ export const TuiThreadCommand = cmd({
         process.argv.some((arg) => arg === option || arg.startsWith(option + "=")),
       )
       if (network) {
-        UI.error(`${network} cannot be used with --mini`)
+        UI.error(UI.t("cli.incompatible_mini", { option: network }))
         process.exitCode = 1
         return
       }
@@ -181,7 +181,7 @@ export const TuiThreadCommand = cmd({
       ["--demo", args.demo !== undefined],
     ].find((entry) => entry[1])?.[0]
     if (unsupported) {
-      UI.error(`${unsupported} requires --mini`)
+      UI.error(UI.t("cli.requires_mini", { option: String(unsupported) }))
       process.exitCode = 1
       return
     }
@@ -190,7 +190,7 @@ export const TuiThreadCommand = cmd({
     try {
       const { TuiConfig } = await import("@/config/tui")
       if (args.fork && !args.continue && !args.session) {
-        UI.error("--fork requires --continue or --session")
+        UI.error(UI.t("cli.fork_requires"))
         process.exitCode = 1
         return
       }
@@ -202,7 +202,7 @@ export const TuiThreadCommand = cmd({
       try {
         process.chdir(next)
       } catch {
-        UI.error("Failed to change directory to " + next)
+        UI.error(UI.t("cli.change_directory_failed", { path: next }))
         return
       }
       const cwd = Filesystem.resolve(process.cwd())

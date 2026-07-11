@@ -8,6 +8,7 @@ import type { useTheme } from "../context/theme"
 import { Dialog as DialogUI, type useDialog } from "../ui/dialog"
 import type { useMiaopanCodeKeymap } from "../keymap"
 import type { useKV } from "../context/kv"
+import type { useI18n } from "../context/i18n"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
@@ -17,6 +18,8 @@ import type { useToast } from "../ui/toast"
 import * as Keymap from "../keymap"
 import { createCommandShim } from "./command-shim"
 import type { PluginRoutes } from "./api"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 export type { RouteMap } from "./api"
 export { createPluginRoutes, createTuiApi } from "./api"
 
@@ -36,6 +39,7 @@ type Input = {
   renderer: TuiPluginApi["renderer"]
   attention: TuiPluginApi["attention"]
   Slot: TuiPluginApi["ui"]["Slot"]
+  i18n: ReturnType<typeof useI18n>
 }
 
 function routeNavigate(route: ReturnType<typeof useRoute>, name: string, params?: Record<string, unknown>) {
@@ -173,6 +177,7 @@ function appApi(version: string): TuiPluginApi["app"] {
 export function createTuiApiAdapters(input: Input): Omit<TuiPluginApi, "lifecycle"> {
   return {
     app: appApi(input.version),
+    language: input.i18n.language,
     attention: input.attention,
     // Keep deprecated `api.command` working for v1 plugins; remove in v2.
     command: createCommandShim(input.keymap, input.dialog, input.tuiConfig.keybinds),
@@ -305,7 +310,7 @@ export function createTuiApiAdapters(input: Input): Omit<TuiPluginApi, "lifecycl
     renderer: input.renderer,
     slots: {
       register() {
-        throw new Error("slots.register is only available in plugin context")
+        throw new Error(t(Locale.language(), "tui.error.plugin_slots_context"))
       },
     },
     plugins: {
@@ -324,7 +329,7 @@ export function createTuiApiAdapters(input: Input): Omit<TuiPluginApi, "lifecycl
       async install() {
         return {
           ok: false,
-          message: "plugins.install is only available in plugin context",
+          message: t(Locale.language(), "plugin.install_context_only"),
         }
       },
     },
@@ -342,7 +347,7 @@ export function createTuiApiAdapters(input: Input): Omit<TuiPluginApi, "lifecycl
         return input.theme.set(name)
       },
       async install(_jsonPath) {
-        throw new Error("theme.install is only available in plugin context")
+        throw new Error(t(Locale.language(), "tui.error.plugin_theme_context"))
       },
       mode() {
         return input.theme.mode()

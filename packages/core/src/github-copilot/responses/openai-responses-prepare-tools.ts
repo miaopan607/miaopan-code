@@ -5,15 +5,18 @@ import { webSearchArgsSchema } from "./tool/web-search"
 import { webSearchPreviewArgsSchema } from "./tool/web-search-preview"
 import { imageGenerationArgsSchema } from "./tool/image-generation"
 import type { OpenAIResponsesTool } from "./openai-responses-api-types"
+import { t, type Language } from "../../i18n"
 
 export function prepareResponsesTools({
   tools,
   toolChoice,
   strictJsonSchema,
+  language,
 }: {
   tools: LanguageModelV3CallOptions["tools"]
   toolChoice?: LanguageModelV3CallOptions["toolChoice"]
   strictJsonSchema: boolean
+  language?: Language
 }): {
   tools?: Array<OpenAIResponsesTool>
   toolChoice?:
@@ -134,7 +137,7 @@ export function prepareResponsesTools({
         break
       }
       default:
-        toolWarnings.push({ type: "unsupported", feature: "tool type" })
+        toolWarnings.push({ type: "unsupported", feature: t(language, "warning.copilot_tool_type_generic") })
         break
     }
   }
@@ -166,7 +169,7 @@ export function prepareResponsesTools({
     default: {
       const _exhaustiveCheck: never = type
       throw new UnsupportedFunctionalityError({
-        functionality: `tool choice type: ${_exhaustiveCheck}`,
+        functionality: t(language, "error.copilot_tool_choice_type", { type: _exhaustiveCheck }),
       })
     }
   }

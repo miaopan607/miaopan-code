@@ -6,6 +6,7 @@ import yargs from "yargs"
 import { tmpdir } from "../../fixture/fixture"
 import { TuiThreadCommand, resolveThreadDirectory } from "../../../src/cli/cmd/tui"
 import { cliIt } from "../../lib/cli-process"
+import { UI } from "../../../src/cli/ui"
 
 describe("tui thread", () => {
   test("loads the TUI integration lazily", async () => {
@@ -71,7 +72,7 @@ describe("tui thread", () => {
       const result = yield* miaopanCode.spawn(["--replay-limit", "10"])
 
       miaopanCode.expectExit(result, 1)
-      expect(result.stderr).toContain("--replay-limit requires --mini")
+      expect(result.stderr).toContain(UI.t("cli.run.replay_limit_requires_mini"))
     }),
   )
 
@@ -80,7 +81,7 @@ describe("tui thread", () => {
       const result = yield* miaopanCode.spawn(["attach", "http://127.0.0.1:1", "--mini"])
 
       miaopanCode.expectExit(result, 1)
-      expect(result.stderr).toContain("--mini requires a TTY stdout")
+      expect(result.stderr).toContain(UI.t("cli.run.mini_tty_required"))
     }),
   )
 
@@ -89,7 +90,7 @@ describe("tui thread", () => {
       const result = yield* miaopanCode.spawn(["--mini", "--port", "4096"])
 
       miaopanCode.expectExit(result, 1)
-      expect(result.stderr).toContain("--port cannot be used with --mini")
+      expect(result.stderr).toContain(UI.t("cli.incompatible_mini", { option: "--port" }))
     }),
   )
 })

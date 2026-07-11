@@ -5,6 +5,8 @@ import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import { ProjectNotFoundError } from "../errors"
+import { t } from "../i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 import { markInstanceForReload } from "../lifecycle"
 
 export const projectHandlers = HttpApiBuilder.group(InstanceHttpApi, "project", (handlers) =>
@@ -37,12 +39,13 @@ export const projectHandlers = HttpApiBuilder.group(InstanceHttpApi, "project", 
       params: { projectID: ProjectV2.ID }
       payload: Project.UpdatePayload
     }) {
+      const language = yield* requestLanguage()
       return yield* svc.update({ ...ctx.payload, projectID: ctx.params.projectID }).pipe(
         Effect.catchTag("Project.NotFoundError", (error) =>
           Effect.fail(
             new ProjectNotFoundError({
               projectID: error.projectID,
-              message: `Project not found: ${error.projectID}`,
+              message: t(language, "error.project_not_found", { id: error.projectID }),
             }),
           ),
         ),

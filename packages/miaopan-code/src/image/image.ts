@@ -6,6 +6,7 @@ import photonWasm from "@silvia-odwyer/photon-node/photon_rs_bg.wasm" with { typ
 import { Context, Effect, Layer, Schema } from "effect"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { t } from "@miaopan-code/core/i18n"
 
 const MAX_BASE64_BYTES = 5 * 1024 * 1024
 const MAX_WIDTH = 2000
@@ -14,24 +15,27 @@ const AUTO_RESIZE = true
 const JPEG_QUALITIES = [80, 85, 70, 55, 40]
 export class ResizerUnavailableError extends Schema.TaggedErrorClass<ResizerUnavailableError>()(
   "ImageResizerUnavailableError",
-  {},
+  { language: Schema.optional(Schema.Literals(["zh-CN", "en"])) },
 ) {
   override get message() {
-    return "Image resizer is unavailable"
+    return t(this.language, "error.image_resizer_unavailable")
   }
 }
 
 export class InvalidDataUrlError extends Schema.TaggedErrorClass<InvalidDataUrlError>()("ImageInvalidDataUrlError", {
   url: Schema.String,
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
-    return "Image URL must be a base64 data URL"
+    return t(this.language, "error.image_data_url")
   }
 }
 
-export class DecodeError extends Schema.TaggedErrorClass<DecodeError>()("ImageDecodeError", {}) {
+export class DecodeError extends Schema.TaggedErrorClass<DecodeError>()("ImageDecodeError", {
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
+}) {
   override get message() {
-    return "Image could not be decoded"
+    return t(this.language, "error.image_decode")
   }
 }
 
@@ -42,9 +46,17 @@ export class SizeError extends Schema.TaggedErrorClass<SizeError>()("ImageSizeEr
   height: Schema.Number,
   max_width: Schema.Number,
   max_height: Schema.Number,
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
-    return `Image ${this.width}x${this.height} with base64 size ${this.bytes} exceeds configured limits and could not be resized below ${this.max_width}x${this.max_height}/${this.max} bytes`
+    return t(this.language, "error.image_size", {
+      width: this.width,
+      height: this.height,
+      bytes: this.bytes,
+      maxWidth: this.max_width,
+      maxHeight: this.max_height,
+      max: this.max,
+    })
   }
 }
 
@@ -63,17 +75,18 @@ const layer = Layer.effect(
     const loadPhoton = yield* Effect.cached(
       Effect.sync(() => {
         // Patched photon-node reads this during module init so Bun compiled binaries use the embedded wasm path.
-        ;(globalThis as typeof globalThis & { __MIAOPAN_CODE_PHOTON_WASM_PATH?: string }).__MIAOPAN_CODE_PHOTON_WASM_PATH =
-          path.isAbsolute(photonWasm) ? photonWasm : fileURLToPath(new URL(photonWasm, import.meta.url))
-      }).pipe(
-        Effect.andThen(() => Effect.tryPromise(() => import("@silvia-odwyer/photon-node"))),
-        Effect.tapError((error) => Effect.logWarning("failed to load photon", { error })),
-        Effect.mapError(() => new ResizerUnavailableError()),
-      ),
+        ;(
+          globalThis as typeof globalThis & { __MIAOPAN_CODE_PHOTON_WASM_PATH?: string }
+        ).__MIAOPAN_CODE_PHOTON_WASM_PATH = path.isAbsolute(photonWasm)
+          ? photonWasm
+          : fileURLToPath(new URL(photonWasm, import.meta.url))
+      }).pipe(Effect.andThen(() => Effect.tryPromise(() => import("@silvia-odwyer/photon-node")))),
     )
 
     const normalize = Effect.fn("Image.normalize")(function* (input: SessionV1.FilePart) {
-      const image = (yield* config.get()).attachment?.image
+      const cfg = yield* config.get()
+      const language = cfg.language
+      const image = cfg.attachment?.image
       const info = {
         autoResize: image?.auto_resize ?? AUTO_RESIZE,
         maxWidth: image?.max_width ?? MAX_WIDTH,
@@ -81,17 +94,20 @@ const layer = Layer.effect(
         maxBase64Bytes: image?.max_base64_bytes ?? MAX_BASE64_BYTES,
       }
       if (!input.url.startsWith("data:") || !input.url.includes(";base64,"))
-        return yield* new InvalidDataUrlError({ url: input.url })
+        return yield* new InvalidDataUrlError({ url: input.url, language })
 
       const base64 = input.url.slice(input.url.indexOf(";base64,") + ";base64,".length)
       const bytes = Buffer.byteLength(base64, "utf8")
 
-      const photon = yield* loadPhoton
+      const photon = yield* loadPhoton.pipe(
+        Effect.tapError((error) => Effect.logWarning(t(language, "log.failed_load_photon"), { error })),
+        Effect.mapError(() => new ResizerUnavailableError({ language })),
+      )
 
       const decoded = yield* Effect.try({
         try: () => photon.PhotonImage.new_from_byteslice(Buffer.from(base64, "base64")),
-        catch: () => new DecodeError(),
-      }).pipe(Effect.tapError((error) => Effect.logWarning("failed to decode image", { error })))
+        catch: () => new DecodeError({ language }),
+      }).pipe(Effect.tapError((error) => Effect.logWarning(t(language, "log.failed_decode_image"), { error })))
 
       try {
         const originalWidth = decoded.get_width()
@@ -106,6 +122,7 @@ const layer = Layer.effect(
             height: originalHeight,
             max_width: info.maxWidth,
             max_height: info.maxHeight,
+            language,
           })
 
         const scale = Math.min(1, info.maxWidth / originalWidth, info.maxHeight / originalHeight)
@@ -136,7 +153,7 @@ const layer = Layer.effect(
           resized.free()
 
           if (candidate) {
-            yield* Effect.logInfo("using resized image", {
+            yield* Effect.logInfo(t(language, "log.using_resized_image"), {
               from_mime: input.mime,
               to_mime: candidate.mime,
               from: `${originalWidth}x${originalHeight}`,
@@ -157,6 +174,7 @@ const layer = Layer.effect(
           height: originalHeight,
           max_width: info.maxWidth,
           max_height: info.maxHeight,
+          language,
         })
       } finally {
         decoded.free()

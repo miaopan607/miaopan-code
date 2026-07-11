@@ -123,5 +123,5 @@ test("provides resolved config through Solid context", async () => {
 })
 
 test("requires the config provider", () => {
-  expect(() => useTuiConfig()).toThrow("TuiConfigProvider is missing")
+  expect(() => useTuiConfig()).toThrow("缺少 TUI 配置提供程序")
 })

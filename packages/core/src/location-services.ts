@@ -36,6 +36,7 @@ import { BuiltInTools } from "./tool/builtins"
 import { ReadToolFileSystem } from "./tool/read-filesystem"
 import { ToolRegistry } from "./tool/registry"
 import { ToolOutputStore } from "./tool-output-store"
+import { zh } from "./i18n"
 
 export { LocationServiceMap } from "./location-service-map"
 
@@ -98,7 +99,7 @@ export function buildLocationServiceMap(
         return LayerNode.compile(location.node).pipe(
           Layer.fresh,
           Layer.tap(() =>
-            Effect.logInfo("booting location services", {
+            Effect.logInfo(zh("log.location_services_booting"), {
               directory: ref.directory,
               workspaceID: ref.workspaceID,
             }),

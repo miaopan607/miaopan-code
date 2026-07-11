@@ -10,6 +10,7 @@ import { Location } from "./location"
 import { PtyID } from "./pty/schema"
 import { Shell } from "./shell"
 import { lazy } from "./util/lazy"
+import { resolveLanguage, t } from "./i18n"
 
 const BUFFER_LIMIT = 1024 * 1024 * 2
 // Exited sessions stay observable (status, exit code, retained output) until removed explicitly.
@@ -99,6 +100,9 @@ const layer = Layer.effect(
     const runFork = Effect.runForkWith(context)
     const sessions = new Map<PtyID, Active>()
     const exitOrder: PtyID[] = []
+    const language = Effect.fn("Pty.language")(function* () {
+      return resolveLanguage(Config.latest(yield* config.entries(), "language"))
+    })
 
     function notifyEnd(session: Active, event: { exitCode?: number }) {
       for (const subscriber of session.subscribers.values()) {
@@ -144,7 +148,7 @@ const layer = Layer.effect(
       sessions.delete(id)
       const index = exitOrder.indexOf(id)
       if (index !== -1) exitOrder.splice(index, 1)
-      yield* Effect.logInfo("removing session", { id })
+      yield* Effect.logInfo(t(yield* language(), "log.pty_removing"), { id })
       teardown(session)
       yield* events.publish(Event.Deleted, { id: session.info.id })
     })
@@ -167,6 +171,7 @@ const layer = Layer.effect(
       const command = input.command || Shell.preferred(Config.latest(yield* config.entries(), "shell"))
       const args = Shell.login(command) ? [...(input.args ?? []), "-l"] : [...(input.args ?? [])]
       const cwd = input.cwd || location.directory
+      const currentLanguage = yield* language()
       const env = {
         ...process.env,
         ...input.env,
@@ -178,12 +183,12 @@ const layer = Layer.effect(
         env.LC_CTYPE = "C.UTF-8"
         env.LANG = "C.UTF-8"
       }
-      yield* Effect.logInfo("creating session", { id, cmd: command, args, cwd })
+      yield* Effect.logInfo(t(currentLanguage, "log.pty_creating"), { id, cmd: command, args, cwd })
       const { spawn } = yield* Effect.promise(() => pty())
       const proc = yield* Effect.sync(() => spawn(command, args, { name: "xterm-256color", cwd, env }))
       const info: Info = {
         id,
-        title: input.title || `Terminal ${id.slice(-4)}`,
+        title: input.title || t(currentLanguage, "pty.default_title", { id: id.slice(-4) }),
         command,
         args,
         cwd,
@@ -228,7 +233,7 @@ const layer = Layer.effect(
           exitOrder.push(id)
           runFork(
             Effect.gen(function* () {
-              yield* Effect.logInfo("session exited", { id, exitCode })
+              yield* Effect.logInfo(t(currentLanguage, "log.pty_exited"), { id, exitCode })
               yield* events.publish(Event.Exited, { id, exitCode })
               while (exitOrder.length > EXITED_LIMIT) {
                 const oldest = exitOrder[0]
@@ -259,7 +264,7 @@ const layer = Layer.effect(
     const attach = Effect.fn("Pty.attach")(function* (id: PtyID, input: AttachInput) {
       const session = yield* requireSession(id)
       if (session.info.status !== "running") return yield* new ExitedError({ ptyID: id })
-      yield* Effect.logInfo("client attached to session", { id, directory: location.directory })
+      yield* Effect.logInfo(t(yield* language(), "log.pty_attached"), { id, directory: location.directory })
       const token = {}
       const subscriber: Subscriber = {
         onData: input.onData,

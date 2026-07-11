@@ -7,6 +7,7 @@ import type {
 } from "@agentclientprotocol/sdk"
 import type { Event, MiaopanCodeClient } from "@miaopan-code/sdk/v2"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import type { Language } from "@miaopan-code/core/i18n"
 import { createTwoFilesPatch } from "diff"
 import { Effect, ManagedRuntime } from "effect"
 import { mkdtemp, rm } from "node:fs/promises"
@@ -46,6 +47,7 @@ function makeSessionService() {
 function createHarness(
   requestPermission: (params: RequestPermissionRequest) => Promise<RequestPermissionResponse> = () =>
     Promise.resolve({ outcome: { outcome: "selected", optionId: "once" } }),
+  language?: Language,
 ) {
   const replies: PermissionReplyParams[] = []
   const requests: RequestPermissionRequest[] = []
@@ -72,7 +74,7 @@ function createHarness(
       return Promise.resolve()
     },
   } satisfies Pick<AgentSideConnection, "requestPermission" | "sessionUpdate">
-  const subscription = new ACPEvent.Subscription({ sdk, connection, session })
+  const subscription = new ACPEvent.Subscription({ sdk, connection, session, language })
 
   return { connection, replies, requests, sdk, session, subscription, updates }
 }
@@ -175,12 +177,27 @@ describe("acp permissions", () => {
         locations: [],
       },
       options: [
-        { optionId: "once", kind: "allow_once", name: "Allow once" },
-        { optionId: "always", kind: "allow_always", name: "Always allow" },
-        { optionId: "reject", kind: "reject_once", name: "Reject" },
+        { optionId: "once", kind: "allow_once", name: "允许一次" },
+        { optionId: "always", kind: "allow_always", name: "始终允许" },
+        { optionId: "reject", kind: "reject_once", name: "拒绝" },
       ],
     })
     expect(harness.replies).toEqual([{ requestID: "perm_1", reply: "once", directory: "/workspace" }])
+  })
+
+  it("uses English permission labels when requested", async () => {
+    const harness = createHarness(undefined, "en")
+    await createSession(harness.session, "ses_en")
+
+    harness.subscription.handle(permissionAsked("ses_en", "perm_en"))
+
+    await pollUntil(() => harness.replies.length === 1, "English permission was never replied")
+
+    expect(harness.requests[0]?.options).toEqual([
+      { optionId: "once", kind: "allow_once", name: "Allow once" },
+      { optionId: "always", kind: "allow_always", name: "Always allow" },
+      { optionId: "reject", kind: "reject_once", name: "Reject" },
+    ])
   })
 
   it("uses permission metadata for non-shell titles", async () => {
@@ -274,7 +291,7 @@ describe("acp permissions", () => {
 
     expect(harness.requests[0]?.toolCall).toMatchObject({
       toolCallId: "call_1",
-      title: "2 files",
+      title: "2 个文件",
       locations: [{ path: first }, { path: second }],
       content: [
         {

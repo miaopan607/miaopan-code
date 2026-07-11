@@ -6,9 +6,11 @@ import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { PermissionNotFoundError, SessionNotFoundError } from "@miaopan-code/protocol/errors"
 import { response } from "../location"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
-function missingRequest(id: PermissionV2.ID) {
-  return new PermissionNotFoundError({ requestID: id, message: `Permission request not found: ${id}` })
+function missingRequest(id: PermissionV2.ID, language: Language) {
+  return new PermissionNotFoundError({ requestID: id, message: t(language, "error.permission_not_found", { id }) })
 }
 
 export const PermissionHandler = HttpApiBuilder.group(Api, "server.permission", (handlers) =>
@@ -24,6 +26,7 @@ export const PermissionHandler = HttpApiBuilder.group(Api, "server.permission", 
         "session.permission.create",
         Effect.fn(function* (ctx) {
           const permission = yield* PermissionV2.Service
+          const language = yield* requestLanguage()
           return {
             data: yield* permission
               .ask({
@@ -42,7 +45,7 @@ export const PermissionHandler = HttpApiBuilder.group(Api, "server.permission", 
                   (error) =>
                     new SessionNotFoundError({
                       sessionID: error.sessionID,
-                      message: `Session not found: ${error.sessionID}`,
+                      message: t(language, "error.session_not_found", { id: error.sessionID }),
                     }),
                 ),
               ),
@@ -59,8 +62,10 @@ export const PermissionHandler = HttpApiBuilder.group(Api, "server.permission", 
       .handle(
         "session.permission.get",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           const request = yield* (yield* PermissionV2.Service).get(ctx.params.requestID)
-          if (!request || request.sessionID !== ctx.params.sessionID) return yield* missingRequest(ctx.params.requestID)
+          if (!request || request.sessionID !== ctx.params.sessionID)
+            return yield* missingRequest(ctx.params.requestID, language)
           return { data: request }
         }),
       )
@@ -68,11 +73,13 @@ export const PermissionHandler = HttpApiBuilder.group(Api, "server.permission", 
         "session.permission.reply",
         Effect.fn(function* (ctx) {
           const permission = yield* PermissionV2.Service
+          const language = yield* requestLanguage()
           const request = yield* permission.get(ctx.params.requestID)
-          if (!request || request.sessionID !== ctx.params.sessionID) return yield* missingRequest(ctx.params.requestID)
+          if (!request || request.sessionID !== ctx.params.sessionID)
+            return yield* missingRequest(ctx.params.requestID, language)
           yield* permission
             .reply({ requestID: ctx.params.requestID, reply: ctx.payload.reply, message: ctx.payload.message })
-            .pipe(Effect.catchTag("PermissionV2.NotFoundError", () => missingRequest(ctx.params.requestID)))
+            .pipe(Effect.catchTag("PermissionV2.NotFoundError", () => missingRequest(ctx.params.requestID, language)))
           return HttpApiSchema.NoContent.make()
         }),
       )

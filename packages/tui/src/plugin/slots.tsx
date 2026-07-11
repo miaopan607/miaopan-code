@@ -2,6 +2,8 @@ import type { TuiPluginApi, TuiSlotContext, TuiSlotMap, TuiSlotProps } from "@mi
 import { createSlot, createSolidSlotRegistry, type JSX, type SolidPlugin } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { isRecord } from "../util/record"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 type RuntimeSlotMap = TuiSlotMap<Record<string, object>>
 type SlotView = <Name extends string>(props: TuiSlotProps<Name>) => JSX.Element | null
@@ -35,7 +37,7 @@ export function createSlots() {
         { theme: api.theme },
         {
           onPluginError(event) {
-            console.error("[tui.slot] plugin error", {
+            console.error(`[tui.slot] ${t(Locale.language(), "tui.error.plugin_error")}`, {
               plugin: event.pluginId,
               slot: event.slot,
               phase: event.phase,

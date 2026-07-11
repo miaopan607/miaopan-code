@@ -3,6 +3,7 @@ import type { Stream } from "node:stream"
 import launch from "cross-spawn"
 import { buffer } from "node:stream/consumers"
 import { errorMessage } from "./error"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export type Stdio = "inherit" | "pipe" | "ignore" | number | Stream
 export type Shell = boolean | string
@@ -17,6 +18,7 @@ export interface Options {
   abort?: AbortSignal
   kill?: NodeJS.Signals | number
   timeout?: number
+  language?: Language
 }
 
 export interface RunOptions extends Omit<Options, "stdout" | "stderr"> {
@@ -39,12 +41,14 @@ export class RunFailedError extends Error {
   readonly stdout: Buffer
   readonly stderr: Buffer
 
-  constructor(cmd: string[], code: number, stdout: Buffer, stderr: Buffer) {
+  constructor(cmd: string[], code: number, stdout: Buffer, stderr: Buffer, language?: Language) {
     const text = stderr.toString().trim()
     super(
-      text
-        ? `Command failed with code ${code}: ${cmd.join(" ")}\n${text}`
-        : `Command failed with code ${code}: ${cmd.join(" ")}`,
+      t(language, "error.process_command_failed", {
+        status: t(language, "error.process_exit_status", { code }),
+        command: cmd.join(" "),
+        detail: text ? `\n${text}` : "",
+      }),
     )
     this.name = "ProcessRunFailedError"
     this.cmd = [...cmd]
@@ -57,7 +61,7 @@ export class RunFailedError extends Error {
 export type Child = ChildProcess & { exited: Promise<number> }
 
 export function spawn(cmd: string[], opts: Options = {}): Child {
-  if (cmd.length === 0) throw new Error("Command is required")
+  if (cmd.length === 0) throw new Error(t(opts.language, "error.command_required"))
   opts.abort?.throwIfAborted()
 
   const proc = launch(cmd[0], cmd.slice(1), {
@@ -120,11 +124,12 @@ export async function run(cmd: string[], opts: RunOptions = {}): Promise<Result>
     abort: opts.abort,
     kill: opts.kill,
     timeout: opts.timeout,
+    language: opts.language,
     stdout: "pipe",
     stderr: "pipe",
   })
 
-  if (!proc.stdout || !proc.stderr) throw new Error("Process output not available")
+  if (!proc.stdout || !proc.stderr) throw new Error(t(opts.language, "error.process_output_unavailable"))
 
   const out = await Promise.all([proc.exited, buffer(proc.stdout), buffer(proc.stderr)])
     .then(([code, stdout, stderr]) => ({
@@ -141,7 +146,7 @@ export async function run(cmd: string[], opts: RunOptions = {}): Promise<Result>
       }
     })
   if (out.code === 0 || opts.nothrow) return out
-  throw new RunFailedError(cmd, out.code, out.stdout, out.stderr)
+  throw new RunFailedError(cmd, out.code, out.stdout, out.stderr, opts.language)
 }
 
 // Duplicated in `packages/sdk/js/src/process.ts` because the SDK cannot import

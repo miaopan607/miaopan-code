@@ -1,31 +1,13 @@
 # OpenAI Responses WebSocket
 
-Enabled by default on `local`, `dev`, and `beta`. On `latest` and `prod`, set `MIAOPAN_CODE_EXPERIMENTAL_WEBSOCKETS=true`.
+语言版本：简体中文 · [English](README.en.md)
 
-## Flow
+该插件为 OpenAI Responses 提供 WebSocket 传输。`local`、`dev` 和 `beta` 默认启用；`latest` 与 `prod` 需设置 `MIAOPAN_CODE_EXPERIMENTAL_WEBSOCKETS=true`。
 
-1. A streamed `POST /responses` request arrives.
-2. If it has no `session-id` or `x-session-affinity` header, use HTTP.
-3. Title requests use HTTP.
-4. If that session's socket is busy or already in fallback mode, use HTTP.
-5. Otherwise, reuse its open socket or open a new one.
-6. Send `response.create` and return WebSocket events as SSE.
+## 流程与生命周期
 
-## Lifetime
+流式 `POST /responses` 请求会在具备会话标识且连接可用时复用 WebSocket，否则回退 HTTP；标题请求始终使用 HTTP。连接超时 15 秒、空闲超时 5 分钟，完成响应后保留连接并最多复用 55 分钟。
 
-- Connect timeout: 15 seconds.
-- Idle timeout: 5 minutes.
-- After a completed response, keep the socket for reuse.
-- Reuse a socket for up to 55 minutes, then replace it on the next request.
+## 重试
 
-## Retries
-
-- Retry WebSocket stream/setup failures up to 5 times, then use HTTP for that session until the pool entry is idle-pruned.
-- `websocket_connection_limit_reached` consumes the same retry budget and HTTP fallback.
-- If a WebSocket fails after its first event, fail it as retryable rather than replaying partial output in transport.
-- Abort or cancel closes the socket.
-
-## Next Steps
-
-- `previous_response_id` continuation.
-- Optional second WebSocket for concurrent requests in one session. Currently these use HTTP.
+WebSocket 建连或流式设置失败最多重试 5 次，之后该会话回退 HTTP，直到池项被清理。首个事件后失败会作为可重试错误返回，不会在传输层重放部分输出；中止或取消会关闭连接。后续计划请参阅 [英文说明](README.en.md)。

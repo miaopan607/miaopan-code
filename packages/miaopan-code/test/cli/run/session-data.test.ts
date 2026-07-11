@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import type { Event } from "@miaopan-code/sdk/v2"
 import { createSessionData, flushInterrupted, reduceSessionData } from "@/cli/cmd/run/session-data"
 import type { StreamCommit } from "@/cli/cmd/run/types"
+import { UI } from "@/cli/ui"
 
 function reduce(data: ReturnType<typeof createSessionData>, event: unknown, thinking = true) {
   return reduceSessionData({
@@ -209,7 +210,7 @@ describe("run session data", () => {
     })
 
     expect(ask.footer).toEqual({
-      patch: { status: "awaiting permission" },
+      patch: { status: UI.t("session.awaiting_permission") },
       view: {
         type: "permission",
         request: expect.objectContaining({ id: "perm-1" }),
@@ -226,7 +227,7 @@ describe("run session data", () => {
         },
       }).footer,
     ).toEqual({
-      patch: { status: "awaiting answer" },
+      patch: { status: UI.t("session.awaiting_answer") },
       view: {
         type: "question",
         request: expect.objectContaining({ id: "question-1" }),

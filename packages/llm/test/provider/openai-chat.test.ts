@@ -141,7 +141,7 @@ describe("OpenAI Chat route", () => {
         dynamicResponse((input) =>
           Effect.gen(function* () {
             const web = yield* HttpClientRequest.toWeb(input.request).pipe(Effect.orDie)
-            expect(web.url).toBe("https://miaopanCode-test.openai.azure.com/openai/v1/chat/completions?api-version=v1")
+            expect(web.url).toBe("https://miaopancode-test.openai.azure.com/openai/v1/chat/completions?api-version=v1")
             expect(web.headers.get("api-key")).toBe("azure-key")
             expect(web.headers.get("authorization")).toBeNull()
             return input.respond(sseEvents(deltaChunk({}, "stop")), {
@@ -413,7 +413,7 @@ describe("OpenAI Chat route", () => {
         const error = yield* LLMClient.prepare(
           LLM.request({ model, messages: [Message.user({ type: "media", ...media })] }),
         ).pipe(Effect.flip)
-        expect(error.message).toMatch(/does not support|does not match|valid base64/)
+        expect(error.message).toMatch(/不支持|不匹配|有效的 base64/)
       }),
     )
 
@@ -431,7 +431,7 @@ describe("OpenAI Chat route", () => {
           ],
         }),
       ).pipe(Effect.flip)
-      expect(error.message).toContain("encoded limit")
+      expect(error.message).toContain("编码后大小限制")
     }),
   )
 
@@ -612,7 +612,7 @@ describe("OpenAI Chat route", () => {
         { type: "tool-input-delta", id: "call_1", name: "lookup", text: ':"weather"}' },
       ])
       expect(events.filter(LLMEvent.is.toolCall)).toEqual([])
-      expect(error.message).toContain("Provider stream ended without a terminal finish event")
+      expect(error.message).toContain("提供商流已结束，但没有终止完成事件")
     }),
   )
 
@@ -621,7 +621,7 @@ describe("OpenAI Chat route", () => {
       const body = sseEvents(deltaChunk({ content: 123 }))
       const error = yield* LLMClient.generate(request).pipe(Effect.provide(fixedResponse(body)), Effect.flip)
 
-      expect(error.message).toContain("Invalid openai/openai-chat stream event")
+      expect(error.message).toContain("无效的 openai/openai-chat 流事件")
     }),
   )
 
@@ -632,7 +632,7 @@ describe("OpenAI Chat route", () => {
       ])
       const error = yield* LLMClient.generate(request).pipe(Effect.provide(layer), Effect.flip)
 
-      expect(error.message).toContain("Failed to read openai/openai-chat stream")
+      expect(error.message).toContain("读取 openai/openai-chat 流失败")
     }),
   )
 
@@ -650,7 +650,7 @@ describe("OpenAI Chat route", () => {
 
       expect(error).toBeInstanceOf(LLMError)
       expect(error.reason).toMatchObject({ _tag: "InvalidRequest" })
-      expect(error.message).toContain("HTTP 400")
+      expect(error.message).toContain("HTTP 状态码为 400")
     }),
   )
 

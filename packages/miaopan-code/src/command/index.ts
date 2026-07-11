@@ -7,9 +7,9 @@ import { Effect, Layer, Context, Schema } from "effect"
 import { Config } from "@/config/config"
 import { MCP } from "../mcp"
 import { Skill } from "../skill"
-import PROMPT_INITIALIZE from "./template/initialize.txt"
-import PROMPT_REVIEW from "./template/review.txt"
 import { LegacyEvent } from "@miaopan-code/schema/legacy-event"
+import { t } from "@miaopan-code/core/i18n"
+import { PromptI18n } from "@/i18n/prompt"
 
 type State = {
   commands: Record<string, Info>
@@ -66,25 +66,27 @@ const layer = Layer.effect(
       const cfg = yield* config.get()
       const bridge = yield* EffectBridge.make()
       const commands: Record<string, Info> = {}
+      const initialize = PromptI18n.text(cfg.language, "command.initialize")
+      const review = PromptI18n.text(cfg.language, "command.review")
 
       commands[Default.INIT] = {
         name: Default.INIT,
-        description: "guided AGENTS.md setup",
+        description: t(cfg.language, "command.setup_agents"),
         source: "command",
         get template() {
-          return PROMPT_INITIALIZE.replace("${path}", ctx.worktree)
+          return initialize.replace("${path}", ctx.worktree)
         },
-        hints: hints(PROMPT_INITIALIZE),
+        hints: hints(initialize),
       }
       commands[Default.REVIEW] = {
         name: Default.REVIEW,
-        description: "review changes [commit|branch|pr], defaults to uncommitted",
+        description: t(cfg.language, "command.review"),
         source: "command",
         get template() {
-          return PROMPT_REVIEW.replace("${path}", ctx.worktree)
+          return review.replace("${path}", ctx.worktree)
         },
         subtask: true,
-        hints: hints(PROMPT_REVIEW),
+        hints: hints(review),
       }
 
       for (const [name, command] of Object.entries(cfg.command ?? {})) {
@@ -143,8 +145,8 @@ const layer = Layer.effect(
             return [
               item.content,
               "",
-              `Base directory for this skill: ${dir}`,
-              "Relative paths in this skill (e.g., scripts/, references/) are relative to this base directory.",
+              t(cfg.language, "tool.skill_base", { base: dir }),
+              t(cfg.language, "tool.skill_relative"),
             ].join("\n")
           },
           hints: [],

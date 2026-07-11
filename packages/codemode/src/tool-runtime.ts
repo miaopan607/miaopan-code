@@ -1,4 +1,5 @@
 import { Cause, Effect, Schema } from "effect"
+import { t, type Language } from "./i18n.js"
 import { ToolError, toolError } from "./tool-error.js"
 import {
   decodeInput as decodeToolInput,
@@ -140,12 +141,14 @@ export class ToolRuntimeError extends Error {
 const isDefinition = <R>(value: HostTool<R> | Definition<R> | HostTools<R>): value is Definition<R> =>
   isToolDefinition<R>(value)
 
-const runHost = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, ToolError, R> =>
+const runHost = <A, E, R>(effect: Effect.Effect<A, E, R>, language?: Language): Effect.Effect<A, ToolError, R> =>
   effect.pipe(
     Effect.catchCause((cause) => {
       if (Cause.hasInterruptsOnly(cause)) return Effect.interrupt
       const error = Cause.squash(cause)
-      return Effect.fail(error instanceof ToolError ? error : toolError("Tool execution failed", error))
+      return Effect.fail(
+        error instanceof ToolError ? error : toolError(t(language, "codemode.error.tool_execution_failed"), error),
+      )
     }),
   )
 
@@ -168,8 +171,8 @@ export const isBlockedMember = (name: string): boolean => blockedMemberNames.has
  *
  * Both modes reject un-awaited promises with an await-hinting diagnostic.
  */
-export const copyIn = (value: unknown, label: string, preserveSandboxValues = false): unknown =>
-  copyBounded(value, label, 0, new Set(), preserveSandboxValues)
+export const copyIn = (value: unknown, label: string, preserveSandboxValues = false, language?: Language): unknown =>
+  copyBounded(value, label, 0, new Set(), preserveSandboxValues, language)
 
 const copyBounded = (
   value: unknown,
@@ -177,9 +180,13 @@ const copyBounded = (
   depth: number,
   seen: Set<object>,
   preserveSandboxValues: boolean,
+  language?: Language,
 ): unknown => {
   if (depth > MAX_VALUE_DEPTH) {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} exceeds the maximum value depth of ${MAX_VALUE_DEPTH}.`)
+    throw new ToolRuntimeError(
+      "InvalidDataValue",
+      t(language, "codemode.error.maximum_value_depth", { label, maximum: MAX_VALUE_DEPTH }),
+    )
   }
   if (
     value === null ||
@@ -196,16 +203,13 @@ const copyBounded = (
   }
 
   if (typeof value !== "object") {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} must contain data only.`)
+    throw new ToolRuntimeError("InvalidDataValue", t(language, "codemode.error.data_only", { label }))
   }
 
   // An un-awaited promise never crosses a data checkpoint as `{}`; the diagnostic tells the
   // model exactly how to fix the program instead.
   if (value instanceof SandboxPromise) {
-    throw new ToolRuntimeError(
-      "InvalidDataValue",
-      `${label} contains an un-awaited Promise; await tool calls (e.g. \`const result = await tools.ns.tool(...)\`) before using their results.`,
-    )
+    throw new ToolRuntimeError("InvalidDataValue", t(language, "codemode.error.unawaited_promise", { label }))
   }
 
   if (preserveSandboxValues) {
@@ -229,13 +233,16 @@ const copyBounded = (
     if (value instanceof Map) {
       const wrapped = new SandboxMap()
       for (const [key, item] of value.entries()) {
-        wrapped.map.set(copyBounded(key, label, depth + 1, seen, true), copyBounded(item, label, depth + 1, seen, true))
+        wrapped.map.set(
+          copyBounded(key, label, depth + 1, seen, true, language),
+          copyBounded(item, label, depth + 1, seen, true, language),
+        )
       }
       return wrapped
     }
     if (value instanceof Set) {
       const wrapped = new SandboxSet()
-      for (const item of value.values()) wrapped.set.add(copyBounded(item, label, depth + 1, seen, true))
+      for (const item of value.values()) wrapped.set.add(copyBounded(item, label, depth + 1, seen, true, language))
       return wrapped
     }
     if (value instanceof URL) return new SandboxURL(new URL(value.href))
@@ -267,28 +274,31 @@ const copyBounded = (
   }
 
   if (seen.has(value)) {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} contains a circular value.`)
+    throw new ToolRuntimeError("InvalidDataValue", t(language, "codemode.error.circular_value", { label }))
   }
 
   seen.add(value)
 
   if (Array.isArray(value)) {
-    const copied = value.map((item) => copyBounded(item, label, depth + 1, seen, preserveSandboxValues))
+    const copied = value.map((item) => copyBounded(item, label, depth + 1, seen, preserveSandboxValues, language))
     seen.delete(value)
     return copied
   }
 
   const prototype = Object.getPrototypeOf(value)
   if (prototype !== Object.prototype && prototype !== null) {
-    throw new ToolRuntimeError("InvalidDataValue", `${label} must contain plain objects only.`)
+    throw new ToolRuntimeError("InvalidDataValue", t(language, "codemode.error.plain_objects_only", { label }))
   }
 
   const copied: SafeObject = Object.create(null) as SafeObject
   for (const [key, item] of Object.entries(value)) {
     if (isBlockedMember(key)) {
-      throw new ToolRuntimeError("InvalidDataValue", `${label} contains blocked property '${key}'.`)
+      throw new ToolRuntimeError(
+        "InvalidDataValue",
+        t(language, "codemode.error.blocked_property", { label, property: key }),
+      )
     }
-    copied[key] = copyBounded(item, label, depth + 1, seen, preserveSandboxValues)
+    copied[key] = copyBounded(item, label, depth + 1, seen, preserveSandboxValues, language)
   }
   seen.delete(value)
   return copied
@@ -383,9 +393,9 @@ const termForms = (term: string): Array<string> => {
   return forms
 }
 
-const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => ({
+const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>, language?: Language): Definition => ({
   _tag: "CodeModeTool",
-  description: "Search available Code Mode tools",
+  description: t(language, "codemode.search.description"),
   input: SearchInput,
   output: SearchOutput,
   run: (input) =>
@@ -448,8 +458,6 @@ const makeSearchTool = (searchIndex: ReadonlyArray<SearchEntry>): Definition => 
     }),
 })
 
-const searchDescription = describeDefinition(`${reservedNamespace}.search`, makeSearchTool([]))
-
 const catalogLine = (tool: ToolDescription) => {
   // Keep the tool description concise; the full schema documentation remains in the signature.
   const line = tool.description.split("\n", 1)[0]!.trim()
@@ -475,9 +483,9 @@ const toSearchEntry = <R>(path: string, definition: Definition<R>, description: 
 export const searchIndex = <R>(tools: HostTools<R>): ReadonlyArray<SearchEntry> =>
   visibleDefinitions(tools).map(({ path, definition, description }) => toSearchEntry(path, definition, description))
 
-export const assertValidTools = <R>(tools: HostTools<R>): void => {
+export const assertValidTools = <R>(tools: HostTools<R>, language?: Language): void => {
   if (Object.hasOwn(tools, reservedNamespace)) {
-    throw new Error(`Tool namespace '${reservedNamespace}' is reserved for CodeMode discovery tools.`)
+    throw new Error(t(language, "codemode.error.reserved_namespace", { namespace: reservedNamespace }))
   }
 }
 
@@ -492,10 +500,15 @@ export const assertValidTools = <R>(tools: HostTools<R>): void => {
  * namespace. Namespace stub lines are never budgeted: every namespace appears with its
  * tool count even at budget 0.
  */
-export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBudget): DiscoveryPlan => {
+export const prepare = <R>(
+  tools: HostTools<R>,
+  catalogBudget = defaultCatalogBudget,
+  language?: Language,
+): DiscoveryPlan => {
   if (!Number.isSafeInteger(catalogBudget) || catalogBudget < 0) {
-    throw new RangeError("discovery.catalogBudget must be a non-negative safe integer")
+    throw new RangeError(t(language, "codemode.error.invalid_catalog_budget"))
   }
+  const searchDescription = describeDefinition(`${reservedNamespace}.search`, makeSearchTool([], language))
   const visible = visibleDefinitions(tools)
   const described = visible.map(({ description }) => description)
 
@@ -551,13 +564,11 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
   // tool name - and show both dot and bracket notation so non-identifier names are not normalized.
   const intro = [
     empty
-      ? "This is a restricted JavaScript language for calling tools, not a general-purpose runtime."
+      ? t(language, "codemode.instructions.intro_empty")
       : complete
-        ? "This is a restricted JavaScript language for calling tools, not a general-purpose runtime. Inside the confined interpreter, `tools` contains the Code Mode tools listed below and internal runtime tools; surrounding agent tools are not available."
-        : "This is a restricted JavaScript language for calling tools, not a general-purpose runtime. Inside the confined interpreter, `tools` contains the Code Mode tools listed or searchable below and internal runtime tools; surrounding agent tools are not available.",
-    ...(empty
-      ? []
-      : ["Do not infer or normalize tool names; use only exact signatures shown below or returned by search."]),
+        ? t(language, "codemode.instructions.intro_complete")
+        : t(language, "codemode.instructions.intro_partial"),
+    ...(empty ? [] : [t(language, "codemode.instructions.exact_names")]),
   ]
 
   // The search step exists only when search is advertised (PARTIAL catalog); a COMPLETE
@@ -566,17 +577,17 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
     ? []
     : [
         "",
-        "## Workflow",
+        t(language, "codemode.instructions.workflow_heading"),
         "",
         ...(complete
           ? [
-              "1. Pick a tool from the list under `## Available tools` - each line is the exact call signature; use it as-is rather than guessing segments.",
-              "2. Call it using the exact signature shown: `const result = await tools.<namespace>.<tool>(input)`; bracket notation and quotes are part of the path.",
-              "3. Return only the fields you need from structured results; narrow unknown results before reading fields, and avoid returning large raw payloads.",
+              t(language, "codemode.instructions.workflow_complete_pick"),
+              t(language, "codemode.instructions.workflow_complete_call"),
+              t(language, "codemode.instructions.workflow_complete_return"),
             ]
           : [
-              '1. If needed, discover tools: `return await tools.$codemode.search({ query: "<intent + key nouns>" })`.',
-              "2. In the next execution, copy a returned path exactly, call it, and return only the needed fields.",
+              t(language, "codemode.instructions.workflow_partial_search"),
+              t(language, "codemode.instructions.workflow_partial_call"),
             ]),
       ]
 
@@ -584,62 +595,70 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
     ? []
     : [
         "",
-        "## Rules",
+        t(language, "codemode.instructions.rules_heading"),
         "",
         complete
-          ? "- Only Code Mode tools listed here and internal runtime tools are available; surrounding agent tools are not implicitly exposed."
-          : "- Only Code Mode tools listed here or returned by `tools.$codemode.search` and internal runtime tools are available; surrounding agent tools are not implicitly exposed.",
-        "- Filter, aggregate, and transform collections in code - never return them raw or call a tool per item across messages.",
-        "- A result typed `Promise<unknown>` may be structured data or text. Before reading fields, check that it is a non-null object and not an array; otherwise handle the returned text or primitive directly.",
-        '- Run independent calls in parallel: `await Promise.all(items.map((item) => tools.<namespace>.<tool>(item)))`, or use `tools.<namespace>["tool-name"](item)` when the listed signature uses bracket notation.',
-        "- `Object.keys(tools)` lists namespaces; `Object.keys(tools.<namespace>)` lists its tools; `for...in` works on both.",
+          ? t(language, "codemode.instructions.rules_tools_complete")
+          : t(language, "codemode.instructions.rules_tools_partial"),
+        t(language, "codemode.instructions.rules_transform"),
+        t(language, "codemode.instructions.rules_unknown_result"),
+        t(language, "codemode.instructions.rules_parallel"),
+        t(language, "codemode.instructions.rules_enumerate"),
         ...(complete
           ? []
           : [
-              '- Browse one namespace: `await tools.$codemode.search({ query: "", namespace: "<name>" })`.',
-              "- If search returns `next`, repeat the same search with `offset: next.offset`.",
+              t(language, "codemode.instructions.rules_browse_namespace"),
+              t(language, "codemode.instructions.rules_next_offset"),
             ]),
       ]
 
-  const language = [
+  const languageSection = [
     "",
-    "## Language",
+    t(language, "codemode.instructions.language_heading"),
     "",
-    "Use common JavaScript data operations, functions, control flow, selected standard-library methods, and awaited tool calls. Built-ins include Date, RegExp, Map, Set, URL, URLSearchParams, and URI encoding helpers.",
-    "Modules/imports, classes, generators, timers, fetch, eval, prototype access, unlisted methods, and promise chaining are unavailable. Use Code Mode tools for external operations. Use await with try/catch.",
-    "Dates and URLs serialize to strings at data boundaries; Map/Set/RegExp/URLSearchParams serialize to `{}`.",
+    t(language, "codemode.instructions.language_supported"),
+    t(language, "codemode.instructions.language_unavailable"),
+    t(language, "codemode.instructions.language_serialization"),
   ]
 
   const toolSection: Array<string> = [""]
   if (empty) {
-    toolSection.push("## Available tools", "", "No tools are currently available.")
+    toolSection.push(
+      t(language, "codemode.instructions.tools_heading"),
+      "",
+      t(language, "codemode.instructions.no_tools"),
+    )
   } else {
     toolSection.push(
       complete
-        ? "## Available tools (COMPLETE list - every tool is shown below with its full call signature)"
-        : `## Available tools (PARTIAL - ${totalShown} of ${described.length} shown; find the rest with tools.$codemode.search)`,
+        ? t(language, "codemode.instructions.tools_complete")
+        : t(language, "codemode.instructions.tools_partial", { shown: totalShown, total: described.length }),
       "",
     )
     for (const [namespace, group] of ordered) {
       const picked = shown.get(namespace)!
-      const count = `${group.length} tool${group.length === 1 ? "" : "s"}`
+      const count = t(
+        language,
+        group.length === 1 ? "codemode.instructions.tool_count_one" : "codemode.instructions.tool_count_many",
+        { count: group.length },
+      )
       // Annotate only when a namespace is not fully shown, so a comprehensive
       // namespace reads cleanly and a truncated one is unambiguous.
       const label =
         picked.size === group.length
           ? count
           : picked.size === 0
-            ? `${count}, none shown`
-            : `${count}, ${picked.size} shown`
+            ? t(language, "codemode.instructions.none_shown", { count })
+            : t(language, "codemode.instructions.some_shown", { count, shown: picked.size })
       toolSection.push(`- ${namespace} (${label})`)
       for (const tool of group) if (picked.has(tool)) toolSection.push(catalogLine(tool))
     }
     if (!complete) {
-      toolSection.push("", "Search returns complete callable signatures:", `- ${searchDescription.signature}`)
+      toolSection.push("", t(language, "codemode.instructions.search_signatures"), `- ${searchDescription.signature}`)
     }
   }
 
-  const lines = [...intro, ...workflow, ...rules, ...language, ...toolSection]
+  const lines = [...intro, ...workflow, ...rules, ...languageSection, ...toolSection]
   return {
     catalog: described,
     instructions: lines.join("\n"),
@@ -654,7 +673,11 @@ export const prepare = <R>(tools: HostTools<R>, catalogBudget = defaultCatalogBu
  * function in JS). An unknown path is an `UnknownTool` error pointing at the working
  * discovery idioms, mirroring how calling an unknown tool fails.
  */
-const namespaceKeys = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): ReadonlyArray<string> => {
+const namespaceKeys = <R>(
+  tools: HostTools<R>,
+  path: ReadonlyArray<string>,
+  language?: Language,
+): ReadonlyArray<string> => {
   let value: HostTool<R> | Definition<R> | HostTools<R> = tools
   for (const segment of path) {
     if (
@@ -663,9 +686,11 @@ const namespaceKeys = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): Rea
       isDefinition(value) ||
       !Object.hasOwn(value, segment)
     ) {
-      throw new ToolRuntimeError("UnknownTool", `Unknown tool namespace '${path.join(".")}'.`, [
-        "Object.keys(tools) lists the available namespaces; tools.$codemode.search({ query }) finds described tools.",
-      ])
+      throw new ToolRuntimeError(
+        "UnknownTool",
+        t(language, "codemode.error.unknown_namespace", { path: path.join(".") }),
+        [t(language, "codemode.error.discovery_hint")],
+      )
     }
     value = value[segment] as HostTool<R> | Definition<R> | HostTools<R>
   }
@@ -673,7 +698,11 @@ const namespaceKeys = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): Rea
   return Object.keys(value)
 }
 
-const resolve = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): HostTool<R> | Definition<R> => {
+const resolve = <R>(
+  tools: HostTools<R>,
+  path: ReadonlyArray<string>,
+  language?: Language,
+): HostTool<R> | Definition<R> => {
   let value: HostTool<R> | Definition<R> | HostTools<R> = tools
 
   for (const segment of path) {
@@ -683,15 +712,15 @@ const resolve = <R>(tools: HostTools<R>, path: ReadonlyArray<string>): HostTool<
       isDefinition(value) ||
       !Object.hasOwn(value, segment)
     ) {
-      throw new ToolRuntimeError("UnknownTool", `Unknown tool '${path.join(".")}'.`, [
-        "Use tools.$codemode.search({ query }) to find available described tools.",
+      throw new ToolRuntimeError("UnknownTool", t(language, "codemode.error.unknown_tool", { path: path.join(".") }), [
+        t(language, "codemode.error.search_hint"),
       ])
     }
     value = value[segment] as HostTool<R> | Definition<R> | HostTools<R>
   }
 
   if (typeof value !== "function" && !isDefinition(value)) {
-    throw new ToolRuntimeError("UnknownTool", `Tool '${path.join(".")}' is not callable.`)
+    throw new ToolRuntimeError("UnknownTool", t(language, "codemode.error.tool_not_callable", { path: path.join(".") }))
   }
 
   return value
@@ -711,11 +740,12 @@ export const make = <R>(
   maxToolCalls: number | undefined,
   searchIndex: ReadonlyArray<SearchEntry>,
   hooks?: ToolCallHooks<R>,
+  language?: Language,
 ): ToolRuntime<R> => {
   const calls: Array<ToolCall> = []
   const callableTools = {
     ...tools,
-    [reservedNamespace]: { search: makeSearchTool(searchIndex) },
+    [reservedNamespace]: { search: makeSearchTool(searchIndex, language) },
   }
 
   // Wraps the settling portion of a tool call so onToolCallEnd observes success and failure
@@ -728,7 +758,9 @@ export const make = <R>(
       Effect.tap(() => onEnd({ ...call, durationMs: Date.now() - startedAt, outcome: "success" })),
       Effect.tapError((error) => {
         const message =
-          error instanceof ToolError || error instanceof ToolRuntimeError ? error.message : "Tool execution failed"
+          error instanceof ToolError || error instanceof ToolRuntimeError
+            ? error.message
+            : t(language, "codemode.error.tool_execution_failed")
         return onEnd({
           ...call,
           durationMs: Date.now() - startedAt,
@@ -741,13 +773,17 @@ export const make = <R>(
 
   const decodeOutput = (value: unknown, name: string) =>
     Effect.try({
-      try: () => copyIn(value, `Result from tool '${name}'`),
-      catch: () => new ToolRuntimeError("InvalidToolOutput", `Invalid output from tool '${name}'.`),
+      try: () => copyIn(value, t(language, "codemode.label.tool_result", { name }), false, language),
+      catch: () =>
+        new ToolRuntimeError("InvalidToolOutput", t(language, "codemode.error.invalid_tool_output", { name })),
     })
 
   const recordCall = (call: ToolCall): void => {
     if (maxToolCalls !== undefined && calls.length >= maxToolCalls) {
-      throw new ToolRuntimeError("ToolCallLimitExceeded", `Execution exceeded its tool-call limit of ${maxToolCalls}.`)
+      throw new ToolRuntimeError(
+        "ToolCallLimitExceeded",
+        t(language, "codemode.error.tool_call_limit", { limit: maxToolCalls }),
+      )
     }
     calls.push(call)
   }
@@ -755,26 +791,31 @@ export const make = <R>(
   return {
     root: new ToolReference([]),
     calls,
-    keys: (path) => namespaceKeys(callableTools, path),
+    keys: (path) => namespaceKeys(callableTools, path, language),
     invoke: (path, args) =>
       Effect.gen(function* () {
         const name = path.join(".")
-        const externalArgs = args.map((arg) => copyOut(copyIn(arg, `Arguments for tool '${name}'`)))
+        const externalArgs = args.map((arg) =>
+          copyOut(copyIn(arg, t(language, "codemode.label.tool_arguments", { name }), false, language)),
+        )
         const call = { name }
         const recordAndObserve = (input: unknown) =>
           Effect.sync(() => {
             recordCall(call)
             return calls.length - 1
           }).pipe(Effect.tap((index) => hooks?.onToolCallStart?.({ index, name, input }) ?? Effect.void))
-        const tool = resolve(callableTools, path)
+        const tool = resolve(callableTools, path, language)
         let describedInput: unknown
         if (isDefinition(tool)) {
           if (externalArgs.length !== 1)
-            throw new ToolRuntimeError("InvalidToolInput", `Tool '${name}' expects exactly one input object.`)
+            throw new ToolRuntimeError("InvalidToolInput", t(language, "codemode.error.tool_input_arity", { name }))
           describedInput = yield* Effect.try({
             try: () => decodeToolInput(tool, externalArgs[0]),
             catch: (cause) =>
-              new ToolRuntimeError("InvalidToolInput", `Invalid input for tool '${name}': ${String(cause)}`),
+              new ToolRuntimeError(
+                "InvalidToolInput",
+                t(language, "codemode.error.invalid_tool_input", { name, cause: String(cause) }),
+              ),
           })
         }
         const input = isDefinition(tool) ? describedInput : externalArgs
@@ -783,10 +824,17 @@ export const make = <R>(
         if (isDefinition(tool)) {
           return yield* observeEnd(
             Effect.gen(function* () {
-              const raw = yield* runHost(Effect.suspend(() => tool.run(describedInput)))
+              const raw = yield* runHost(
+                Effect.suspend(() => tool.run(describedInput)),
+                language,
+              )
               const result = yield* Effect.try({
                 try: () => decodeToolOutput(tool, raw),
-                catch: () => new ToolRuntimeError("InvalidToolOutput", `Invalid output from tool '${name}'.`),
+                catch: () =>
+                  new ToolRuntimeError(
+                    "InvalidToolOutput",
+                    t(language, "codemode.error.invalid_tool_output", { name }),
+                  ),
               })
               return yield* decodeOutput(result, name)
             }),
@@ -795,7 +843,13 @@ export const make = <R>(
         }
         return yield* observeEnd(
           Effect.gen(function* () {
-            return yield* decodeOutput(yield* runHost(Effect.suspend(() => tool(...externalArgs))), name)
+            return yield* decodeOutput(
+              yield* runHost(
+                Effect.suspend(() => tool(...externalArgs)),
+                language,
+              ),
+              name,
+            )
           }),
           currentCall,
         )

@@ -3,6 +3,7 @@ import { bootstrapSessionData, createSessionData, reduceSessionData, type Sessio
 import { messagePrompt, type SessionMessages } from "./session.shared"
 import { messageTurnSummaryCommit } from "./turn-summary"
 import type { FooterPatch, LocalReplayRow, RunProvider, StreamCommit } from "./types"
+import { Language, t } from "@miaopan-code/core/i18n"
 
 type ReplayInput = {
   messages: SessionMessages
@@ -30,7 +31,7 @@ type ReplayMessage = {
   patch?: FooterPatch
 }
 
-const SHELL_SYNTHETIC_USER_TEXT = "The following tool was executed by the user"
+const SHELL_SYNTHETIC_USER_TEXT = Language.map((language) => t(language, "prompt.tool_executed_by_user"))
 
 function apply(data: SessionData, event: Event, sessionID: string, thinking: boolean, limits: Record<string, number>) {
   return reduceSessionData({
@@ -108,7 +109,9 @@ function isShellSyntheticUser(message: SessionMessages[number]) {
   return (
     !prompt.text.trim() &&
     prompt.parts.length === 0 &&
-    message.parts.some((part) => part.type === "text" && part.synthetic && part.text === SHELL_SYNTHETIC_USER_TEXT)
+    message.parts.some(
+      (part) => part.type === "text" && part.synthetic && SHELL_SYNTHETIC_USER_TEXT.includes(part.text),
+    )
   )
 }
 

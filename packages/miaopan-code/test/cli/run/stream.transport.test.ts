@@ -2,6 +2,7 @@ import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
 import { MiaopanCodeClient, type GlobalEvent } from "@miaopan-code/sdk/v2"
 import { createSessionTransport } from "@/cli/cmd/run/stream.transport"
 import type { FooterApi, FooterEvent, LocalReplayRow, RunFilePart, StreamCommit } from "@/cli/cmd/run/types"
+import { UI } from "@/cli/ui"
 
 type EventStream = Awaited<ReturnType<MiaopanCodeClient["event"]["subscribe"]>>["stream"]
 type GlobalEventStream = Awaited<ReturnType<MiaopanCodeClient["global"]["event"]>>["stream"]
@@ -1021,12 +1022,16 @@ describe("run stream transport", () => {
       src.push(assistant("msg-thinking"))
       src.push(reasoningUpdated(reasoningPart("thinking-1", "msg-thinking", "")))
       src.push(textDelta("msg-thinking", "thinking-1", "plan"))
-      await waitFor(() => ui.commits.find((commit) => commit.kind === "reasoning" && commit.text === "Thinking: plan"))
+      await waitFor(() =>
+        ui.commits.find(
+          (commit) => commit.kind === "reasoning" && commit.text === UI.t("cli.run.thinking", { text: "plan" }),
+        ),
+      )
       ui.commits.length = 0
 
       expect(await transport.replayOnResize({ localRows: () => [], reset: () => Promise.resolve() })).toBe(true)
       expect(ui.commits.filter((commit) => commit.kind === "reasoning").map((commit) => commit.text)).toEqual([
-        "Thinking: plan",
+        UI.t("cli.run.thinking", { text: "plan" }),
       ])
     } finally {
       src.close()
@@ -1138,7 +1143,7 @@ describe("run stream transport", () => {
       expect(reset).toHaveBeenCalledTimes(1)
       expect(ui.commits).toContainEqual({
         kind: "error",
-        text: "resize replay failed; disabled for this session",
+        text: UI.t("run.resize_replay_failed"),
         phase: "start",
         source: "system",
       })
@@ -1173,7 +1178,7 @@ describe("run stream transport", () => {
       expect(reset).toHaveBeenCalledTimes(1)
       expect(ui.commits).toContainEqual({
         kind: "error",
-        text: "resize replay failed; disabled for this session",
+        text: UI.t("run.resize_replay_failed"),
         phase: "start",
         source: "system",
       })
@@ -1328,7 +1333,7 @@ describe("run stream transport", () => {
         expect.objectContaining({
           sessionID: "child-1",
           label: "Explore",
-          description: "Pending permission",
+          description: UI.t("cli.run.pending_permission"),
           status: "running",
         }),
       ])
@@ -1841,7 +1846,7 @@ describe("run stream transport", () => {
         type: "stream.patch",
         patch: {
           phase: "running",
-          status: "awaiting answer",
+          status: UI.t("session.awaiting_answer"),
         },
       })
 
@@ -2310,7 +2315,7 @@ describe("run stream transport", () => {
           files: [],
           includeFiles: false,
         }),
-      ).rejects.toThrow("instance disposed")
+      ).rejects.toThrow(UI.t("run.instance_disposed"))
     } finally {
       await transport.close()
     }
@@ -2351,7 +2356,7 @@ describe("run stream transport", () => {
           files: [],
           includeFiles: false,
         }),
-      ).rejects.toThrow("prompt already running")
+      ).rejects.toThrow(UI.t("run.prompt_already_running"))
 
       ctrl.abort()
       await task

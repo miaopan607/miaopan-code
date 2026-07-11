@@ -24,6 +24,7 @@ import { OpenAIOptions } from "./utils/openai-options"
 import { Lifecycle } from "./utils/lifecycle"
 import { ToolSchemaProjection } from "./utils/tool-schema"
 import { ToolStream } from "./utils/tool-stream"
+import { t, type Language } from "../i18n"
 
 const ADAPTER = "openai-responses"
 export const DEFAULT_BASE_URL = "https://api.openai.com/v1"
@@ -239,6 +240,7 @@ interface ParserState {
   readonly lifecycle: Lifecycle.State
   readonly reasoningItems: Readonly<Record<string, ReasoningStreamItem>>
   readonly store: boolean | undefined
+  readonly language?: Language
 }
 
 type ReasoningSummaryStatus = "active" | "can-conclude" | "concluded"
@@ -265,13 +267,18 @@ const lowerTool = (tool: ToolDefinition, inputSchema: JsonSchema): OpenAIRespons
   strict: false,
 })
 
-const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>) =>
-  ProviderShared.matchToolChoice("OpenAI Responses", toolChoice, {
-    auto: () => "auto" as const,
-    none: () => "none" as const,
-    required: () => "required" as const,
-    tool: (name) => ({ type: "function" as const, name }),
-  })
+const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>, language?: Language) =>
+  ProviderShared.matchToolChoice(
+    "OpenAI Responses",
+    toolChoice,
+    {
+      auto: () => "auto" as const,
+      none: () => "none" as const,
+      required: () => "required" as const,
+      tool: (name) => ({ type: "function" as const, name }),
+    },
+    language,
+  )
 
 const lowerToolCall = (part: ToolCallPart): OpenAIResponsesInputItem => ({
   type: "function_call",
@@ -307,6 +314,7 @@ const hostedToolItemID = (part: ToolResultPart) => {
 
 const lowerUserContent = Effect.fn("OpenAIResponses.lowerUserContent")(function* (
   part: LLMRequest["messages"][number]["content"][number],
+  language?: Language,
 ) {
   if (part.type === "text") return { type: "input_text" as const, text: part.text }
   if (part.type === "media") {
@@ -314,33 +322,39 @@ const lowerUserContent = Effect.fn("OpenAIResponses.lowerUserContent")(function*
       "OpenAI Responses",
       part,
       new Set<string>(ProviderShared.IMAGE_MIMES),
+      language,
     )
     return { type: "input_image" as const, image_url: media.dataUrl }
   }
-  return yield* ProviderShared.unsupportedContent("OpenAI Responses", "user", ["text", "media"])
+  return yield* ProviderShared.unsupportedContent("OpenAI Responses", "user", ["text", "media"], language)
 })
 
 // Tool results may carry structured text/images. Keep media as provider-native
 // content instead of JSON-stringifying base64 into a prompt string.
 const lowerToolResultContentItem = Effect.fn("OpenAIResponses.lowerToolResultContentItem")(function* (
   item: ToolContent,
+  language?: Language,
 ) {
   if (item.type === "text") return { type: "input_text" as const, text: item.text }
   const media = yield* ProviderShared.validateToolFile(
     "OpenAI Responses",
     item,
     new Set<string>(ProviderShared.IMAGE_MIMES),
+    language,
   )
   return { type: "input_image" as const, image_url: media.dataUrl }
 })
 
-const lowerToolResultOutput = Effect.fn("OpenAIResponses.lowerToolResultOutput")(function* (part: ToolResultPart) {
+const lowerToolResultOutput = Effect.fn("OpenAIResponses.lowerToolResultOutput")(function* (
+  part: ToolResultPart,
+  language?: Language,
+) {
   // Text/json/error results are encoded as a plain string for backward
   // compatibility with existing cassettes and provider expectations.
   if (part.result.type !== "content") return ProviderShared.toolResultText(part)
   // Preserve the narrowed array element type when compiled through a consumer package.
   const content: ReadonlyArray<ToolContent> = part.result.value
-  return yield* Effect.forEach(content, lowerToolResultContentItem)
+  return yield* Effect.forEach(content, (item) => lowerToolResultContentItem(item, language))
 })
 
 const lowerMessages = Effect.fn("OpenAIResponses.lowerMessages")(function* (request: LLMRequest) {
@@ -351,7 +365,7 @@ const lowerMessages = Effect.fn("OpenAIResponses.lowerMessages")(function* (requ
 
   for (const message of request.messages) {
     if (message.role === "system") {
-      const part = yield* ProviderShared.wrappedSystemUpdate("OpenAI Responses", message)
+      const part = yield* ProviderShared.wrappedSystemUpdate("OpenAI Responses", message, request.language)
       const previous = input.at(-1)
       if (previous && "role" in previous && previous.role === "user")
         input[input.length - 1] = {
@@ -363,7 +377,10 @@ const lowerMessages = Effect.fn("OpenAIResponses.lowerMessages")(function* (requ
     }
 
     if (message.role === "user") {
-      input.push({ role: "user", content: yield* Effect.forEach(message.content, lowerUserContent) })
+      input.push({
+        role: "user",
+        content: yield* Effect.forEach(message.content, (part) => lowerUserContent(part, request.language)),
+      })
       continue
     }
 
@@ -421,12 +438,12 @@ const lowerMessages = Effect.fn("OpenAIResponses.lowerMessages")(function* (requ
           if (itemID) hostedToolReferences.add(itemID)
           continue
         }
-        return yield* ProviderShared.unsupportedContent("OpenAI Responses", "assistant", [
-          "text",
-          "reasoning",
-          "tool-call",
-          "tool-result",
-        ])
+        return yield* ProviderShared.unsupportedContent(
+          "OpenAI Responses",
+          "assistant",
+          ["text", "reasoning", "tool-call", "tool-result"],
+          request.language,
+        )
       }
       flushText()
       continue
@@ -434,11 +451,11 @@ const lowerMessages = Effect.fn("OpenAIResponses.lowerMessages")(function* (requ
 
     for (const part of message.content) {
       if (!ProviderShared.supportsContent(part, ["tool-result"]))
-        return yield* ProviderShared.unsupportedContent("OpenAI Responses", "tool", ["tool-result"])
+        return yield* ProviderShared.unsupportedContent("OpenAI Responses", "tool", ["tool-result"], request.language)
       input.push({
         type: "function_call_output",
         call_id: part.id,
-        output: yield* lowerToolResultOutput(part),
+        output: yield* lowerToolResultOutput(part, request.language),
       })
     }
   }
@@ -458,7 +475,7 @@ const lowerOptions = Effect.fn("OpenAIResponses.lowerOptions")(function* (reques
   const promptCacheKey = OpenAIOptions.promptCacheKey(request)
   const effort = OpenAIOptions.reasoningEffort(request)
   if (effort && !OpenAIOptions.isReasoningEffort(effort))
-    return yield* invalid(`OpenAI Responses does not support reasoning effort ${effort}`)
+    return yield* invalid(t(request.language, "llm.openai_responses.reasoning_effort_unsupported", { effort }))
   const summary = OpenAIOptions.reasoningSummary(request)
   const include = OpenAIOptions.include(request)
   const verbosity = OpenAIOptions.textVerbosity(request)
@@ -488,7 +505,7 @@ const fromRequest = Effect.fn("OpenAIResponses.fromRequest")(function* (request:
         : request.tools.map((tool) =>
             lowerTool(tool, ToolSchemaProjection.modelCompatibility(tool.inputSchema, toolSchemaCompatibility)),
           ),
-    tool_choice: request.toolChoice ? yield* lowerToolChoice(request.toolChoice) : undefined,
+    tool_choice: request.toolChoice ? yield* lowerToolChoice(request.toolChoice, request.language) : undefined,
     stream: true as const,
     max_output_tokens: generation?.maxTokens,
     temperature: generation?.temperature,
@@ -796,7 +813,7 @@ const onFunctionCallArgumentsDelta = Effect.fn("OpenAIResponses.onFunctionCallAr
     state.tools,
     event.item_id,
     event.delta,
-    "OpenAI Responses tool argument delta is missing its tool call",
+    t(state.language, "llm.tool_call.delta_missing", { route: "OpenAI Responses" }),
   )
   if (ToolStream.isError(result)) return yield* result
   const events: LLMEvent[] = []
@@ -819,8 +836,8 @@ const onOutputItemDone = Effect.fn("OpenAIResponses.onOutputItemDone")(function*
       : ToolStream.start(state.tools, item.id, { id: item.call_id, name: item.name })
     const result =
       item.arguments === undefined
-        ? yield* ToolStream.finish(ADAPTER, tools, item.id)
-        : yield* ToolStream.finishWithInput(ADAPTER, tools, item.id, item.arguments)
+        ? yield* ToolStream.finish(ADAPTER, tools, item.id, state.language)
+        : yield* ToolStream.finishWithInput(ADAPTER, tools, item.id, item.arguments, state.language)
     const events: LLMEvent[] = []
     const resultEvents = result.events ?? []
     const lifecycle = resultEvents.length ? Lifecycle.stepStart(state.lifecycle, events) : state.lifecycle
@@ -912,12 +929,12 @@ const providerError = (event: OpenAIResponsesEvent, fallback: string) => {
 
 const onResponseFailed = (state: ParserState, event: OpenAIResponsesEvent): StepResult => [
   state,
-  [providerError(event, "OpenAI Responses response failed")],
+  [providerError(event, t(state.language, "llm.openai_responses.response_failed"))],
 ]
 
 const onError = (state: ParserState, event: OpenAIResponsesEvent): StepResult => [
   state,
-  [providerError(event, "OpenAI Responses stream error")],
+  [providerError(event, t(state.language, "llm.openai_responses.stream_error"))],
 ]
 
 const step = (state: ParserState, event: OpenAIResponsesEvent) => {
@@ -970,6 +987,7 @@ export const protocol = Protocol.make({
       lifecycle: Lifecycle.initial(),
       reasoningItems: {},
       store: OpenAIOptions.store(request),
+      language: request.language,
     }),
     step,
     terminal: (event) => TERMINAL_TYPES.has(event.type),
@@ -991,14 +1009,15 @@ export const route = Route.make({
   defaults: { providerOptions: { openai: { store: false } } },
 })
 
-const decodeWebSocketMessage = ProviderShared.validateWith(Schema.decodeUnknownEffect(OpenAIResponsesWebSocketMessage))
-
-const webSocketMessage = (body: OpenAIResponsesBody | Record<string, unknown>) =>
+const webSocketMessage = (body: OpenAIResponsesBody | Record<string, unknown>, request: LLMRequest) =>
   Effect.gen(function* () {
     if (!ProviderShared.isRecord(body))
-      return yield* ProviderShared.invalidRequest("OpenAI Responses WebSocket body must be a JSON object")
+      return yield* ProviderShared.invalidRequest(t(request.language, "llm.openai_responses.websocket_body_object"))
     const { stream: _stream, ...message } = body
-    return yield* decodeWebSocketMessage({ ...message, type: "response.create" })
+    return yield* ProviderShared.validateWith(
+      Schema.decodeUnknownEffect(OpenAIResponsesWebSocketMessage),
+      request.language,
+    )({ ...message, type: "response.create" })
   })
 
 export const webSocketTransport = WebSocketTransport.jsonTransport.with<

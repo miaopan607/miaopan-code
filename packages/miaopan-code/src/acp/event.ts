@@ -9,6 +9,7 @@ import type {
   ToolPart,
 } from "@miaopan-code/sdk/v2"
 import { Effect } from "effect"
+import type { Language } from "@miaopan-code/core/i18n"
 import { ACPSession } from "./session"
 import { ACPPermission } from "./permission"
 import { partsToContentChunks, type ReplayPart } from "./content"
@@ -30,7 +31,12 @@ type GlobalEventStream = {
   stream: AsyncIterable<GlobalEventEnvelope>
 }
 
-export function start(input: { sdk: MiaopanCodeClient; connection: Connection; session: ACPSession.Interface }) {
+export function start(input: {
+  sdk: MiaopanCodeClient
+  connection: Connection
+  session: ACPSession.Interface
+  language?: Language
+}) {
   const subscription = new Subscription(input)
   subscription.start()
   return subscription
@@ -48,6 +54,7 @@ export class Subscription {
       sdk: MiaopanCodeClient
       connection: Connection
       session: ACPSession.Interface
+      language?: Language
     },
   ) {
     this.permission = new ACPPermission.Handler(input)

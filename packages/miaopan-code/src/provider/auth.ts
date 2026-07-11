@@ -7,6 +7,7 @@ import { optional } from "@miaopan-code/core/schema"
 import { Plugin } from "../plugin"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { Array as Arr, Effect, Layer, Record, Result, Context, Schema } from "effect"
+import { t } from "@miaopan-code/core/i18n"
 
 const When = Schema.Struct({
   key: Schema.String,
@@ -54,14 +55,16 @@ export class Authorization extends Schema.Class<Authorization>("ProviderAuthAuth
 }) {}
 
 export const AuthorizeInput = Schema.Struct({
-  method: Schema.Finite.annotate({ description: "Auth method index" }),
-  inputs: Schema.optional(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Prompt inputs" }),
+  method: Schema.Finite.annotate({ description: t(undefined, "config.auth_method_index") }),
+  inputs: Schema.optional(Schema.Record(Schema.String, Schema.String)).annotate({
+    description: t(undefined, "config.auth_inputs"),
+  }),
 })
 export type AuthorizeInput = Schema.Schema.Type<typeof AuthorizeInput>
 
 export const CallbackInput = Schema.Struct({
-  method: Schema.Finite.annotate({ description: "Auth method index" }),
-  code: Schema.optional(Schema.String).annotate({ description: "OAuth authorization code" }),
+  method: Schema.Finite.annotate({ description: t(undefined, "config.auth_method_index") }),
+  code: Schema.optional(Schema.String).annotate({ description: t(undefined, "config.oauth_code") }),
 })
 export type CallbackInput = Schema.Schema.Type<typeof CallbackInput>
 

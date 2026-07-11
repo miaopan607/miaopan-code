@@ -15,6 +15,7 @@ export function wrapClientError(
   response: Response | undefined,
   request: Request | undefined,
   opts: { throwOnError?: boolean } | undefined,
+  language?: Language,
 ): unknown {
   if (!opts?.throwOnError) return error
   if (error instanceof Error) return error
@@ -36,8 +37,8 @@ export function wrapClientError(
   }
 
   // Empty body / network failure / undefined / null / empty object.
-  const reason = response ? "(empty response body)" : "network error (no response)"
-  return new Error(`miaopanCode server ${describe(request, response)}: ${reason}`, {
+  const reason = response ? t(language, "client_empty_response") : t(language, "client_network_no_response")
+  return new Error(t(language, "client_server_error", { request: describe(request, response), reason }), {
     cause: { body: error, status: response?.status },
   })
 }
@@ -49,3 +50,4 @@ function describe(request: Request | undefined, response: Response | undefined) 
   const statusText = response?.statusText
   return `${method} ${url}${status ? " → " + status : ""}${statusText ? " " + statusText : ""}`
 }
+import { t, type Language } from "./i18n.js"

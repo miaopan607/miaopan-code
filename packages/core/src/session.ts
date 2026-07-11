@@ -9,6 +9,7 @@ import { WorkspaceV2 } from "./workspace"
 import { ModelV2 } from "./model"
 import { Location } from "./location"
 import { SessionMessage } from "./session/message"
+import { zh } from "./i18n"
 import { Prompt } from "./session/prompt"
 import { PromptInput } from "@miaopan-code/schema/prompt-input"
 import { EventV2 } from "./event"
@@ -225,7 +226,7 @@ const layer = Layer.effect(
           directory: input.location.directory,
           path: path.relative(project.directory, input.location.directory).replaceAll("\\", "/"),
           workspaceID: input.location.workspaceID ? WorkspaceV2.ID.make(input.location.workspaceID) : undefined,
-          title: `New session - ${new Date(now).toISOString()}`,
+          title: zh("session.new_title", { time: new Date(now).toISOString() }),
           agent: input.agent,
           model: input.model
             ? {

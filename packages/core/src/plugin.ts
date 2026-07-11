@@ -15,6 +15,7 @@ import { PluginHost } from "./plugin/host"
 import { Reference } from "./reference"
 import { SkillV2 } from "./skill"
 import { State } from "./state"
+import { zh } from "./i18n"
 
 export const ID = Plugin.ID
 export type ID = typeof ID.Type
@@ -41,7 +42,7 @@ const layer = Layer.effect(
     let host: Parameters<PluginRuntime["effect"]>[0]
 
     const add = Effect.fn("Plugin.add")(function* (id: ID, effect: PluginRuntime["effect"]) {
-      if (loading.has(id)) return yield* Effect.die(`Plugin load cycle detected for ${id}`)
+      if (loading.has(id)) return yield* Effect.die(zh("error.plugin_load_cycle", { id }))
 
       yield* locks.withLock(id)(
         Effect.sync(() => {
@@ -83,7 +84,7 @@ const layer = Layer.effect(
     })
 
     const remove = Effect.fn("Plugin.remove")(function* (id: ID) {
-      if (loading.has(id)) return yield* Effect.die(`Cannot remove plugin ${id} while it is loading`)
+      if (loading.has(id)) return yield* Effect.die(zh("error.plugin_remove_loading", { id }))
 
       yield* locks.withLock(id)(
         State.batch(

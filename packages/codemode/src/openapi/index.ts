@@ -39,7 +39,7 @@ export type {
 export const fromSpec = (options: Options): Result => {
   const document = options.spec
   const schemes = securitySchemes(document)
-  const defaultSecurity = securityRequirements(document.security)
+  const defaultSecurity = securityRequirements(document.security, options.language)
   const definitions = componentDefinitions(document)
   const paths = isRecord(document.paths) ? document.paths : {}
   const used = new Set<string>()
@@ -59,35 +59,41 @@ export const fromSpec = (options: Options): Result => {
         summary: nonEmptyString(operationValue.summary),
         description: nonEmptyString(operationValue.description),
       }
-      const output = operationOutput(document, operationValue, definitions)
+      const output = operationOutput(document, operationValue, definitions, options.language)
       if (!output.ok) {
         skipped.push({ method: operation.method, path, reason: output.reason })
         continue
       }
 
       const resolvedBaseUrl = (() => {
-        if (options.baseUrl !== undefined) return validateBaseUrl(options.baseUrl)
-        if (operationValue.servers !== undefined) return specServerUrl(operationValue)
-        if (pathValue.servers !== undefined) return specServerUrl(pathValue)
-        return specServerUrl(document)
+        if (options.baseUrl !== undefined) return validateBaseUrl(options.baseUrl, options.language)
+        if (operationValue.servers !== undefined) return specServerUrl(operationValue, options.language)
+        if (pathValue.servers !== undefined) return specServerUrl(pathValue, options.language)
+        return specServerUrl(document, options.language)
       })()
       if (!resolvedBaseUrl.ok) {
         skipped.push({ method: operation.method, path, reason: resolvedBaseUrl.reason })
         continue
       }
-      const parsedInput = operationInput(document, pathValue, operationValue)
+      const parsedInput = operationInput(document, pathValue, operationValue, options.language)
       if (!parsedInput.ok) {
         skipped.push({ method: operation.method, path, reason: parsedInput.reason })
         continue
       }
       const input = parsedInput.value
 
-      const security = operationSecurityRequirements(operationValue.security, defaultSecurity, schemes)
+      const security = operationSecurityRequirements(
+        operationValue.security,
+        defaultSecurity,
+        schemes,
+        options.language,
+      )
       if (!security.ok) {
         skipped.push({ method: operation.method, path, reason: security.reason })
         continue
       }
       const plan = {
+        language: options.language,
         operation,
         url: `${resolvedBaseUrl.value.replace(/\/+$/, "")}${path}`,
         fields: input.fields,

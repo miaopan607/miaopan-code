@@ -22,6 +22,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { EventV2 } from "@miaopan-code/core/event"
 import { Project } from "@miaopan-code/schema/project"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export const Info = Project.Info
 export type Info = Types.DeepMutable<Schema.Schema.Type<typeof Info>>
@@ -87,16 +88,16 @@ export interface Interface {
    * fires. Subscription lifetime is tied to the per-instance state scope.
    */
   readonly init: () => Effect.Effect<void>
-  readonly fromDirectory: (directory: string) => Effect.Effect<{ project: Info; sandbox: string }>
+  readonly fromDirectory: (directory: string, language?: Language) => Effect.Effect<{ project: Info; sandbox: string }>
   readonly discover: (input: Info) => Effect.Effect<void>
   readonly list: () => Effect.Effect<Info[]>
   readonly get: (id: ProjectV2.ID) => Effect.Effect<Info | undefined>
   readonly update: (input: UpdateInput) => Effect.Effect<Info, NotFoundError>
-  readonly initGit: (input: { directory: string; project: Info }) => Effect.Effect<Info>
+  readonly initGit: (input: { directory: string; project: Info; language?: Language }) => Effect.Effect<Info>
   readonly setInitialized: (id: ProjectV2.ID) => Effect.Effect<void>
   readonly sandboxes: (id: ProjectV2.ID) => Effect.Effect<string[]>
-  readonly addSandbox: (id: ProjectV2.ID, directory: string) => Effect.Effect<void>
-  readonly removeSandbox: (id: ProjectV2.ID, directory: string) => Effect.Effect<void>
+  readonly addSandbox: (id: ProjectV2.ID, directory: string, language?: Language) => Effect.Effect<void>
+  readonly removeSandbox: (id: ProjectV2.ID, directory: string, language?: Language) => Effect.Effect<void>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/Project") {}
@@ -195,6 +196,7 @@ const layer = Layer.effect(
     const saveProjectDirectory = Effect.fn("Project.saveProjectDirectory")(function* (input: {
       projectID: ProjectV2.ID
       directory: string
+      language?: Language
     }) {
       if (input.projectID === ProjectV2.ID.global) return
       const opened = AbsolutePath.make(FSUtil.resolve(input.directory))
@@ -205,13 +207,16 @@ const layer = Layer.effect(
         })
         .pipe(
           Effect.catchCause((cause) =>
-            Effect.logWarning("project directory persistence failed", { projectID: input.projectID, cause }),
+            Effect.logWarning(t(input.language, "log.project_persistence_failed"), {
+              projectID: input.projectID,
+              cause,
+            }),
           ),
         )
     })
 
-    const fromDirectory = Effect.fn("Project.fromDirectory")(function* (directory: string) {
-      yield* Effect.logInfo("fromDirectory", { directory })
+    const fromDirectory = Effect.fn("Project.fromDirectory")(function* (directory: string, language?: Language) {
+      yield* Effect.logInfo(t(language, "log.project_from_directory"), { directory })
 
       const data = yield* projectV2.resolve(AbsolutePath.make(directory))
       const worktree = data.id === ProjectV2.ID.make("global") && !data.vcs ? "/" : data.directory
@@ -300,6 +305,7 @@ const layer = Layer.effect(
       yield* saveProjectDirectory({
         projectID,
         directory: data.directory,
+        language,
       })
 
       yield* emitUpdated(result)
@@ -363,14 +369,18 @@ const layer = Layer.effect(
       return data
     })
 
-    const initGit = Effect.fn("Project.initGit")(function* (input: { directory: string; project: Info }) {
+    const initGit = Effect.fn("Project.initGit")(function* (input: {
+      directory: string
+      project: Info
+      language?: Language
+    }) {
       if (input.project.vcs === "git") return input.project
-      if (!(yield* Effect.sync(() => which("git")))) throw new Error("Git is not installed")
+      if (!(yield* Effect.sync(() => which("git")))) throw new Error(t(input.language, "error.git_not_installed"))
       const result = yield* git(["init", "--quiet"], { cwd: input.directory })
       if (result.code !== 0) {
-        throw new Error(result.stderr.trim() || result.text.trim() || "Failed to initialize git repository")
+        throw new Error(result.stderr.trim() || result.text.trim() || t(input.language, "error.git_init_failed"))
       }
-      const { project } = yield* fromDirectory(input.directory)
+      const { project } = yield* fromDirectory(input.directory, input.language)
       return project
     })
 
@@ -414,9 +424,13 @@ const layer = Layer.effect(
       ).pipe(Effect.map((arr) => arr.filter((x): x is string => x !== undefined)))
     })
 
-    const addSandbox = Effect.fn("Project.addSandbox")(function* (id: ProjectV2.ID, directory: string) {
+    const addSandbox = Effect.fn("Project.addSandbox")(function* (
+      id: ProjectV2.ID,
+      directory: string,
+      language?: Language,
+    ) {
       const row = yield* db.select().from(ProjectTable).where(eq(ProjectTable.id, id)).get().pipe(Effect.orDie)
-      if (!row) throw new Error(`Project not found: ${id}`)
+      if (!row) throw new Error(t(language, "error.project_not_found_runtime", { id }))
       const sandbox = AbsolutePath.make(directory)
       const sboxes = [...row.sandboxes]
       if (!sboxes.includes(sandbox)) sboxes.push(sandbox)
@@ -427,13 +441,17 @@ const layer = Layer.effect(
         .returning()
         .get()
         .pipe(Effect.orDie)
-      if (!result) throw new Error(`Project not found: ${id}`)
+      if (!result) throw new Error(t(language, "error.project_not_found_runtime", { id }))
       yield* emitUpdated(fromRow(result))
     })
 
-    const removeSandbox = Effect.fn("Project.removeSandbox")(function* (id: ProjectV2.ID, directory: string) {
+    const removeSandbox = Effect.fn("Project.removeSandbox")(function* (
+      id: ProjectV2.ID,
+      directory: string,
+      language?: Language,
+    ) {
       const row = yield* db.select().from(ProjectTable).where(eq(ProjectTable.id, id)).get().pipe(Effect.orDie)
-      if (!row) throw new Error(`Project not found: ${id}`)
+      if (!row) throw new Error(t(language, "error.project_not_found_runtime", { id }))
       const sandbox = AbsolutePath.make(directory)
       const sboxes = row.sandboxes.filter((s) => s !== sandbox)
       const result = yield* db
@@ -443,7 +461,7 @@ const layer = Layer.effect(
         .returning()
         .get()
         .pipe(Effect.orDie)
-      if (!result) throw new Error(`Project not found: ${id}`)
+      if (!result) throw new Error(t(language, "error.project_not_found_runtime", { id }))
       yield* emitUpdated(fromRow(result))
     })
 

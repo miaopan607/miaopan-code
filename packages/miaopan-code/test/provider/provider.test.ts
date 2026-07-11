@@ -23,6 +23,7 @@ import { InstanceStore } from "@/project/instance-store"
 import { testEffect } from "../lib/effect"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { t } from "@miaopan-code/core/i18n"
 
 const originalEnv = new Map<string, string | undefined>()
 
@@ -1130,8 +1131,8 @@ it.instance("ModelNotFoundError includes suggestions for typos", () =>
       .pipe(Effect.flip)
     expect(error.suggestions).toBeDefined()
     expect((error.suggestions ?? []).length).toBeGreaterThan(0)
-    expect(error.message).toContain("Model not found: anthropic/claude-sonet-4")
-    expect(error.message).toContain("Did you mean:")
+    expect(error.message).toContain(t("zh-CN", "error.model_not_found", { model: "anthropic/claude-sonet-4" }))
+    expect(error.message).toContain(t("zh-CN", "error.did_you_mean", { items: error.suggestions?.join(", ") ?? "" }))
   }),
 )
 
@@ -1797,7 +1798,7 @@ const provideMultiInstance = <A, E, R>(eff: Effect.Effect<A, E, R>) =>
 it.effect("plugin config providers persist after instance dispose", () =>
   Effect.gen(function* () {
     const dir = yield* tmpdirScoped()
-    const configDir = path.join(dir, ".miaopanCode")
+    const configDir = path.join(dir, ".miaopan-code")
     const root = path.join(configDir, "plugin")
     yield* Effect.promise(() => mkdir(root, { recursive: true }))
     yield* Effect.promise(() => markPluginDependenciesReady(configDir))
@@ -1854,7 +1855,7 @@ it.instance(
   "plugin config enabled and disabled providers are honored",
   Effect.gen(function* () {
     const instance = yield* TestInstance
-    const configDir = path.join(instance.directory, ".miaopanCode")
+    const configDir = path.join(instance.directory, ".miaopan-code")
     const root = path.join(configDir, "plugin")
     yield* Effect.promise(() => mkdir(root, { recursive: true }))
     yield* Effect.promise(() => markPluginDependenciesReady(configDir))
@@ -1888,7 +1889,7 @@ it.effect("miaopanCode loader keeps paid models when config apiKey is present", 
   Effect.gen(function* () {
     const noneDir = yield* tmpdirScoped()
     const keyedDir = yield* tmpdirScoped({
-      config: { provider: { miaopanCode: { options: { apiKey: "test-key" } } } },
+      config: { provider: { "miaopan-code": { options: { apiKey: "test-key" } } } },
     })
 
     const listIn = (directory: string) =>
@@ -1922,7 +1923,9 @@ it.effect("miaopanCode loader keeps paid models when auth exists", () =>
     const original = yield* Effect.promise(() => Filesystem.readText(authPath).catch(() => undefined))
 
     yield* Effect.acquireRelease(
-      Effect.promise(() => Filesystem.write(authPath, JSON.stringify({ miaopanCode: { type: "api", key: "test-key" } }))),
+      Effect.promise(() =>
+        Filesystem.write(authPath, JSON.stringify({ "miaopan-code": { type: "api", key: "test-key" } })),
+      ),
       () =>
         Effect.promise(async () => {
           if (original !== undefined) await Filesystem.write(authPath, original)

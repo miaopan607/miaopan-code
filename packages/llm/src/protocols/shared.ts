@@ -13,6 +13,7 @@ import {
   type TextPart,
   type ToolResultPart,
 } from "../schema"
+import { resolveLanguage, t, type Language, type MessageKey } from "../i18n"
 import { isRecord } from "../utils/record"
 export { isRecord }
 
@@ -128,10 +129,11 @@ export const wrapSystemUpdate = (parts: ReadonlyArray<{ readonly text: string }>
 export const systemUpdateText = Effect.fn("ProviderShared.systemUpdateText")(function* (
   route: string,
   message: LLMRequest["messages"][number],
+  language?: Language,
 ) {
   const content: TextPart[] = []
   for (const part of message.content) {
-    if (!supportsContent(part, ["text"])) return yield* unsupportedContent(route, "system", ["text"])
+    if (!supportsContent(part, ["text"])) return yield* unsupportedContent(route, "system", ["text"], language)
     content.push(part)
   }
   return content
@@ -141,8 +143,9 @@ export const systemUpdateText = Effect.fn("ProviderShared.systemUpdateText")(fun
 export const wrappedSystemUpdate = Effect.fn("ProviderShared.wrappedSystemUpdate")(function* (
   route: string,
   message: LLMRequest["messages"][number],
+  language?: Language,
 ) {
-  const content = yield* systemUpdateText(route, message)
+  const content = yield* systemUpdateText(route, message, language)
   return { type: "text" as const, text: wrapSystemUpdate(content), cache: content.at(-1)?.cache }
 })
 
@@ -152,8 +155,8 @@ export const wrappedSystemUpdate = Effect.fn("ProviderShared.wrappedSystemUpdate
  * input deltas (e.g. zero-arg tools). The error message is uniform across
  * routes: `Invalid JSON input for <route> tool call <name>`.
  */
-export const parseToolInput = (route: string, name: string, raw: string) =>
-  parseJson(route, raw || "{}", `Invalid JSON input for ${route} tool call ${name}`)
+export const parseToolInput = (route: string, name: string, raw: string, language?: Language) =>
+  parseJson(route, raw || "{}", t(language, "llm.tool_call.invalid_json", { route, name }))
 
 export const IMAGE_MIMES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const
 export const VIDEO_MIMES = ["video/mp4", "video/webm", "video/quicktime"] as const
@@ -175,38 +178,63 @@ export const validateMedia = Effect.fn("ProviderShared.validateMedia")(function*
   route: string,
   part: MediaPart,
   supportedMimes: ReadonlySet<string>,
+  language?: Language,
 ) {
   const mime = part.mediaType.toLowerCase()
-  if (!supportedMimes.has(mime)) return yield* invalidRequest(`${route} does not support media type ${part.mediaType}`)
+  if (!supportedMimes.has(mime))
+    return yield* invalidRequest(t(language, "llm.media.type_unsupported", { route, mediaType: part.mediaType }))
 
   let base64: string
   if (typeof part.data !== "string") {
     if (part.data.byteLength > MAX_MEDIA_DECODED_BYTES)
-      return yield* invalidRequest(`${route} media exceeds the ${MAX_MEDIA_DECODED_BYTES} byte decoded limit`)
+      return yield* invalidRequest(
+        t(language, "llm.media.decoded_limit_exceeded", { route, bytes: MAX_MEDIA_DECODED_BYTES }),
+      )
     base64 = Buffer.from(part.data).toString("base64")
   } else if (part.data.startsWith("data:")) {
     const match = /^data:([^;,]+);base64,([A-Za-z0-9+/]*={0,2})$/s.exec(part.data)
-    if (!match) return yield* invalidRequest(`${route} media data URL must contain valid base64`)
+    if (!match) return yield* invalidRequest(t(language, "llm.media.data_url_invalid_base64", { route }))
     if (match[1]!.toLowerCase() !== mime)
-      return yield* invalidRequest(`${route} media type ${part.mediaType} does not match data URL type ${match[1]}`)
+      return yield* invalidRequest(
+        t(language, "llm.media.type_mismatch", {
+          route,
+          mediaType: part.mediaType,
+          dataUrlType: match[1],
+        }),
+      )
     base64 = match[2]!
   } else {
     base64 = part.data
   }
 
   if (Buffer.byteLength(base64, "utf8") > MAX_MEDIA_ENCODED_BYTES)
-    return yield* invalidRequest(`${route} media exceeds the ${MAX_MEDIA_ENCODED_BYTES} byte encoded limit`)
+    return yield* invalidRequest(
+      t(language, "llm.media.encoded_limit_exceeded", { route, bytes: MAX_MEDIA_ENCODED_BYTES }),
+    )
   if (!base64 || base64.length % 4 !== 0 || !base64Pattern.test(base64))
-    return yield* invalidRequest(`${route} media must contain valid base64`)
+    return yield* invalidRequest(t(language, "llm.media.invalid_base64", { route }))
   const bytes = Buffer.from(base64, "base64")
   if (bytes.byteLength > MAX_MEDIA_DECODED_BYTES)
-    return yield* invalidRequest(`${route} media exceeds the ${MAX_MEDIA_DECODED_BYTES} byte decoded limit`)
-  if (bytes.toString("base64") !== base64) return yield* invalidRequest(`${route} media must contain canonical base64`)
+    return yield* invalidRequest(
+      t(language, "llm.media.decoded_limit_exceeded", { route, bytes: MAX_MEDIA_DECODED_BYTES }),
+    )
+  if (bytes.toString("base64") !== base64)
+    return yield* invalidRequest(t(language, "llm.media.noncanonical_base64", { route }))
   return { mime, base64, dataUrl: `data:${mime};base64,${base64}`, bytes } satisfies ValidatedMedia
 })
 
-export const validateToolFile = (route: string, part: ToolFileContent, supportedMimes: ReadonlySet<string>) =>
-  validateMedia(route, { type: "media", mediaType: part.mime, data: part.uri, filename: part.name }, supportedMimes)
+export const validateToolFile = (
+  route: string,
+  part: ToolFileContent,
+  supportedMimes: ReadonlySet<string>,
+  language?: Language,
+) =>
+  validateMedia(
+    route,
+    { type: "media", mediaType: part.mime, data: part.uri, filename: part.name },
+    supportedMimes,
+    language,
+  )
 
 export const trimBaseUrl = (value: string) => value.replace(/\/+$/, "")
 
@@ -222,13 +250,13 @@ export const toolResultText = (part: ToolResultPart) => {
   return encodeJson(part.result.value)
 }
 
-export const errorText = (error: unknown) => {
+export const errorText = (error: unknown, language?: Language) => {
   if (error instanceof Error) return error.message
   if (typeof error === "string") return error
   if (typeof error === "number" || typeof error === "boolean" || typeof error === "bigint") return String(error)
   if (error === null) return "null"
   if (error === undefined) return "undefined"
-  return "Unknown stream error"
+  return t(language, "llm.stream.unknown_error")
 }
 
 /**
@@ -271,21 +299,35 @@ export const matchToolChoice = <Auto, None, Required, Tool>(
     readonly required: () => Required
     readonly tool: (name: string) => Tool
   },
+  language?: Language,
 ) =>
   Effect.gen(function* () {
     if (toolChoice.type === "auto") return cases.auto()
     if (toolChoice.type === "none") return cases.none()
     if (toolChoice.type === "required") return cases.required()
-    if (!toolChoice.name) return yield* invalidRequest(`${route} tool choice requires a tool name`)
+    if (!toolChoice.name) return yield* invalidRequest(t(language, "llm.tool_call.name_required", { route }))
     return cases.tool(toolChoice.name)
   })
 
 type ContentType = ContentPart["type"]
 
-const formatContentTypes = (types: ReadonlyArray<ContentType>) => {
-  if (types.length <= 1) return types[0] ?? ""
-  if (types.length === 2) return `${types[0]} and ${types[1]}`
-  return `${types.slice(0, -1).join(", ")}, and ${types.at(-1)}`
+const CONTENT_TYPE_KEYS = {
+  text: "llm.content.type_text",
+  media: "llm.content.type_media",
+  reasoning: "llm.content.type_reasoning",
+  "tool-call": "llm.content.type_tool_call",
+  "tool-result": "llm.content.type_tool_result",
+} as const satisfies Record<ContentType, MessageKey>
+
+const formatContentTypes = (types: ReadonlyArray<ContentType>, language?: Language) => {
+  const resolved = resolveLanguage(language)
+  const labels = types.map((type) => t(resolved, CONTENT_TYPE_KEYS[type]))
+  if (labels.length <= 1) return labels[0] ?? ""
+  if (labels.length === 2) return t(resolved, "llm.content.list_two", { first: labels[0], second: labels[1] })
+  return t(resolved, "llm.content.list_many", {
+    head: labels.slice(0, -1).join(resolved === "en" ? ", " : "、"),
+    last: labels.at(-1),
+  })
 }
 
 export const supportsContent = <const Type extends ContentType>(
@@ -297,7 +339,8 @@ export const unsupportedContent = (
   route: string,
   role: LLMRequest["messages"][number]["role"],
   types: ReadonlyArray<ContentType>,
-) => invalidRequest(`${route} ${role} messages only support ${formatContentTypes(types)} content for now`)
+  language?: Language,
+) => invalidRequest(t(language, "llm.content.unsupported", { route, role, types: formatContentTypes(types, language) }))
 
 /**
  * Build a `validate` step from a Schema decoder. Replaces the per-route
@@ -306,9 +349,11 @@ export const unsupportedContent = (
  * `LLMError` carrying the original parse-error message.
  */
 export const validateWith =
-  <A, I, E extends { readonly message: string }>(decode: (input: I) => Effect.Effect<A, E>) =>
+  <A, I, E extends { readonly message: string }>(decode: (input: I) => Effect.Effect<A, E>, language?: Language) =>
   (payload: I) =>
-    decode(payload).pipe(Effect.mapError((error) => invalidRequest(error.message)))
+    decode(payload).pipe(
+      Effect.mapError((error) => invalidRequest(t(language, "llm.schema.decode_failed", { error: error.message }))),
+    )
 
 /**
  * Build an HTTP POST with a JSON body. Sets `content-type: application/json`

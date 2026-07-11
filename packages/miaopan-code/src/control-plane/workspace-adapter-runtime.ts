@@ -3,6 +3,7 @@ import { EffectBridge } from "@/effect/bridge"
 import { InstanceRef, WorkspaceRef } from "@/effect/instance-ref"
 import { getAdapter } from "./adapters"
 import type { WorkspaceAdapter, WorkspaceInfo } from "./types"
+import type { Language } from "@miaopan-code/core/i18n"
 
 const context = Effect.gen(function* () {
   return {
@@ -11,10 +12,10 @@ const context = Effect.gen(function* () {
   }
 })
 
-export const target = (info: WorkspaceInfo) =>
+export const target = (info: WorkspaceInfo, language?: Language) =>
   Effect.gen(function* () {
-    const adapter = getAdapter(info.projectID, info.type)
     const ctx = yield* context
+    const adapter = getAdapter(info.projectID, info.type, language)
     return yield* EffectBridge.fromPromise(() => adapter.target(info, ctx))
   })
 
@@ -41,10 +42,10 @@ export const list = (adapter: WorkspaceAdapter) =>
     return yield* EffectBridge.fromPromise(() => Promise.resolve(adapter.list?.(ctx) ?? []))
   })
 
-export const remove = (info: WorkspaceInfo) =>
+export const remove = (info: WorkspaceInfo, language?: Language) =>
   Effect.gen(function* () {
-    const adapter = getAdapter(info.projectID, info.type)
     const ctx = yield* context
+    const adapter = getAdapter(info.projectID, info.type, language)
     return yield* EffectBridge.fromPromise(() => adapter.remove(info, ctx))
   })
 

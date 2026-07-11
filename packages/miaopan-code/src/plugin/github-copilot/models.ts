@@ -1,5 +1,6 @@
 import type { Model } from "@miaopan-code/sdk/v2"
 import { Option, Schema } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 const item = Schema.Struct({
   model_picker_enabled: Schema.Boolean,
@@ -214,13 +215,14 @@ export async function get(
   baseURL: string,
   headers: HeadersInit = {},
   existing: Record<string, Model> = {},
+  language?: Language,
 ): Promise<{ models: Record<string, Model>; pickerEnabled: Set<string> }> {
   const data = await fetch(`${baseURL}/models`, {
     headers,
     signal: AbortSignal.timeout(5_000),
   }).then(async (res) => {
     if (!res.ok) {
-      throw new Error(`Failed to fetch models: ${res.status}`)
+      throw new Error(t(language, "error.plugin_models_fetch", { status: res.status }))
     }
     return decodeModels(await res.json())
   })

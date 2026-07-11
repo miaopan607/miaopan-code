@@ -15,7 +15,7 @@ type Recorded = {
 }
 
 const miaopanCodeSpec = async (): Promise<Document> => {
-  return Bun.file(new URL("./fixtures/miaopanCode-v2-openapi.json", import.meta.url)).json() as Promise<Document>
+  return Bun.file(new URL("./fixtures/miaopan-code-v2-openapi.json", import.meta.url)).json() as Promise<Document>
 }
 
 const happyPathSpec = async (): Promise<Document> => {
@@ -77,6 +77,7 @@ describe("OpenAPI.fromSpec", () => {
       return json({ id: "user-1", name: "Ada", email: "ada@example.test", role: "member" })
     })
     const api = OpenAPI.fromSpec({
+      language: "en",
       spec: await happyPathSpec(),
       baseUrl,
       auth: {
@@ -175,7 +176,7 @@ describe("OpenAPI.fromSpec", () => {
 
   test("converts representative miaopanCode operations into the expected tool shape", async () => {
     const spec = await miaopanCodeSpec()
-    const result = OpenAPI.fromSpec({ spec, baseUrl })
+    const result = OpenAPI.fromSpec({ language: "en", spec, baseUrl })
 
     expect(result.skipped).toHaveLength(5)
     expect(result.skipped).toContainEqual({
@@ -221,6 +222,7 @@ describe("OpenAPI.fromSpec", () => {
   test("preserves operation path sanitization and collision handling", () => {
     const response = { responses: { 200: { description: "Success" } } }
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         openapi: "3.1.0",
@@ -240,6 +242,7 @@ describe("OpenAPI.fromSpec", () => {
   test("synthesizes flat operation IDs from methods and paths", () => {
     const response = { responses: { 200: { description: "Success" } } }
     const tools = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         openapi: "3.1.0",
@@ -266,6 +269,7 @@ describe("OpenAPI.fromSpec", () => {
   test("lets operation parameters override matching path parameters", () => {
     const tool = toolAt(
       OpenAPI.fromSpec({
+        language: "en",
         baseUrl,
         spec: {
           openapi: "3.1.0",
@@ -290,6 +294,7 @@ describe("OpenAPI.fromSpec", () => {
 
   test("normalizes OpenAPI 3.0 schemas with Effect", () => {
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         openapi: "3.0.3",
@@ -325,6 +330,7 @@ describe("OpenAPI.fromSpec", () => {
   test("preserves schema-local definitions alongside component definitions", () => {
     const tool = toolAt(
       OpenAPI.fromSpec({
+        language: "en",
         baseUrl,
         spec: {
           openapi: "3.1.0",
@@ -358,7 +364,7 @@ describe("OpenAPI.fromSpec", () => {
   test("documents that the miaopanCode fixture is unauthenticated", async () => {
     const spec = await miaopanCodeSpec()
     const components = isRecord(spec.components) ? spec.components : {}
-    const result = OpenAPI.fromSpec({ spec, baseUrl })
+    const result = OpenAPI.fromSpec({ language: "en", spec, baseUrl })
 
     expect(spec.security).toStrictEqual([])
     expect(isRecord(components.securitySchemes) ? Object.keys(components.securitySchemes) : []).toStrictEqual([])
@@ -372,13 +378,14 @@ describe("OpenAPI.fromSpec", () => {
   test("exposes real miaopanCode operations through CodeMode discovery", async () => {
     const { layer } = recordingClient(() => json({}))
     const runtime = CodeMode.make({
-      tools: { miaopanCode: OpenAPI.fromSpec({ spec: await miaopanCodeSpec(), baseUrl }).tools },
+      language: "en",
+      tools: { miaopanCode: OpenAPI.fromSpec({ language: "en", spec: await miaopanCodeSpec(), baseUrl }).tools },
     })
     const result = await Effect.runPromise(
       runtime
         .execute(
           `
-        return await tools.$codemode.search({ query: "global health", namespace: "miaopan-code", limit: 1 })
+        return await tools.$codemode.search({ query: "global health", namespace: "miaopanCode", limit: 1 })
       `,
         )
         .pipe(Effect.provide(layer)),
@@ -403,7 +410,7 @@ describe("OpenAPI.fromSpec", () => {
       return json({ id: "ses_456" })
     })
     const runtime = CodeMode.make({
-      tools: { miaopanCode: OpenAPI.fromSpec({ spec: await miaopanCodeSpec(), baseUrl }).tools },
+      tools: { miaopanCode: OpenAPI.fromSpec({ language: "en", spec: await miaopanCodeSpec(), baseUrl }).tools },
     })
 
     const result = await Effect.runPromise(
@@ -431,7 +438,10 @@ describe("OpenAPI.fromSpec", () => {
 
   test("serializes deep-object query parameters from the miaopanCode fixture", async () => {
     const client = recordingClient(() => json({ directory: "/tmp" }))
-    const location = toolAt(OpenAPI.fromSpec({ spec: await miaopanCodeSpec(), baseUrl }).tools, "v2.location.get")
+    const location = toolAt(
+      OpenAPI.fromSpec({ language: "en", spec: await miaopanCodeSpec(), baseUrl }).tools,
+      "v2.location.get",
+    )
     if (!Tool.isDefinition(location)) throw new Error("v2.location.get was not generated")
 
     await Effect.runPromise(
@@ -446,6 +456,7 @@ describe("OpenAPI.fromSpec", () => {
   test("serializes supported simple and form parameter shapes", async () => {
     const client = recordingClient(() => json({ ok: true }))
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         openapi: "3.1.0",
@@ -498,6 +509,7 @@ describe("OpenAPI.fromSpec", () => {
 
   test("skips unsupported parameter encodings and malformed security", () => {
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         openapi: "3.1.0",
@@ -542,6 +554,7 @@ describe("OpenAPI.fromSpec", () => {
 
   test("fails closed on prototype-named missing security schemes", () => {
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: singleOperation({ security: [JSON.parse('{"__proto__":[]}')] }),
     })
@@ -560,6 +573,7 @@ describe("OpenAPI.fromSpec", () => {
     } satisfies Document
     const tool = toolAt(
       OpenAPI.fromSpec({
+        language: "en",
         baseUrl,
         spec,
         auth: {
@@ -600,6 +614,7 @@ describe("OpenAPI.fromSpec", () => {
       schemes: Record<string, unknown>,
     ) =>
       OpenAPI.fromSpec({
+        language: "en",
         baseUrl,
         spec: { ...singleOperation({}), security, components: { securitySchemes: schemes } },
         auth: { resolve: () => Effect.succeed({ type: "apiKey", value: "secret" }) },
@@ -630,6 +645,7 @@ describe("OpenAPI.fromSpec", () => {
     expect(cookie.skipped[0]?.reason).toBe("cookie authentication 'key' is not supported")
 
     const alternative = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         ...singleOperation({}),
@@ -657,23 +673,24 @@ describe("OpenAPI.fromSpec", () => {
       ...singleOperation({ servers: [{ url: "https://operation.example/v1" }] }),
       servers: [{ url: "https://document.example" }],
     } satisfies Document
-    const tool = toolAt(OpenAPI.fromSpec({ spec }).tools, "test")
+    const tool = toolAt(OpenAPI.fromSpec({ language: "en", spec }).tools, "test")
     if (!Tool.isDefinition(tool)) throw new Error("test was not generated")
 
     await Effect.runPromise(tool.run({}).pipe(Effect.provide(client.layer)))
     expect(client.requests[0]?.url).toBe("https://operation.example/v1/test")
 
-    const invalid = OpenAPI.fromSpec({ spec, baseUrl: "https://example.com/api?tenant=one" })
+    const invalid = OpenAPI.fromSpec({ language: "en", spec, baseUrl: "https://example.com/api?tenant=one" })
     expect(invalid.tools).toEqual({})
     expect(invalid.skipped[0]?.reason).toContain("unsupported query string or fragment")
 
-    const malformed = OpenAPI.fromSpec({ spec, baseUrl: "https:/example.com" })
+    const malformed = OpenAPI.fromSpec({ language: "en", spec, baseUrl: "https:/example.com" })
     expect(malformed.tools).toEqual({})
     expect(malformed.skipped[0]?.reason).toContain("not an absolute HTTP(S) URL")
   })
 
   test("resolves chained response refs before detecting unsupported transports", () => {
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         ...singleOperation({ responses: { 200: { $ref: "#/components/responses/First" } } }),
@@ -692,6 +709,7 @@ describe("OpenAPI.fromSpec", () => {
 
   test("resolves response schemas before detecting binary output", () => {
     const result = OpenAPI.fromSpec({
+      language: "en",
       baseUrl,
       spec: {
         ...singleOperation({
@@ -714,6 +732,7 @@ describe("OpenAPI.fromSpec", () => {
     const client = recordingClient(() => json({ ok: true }))
     const tool = toolAt(
       OpenAPI.fromSpec({
+        language: "en",
         baseUrl,
         spec: {
           ...singleOperation({
@@ -744,6 +763,7 @@ describe("OpenAPI.fromSpec", () => {
     const client = recordingClient(() => json({ ok: true }))
     const tool = toolAt(
       OpenAPI.fromSpec({
+        language: "en",
         baseUrl,
         spec: singleOperation(
           {
@@ -769,7 +789,7 @@ describe("OpenAPI.fromSpec", () => {
   })
 
   test("rejects oversized and malformed JSON responses", async () => {
-    const tool = toolAt(OpenAPI.fromSpec({ baseUrl, spec: singleOperation({}) }).tools, "test")
+    const tool = toolAt(OpenAPI.fromSpec({ language: "en", baseUrl, spec: singleOperation({}) }).tools, "test")
     if (!Tool.isDefinition(tool)) throw new Error("test was not generated")
     const oversized = recordingClient(
       () => new Response(null, { headers: { "content-length": String(50 * 1024 * 1024 + 1) } }),
@@ -795,7 +815,7 @@ describe("OpenAPI.fromSpec", () => {
         204: { description: "Empty" },
       },
     })
-    const tool = toolAt(OpenAPI.fromSpec({ baseUrl, spec }).tools, "test")
+    const tool = toolAt(OpenAPI.fromSpec({ language: "en", baseUrl, spec }).tools, "test")
     if (!Tool.isDefinition(tool)) throw new Error("test was not generated")
     const client = recordingClient(() => new Response("123", { headers: { "content-type": "text/plain" } }))
 
@@ -806,7 +826,7 @@ describe("OpenAPI.fromSpec", () => {
   test("fails missing required parameters before auth and network", async () => {
     const { requests, layer } = recordingClient(() => json({}))
     const runtime = CodeMode.make({
-      tools: { miaopanCode: OpenAPI.fromSpec({ spec: await miaopanCodeSpec(), baseUrl }).tools },
+      tools: { miaopanCode: OpenAPI.fromSpec({ language: "en", spec: await miaopanCodeSpec(), baseUrl }).tools },
     })
 
     const result = await Effect.runPromise(
@@ -861,7 +881,7 @@ describe("OpenAPI.fromSpec", () => {
       },
     } satisfies Document
     const { requests, layer } = recordingClient(() => new Response(null, { status: 204 }))
-    const tools = OpenAPI.fromSpec({ spec, baseUrl }).tools
+    const tools = OpenAPI.fromSpec({ language: "en", spec, baseUrl }).tools
     const update = toolAt(tools, "things.update")
     const echo = toolAt(tools, "echo")
 
@@ -948,7 +968,7 @@ describe("OpenAPI.fromSpec", () => {
         ]),
       ),
     } satisfies Document
-    const tools = OpenAPI.fromSpec({ spec, baseUrl }).tools
+    const tools = OpenAPI.fromSpec({ language: "en", spec, baseUrl }).tools
 
     for (const name of ["optional", "dictionary", "composed", "nullable"]) {
       const tool = toolAt(tools, `body.${name}`)

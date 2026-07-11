@@ -11,6 +11,7 @@ import {
   WorkspaceRoutingQueryFields,
 } from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { t, type Language } from "../i18n"
 
 export const FileQuery = Schema.Struct({
   ...WorkspaceRoutingQueryFields,
@@ -101,85 +102,88 @@ export const FilePaths = {
   status: "/file/status",
 } as const
 
-export const FileApi = HttpApi.make("file")
-  .add(
-    HttpApiGroup.make("file")
-      .add(
-        HttpApiEndpoint.get("findText", FilePaths.findText, {
-          query: FindTextQuery,
-          success: described(Schema.Array(LegacyMatch), "Matches"),
-        }).annotateMerge(
+export const makeFileApi = (language?: Language) =>
+  HttpApi.make("file")
+    .add(
+      HttpApiGroup.make("file")
+        .add(
+          HttpApiEndpoint.get("findText", FilePaths.findText, {
+            query: FindTextQuery,
+            success: described(Schema.Array(LegacyMatch), t(language, "response_matches")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "find.text",
+              summary: t(language, "file_find_text"),
+              description: t(language, "file_find_text_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("findFile", FilePaths.findFile, {
+            query: FindFileQuery,
+            success: described(Schema.Array(Schema.String), t(language, "response_file_paths")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "find.files",
+              summary: t(language, "file_find_files"),
+              description: t(language, "file_find_files_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("findSymbol", FilePaths.findSymbol, {
+            query: FindSymbolQuery,
+            success: described(Schema.Array(LSP.Symbol), t(language, "response_symbols")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "find.symbols",
+              summary: t(language, "file_find_symbols"),
+              description: t(language, "file_find_symbols_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("list", FilePaths.list, {
+            query: FileQuery,
+            success: described(Schema.Array(LegacyEntry), t(language, "response_files_directories")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "file.list",
+              summary: t(language, "file_list"),
+              description: t(language, "file_list_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("content", FilePaths.content, {
+            query: FileQuery,
+            success: described(LegacyContent, t(language, "response_file_content")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "file.read",
+              summary: t(language, "file_read"),
+              description: t(language, "file_read_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("status", FilePaths.status, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(LegacyStatus), t(language, "response_file_status")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "file.status",
+              summary: t(language, "file_status"),
+              description: t(language, "file_status_description"),
+            }),
+          ),
+        )
+        .annotateMerge(
           OpenApi.annotations({
-            identifier: "find.text",
-            summary: "Find text",
-            description: "Search for text patterns across files in the project using ripgrep.",
+            title: "file",
+            description: t(language, "file_routes"),
           }),
-        ),
-        HttpApiEndpoint.get("findFile", FilePaths.findFile, {
-          query: FindFileQuery,
-          success: described(Schema.Array(Schema.String), "File paths"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "find.files",
-            summary: "Find files",
-            description: "Search for files or directories by name or pattern in the project directory.",
-          }),
-        ),
-        HttpApiEndpoint.get("findSymbol", FilePaths.findSymbol, {
-          query: FindSymbolQuery,
-          success: described(Schema.Array(LSP.Symbol), "Symbols"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "find.symbols",
-            summary: "Find symbols",
-            description: "Search for workspace symbols like functions, classes, and variables using LSP.",
-          }),
-        ),
-        HttpApiEndpoint.get("list", FilePaths.list, {
-          query: FileQuery,
-          success: described(Schema.Array(LegacyEntry), "Files and directories"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "file.list",
-            summary: "List files",
-            description: "List files and directories in a specified path.",
-          }),
-        ),
-        HttpApiEndpoint.get("content", FilePaths.content, {
-          query: FileQuery,
-          success: described(LegacyContent, "File content"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "file.read",
-            summary: "Read file",
-            description: "Read the content of a specified file.",
-          }),
-        ),
-        HttpApiEndpoint.get("status", FilePaths.status, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(LegacyStatus), "File status"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "file.status",
-            summary: "Get file status",
-            description: "Get the git status of all files in the project.",
-          }),
-        ),
-      )
-      .annotateMerge(
-        OpenApi.annotations({
-          title: "file",
-          description: "Experimental HttpApi file routes.",
-        }),
-      )
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode experimental HttpApi",
-      version: "0.0.1",
-      description: "Experimental HttpApi surface for selected instance routes.",
-    }),
-  )
+        )
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "httpapi_title"),
+        version: "0.0.1",
+        description: t(language, "httpapi_title"),
+      }),
+    )
+
+export const FileApi = makeFileApi()

@@ -17,6 +17,7 @@ import { Glob } from "@miaopan-code/core/util/glob"
 import { Discovery } from "./discovery"
 import { isRecord } from "@/util/record"
 import { escapeHtml } from "@/util/html"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 const CLAUDE_EXTERNAL_DIR = ".claude"
 const AGENTS_EXTERNAL_DIR = ".agents"
@@ -30,8 +31,6 @@ const SKILL_PATTERN = "**/SKILL.md"
 // when the model is asked to touch miaopanCode's own config files gives it the
 // actual schemas instead of guesses.
 const CUSTOMIZE_MIAOPAN_CODE_SKILL_NAME = "customize-miaopanCode"
-const CUSTOMIZE_MIAOPAN_CODE_SKILL_DESCRIPTION =
-  "Use ONLY when the user is editing or creating miaopanCode's own configuration: miaopan-code.json, miaopan-code.jsonc, files under .miaopanCode/, or files under ~/.config/miaopanCode/. Also use when creating or fixing miaopanCode agents, subagents, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring miaopanCode itself."
 const CUSTOMIZE_MIAOPAN_CODE_SKILL_BODY = SkillPlugin.CustomizeMiaopanCodeContent
 
 export const Info = Schema.Struct({
@@ -73,9 +72,13 @@ export class NameMismatchError extends Schema.TaggedErrorClass<NameMismatchError
 export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("Skill.NotFoundError", {
   name: Schema.String,
   available: Schema.Array(Schema.String),
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
-    return `Skill "${this.name}" not found. Available skills: ${this.available.join(", ") || "none"}`
+    return t(this.language, "error.skill_not_found", {
+      name: this.name,
+      available: this.available.join(", ") || t(this.language, "common.none"),
+    })
   }
 }
 
@@ -87,6 +90,7 @@ type State = {
 type DiscoveryState = {
   matches: string[]
   dirs: string[]
+  language: Language
 }
 
 type ScanState = {
@@ -102,17 +106,24 @@ export interface Interface {
   readonly available: (agent?: Agent.Info) => Effect.Effect<Info[]>
 }
 
-const add = Effect.fnUntraced(function* (state: State, match: string, events: EventV2Bridge.Service["Service"]) {
+const add = Effect.fnUntraced(function* (
+  state: State,
+  match: string,
+  events: EventV2Bridge.Service["Service"],
+  language: Language,
+) {
   const md = yield* Effect.tryPromise({
     try: () => ConfigMarkdown.parse(match),
     catch: (err) => err,
   }).pipe(
     Effect.catch(
       Effect.fnUntraced(function* (err) {
-        const message = FrontmatterError.isInstance(err) ? err.data.message : `Failed to parse skill ${match}`
+        const message = FrontmatterError.isInstance(err)
+          ? err.data.message
+          : t(language, "error.skill_parse_failed", { path: match })
         const { Session } = yield* Effect.promise(() => import("@/session/session"))
         yield* events.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
-        yield* Effect.logError("failed to load skill", { skill: match, error: err })
+        yield* Effect.logError(t(language, "log.failed_load_skill"), { skill: match, error: err })
         return undefined
       }),
     ),
@@ -123,7 +134,7 @@ const add = Effect.fnUntraced(function* (state: State, match: string, events: Ev
   if (!isSkillFrontmatter(md.data)) return
 
   if (state.skills[md.data.name]) {
-    yield* Effect.logWarning("duplicate skill name", {
+    yield* Effect.logWarning(t(language, "log.duplicate_skill"), {
       name: md.data.name,
       existing: state.skills[md.data.name].location,
       duplicate: match,
@@ -143,7 +154,7 @@ const scan = Effect.fnUntraced(function* (
   state: ScanState,
   root: string,
   pattern: string,
-  opts?: { dot?: boolean; scope?: string },
+  opts: { config: Config.Interface; dot?: boolean; scope?: string },
 ) {
   const matches = yield* Effect.tryPromise({
     try: () =>
@@ -156,12 +167,16 @@ const scan = Effect.fnUntraced(function* (
       }),
     catch: (error) => error,
   }).pipe(
-    Effect.catch((error) => {
-      if (!opts?.scope) return Effect.die(error)
-      return Effect.logError(`failed to scan ${opts.scope} skills`, { dir: root, error: error }).pipe(
-        Effect.as([] as string[]),
-      )
-    }),
+    Effect.catch(
+      Effect.fnUntraced(function* (error) {
+        if (!opts.scope) return yield* Effect.die(error)
+        yield* Effect.logError(t((yield* opts.config.get()).language, "log.skill_scan_failed", { scope: opts.scope }), {
+          dir: root,
+          error,
+        })
+        return [] as string[]
+      }),
+    ),
   )
 
   for (const match of matches) {
@@ -190,7 +205,7 @@ const discoverSkills = Effect.fnUntraced(function* (
     for (const dir of externalDirs) {
       const root = path.join(global.home, dir)
       if (!(yield* fsys.isDir(root))) continue
-      yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "global" })
+      yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { config, dot: true, scope: "global" })
     }
 
     const upDirs = yield* fsys
@@ -198,37 +213,39 @@ const discoverSkills = Effect.fnUntraced(function* (
       .pipe(Effect.catch(() => Effect.succeed([] as string[])))
 
     for (const root of upDirs) {
-      yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "project" })
+      yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { config, dot: true, scope: "project" })
     }
   }
 
   const configDirs = yield* config.directories()
   for (const dir of configDirs) {
-    yield* scan(state, dir, MIAOPAN_CODE_SKILL_PATTERN)
+    yield* scan(state, dir, MIAOPAN_CODE_SKILL_PATTERN, { config })
   }
 
   const cfg = yield* config.get()
+  const language = cfg.language ?? "zh-CN"
   for (const item of cfg.skills?.paths ?? []) {
     const expanded = item.startsWith("~/") ? path.join(global.home, item.slice(2)) : item
     const dir = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
     if (!(yield* fsys.isDir(dir))) {
-      yield* Effect.logWarning("skill path not found", { path: dir })
+      yield* Effect.logWarning(t(language, "log.skill_path_missing"), { path: dir })
       continue
     }
 
-    yield* scan(state, dir, SKILL_PATTERN)
+    yield* scan(state, dir, SKILL_PATTERN, { config })
   }
 
   for (const url of cfg.skills?.urls ?? []) {
     const pulledDirs = yield* discovery.pull(url)
     for (const dir of pulledDirs) {
-      yield* scan(state, dir, SKILL_PATTERN)
+      yield* scan(state, dir, SKILL_PATTERN, { config })
     }
   }
 
   return {
     matches: Array.from(state.matches),
     dirs: Array.from(state.dirs),
+    language,
   }
 })
 
@@ -236,13 +253,14 @@ const loadSkills = Effect.fnUntraced(function* (
   state: State,
   discovered: DiscoveryState,
   events: EventV2Bridge.Service["Service"],
+  language: Language,
 ) {
-  yield* Effect.forEach(discovered.matches, (match) => add(state, match, events), {
+  yield* Effect.forEach(discovered.matches, (match) => add(state, match, events, language), {
     concurrency: "unbounded",
     discard: true,
   })
 
-  yield* Effect.logInfo("init", { count: Object.keys(state.skills).length })
+  yield* Effect.logInfo(t(language, "log.skill_init"), { count: Object.keys(state.skills).length })
 })
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/Skill") {}
@@ -272,16 +290,17 @@ const layer = Layer.effect(
     )
     const state = yield* InstanceState.make(
       Effect.fn("Skill.state")(function* () {
+        const discoveredState = yield* InstanceState.get(discovered)
         const s: State = { skills: {}, dirs: new Set() }
         // Register the built-in skill BEFORE disk discovery so a user-disk
         // skill with the same name can override it.
         s.skills[CUSTOMIZE_MIAOPAN_CODE_SKILL_NAME] = {
           name: CUSTOMIZE_MIAOPAN_CODE_SKILL_NAME,
-          description: CUSTOMIZE_MIAOPAN_CODE_SKILL_DESCRIPTION,
+          description: t(discoveredState.language, "skill.customize_miaopan_description"),
           location: "<built-in>",
           content: CUSTOMIZE_MIAOPAN_CODE_SKILL_BODY,
         }
-        yield* loadSkills(s, yield* InstanceState.get(discovered), events)
+        yield* loadSkills(s, discoveredState, events, discoveredState.language)
         return s
       }),
     )
@@ -295,7 +314,11 @@ const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
       const info = s.skills[name]
       if (info) return info
-      return yield* new NotFoundError({ name, available: Object.keys(s.skills).toSorted() })
+      return yield* new NotFoundError({
+        name,
+        available: Object.keys(s.skills).toSorted(),
+        language: (yield* config.get()).language,
+      })
     })
 
     const all = Effect.fn("Skill.all")(function* () {
@@ -318,9 +341,9 @@ const layer = Layer.effect(
   }),
 )
 
-export function fmt(list: Info[], opts: { verbose: boolean }) {
+export function fmt(list: Info[], opts: { verbose: boolean; language?: Language }) {
   const described = list.filter((skill) => skill.description !== undefined)
-  if (described.length === 0) return "No skills are currently available."
+  if (described.length === 0) return t(opts.language, "prompt.no_skills")
   if (opts.verbose) {
     return [
       "<available_skills>",
@@ -338,7 +361,7 @@ export function fmt(list: Info[], opts: { verbose: boolean }) {
   }
 
   return [
-    "## Available Skills",
+    t(opts.language, "skill.available_heading"),
     ...described
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((skill) => `- **${skill.name}**: ${skill.description}`),

@@ -202,7 +202,7 @@ const withConfigTree = <A, E, R>(
       [
         input.global ? writeConfigEffect(global, schemaConfig(input.global)) : undefined,
         input.project ? writeConfigEffect(directory, schemaConfig(input.project)) : undefined,
-        input.local ? writeConfigEffect(path.join(directory, ".miaopanCode"), schemaConfig(input.local)) : undefined,
+        input.local ? writeConfigEffect(path.join(directory, ".miaopan-code"), schemaConfig(input.local)) : undefined,
       ].filter((effect): effect is Effect.Effect<void, FSUtil.Error, FSUtil.Service> => effect !== undefined),
       { concurrency: "unbounded" },
     )
@@ -314,7 +314,7 @@ it.effect("creates global jsonc config with schema when no global configs exist"
       yield* Config.use.get().pipe(provideInstanceEffect(dir))
 
       const content = yield* FSUtil.use.readFileString(path.join(dir, "miaopan-code.jsonc"))
-      expect(content).toContain('"$schema": "https://github.com/miaopan607/miaopan-code/config.json"')
+      expect(content).toContain('"$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"')
     }).pipe(Effect.provide(testInstanceStoreLayer), Effect.provide(LayerNode.compile(CrossSpawnSpawner.node))),
   ),
 )
@@ -583,7 +583,7 @@ const accountTokenIt = configIt({
     config: () =>
       Effect.succeed(
         Option.some({
-          provider: { miaopanCode: { options: { apiKey: "{env:MIAOPAN_CODE_CONSOLE_TOKEN}" } } },
+          provider: { "miaopan-code": { options: { apiKey: "{env:MIAOPAN_CODE_CONSOLE_TOKEN}" } } },
         }),
       ),
     token: () => Effect.succeed(Option.some(AccessToken.make("st_test_token"))),
@@ -744,11 +744,11 @@ it.instance("accepts the deprecated reference field", () =>
   }),
 )
 
-it.instance("loads config from .miaopanCode directory", () =>
+it.instance("loads config from .miaopan-code directory", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "agent", "test.md"),
+      path.join(test.directory, ".miaopan-code", "agent", "test.md"),
       `---
 model: test/model
 ---
@@ -770,7 +770,7 @@ it.instance("agent markdown permission config preserves user key order", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "agent", "ordered.md"),
+      path.join(test.directory, ".miaopan-code", "agent", "ordered.md"),
       `---
 permission:
   bash: allow
@@ -785,11 +785,11 @@ Ordered permissions`,
   }),
 )
 
-it.instance("loads agents from .miaopanCode/agents (plural)", () =>
+it.instance("loads agents from .miaopan-code/agents (plural)", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "agents", "helper.md"),
+      path.join(test.directory, ".miaopan-code", "agents", "helper.md"),
       `---
 model: test/model
 mode: subagent
@@ -798,7 +798,7 @@ Helper agent prompt`,
     )
 
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "agents", "nested", "child.md"),
+      path.join(test.directory, ".miaopan-code", "agents", "nested", "child.md"),
       `---
 model: test/model
 mode: subagent
@@ -824,11 +824,11 @@ Nested agent prompt`,
   }),
 )
 
-it.instance("loads commands from .miaopanCode/command (singular)", () =>
+it.instance("loads commands from .miaopan-code/command (singular)", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "command", "hello.md"),
+      path.join(test.directory, ".miaopan-code", "command", "hello.md"),
       `---
 description: Test command
 ---
@@ -836,7 +836,7 @@ Hello from singular command`,
     )
 
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "command", "nested", "child.md"),
+      path.join(test.directory, ".miaopan-code", "command", "nested", "child.md"),
       `---
 description: Nested command
 ---
@@ -857,11 +857,11 @@ Nested command template`,
   }),
 )
 
-it.instance("loads commands from .miaopanCode/commands (plural)", () =>
+it.instance("loads commands from .miaopan-code/commands (plural)", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "commands", "hello.md"),
+      path.join(test.directory, ".miaopan-code", "commands", "hello.md"),
       `---
 description: Test command
 ---
@@ -869,7 +869,7 @@ Hello from plural commands`,
     )
 
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "commands", "nested", "child.md"),
+      path.join(test.directory, ".miaopan-code", "commands", "nested", "child.md"),
       `---
 description: Nested command
 ---
@@ -1041,7 +1041,7 @@ it.instance("does not error when only custom agent is a subagent", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* FSUtil.use.writeWithDirs(
-      path.join(test.directory, ".miaopanCode", "agent", "helper.md"),
+      path.join(test.directory, ".miaopan-code", "agent", "helper.md"),
       `---
 model: test/model
 mode: subagent
@@ -1448,7 +1448,7 @@ it.instance("MCP config deep merges preserving base config properties", () =>
   }),
 )
 
-it.instance("local .miaopanCode config can override MCP from project config", () =>
+it.instance("local .miaopan-code config can override MCP from project config", () =>
   Effect.gen(function* () {
     const test = yield* TestInstance
     yield* writeConfigEffect(test.directory, {
@@ -1461,9 +1461,9 @@ it.instance("local .miaopanCode config can override MCP from project config", ()
         },
       },
     })
-    yield* FSUtil.use.ensureDir(path.join(test.directory, ".miaopanCode"))
+    yield* FSUtil.use.ensureDir(path.join(test.directory, ".miaopan-code"))
     yield* writeConfigEffect(
-      path.join(test.directory, ".miaopanCode"),
+      path.join(test.directory, ".miaopan-code"),
       {
         $schema: "https://github.com/miaopan607/miaopan-code/config.json",
         mcp: {
@@ -1769,7 +1769,7 @@ describe("deduplicatePluginOrigins", () => {
   })
 
   test("keeps path plugins separate from package plugins", () => {
-    const plugins = ["oh-my-miaopanCode@2.4.3", "file:///project/.miaopanCode/plugin/oh-my-miaopanCode.js"]
+    const plugins = ["oh-my-miaopanCode@2.4.3", "file:///project/.miaopan-code/plugin/oh-my-miaopanCode.js"]
 
     const result = dedupe(plugins)
 
@@ -1777,11 +1777,11 @@ describe("deduplicatePluginOrigins", () => {
   })
 
   test("deduplicates direct path plugins by exact spec", () => {
-    const plugins = ["file:///project/.miaopanCode/plugin/demo.ts", "file:///project/.miaopanCode/plugin/demo.ts"]
+    const plugins = ["file:///project/.miaopan-code/plugin/demo.ts", "file:///project/.miaopan-code/plugin/demo.ts"]
 
     const result = dedupe(plugins)
 
-    expect(result).toEqual(["file:///project/.miaopanCode/plugin/demo.ts"])
+    expect(result).toEqual(["file:///project/.miaopan-code/plugin/demo.ts"])
   })
 
   test("preserves order of remaining plugins", () => {
@@ -1798,7 +1798,7 @@ describe("deduplicatePluginOrigins", () => {
       Effect.gen(function* () {
         const test = yield* TestInstance
         yield* FSUtil.use.writeWithDirs(
-          path.join(test.directory, ".miaopanCode", "plugin", "my-plugin.js"),
+          path.join(test.directory, ".miaopan-code", "plugin", "my-plugin.js"),
           "export default {}",
         )
 
@@ -1826,14 +1826,14 @@ describe("MIAOPAN_CODE_DISABLE_PROJECT_CONFIG", () => {
     { config: { model: "project/model", username: "project-user" } },
   )
 
-  it.instance("skips project .miaopanCode/ directories when flag is set", () =>
+  it.instance("skips project .miaopan-code/ directories when flag is set", () =>
     withProcessEnv(
       "MIAOPAN_CODE_DISABLE_PROJECT_CONFIG",
       "true",
       Effect.gen(function* () {
         const test = yield* TestInstance
         yield* FSUtil.use.writeWithDirs(
-          path.join(test.directory, ".miaopanCode", "command", "test-cmd.md"),
+          path.join(test.directory, ".miaopan-code", "command", "test-cmd.md"),
           "# Test Command\nThis is a test command.",
         )
         const directories = yield* Config.use.directories()

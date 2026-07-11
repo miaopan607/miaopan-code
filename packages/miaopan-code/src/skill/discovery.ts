@@ -6,6 +6,7 @@ import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } fr
 import { withTransientReadRetry } from "@/util/effect-http-client"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { Global } from "@miaopan-code/core/global"
+import { resolveLanguage, t } from "@miaopan-code/core/i18n"
 
 const skillConcurrency = 4
 const fileConcurrency = 8
@@ -29,6 +30,7 @@ export class Service extends Context.Service<Service, Interface>()("@miaopan-cod
 const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | HttpClient.HttpClient> = Layer.effect(
   Service,
   Effect.gen(function* () {
+    const language = resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
     const fs = yield* FSUtil.Service
     const path = yield* Path.Path
     const http = HttpClient.filterStatusOk(withTransientReadRetry(yield* HttpClient.HttpClient))
@@ -42,7 +44,9 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | HttpClient
         Effect.flatMap((res) => res.arrayBuffer),
         Effect.flatMap((body) => fs.writeWithDirs(dest, new Uint8Array(body))),
         Effect.as(true),
-        Effect.catch((err) => Effect.logError("failed to download", { url: url, error: err }).pipe(Effect.as(false))),
+        Effect.catch((err) =>
+          Effect.logError(t(language, "log.failed_download"), { url, error: err }).pipe(Effect.as(false)),
+        ),
       )
     })
 
@@ -51,14 +55,14 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | HttpClient
       const index = new URL("index.json", base).href
       const host = base.slice(0, -1)
 
-      yield* Effect.logInfo("fetching index", { url: index })
+      yield* Effect.logInfo(t(language, "log.fetching_index"), { url: index })
 
       const data = yield* HttpClientRequest.get(index).pipe(
         HttpClientRequest.acceptJson,
         http.execute,
         Effect.flatMap(HttpClientResponse.schemaBodyJson(Index)),
         Effect.catch((err) =>
-          Effect.logError("failed to fetch index", { url: index, error: err }).pipe(Effect.as(null)),
+          Effect.logError(t(language, "log.failed_fetch_index"), { url: index, error: err }).pipe(Effect.as(null)),
         ),
       )
 
@@ -67,7 +71,7 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | HttpClient
       const missing = data.skills.filter((skill) => !skill.files.includes("SKILL.md"))
       yield* Effect.forEach(
         missing,
-        (skill) => Effect.logWarning("skill entry missing SKILL.md", { url: index, skill: skill.name }),
+        (skill) => Effect.logWarning(t(language, "log.skill_missing_file"), { url: index, skill: skill.name }),
         { discard: true },
       )
       const list = data.skills.filter((skill) => skill.files.includes("SKILL.md"))
@@ -119,7 +123,9 @@ const layer: Layer.Layer<Service, never, FSUtil.Service | Path.Path | HttpClient
                   }),
                 )
               }).pipe(
-                Effect.catch((error) => Effect.logError("failed to refresh skill", { skill: skill.name, error })),
+                Effect.catch((error) =>
+                  Effect.logError(t(language, "log.failed_refresh_skill"), { skill: skill.name, error }),
+                ),
                 Effect.ensuring(fs.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)),
               )
             }

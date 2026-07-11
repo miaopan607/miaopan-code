@@ -15,23 +15,36 @@ export const regexpProperties = new Set([
 export const regexFailureReason = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).replace(/^Invalid regular expression:\s*/i, "")
 
-export const escapeRegexHint =
-  'To match special characters like ( ) [ ] { } + * ? . literally, escape them with a backslash (e.g. "\\\\(") or test for them with String.includes instead.'
+export const escapeRegexHintFor = (language?: Language) => t(language, "codemode.stdlib.regex_escape_hint")
 
-export const toHostRegex = (arg: unknown, method: string, node: AstNode, extraFlags = ""): RegExp => {
+export const escapeRegexHint = escapeRegexHintFor()
+
+export const toHostRegex = (
+  arg: unknown,
+  method: string,
+  node: AstNode,
+  extraFlags = "",
+  language?: Language,
+): RegExp => {
+  language ??= languageOf(node)
   if (arg instanceof SandboxRegExp) return arg.regex
   if (typeof arg === "string") {
     try {
       return new RegExp(arg, extraFlags)
     } catch (error) {
       throw new InterpreterRuntimeError(
-        `String.${method} received the string ${JSON.stringify(arg)}, which is not a valid regular expression pattern (${regexFailureReason(error)}). ${escapeRegexHint}`,
+        t(language, "codemode.stdlib.regex_invalid_pattern", {
+          method,
+          value: JSON.stringify(arg),
+          cause: regexFailureReason(error),
+          hint: escapeRegexHintFor(language),
+        }),
         node,
       ).as("SyntaxError")
     }
   }
   throw new InterpreterRuntimeError(
-    `String.${method} expects a regular expression (a /pattern/flags literal or new RegExp(...)) or a string pattern, not ${arg === null ? "null" : typeof arg}.`,
+    t(language, "codemode.stdlib.regex_expected", { method, actual: arg === null ? "null" : typeof arg }),
     node,
   )
 }
@@ -54,7 +67,9 @@ export const invokeRegExpMethod = (
   name: string,
   args: Array<unknown>,
   node: AstNode,
+  language?: Language,
 ): unknown => {
+  language ??= languageOf(node)
   switch (name) {
     case "test":
       return value.regex.test(coerceToString(args[0]))
@@ -65,10 +80,14 @@ export const invokeRegExpMethod = (
     case "toString":
       return coerceToString(value)
     default:
-      throw new InterpreterRuntimeError(`RegExp method '${name}' is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        t(language, "codemode.stdlib.unavailable_method", { namespace: "RegExp", name }),
+        node,
+      )
   }
 }
-import { type AstNode, InterpreterRuntimeError } from "../interpreter/model.js"
+import { type AstNode, InterpreterRuntimeError, languageOf } from "../interpreter/model.js"
 import { isBlockedMember, type SafeObject } from "../tool-runtime.js"
 import { SandboxRegExp } from "../values.js"
 import { coerceToString } from "./value.js"
+import { t, type Language } from "../i18n.js"

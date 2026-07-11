@@ -22,6 +22,7 @@ import { OpenAIOptions } from "./utils/openai-options"
 import { Lifecycle } from "./utils/lifecycle"
 import { ToolSchemaProjection } from "./utils/tool-schema"
 import { ToolStream } from "./utils/tool-stream"
+import { t, type Language } from "../i18n"
 
 const ADAPTER = "openai-chat"
 const IMAGE_MIMES = new Set<string>(ProviderShared.IMAGE_MIMES)
@@ -166,6 +167,7 @@ interface ParserState {
   readonly usage?: Usage
   readonly finishReason?: FinishReason
   readonly lifecycle: Lifecycle.State
+  readonly language?: Language
 }
 
 const invalid = ProviderShared.invalidRequest
@@ -185,13 +187,18 @@ const lowerTool = (tool: ToolDefinition, inputSchema: JsonSchema): OpenAIChatToo
   },
 })
 
-const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>) =>
-  ProviderShared.matchToolChoice("OpenAI Chat", toolChoice, {
-    auto: () => "auto" as const,
-    none: () => "none" as const,
-    required: () => "required" as const,
-    tool: (name) => ({ type: "function" as const, function: { name } }),
-  })
+const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>, language?: Language) =>
+  ProviderShared.matchToolChoice(
+    "OpenAI Chat",
+    toolChoice,
+    {
+      auto: () => "auto" as const,
+      none: () => "none" as const,
+      required: () => "required" as const,
+      tool: (name) => ({ type: "function" as const, function: { name } }),
+    },
+    language,
+  )
 
 const lowerToolCall = (part: ToolCallPart): OpenAIChatAssistantToolCall => ({
   id: part.id,
@@ -202,15 +209,18 @@ const lowerToolCall = (part: ToolCallPart): OpenAIChatAssistantToolCall => ({
   },
 })
 
-const lowerMedia = Effect.fn("OpenAIChat.lowerMedia")(function* (part: MediaPart) {
-  const media = yield* ProviderShared.validateMedia("OpenAI Chat", part, IMAGE_MIMES)
+const lowerMedia = Effect.fn("OpenAIChat.lowerMedia")(function* (part: MediaPart, language?: Language) {
+  const media = yield* ProviderShared.validateMedia("OpenAI Chat", part, IMAGE_MIMES, language)
   return { type: "image_url" as const, image_url: { url: media.dataUrl } }
 })
 
 const openAICompatibleReasoningContent = (native: unknown) =>
   isRecord(native) && typeof native.reasoning_content === "string" ? native.reasoning_content : undefined
 
-const lowerUserMessage = Effect.fn("OpenAIChat.lowerUserMessage")(function* (message: OpenAIChatRequestMessage) {
+const lowerUserMessage = Effect.fn("OpenAIChat.lowerUserMessage")(function* (
+  message: OpenAIChatRequestMessage,
+  language?: Language,
+) {
   const content: Array<Schema.Schema.Type<typeof OpenAIChatUserContent>> = []
   for (const part of message.content) {
     if (part.type === "text") {
@@ -218,10 +228,10 @@ const lowerUserMessage = Effect.fn("OpenAIChat.lowerUserMessage")(function* (mes
       continue
     }
     if (part.type === "media") {
-      content.push(yield* lowerMedia(part))
+      content.push(yield* lowerMedia(part, language))
       continue
     }
-    return yield* ProviderShared.unsupportedContent("OpenAI Chat", "user", ["text", "media"])
+    return yield* ProviderShared.unsupportedContent("OpenAI Chat", "user", ["text", "media"], language)
   }
   if (content.every((part) => part.type === "text"))
     return { role: "user" as const, content: content.map((part) => part.text).join("") }
@@ -230,13 +240,19 @@ const lowerUserMessage = Effect.fn("OpenAIChat.lowerUserMessage")(function* (mes
 
 const lowerAssistantMessage = Effect.fn("OpenAIChat.lowerAssistantMessage")(function* (
   message: OpenAIChatRequestMessage,
+  language?: Language,
 ) {
   const content: TextPart[] = []
   const reasoning: ReasoningPart[] = []
   const toolCalls: OpenAIChatAssistantToolCall[] = []
   for (const part of message.content) {
     if (!ProviderShared.supportsContent(part, ["text", "reasoning", "tool-call"]))
-      return yield* ProviderShared.unsupportedContent("OpenAI Chat", "assistant", ["text", "reasoning", "tool-call"])
+      return yield* ProviderShared.unsupportedContent(
+        "OpenAI Chat",
+        "assistant",
+        ["text", "reasoning", "tool-call"],
+        language,
+      )
     if (part.type === "text") {
       content.push(part)
       continue
@@ -261,12 +277,15 @@ const lowerAssistantMessage = Effect.fn("OpenAIChat.lowerAssistantMessage")(func
   }
 })
 
-const lowerToolMessages = Effect.fn("OpenAIChat.lowerToolMessages")(function* (message: OpenAIChatRequestMessage) {
+const lowerToolMessages = Effect.fn("OpenAIChat.lowerToolMessages")(function* (
+  message: OpenAIChatRequestMessage,
+  language?: Language,
+) {
   const messages: OpenAIChatMessage[] = []
   const images: Array<Schema.Schema.Type<typeof OpenAIChatUserContent>> = []
   for (const part of message.content) {
     if (!ProviderShared.supportsContent(part, ["tool-result"]))
-      return yield* ProviderShared.unsupportedContent("OpenAI Chat", "tool", ["tool-result"])
+      return yield* ProviderShared.unsupportedContent("OpenAI Chat", "tool", ["tool-result"], language)
     if (part.result.type !== "content") {
       messages.push({ role: "tool", tool_call_id: part.id, content: ProviderShared.toolResultText(part) })
       continue
@@ -277,17 +296,20 @@ const lowerToolMessages = Effect.fn("OpenAIChat.lowerToolMessages")(function* (m
     const files = content.filter((item) => item.type === "file")
     images.push(
       ...(yield* Effect.forEach(files, (item) =>
-        lowerMedia({ type: "media", mediaType: item.mime, data: item.uri, filename: item.name }),
+        lowerMedia({ type: "media", mediaType: item.mime, data: item.uri, filename: item.name }, language),
       )),
     )
   }
   return { messages, images }
 })
 
-const lowerMessage = Effect.fn("OpenAIChat.lowerMessage")(function* (message: OpenAIChatRequestMessage) {
-  if (message.role === "user") return [yield* lowerUserMessage(message)]
-  if (message.role === "assistant") return [yield* lowerAssistantMessage(message)]
-  return (yield* lowerToolMessages(message)).messages
+const lowerMessage = Effect.fn("OpenAIChat.lowerMessage")(function* (
+  message: OpenAIChatRequestMessage,
+  language?: Language,
+) {
+  if (message.role === "user") return [yield* lowerUserMessage(message, language)]
+  if (message.role === "assistant") return [yield* lowerAssistantMessage(message, language)]
+  return (yield* lowerToolMessages(message, language)).messages
 })
 
 const lowerMessages = Effect.fn("OpenAIChat.lowerMessages")(function* (request: LLMRequest) {
@@ -301,7 +323,7 @@ const lowerMessages = Effect.fn("OpenAIChat.lowerMessages")(function* (request: 
   }
   for (const message of request.messages) {
     if (message.role === "system") {
-      const part = yield* ProviderShared.wrappedSystemUpdate("OpenAI Chat", message)
+      const part = yield* ProviderShared.wrappedSystemUpdate("OpenAI Chat", message, request.language)
       if (pendingImages.length > 0) {
         messages.push({ role: "user", content: [...pendingImages.splice(0), { type: "text", text: part.text }] })
         continue
@@ -318,13 +340,13 @@ const lowerMessages = Effect.fn("OpenAIChat.lowerMessages")(function* (request: 
       continue
     }
     if (message.role === "tool") {
-      const lowered = yield* lowerToolMessages(message)
+      const lowered = yield* lowerToolMessages(message, request.language)
       messages.push(...lowered.messages)
       pendingImages.push(...lowered.images)
       continue
     }
     flushImages()
-    messages.push(...(yield* lowerMessage(message)))
+    messages.push(...(yield* lowerMessage(message, request.language)))
   }
   flushImages()
   return messages
@@ -334,7 +356,9 @@ const lowerOptions = Effect.fn("OpenAIChat.lowerOptions")(function* (request: LL
   const store = OpenAIOptions.store(request)
   const reasoningEffort = OpenAIOptions.reasoningEffort(request)
   if (reasoningEffort && !OpenAIOptions.isReasoningEffort(reasoningEffort))
-    return yield* invalid(`OpenAI Chat does not support reasoning effort ${reasoningEffort}`)
+    return yield* invalid(
+      t(request.language, "llm.openai_chat.reasoning_effort_unsupported", { effort: reasoningEffort }),
+    )
   return {
     ...(store !== undefined ? { store } : {}),
     ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
@@ -355,7 +379,7 @@ const fromRequest = Effect.fn("OpenAIChat.fromRequest")(function* (request: LLMR
         : request.tools.map((tool) =>
             lowerTool(tool, ToolSchemaProjection.modelCompatibility(tool.inputSchema, toolSchemaCompatibility)),
           ),
-    tool_choice: request.toolChoice ? yield* lowerToolChoice(request.toolChoice) : undefined,
+    tool_choice: request.toolChoice ? yield* lowerToolChoice(request.toolChoice, request.language) : undefined,
     stream: true as const,
     stream_options: { include_usage: true },
     max_tokens: generation?.maxTokens,
@@ -432,7 +456,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
         tools,
         tool.index,
         { id: tool.id ?? undefined, name: tool.function?.name ?? undefined, text: tool.function?.arguments ?? "" },
-        "OpenAI Chat tool call delta is missing id or name",
+        t(state.language, "llm.tool_call.id_or_name_missing", { route: "OpenAI Chat" }),
       )
       if (ToolStream.isError(result)) return yield* result
       tools = result.tools
@@ -444,7 +468,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
     // JSON parse failures fail the stream at the boundary rather than at halt.
     const finished =
       finishReason !== undefined && state.finishReason === undefined && Object.keys(tools).length > 0
-        ? yield* ToolStream.finishAll(ADAPTER, tools)
+        ? yield* ToolStream.finishAll(ADAPTER, tools, state.language)
         : undefined
 
     return [
@@ -454,6 +478,7 @@ const step = (state: ParserState, event: OpenAIChatEvent) =>
         usage,
         finishReason,
         lifecycle,
+        language: state.language,
       },
       events,
     ] as const
@@ -486,7 +511,12 @@ export const protocol = Protocol.make({
   },
   stream: {
     event: Protocol.jsonEvent(OpenAIChatEvent),
-    initial: () => ({ tools: ToolStream.empty<number>(), toolCallEvents: [], lifecycle: Lifecycle.initial() }),
+    initial: (request) => ({
+      tools: ToolStream.empty<number>(),
+      toolCallEvents: [],
+      lifecycle: Lifecycle.initial(),
+      language: request.language,
+    }),
     step,
     onHalt: finishEvents,
   },

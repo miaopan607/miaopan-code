@@ -28,6 +28,8 @@ import palenight from "./assets/palenight.json" with { type: "json" }
 import rosepine from "./assets/rosepine.json" with { type: "json" }
 import solarized from "./assets/solarized.json" with { type: "json" }
 import synthwave84 from "./assets/synthwave84.json" with { type: "json" }
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 import tokyonight from "./assets/tokyonight.json" with { type: "json" }
 import vercel from "./assets/vercel.json" with { type: "json" }
 import vesper from "./assets/vesper.json" with { type: "json" }
@@ -248,12 +250,12 @@ export function resolveTheme(theme: ThemeJson, mode: "dark" | "light") {
       if (c.startsWith("#")) return RGBA.fromHex(c)
 
       if (chain.includes(c)) {
-        throw new Error(`Circular color reference: ${[...chain, c].join(" -> ")}`)
+        throw new Error(t(Locale.language(), "error.theme_circular_reference", { chain: [...chain, c].join(" -> ") }))
       }
 
       const next = defs[c] ?? theme.theme[c as ThemeColor]
       if (next === undefined) {
-        throw new Error(`Color reference "${c}" not found in defs or theme`)
+        throw new Error(t(Locale.language(), "error.theme_reference_missing", { color: c }))
       }
       return resolveColor(next, [...chain, c])
     }

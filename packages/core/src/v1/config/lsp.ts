@@ -1,6 +1,7 @@
 export * as ConfigLSPV1 from "./lsp"
 
 import { Schema } from "effect"
+import { zh } from "../../i18n"
 
 export const Disabled = Schema.Struct({
   disabled: Schema.Literal(true),
@@ -70,7 +71,7 @@ export const requiresExtensionsForCustomServers = Schema.makeFilter<
     if (ids.has(id)) return true
     return "extensions" in config && Boolean(config.extensions)
   })
-  return ok ? undefined : "For custom LSP servers, 'extensions' array is required."
+  return ok ? undefined : zh("error.lsp_custom_extensions_required")
 })
 
 export const Info = Schema.Union([Schema.Boolean, Schema.Record(Schema.String, Entry)])

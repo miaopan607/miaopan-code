@@ -8,6 +8,7 @@ import { MessageV2 } from "./message-v2"
 import { Token } from "@/util/token"
 import { SessionProcessor } from "./processor"
 import { Agent } from "@/agent/agent"
+import { t } from "@miaopan-code/core/i18n"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { NotFoundError } from "@/storage/storage"
@@ -180,8 +181,9 @@ const layer = Layer.effect(
     const estimate = Effect.fn("SessionCompaction.estimate")(function* (input: {
       messages: SessionV1.WithParts[]
       model: Provider.Model
+      language?: ConfigV1.Info["language"]
     }) {
-      const msgs = yield* MessageV2.toModelMessagesEffect(input.messages, input.model)
+      const msgs = yield* MessageV2.toModelMessagesEffect(input.messages, input.model, { language: input.language })
       return Token.estimate(JSON.stringify(msgs))
     })
 
@@ -202,6 +204,7 @@ const layer = Layer.effect(
           estimate({
             messages: input.messages.slice(turn.start, turn.end),
             model: input.model,
+            language: input.cfg.language,
           }),
         { concurrency: 1 },
       )
@@ -226,7 +229,7 @@ const layer = Layer.effect(
         })
         if (split) keep = split
         else if (!keep) {
-          yield* Effect.logInfo("tail fallback", { budget, size, total })
+          yield* Effect.logInfo(t(input.cfg.language, "log.compaction_tail_fallback"), { budget, size, total })
         }
         break
       }
@@ -243,7 +246,7 @@ const layer = Layer.effect(
     const prune = Effect.fn("SessionCompaction.prune")(function* (input: { sessionID: SessionID }) {
       const cfg = yield* config.get()
       if (!cfg.compaction?.prune) return
-      yield* Effect.logInfo("pruning")
+      yield* Effect.logInfo(t(cfg.language, "log.compaction_pruning"))
 
       const msgs = yield* session
         .messages({ sessionID: input.sessionID })
@@ -274,7 +277,7 @@ const layer = Layer.effect(
         }
       }
 
-      yield* Effect.logInfo("found", { pruned, total })
+      yield* Effect.logInfo(t(cfg.language, "log.compaction_found"), { pruned, total })
       if (pruned > PRUNE_MINIMUM) {
         for (const part of toPrune) {
           if (part.state.status === "completed") {
@@ -282,7 +285,7 @@ const layer = Layer.effect(
             yield* session.updatePart(part)
           }
         }
-        yield* Effect.logInfo("pruned", { count: toPrune.length })
+        yield* Effect.logInfo(t(cfg.language, "log.compaction_pruned"), { count: toPrune.length })
       }
     })
 
@@ -295,7 +298,7 @@ const layer = Layer.effect(
     }) {
       const parent = input.messages.findLast((m) => m.info.id === input.parentID)
       if (!parent || parent.info.role !== "user") {
-        throw new Error(`Compaction parent must be a user message: ${input.parentID}`)
+        throw new Error(t((yield* config.get()).language, "error.compaction_parent", { parentID: input.parentID }))
       }
       const userMessage = parent.info
       const compactionPart = parent.parts.find((part): part is SessionV1.CompactionPart => part.type === "compaction")
@@ -351,6 +354,7 @@ const layer = Layer.effect(
       const modelMessages = yield* MessageV2.toModelMessagesEffect(msgs, model, {
         stripMedia: true,
         toolOutputMaxChars: TOOL_OUTPUT_MAX_CHARS,
+        language: cfg.language,
       })
       const ctx = yield* InstanceState.context
       const msg: SessionV1.Assistant = {
@@ -404,8 +408,8 @@ const layer = Layer.effect(
       if (result === "compact") {
         processor.message.error = new SessionV1.ContextOverflowError({
           message: replay
-            ? "Conversation history too large to compact - exceeds model context limit"
-            : "Session too large to compact - context exceeds model limit even after stripping media",
+            ? t(cfg.language, "error.compaction_history_too_large")
+            : t(cfg.language, "error.compaction_session_too_large"),
         }).toObject()
         processor.message.finish = "error"
         yield* session.updateMessage(processor.message)
@@ -437,7 +441,13 @@ const layer = Layer.effect(
             if (part.type === "compaction") continue
             const replayPart =
               part.type === "file" && MessageV2.isMedia(part.mime)
-                ? { type: "text" as const, text: `[Attached ${part.mime}: ${part.filename ?? "file"}]` }
+                ? {
+                    type: "text" as const,
+                    text: t(cfg.language, "prompt.attachment_placeholder", {
+                      mime: part.mime,
+                      filename: part.filename ?? t(cfg.language, "prompt.default_file_name"),
+                    }),
+                  }
                 : part
             yield* session.updatePart({
               ...replayPart,
@@ -479,10 +489,8 @@ const layer = Layer.effect(
               model: userMessage.model,
             })
             const text =
-              (input.overflow
-                ? "The previous request exceeded the provider's size limit due to large media attachments. The conversation was compacted and media files were removed from context. If the user was asking about attached images or files, explain that the attachments were too large to process and suggest they try again with smaller or fewer files.\n\n"
-                : "") +
-              "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed."
+              (input.overflow ? t(cfg.language, "prompt.compaction_media_removed_notice") : "") +
+              t(cfg.language, "prompt.compaction_continue")
             yield* session.updatePart({
               id: PartID.ascending(),
               messageID: continueMsg.id,

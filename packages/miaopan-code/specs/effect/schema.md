@@ -1,5 +1,7 @@
 # Schema Migration
 
+Languages: [简体中文索引](../README.md) · English
+
 Use Effect Schema as the source of truth for domain models, DTOs, IDs,
 inputs, outputs, and typed errors.
 

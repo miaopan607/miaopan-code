@@ -24,6 +24,8 @@ import { InstanceHttpApi } from "../api"
 import * as ApiError from "../errors"
 import { CursorQuery, PtyConnectApi } from "../groups/pty"
 import { WebSocketTracker } from "../websocket-tracker"
+import { t } from "../i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 
 function validOrigin(request: HttpServerRequest.HttpServerRequest, opts: CorsOptions | undefined) {
   return isAllowedRequestOrigin(request.headers.origin, request.headers.host, opts)
@@ -82,13 +84,14 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
     })
 
     const get = Effect.fn("PtyHttpApi.get")(function* (ctx: { params: { ptyID: PtyID } }) {
+      const language = yield* requestLanguage()
       return yield* pty(Pty.Service.use((service) => service.get(ctx.params.ptyID))).pipe(
         Effect.catchTag(
           "Pty.NotFoundError",
           (error) =>
             new ApiError.PtyNotFoundError({
               ptyID: error.ptyID,
-              message: `PTY session not found: ${error.ptyID}`,
+              message: t(language, "error.pty_not_found", { id: error.ptyID }),
             }),
         ),
         Effect.flatMap((info) =>
@@ -96,7 +99,7 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
             ? Effect.succeed(info)
             : new ApiError.PtyNotFoundError({
                 ptyID: ctx.params.ptyID,
-                message: `PTY session not found: ${ctx.params.ptyID}`,
+                message: t(language, "error.pty_not_found", { id: ctx.params.ptyID }),
               }),
         ),
       )
@@ -106,6 +109,7 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
       params: { ptyID: PtyID }
       payload: typeof Pty.UpdateInput.Type
     }) {
+      const language = yield* requestLanguage()
       yield* get(ctx)
       return yield* pty(
         Pty.Service.use((service) =>
@@ -120,13 +124,14 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
           (error) =>
             new ApiError.PtyNotFoundError({
               ptyID: error.ptyID,
-              message: `PTY session not found: ${error.ptyID}`,
+              message: t(language, "error.pty_not_found", { id: error.ptyID }),
             }),
         ),
       )
     })
 
     const remove = Effect.fn("PtyHttpApi.remove")(function* (ctx: { params: { ptyID: PtyID } }) {
+      const language = yield* requestLanguage()
       yield* get(ctx)
       yield* pty(Pty.Service.use((service) => service.remove(ctx.params.ptyID))).pipe(
         Effect.catchTag(
@@ -134,7 +139,7 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
           (error) =>
             new ApiError.PtyNotFoundError({
               ptyID: error.ptyID,
-              message: `PTY session not found: ${error.ptyID}`,
+              message: t(language, "error.pty_not_found", { id: error.ptyID }),
             }),
         ),
       )
@@ -142,12 +147,13 @@ export const ptyHandlers = HttpApiBuilder.group(InstanceHttpApi, "pty", (handler
     })
 
     const connectToken = Effect.fn("PtyHttpApi.connectToken")(function* (ctx: { params: { ptyID: PtyID } }) {
+      const language = yield* requestLanguage()
       const request = yield* HttpServerRequest.HttpServerRequest
       if (
         request.headers[PTY_CONNECT_TOKEN_HEADER.toLowerCase()] !== PTY_CONNECT_TOKEN_HEADER_VALUE ||
         !validOrigin(request, cors)
       )
-        return yield* new ApiError.PtyForbiddenError({ message: "Invalid PTY connect token request" })
+        return yield* new ApiError.PtyForbiddenError({ message: t(language, "error.invalid_pty_token_request") })
       yield* get(ctx)
       return yield* tickets.issue({ ptyID: ctx.params.ptyID, ...(yield* ticketScope) })
     })

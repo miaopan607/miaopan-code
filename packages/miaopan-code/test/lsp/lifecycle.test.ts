@@ -138,7 +138,7 @@ describe("LSP.Diagnostic", () => {
       message: "Type 'string' is not assignable to type 'number'",
       severity: 1,
     } as any)
-    expect(result).toBe("ERROR [10:5] Type 'string' is not assignable to type 'number'")
+    expect(result).toBe("错误 [10:5] Type 'string' is not assignable to type 'number'")
   })
 
   test("pretty() formats warning diagnostic", () => {
@@ -147,7 +147,7 @@ describe("LSP.Diagnostic", () => {
       message: "Unused variable",
       severity: 2,
     } as any)
-    expect(result).toBe("WARN [1:1] Unused variable")
+    expect(result).toBe("警告 [1:1] Unused variable")
   })
 
   test("pretty() defaults to ERROR when no severity", () => {
@@ -155,6 +155,18 @@ describe("LSP.Diagnostic", () => {
       range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
       message: "Something wrong",
     } as any)
+    expect(result).toBe("错误 [1:1] Something wrong")
+  })
+
+  test("pretty() supports explicit English", () => {
+    const result = LSP.Diagnostic.pretty(
+      {
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+        message: "Something wrong",
+        severity: 1,
+      } as any,
+      "en",
+    )
     expect(result).toBe("ERROR [1:1] Something wrong")
   })
 })

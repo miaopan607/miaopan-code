@@ -4,6 +4,7 @@ import { PositiveInt, RelativePath } from "@miaopan-code/schema/schema"
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { LocationQuery, locationQueryOpenApi } from "./location"
+import { t, type Language } from "../i18n"
 
 const ListQuery = Schema.Struct({
   ...LocationQuery.fields,
@@ -17,52 +18,55 @@ const FindQuery = Schema.Struct({
   limit: Schema.NumberFromString.pipe(Schema.decodeTo(PositiveInt), Schema.optional),
 })
 
-export const FileSystemGroup = HttpApiGroup.make("server.fs")
-  .add(
-    HttpApiEndpoint.get("fs.read", "/api/fs/read/*", {
-      query: LocationQuery,
-      success: Schema.Uint8Array.pipe(HttpApiSchema.asUint8Array()),
-    })
-      .annotateMerge(locationQueryOpenApi)
-      .annotateMerge(
-        OpenApi.annotations({
-          identifier: "v2.fs.read",
-          summary: "Read file",
-          description: "Serve one file relative to the requested location.",
-        }),
-      ),
-  )
-  .add(
-    HttpApiEndpoint.get("fs.list", "/api/fs/list", {
-      query: ListQuery,
-      success: Location.response(Schema.Array(FileSystem.Entry)),
-    })
-      .annotateMerge(locationQueryOpenApi)
-      .annotateMerge(
-        OpenApi.annotations({
-          identifier: "v2.fs.list",
-          summary: "List directory",
-          description: "List direct children of one directory relative to the requested location.",
-        }),
-      ),
-  )
-  .add(
-    HttpApiEndpoint.get("fs.find", "/api/fs/find", {
-      query: FindQuery,
-      success: Location.response(Schema.Array(FileSystem.Entry)),
-    })
-      .annotateMerge(locationQueryOpenApi)
-      .annotateMerge(
-        OpenApi.annotations({
-          identifier: "v2.fs.find",
-          summary: "Find files",
-          description: "Find recursively ranked filesystem entries relative to the requested location.",
-        }),
-      ),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "filesystem",
-      description: "Experimental location-scoped filesystem routes.",
-    }),
-  )
+export const makeFileSystemGroup = (language?: Language) =>
+  HttpApiGroup.make("server.fs")
+    .add(
+      HttpApiEndpoint.get("fs.read", "/api/fs/read/*", {
+        query: LocationQuery,
+        success: Schema.Uint8Array.pipe(HttpApiSchema.asUint8Array()),
+      })
+        .annotateMerge(locationQueryOpenApi)
+        .annotateMerge(
+          OpenApi.annotations({
+            identifier: "v2.fs.read",
+            summary: t(language, "fs_read"),
+            description: t(language, "fs_read_description"),
+          }),
+        ),
+    )
+    .add(
+      HttpApiEndpoint.get("fs.list", "/api/fs/list", {
+        query: ListQuery,
+        success: Location.response(Schema.Array(FileSystem.Entry)),
+      })
+        .annotateMerge(locationQueryOpenApi)
+        .annotateMerge(
+          OpenApi.annotations({
+            identifier: "v2.fs.list",
+            summary: t(language, "fs_list"),
+            description: t(language, "fs_list_description"),
+          }),
+        ),
+    )
+    .add(
+      HttpApiEndpoint.get("fs.find", "/api/fs/find", {
+        query: FindQuery,
+        success: Location.response(Schema.Array(FileSystem.Entry)),
+      })
+        .annotateMerge(locationQueryOpenApi)
+        .annotateMerge(
+          OpenApi.annotations({
+            identifier: "v2.fs.find",
+            summary: t(language, "fs_find"),
+            description: t(language, "fs_find_description"),
+          }),
+        ),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "fs_title"),
+        description: t(language, "fs_description"),
+      }),
+    )
+
+export const FileSystemGroup = makeFileSystemGroup()

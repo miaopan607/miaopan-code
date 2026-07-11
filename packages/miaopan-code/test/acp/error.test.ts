@@ -31,7 +31,7 @@ describe("acp.error", () => {
 
     expect(requestError).toBeInstanceOf(RequestError)
     expect(requestError.code).toBe(-32000)
-    expect(requestError.message).toBe("Authentication required: provider authentication required")
+    expect(requestError.message).toBe("Authentication required: 需要提供商身份验证")
     expect(requestError.data).toEqual({ providerId: "anthropic" })
   })
 
@@ -59,9 +59,18 @@ describe("acp.error", () => {
     const serialized = JSON.stringify(requestError.toErrorResponse())
 
     expect(requestError.code).toBe(-32603)
-    expect(requestError.message).toBe("Internal error: Internal service failure")
+    expect(requestError.message).toBe("Internal error: 内部服务失败")
     expect(serialized).not.toContain("sk-ant-secret")
     expect(serialized).not.toContain("oauth refresh token")
     expect(serialized).not.toContain("stack")
+  })
+
+  test("uses English messages when requested", () => {
+    expect(ACPError.toRequestError(new ACPError.SessionNotFoundError({ sessionId: "ses_123" }), "en").message).toBe(
+      "Invalid params: session not found: ses_123",
+    )
+    expect(ACPError.toRequestError(ACPError.fromUnknownDefect(new Error("secret"), "en"), "en").message).toBe(
+      "Internal error: Internal service failure",
+    )
   })
 })

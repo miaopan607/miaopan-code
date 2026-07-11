@@ -3,6 +3,7 @@ export * as SystemContextRegistry from "./registry"
 import { Context, Effect, Layer, Ref, Scope } from "effect"
 import { SystemContext } from "./index"
 import { makeLocationNode } from "../effect/app-node"
+import { zh } from "../i18n"
 
 export interface Entry {
   readonly key: SystemContext.Key
@@ -29,7 +30,7 @@ const layer = Layer.effect(
             return [true, [...current, entry]]
           }).pipe(
             Effect.flatMap((added) =>
-              added ? Effect.void : Effect.die(`Duplicate system context entry key: ${entry.key}`),
+              added ? Effect.void : Effect.die(zh("error.system_context_entry_duplicate", { key: entry.key })),
             ),
             Effect.as(entry),
           ),

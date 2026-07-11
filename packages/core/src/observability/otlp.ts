@@ -3,6 +3,7 @@ import { OtlpLogger } from "effect/unstable/observability"
 import { Flag } from "../flag/flag"
 import { InstallationChannel, InstallationVersion } from "../installation/version"
 import { runID } from "./shared"
+import { zh } from "../i18n"
 
 const endpoint = Flag.OTEL_EXPORTER_OTLP_ENDPOINT
 
@@ -24,7 +25,7 @@ function resourceAttributes() {
     return Object.fromEntries(
       value.split(",").map((entry) => {
         const index = entry.indexOf("=")
-        if (index < 1) throw new Error("Invalid OTEL_RESOURCE_ATTRIBUTES entry")
+        if (index < 1) throw new Error(zh("error.otel_resource_entry"))
         return [decodeURIComponent(entry.slice(0, index)), decodeURIComponent(entry.slice(index + 1))]
       }),
     )

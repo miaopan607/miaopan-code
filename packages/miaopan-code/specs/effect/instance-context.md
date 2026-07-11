@@ -1,5 +1,7 @@
 # Instance Context
 
+Languages: [简体中文索引](../README.md) · English
+
 Instance selection is now Effect-provided context.
 
 Use these APIs:

@@ -5,13 +5,14 @@ import { ServerAuth } from "@/server/auth"
 import { createMiaopanCodeClient } from "@miaopan-code/sdk/v2"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { ACPProfile } from "@/acp/profile"
+import { UI } from "@/cli/ui"
 
 export const AcpCommand = effectCmd({
   command: "acp",
-  describe: "start ACP (Agent Client Protocol) server",
+  describe: UI.t("cli.acp_server"),
   builder: (yargs) => {
     return withNetworkOptions(yargs).option("cwd", {
-      describe: "working directory",
+      describe: UI.t("cli.working_directory"),
       type: "string",
       default: process.cwd(),
     })
@@ -23,10 +24,15 @@ export const AcpCommand = effectCmd({
     process.env.MIAOPAN_CODE_CLIENT = "acp"
     const opts = yield* resolveNetworkOptions(args)
     const server = yield* Effect.promise(() => ACPProfile.measure("cli.acp.server.listen", () => Server.listen(opts)))
+    const language = UI.getLanguage()
 
     const sdk = createMiaopanCodeClient({
       baseUrl: `http://${server.hostname}:${server.port}`,
-      headers: ServerAuth.headers(),
+      language,
+      headers: {
+        ...ServerAuth.headers(),
+        "accept-language": language,
+      },
     })
 
     const input = new WritableStream<Uint8Array>({
@@ -53,14 +59,14 @@ export const AcpCommand = effectCmd({
     })
 
     const stream = ndJsonStream(input, output)
-    const agent = ACP.init({ sdk })
+    const agent = ACP.init({ sdk, language })
 
     new AgentSideConnection((conn) => {
       ACPProfile.mark("cli.acp.connection.create")
       return agent.create(conn)
     }, stream)
 
-    yield* Effect.logInfo("setup connection")
+    yield* Effect.logInfo(UI.t("cli.acp.setup_connection"))
     process.stdin.resume()
     yield* Effect.promise(
       () =>

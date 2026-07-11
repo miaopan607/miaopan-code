@@ -4,9 +4,11 @@ import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { QuestionNotFoundError } from "@miaopan-code/protocol/errors"
 import { response } from "../location"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
-function missingRequest(id: QuestionV2.ID) {
-  return new QuestionNotFoundError({ requestID: id, message: `Question request not found: ${id}` })
+function missingRequest(id: QuestionV2.ID, language: Language) {
+  return new QuestionNotFoundError({ requestID: id, message: t(language, "error.question_not_found", { id }) })
 }
 
 export const QuestionHandler = HttpApiBuilder.group(Api, "server.question", (handlers) =>
@@ -14,12 +16,13 @@ export const QuestionHandler = HttpApiBuilder.group(Api, "server.question", (han
     const withOwnedQuestion = Effect.fnUntraced(function* <A, E>(
       sessionID: QuestionV2.Request["sessionID"],
       requestID: QuestionV2.ID,
-      use: (question: QuestionV2.Interface) => Effect.Effect<A, E>,
+      use: (question: QuestionV2.Interface, language: Language) => Effect.Effect<A, E>,
     ) {
+      const language = yield* requestLanguage()
       const question = yield* QuestionV2.Service
       const request = (yield* question.list()).find((request) => request.id === requestID)
-      if (!request || request.sessionID !== sessionID) return yield* missingRequest(requestID)
-      return yield* use(question)
+      if (!request || request.sessionID !== sessionID) return yield* missingRequest(requestID, language)
+      return yield* use(question, language)
     })
 
     return handlers
@@ -39,10 +42,10 @@ export const QuestionHandler = HttpApiBuilder.group(Api, "server.question", (han
       .handle(
         "session.question.reply",
         Effect.fn(function* (ctx) {
-          yield* withOwnedQuestion(ctx.params.sessionID, ctx.params.requestID, (question) =>
+          yield* withOwnedQuestion(ctx.params.sessionID, ctx.params.requestID, (question, language) =>
             question
               .reply({ requestID: ctx.params.requestID, answers: ctx.payload.answers })
-              .pipe(Effect.catchTag("QuestionV2.NotFoundError", () => missingRequest(ctx.params.requestID))),
+              .pipe(Effect.catchTag("QuestionV2.NotFoundError", () => missingRequest(ctx.params.requestID, language))),
           )
           return HttpApiSchema.NoContent.make()
         }),
@@ -50,10 +53,10 @@ export const QuestionHandler = HttpApiBuilder.group(Api, "server.question", (han
       .handle(
         "session.question.reject",
         Effect.fn(function* (ctx) {
-          yield* withOwnedQuestion(ctx.params.sessionID, ctx.params.requestID, (question) =>
+          yield* withOwnedQuestion(ctx.params.sessionID, ctx.params.requestID, (question, language) =>
             question
               .reject(ctx.params.requestID)
-              .pipe(Effect.catchTag("QuestionV2.NotFoundError", () => missingRequest(ctx.params.requestID))),
+              .pipe(Effect.catchTag("QuestionV2.NotFoundError", () => missingRequest(ctx.params.requestID, language))),
           )
           return HttpApiSchema.NoContent.make()
         }),

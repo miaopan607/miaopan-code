@@ -6,6 +6,7 @@ import { AbsolutePath } from "../schema"
 import { FSUtil } from "../fs-util"
 import { Git } from "../git"
 import { makeLocationNode } from "../effect/app-node"
+import { zh } from "../i18n"
 import { Project } from "../project"
 import { ProjectDirectories } from "./directories"
 import { makeGitWorktreeStrategy } from "./copy-strategies"
@@ -111,15 +112,15 @@ export const refreshAfterBoot = Effect.gen(function* () {
   const location = yield* Location.Service
   const copies = yield* Service
   yield* Effect.gen(function* () {
-    yield* Effect.logInfo("project copy refresh started", { projectID: location.project.id })
+    yield* Effect.logInfo(zh("log.project_copy_refresh_started"), { projectID: location.project.id })
     const result = yield* copies.refresh({ projectID: location.project.id })
-    yield* Effect.logInfo("project copy refresh done", {
+    yield* Effect.logInfo(zh("log.project_copy_refresh_done"), {
       projectID: location.project.id,
       updated: result.updated,
       removed: result.removed,
     })
   }).pipe(
-    Effect.catchCause((cause) => Effect.logWarning("project copy refresh failed", { cause })),
+    Effect.catchCause((cause) => Effect.logWarning(zh("log.project_copy_refresh_failed"), { cause })),
     Effect.forkScoped,
     Effect.asVoid,
   )

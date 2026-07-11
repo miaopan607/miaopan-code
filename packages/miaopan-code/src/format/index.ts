@@ -8,6 +8,7 @@ import path from "path"
 import { mergeDeep } from "remeda"
 import { Config } from "@/config/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
+import { t } from "@miaopan-code/core/i18n"
 import { errorMessage } from "@/util/error"
 import * as Formatter from "./formatter"
 
@@ -72,13 +73,14 @@ const layer = Layer.effect(
 
         function formatFile(filepath: string) {
           return Effect.gen(function* () {
-            yield* Effect.logInfo("formatting", { file: filepath })
+            const language = (yield* config.get()).language
+            yield* Effect.logInfo(t(language, "log.formatting"), { file: filepath })
             const formatters = yield* Effect.promise(() => getFormatter(path.extname(filepath)))
 
             if (!formatters.length) return false
 
             for (const { item, cmd } of formatters) {
-              yield* Effect.logInfo("running", { command: cmd })
+              yield* Effect.logInfo(t(language, "log.format_running"), { command: cmd })
               const replaced = cmd.map((x) => x.replace("$FILE", filepath))
               const dir = yield* InstanceState.directory
               const result = yield* appProcess
@@ -94,7 +96,7 @@ const layer = Layer.effect(
                 )
                 .pipe(
                   Effect.catch((error) =>
-                    Effect.logError("failed to format file", {
+                    Effect.logError(t(language, "log.format_failed"), {
                       error: "spawn failed",
                       command: cmd,
                       ...item.environment,
@@ -104,7 +106,7 @@ const layer = Layer.effect(
                   ),
                 )
               if (result && result.exitCode !== 0) {
-                yield* Effect.logError("failed", {
+                yield* Effect.logError(t(language, "log.server_failed"), {
                   command: cmd,
                   ...item.environment,
                 })
@@ -118,8 +120,8 @@ const layer = Layer.effect(
         const cfg = yield* config.get()
 
         if (!cfg.formatter) {
-          yield* Effect.logInfo("all formatters are disabled")
-          yield* Effect.logInfo("init")
+          yield* Effect.logInfo(t(cfg.language, "log.format_disabled"))
+          yield* Effect.logInfo(t(cfg.language, "log.format_init"))
           return {
             formatters,
             isEnabled,
@@ -157,7 +159,7 @@ const layer = Layer.effect(
           }
         }
 
-        yield* Effect.logInfo("init")
+        yield* Effect.logInfo(t(cfg.language, "log.format_init"))
 
         return {
           formatters,

@@ -16,6 +16,7 @@ import { HEADER as FenceHeader } from "../../src/server/shared/fence"
 import { resetDatabase } from "../fixture/db"
 import { tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 // Flip the experimental workspaces flag so EventV2.run actually writes to
 // EventSequenceTable (the source of truth the fence middleware reads). Reset
@@ -91,7 +92,7 @@ describe("instance HttpApi", () => {
       )
 
       expect(response.status).toBe(200)
-      expect(JSON.parse(response.headers[FenceHeader] ?? "{}")).not.toEqual({})
+      expect(JSON.parse(response.headers[FenceHeader.toLowerCase()] ?? "{}")).not.toEqual({})
     }),
   )
 
@@ -189,19 +190,19 @@ describe("instance HttpApi", () => {
       expect(yield* Effect.promise(() => permission.json())).toEqual({
         _tag: "PermissionNotFoundError",
         requestID: permissionID,
-        message: `Permission request not found: ${permissionID}`,
+        message: t(undefined, "error.permission_not_found", { id: permissionID }),
       })
       expect(questionReply.status).toBe(404)
       expect(yield* Effect.promise(() => questionReply.json())).toEqual({
         _tag: "QuestionNotFoundError",
         requestID: questionReplyID,
-        message: `Question request not found: ${questionReplyID}`,
+        message: t(undefined, "error.question_not_found", { id: questionReplyID }),
       })
       expect(questionReject.status).toBe(404)
       expect(yield* Effect.promise(() => questionReject.json())).toEqual({
         _tag: "QuestionNotFoundError",
         requestID: questionRejectID,
-        message: `Question request not found: ${questionRejectID}`,
+        message: t(undefined, "error.question_not_found", { id: questionRejectID }),
       })
     }),
   )
@@ -225,7 +226,7 @@ describe("instance HttpApi", () => {
       expect(yield* Effect.promise(() => response.json())).toEqual({
         _tag: "ProjectNotFoundError",
         projectID,
-        message: `Project not found: ${projectID}`,
+        message: t(undefined, "error.project_not_found", { id: projectID }),
       })
     }),
   )

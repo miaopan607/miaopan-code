@@ -7,6 +7,7 @@ import type { Permission } from "../permission"
 import type { SessionID, MessageID } from "../session/schema"
 import * as Truncate from "./truncate"
 import { Agent } from "@/agent/agent"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 interface Metadata {
   [key: string]: any
@@ -26,14 +27,16 @@ export class InvalidArgumentsError extends Schema.TaggedErrorClass<InvalidArgume
   {
     tool: Schema.String,
     detail: Schema.String,
+    language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
   },
 ) {
   override get message() {
-    return `The ${this.tool} tool was called with invalid arguments: ${this.detail}.\nPlease rewrite the input so it satisfies the expected schema.`
+    return t(this.language, "tool.error.invalid_arguments", { tool: this.tool, detail: this.detail })
   }
 }
 
 export type Context<M extends Metadata = Metadata> = {
+  language?: Language
   sessionID: SessionID
   messageID: MessageID
   agent: string
@@ -124,6 +127,7 @@ function wrap<Parameters extends Schema.Decoder<unknown>, Result extends Metadat
                 new InvalidArgumentsError({
                   tool: id,
                   detail: toolInfo.formatValidationError ? toolInfo.formatValidationError(error) : String(error),
+                  language: ctx.language,
                 }),
             ),
           )

@@ -5,6 +5,7 @@ import { useDirectory } from "../../context/directory"
 import { useConnected } from "../../component/use-connected"
 import { createStore } from "solid-js/store"
 import { useRoute } from "../../context/route"
+import { useI18n } from "../../context/i18n"
 
 export function Footer() {
   const { theme } = useTheme()
@@ -19,6 +20,7 @@ export function Footer() {
   })
   const directory = useDirectory()
   const connected = useConnected()
+  const i18n = useI18n()
 
   const [store, setStore] = createStore({
     welcome: false,
@@ -56,18 +58,19 @@ export function Footer() {
         <Switch>
           <Match when={store.welcome}>
             <text fg={theme.text}>
-              Get started <span style={{ fg: theme.textMuted }}>/connect</span>
+              {i18n.t("session.get_started")} <span style={{ fg: theme.textMuted }}>/connect</span>
             </text>
           </Match>
           <Match when={connected()}>
             <Show when={permissions().length > 0}>
               <text fg={theme.warning}>
-                <span style={{ fg: theme.warning }}>△</span> {permissions().length} Permission
-                {permissions().length > 1 ? "s" : ""}
+                <span style={{ fg: theme.warning }}>△</span> {permissions().length}{" "}
+                {permissions().length > 1 ? i18n.t("session.permissions") : i18n.t("session.permission")}
               </text>
             </Show>
             <text fg={theme.text}>
-              <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length} LSP
+              <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length}{" "}
+              {i18n.t("session.lsp")}
             </text>
             <Show when={mcp()}>
               <text fg={theme.text}>
@@ -79,7 +82,7 @@ export function Footer() {
                     <span style={{ fg: theme.success }}>⊙ </span>
                   </Match>
                 </Switch>
-                {mcp()} MCP
+                {mcp()} {i18n.t("session.mcp")}
               </text>
             </Show>
             <text fg={theme.textMuted}>/status</text>

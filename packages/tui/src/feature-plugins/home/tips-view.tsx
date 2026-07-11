@@ -2,6 +2,9 @@ import type { TuiPluginApi } from "@miaopan-code/plugin/tui"
 import { createMemo, For, type Accessor } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "../../context/theme"
 import { useCommandShortcut } from "../../keymap"
+import type { Language, MessageKey } from "@miaopan-code/core/i18n"
+import { t } from "@miaopan-code/core/i18n"
+import { useI18n } from "../../context/i18n"
 
 const themeCount = Object.keys(DEFAULT_THEMES).length
 
@@ -42,7 +45,8 @@ type Shortcuts = {
   terminalSuspend: TipShortcut
   themeList: TipShortcut
 }
-type Tip = string | ((shortcuts: Shortcuts) => string | undefined)
+type Tip = string | ((shortcuts: Shortcuts, language: Language) => string | undefined)
+type TipKey = MessageKey
 
 function parse(tip: string): TipPart[] {
   const parts: TipPart[] = []
@@ -68,21 +72,21 @@ function parse(tip: string): TipPart[] {
   return parts
 }
 
-const NO_MODELS_TIP = "Run {highlight}/connect{/highlight} to add an AI provider and start coding"
-const NO_MODELS_PARTS = parse(NO_MODELS_TIP)
+const translate = (language: Language, key: TipKey, parameters?: Record<string, string | number | undefined>) =>
+  t(language, key, parameters)
 
 function shortcutText(value: string) {
   return `{highlight}${value}{/highlight}`
 }
 
-function commandText(command: string, shortcut: string) {
+function commandText(command: string, shortcut: string, language: Language) {
   if (!shortcut) return shortcutText(command)
-  return `${shortcutText(command)} or ${shortcutText(shortcut)}`
+  return translate(language, "tips.command_or", { command: shortcutText(command), shortcut: shortcutText(shortcut) })
 }
 
-function press(shortcut: string, text: string) {
+function press(shortcut: string, text: string, language: Language) {
   if (!shortcut) return undefined
-  return `Press ${shortcutText(shortcut)} ${text}`
+  return translate(language, "tips.press", { shortcut: shortcutText(shortcut), text })
 }
 
 function configShortcut(api: TuiPluginApi, command: string): TipShortcut {
@@ -95,6 +99,7 @@ function configShortcut(api: TuiPluginApi, command: string): TipShortcut {
 }
 
 export function Tips(props: { api: TuiPluginApi; connected?: boolean }) {
+  const i18n = useI18n()
   const theme = useTheme().theme
   const tipOffset = Math.random()
   const shortcuts: Shortcuts = {
@@ -133,24 +138,24 @@ export function Tips(props: { api: TuiPluginApi; connected?: boolean }) {
     themeList: useCommandShortcut("theme.switch"),
   }
   const tip = createMemo(() => {
-    if (props.connected === false) return NO_MODELS_TIP
+    if (props.connected === false) return translate(i18n.language(), "tips.no_models")
     const tips = [...TIPS, process.platform !== "win32" ? TERMINAL_SUSPEND_TIP : INPUT_UNDO_TIP].flatMap((item) => {
-      const value = typeof item === "string" ? item : item(shortcuts)
+      const value = typeof item === "string" ? item : item(shortcuts, i18n.language())
       return value ? [value] : []
     })
-    return tips[Math.floor(tipOffset * tips.length)] ?? NO_MODELS_TIP
-  }, NO_MODELS_TIP)
+    return tips[Math.floor(tipOffset * tips.length)] ?? translate(i18n.language(), "tips.no_models")
+  })
   // Solid can expose a memo's initial value while a pure computation is pending.
   const parts = createMemo(() => {
     const value = tip()
     if (typeof value === "string") return parse(value)
-    return NO_MODELS_PARTS
-  }, NO_MODELS_PARTS)
+    return parse(translate(i18n.language(), "tips.no_models"))
+  })
 
   return (
     <box flexDirection="row" maxWidth="100%">
       <text flexShrink={0} style={{ fg: theme.warning }}>
-        ● Tip{" "}
+        ● {translate(i18n.language(), "tips.label")}{" "}
       </text>
       <text flexShrink={1} wrapMode="word">
         <For each={parts()}>
@@ -162,45 +167,77 @@ export function Tips(props: { api: TuiPluginApi; connected?: boolean }) {
 }
 
 const TIPS: Tip[] = [
-  "Type {highlight}@{/highlight} followed by a filename to fuzzy search and attach files",
-  "Start a message with {highlight}!{/highlight} to run shell commands (e.g., {highlight}!ls -la{/highlight})",
-  (shortcuts) => press(shortcuts.agentCycle(), "to cycle between Build and Plan agents"),
-  "Use {highlight}/undo{/highlight} to revert the last message and file changes",
-  "Use {highlight}/redo{/highlight} to restore previously undone messages and file changes",
-  "Run {highlight}/share{/highlight} to create a public github.com/miaopan607/miaopan-code link",
-  "Drag and drop images or PDFs into the terminal as context",
-  (shortcuts) => press(shortcuts.inputPaste(), "to paste images from your clipboard into the prompt"),
-  (shortcuts) => `Use ${commandText("/editor", shortcuts.editorOpen())} to compose messages in your external editor`,
-  "Run {highlight}/init{/highlight} to auto-generate project rules based on your codebase",
-  (shortcuts) => `Use ${commandText("/models", shortcuts.modelList())} to switch between available AI models`,
-  (shortcuts) => `Use ${commandText("/themes", shortcuts.themeList())} to switch between ${themeCount} built-in themes`,
-  (shortcuts) => `Use ${commandText("/new", shortcuts.sessionNew())} to start a fresh conversation session`,
-  (shortcuts) => `Use ${commandText("/sessions", shortcuts.sessionList())} to list, pin, and continue sessions`,
-  (shortcuts) => press(shortcuts.sessionPinToggle(), "in the session list to pin one at the top"),
-  (shortcuts) =>
+  (_shortcuts, language) => translate(language, "tips.attach_files"),
+  (_shortcuts, language) => translate(language, "tips.shell_commands"),
+  (shortcuts, language) => press(shortcuts.agentCycle(), translate(language, "tips.cycle_agents"), language),
+  (_shortcuts, language) => translate(language, "tips.undo"),
+  (_shortcuts, language) => translate(language, "tips.redo"),
+  (_shortcuts, language) => translate(language, "tips.share"),
+  (_shortcuts, language) => translate(language, "tips.media"),
+  (shortcuts, language) => press(shortcuts.inputPaste(), translate(language, "tips.paste_prompt"), language),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/editor", shortcuts.editorOpen(), language),
+      text: translate(language, "tips.editor"),
+    }),
+  (_shortcuts, language) => translate(language, "tips.init"),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/models", shortcuts.modelList(), language),
+      text: translate(language, "tips.switch_models"),
+    }),
+  (shortcuts, language) =>
+    translate(language, "tips.use_count", {
+      command: commandText("/themes", shortcuts.themeList(), language),
+      text: translate(language, "tips.switch_themes"),
+      count: themeCount,
+    }),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/new", shortcuts.sessionNew(), language),
+      text: translate(language, "tips.new_session"),
+    }),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/sessions", shortcuts.sessionList(), language),
+      text: translate(language, "tips.sessions"),
+    }),
+  (shortcuts, language) => press(shortcuts.sessionPinToggle(), translate(language, "tips.pin_session"), language),
+  (shortcuts, language) =>
     shortcuts.sessionQuickSwitch1() && shortcuts.sessionQuickSwitch9()
-      ? `Use ${shortcutText(shortcuts.sessionQuickSwitch1())} through ${shortcutText(shortcuts.sessionQuickSwitch9())} to switch pinned sessions`
+      ? translate(language, "tips.through", {
+          first: shortcutText(shortcuts.sessionQuickSwitch1()),
+          last: shortcutText(shortcuts.sessionQuickSwitch9()),
+          text: translate(language, "tips.quick_sessions"),
+        })
       : undefined,
-  "Run {highlight}/compact{/highlight} to summarize long sessions near context limits",
-  (shortcuts) => `Use ${commandText("/export", shortcuts.sessionExport())} to save the conversation as Markdown`,
-  (shortcuts) => press(shortcuts.messagesCopy(), "to copy the assistant's last message to clipboard"),
-  (shortcuts) => press(shortcuts.commandList(), "to see all available actions and commands"),
-  "Run {highlight}/connect{/highlight} to add API keys for 75+ supported LLM providers",
-  (shortcuts) => `The leader key is ${shortcutText(shortcuts.leader())}; combine with other keys for quick actions`,
-  (shortcuts) => press(shortcuts.modelCycleRecent(), "to quickly switch between recently used models"),
-  (shortcuts) => press(shortcuts.sessionSidebarToggle(), "in a session to show or hide the sidebar panel"),
-  (shortcuts) =>
+  (_shortcuts, language) => translate(language, "tips.compact"),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/export", shortcuts.sessionExport(), language),
+      text: translate(language, "tips.export"),
+    }),
+  (shortcuts, language) => press(shortcuts.messagesCopy(), translate(language, "tips.copy_last"), language),
+  (shortcuts, language) => press(shortcuts.commandList(), translate(language, "tips.commands_list"), language),
+  (_shortcuts, language) => translate(language, "tips.connect"),
+  (shortcuts, language) => translate(language, "tips.leader", { key: shortcutText(shortcuts.leader()) }),
+  (shortcuts, language) => press(shortcuts.modelCycleRecent(), translate(language, "tips.recent_models"), language),
+  (shortcuts, language) => press(shortcuts.sessionSidebarToggle(), translate(language, "tips.sidebar"), language),
+  (shortcuts, language) =>
     shortcuts.messagesPageUp() && shortcuts.messagesPageDown()
-      ? `Use ${shortcutText(shortcuts.messagesPageUp())}/${shortcutText(shortcuts.messagesPageDown())} to navigate through conversation history`
+      ? translate(language, "tips.use", {
+          command: `${shortcutText(shortcuts.messagesPageUp())}/${shortcutText(shortcuts.messagesPageDown())}`,
+          text: translate(language, "tips.history"),
+        })
       : undefined,
-  (shortcuts) => press(shortcuts.messagesFirst(), "to jump to the beginning of the conversation"),
-  (shortcuts) => press(shortcuts.messagesLast(), "to jump to the most recent message"),
-  (shortcuts) => press(shortcuts.inputNewline(), "to add newlines in your prompt"),
-  (shortcuts) => press(shortcuts.inputClear(), "when typing to clear the input field"),
-  (shortcuts) => press(shortcuts.sessionInterrupt(), "to stop the AI mid-response"),
-  "Switch to {highlight}Plan{/highlight} agent for suggestions without making changes",
-  "Use {highlight}@agent-name{/highlight} in prompts to invoke specialized subagents",
-  (shortcuts) => {
+  (shortcuts, language) => press(shortcuts.messagesFirst(), translate(language, "tips.first_message"), language),
+  (shortcuts, language) => press(shortcuts.messagesLast(), translate(language, "tips.last_message"), language),
+  (shortcuts, language) => press(shortcuts.inputNewline(), translate(language, "tips.newline"), language),
+  (shortcuts, language) => press(shortcuts.inputClear(), translate(language, "tips.clear_input"), language),
+  (shortcuts, language) => press(shortcuts.sessionInterrupt(), translate(language, "tips.interrupt"), language),
+  (_shortcuts, language) => translate(language, "tips.plan"),
+  (_shortcuts, language) => translate(language, "tips.subagent"),
+  (shortcuts, language) => {
     const items = [
       shortcuts.sessionParent(),
       shortcuts.childFirst(),
@@ -208,80 +245,96 @@ const TIPS: Tip[] = [
       shortcuts.childNext(),
     ].filter(Boolean)
     if (!items.length) return undefined
-    return `Use ${items.map(shortcutText).join(" / ")} for parent/child sessions`
+    return translate(language, "tips.use", {
+      command: items.map(shortcutText).join(" / "),
+      text: translate(language, "tips.parent_child"),
+    })
   },
-  "Create {highlight}miaopan-code.json{/highlight} for server settings, and {highlight}tui.json{/highlight} for TUI",
-  "Place TUI settings in {highlight}~/.config/miaopan-code/miaopanCode/tui.json {/highlight} for global config",
-  "Add {highlight}$schema{/highlight} to your config for autocomplete in your editor",
-  "Configure {highlight}model{/highlight} in config to set your default model",
-  "Override any keybind in {highlight}tui.json{/highlight} via the {highlight}keybinds{/highlight} section",
-  "Set any keybind to {highlight}none{/highlight} to disable it completely",
-  "Configure local or remote MCP servers in the {highlight}mcp{/highlight} config section",
-  "Add {highlight}.md{/highlight} files to {highlight}.miaopanCode/commands/{/highlight} for reusable prompts",
-  "Use {highlight}$ARGUMENTS{/highlight}, {highlight}$1{/highlight}, {highlight}$2{/highlight} in custom commands for dynamic input",
-  "Use backticks to inject shell output (e.g., {highlight}`git status`{/highlight})",
-  "Add {highlight}.md{/highlight} files to {highlight}.miaopanCode/agents/{/highlight} for specialized AI personas",
-  "Configure per-agent permissions for {highlight}edit{/highlight}, {highlight}bash{/highlight}, and {highlight}webfetch{/highlight} tools",
-  'Use patterns like {highlight}"git *": "allow"{/highlight} for granular bash permissions',
-  'Set {highlight}"rm -rf *": "deny"{/highlight} to block destructive commands',
-  'Configure {highlight}"git push": "ask"{/highlight} to require approval before pushing',
-  'Set {highlight}"formatter": true{/highlight} to enable built-in formatters',
-  'Set {highlight}"formatter": false{/highlight} to disable inherited formatters',
-  "Define custom formatter commands with file extensions in config",
-  'Set {highlight}"lsp": true{/highlight} to enable built-in LSP code analysis',
-  "Create {highlight}.ts{/highlight} files in {highlight}.miaopanCode/tools/{/highlight} to define new LLM tools",
-  "Tool definitions can invoke scripts written in Python, Go, etc",
-  "Add {highlight}.ts{/highlight} files to {highlight}.miaopanCode/plugins/{/highlight} for event hooks",
-  "Use plugins to send OS notifications when sessions complete",
-  "Create a plugin to prevent MiaopanCode from reading sensitive files",
-  "Use {highlight}miaopanCode run{/highlight} for non-interactive scripting",
-  "Use {highlight}miaopanCode --continue{/highlight} to resume the last session",
-  "Use {highlight}miaopanCode run -f file.ts{/highlight} to attach files via CLI",
-  "Use {highlight}--format json{/highlight} for machine-readable output in scripts",
-  "Run {highlight}miaopanCode serve{/highlight} for headless API access to MiaopanCode",
-  "Use {highlight}miaopanCode run --attach{/highlight} to connect to a running server",
-  "Run {highlight}miaopanCode upgrade{/highlight} to update to the latest version",
-  "Run {highlight}miaopanCode auth list{/highlight} to see all configured providers",
-  "Run {highlight}miaopanCode agent create{/highlight} for guided agent creation",
-  "Use {highlight}/miaopanCode{/highlight} in GitHub issues/PRs to trigger AI actions",
-  "Run {highlight}miaopanCode github install{/highlight} to set up the GitHub workflow",
-  "Comment {highlight}/miaopanCode fix this{/highlight} on issues to auto-create PRs",
-  "Comment {highlight}/oc{/highlight} on PR code lines for targeted code reviews",
-  'Use {highlight}"theme": "system"{/highlight} to match your terminal\'s colors',
-  "Create JSON theme files in {highlight}.miaopanCode/themes/{/highlight} directory",
-  "Themes support dark/light variants for both modes",
-  "Use numeric xterm color codes 0-255 in custom theme JSON",
-  "Use {highlight}{env:VAR_NAME}{/highlight} for environment variables in config",
-  "Use {highlight}{file:path}{/highlight} to include file contents in config values",
-  "Use {highlight}instructions{/highlight} in config to load additional rules files",
-  "Set agent {highlight}temperature{/highlight} from 0.0 (focused) to 1.0 (creative)",
-  "Configure {highlight}steps{/highlight} to limit agentic iterations per request",
-  'Set {highlight}"tools": {"bash": false}{/highlight} to disable specific tools',
-  'Set {highlight}"mcp_*": false{/highlight} to disable all tools from an MCP server',
-  "Override global tool settings per agent configuration",
-  'Set {highlight}"share": "auto"{/highlight} to automatically share all sessions',
-  'Set {highlight}"share": "disabled"{/highlight} to prevent any session sharing',
-  "Run {highlight}/unshare{/highlight} to remove a session from public access",
-  "Permission {highlight}doom_loop{/highlight} prevents infinite tool call loops",
-  "Permission {highlight}external_directory{/highlight} protects files outside project",
-  "Run {highlight}miaopanCode debug config{/highlight} to troubleshoot configuration",
-  "Use {highlight}--print-logs{/highlight} flag to see detailed logs in stderr",
-  (shortcuts) => `Use ${commandText("/timeline", shortcuts.sessionTimeline())} to jump to specific messages`,
-  (shortcuts) => press(shortcuts.messagesToggleConceal(), "to toggle code block visibility in messages"),
-  (shortcuts) => `Use ${commandText("/status", shortcuts.statusView())} to see system status info`,
-  "Enable {highlight}scroll_acceleration{/highlight} in {highlight}tui.json{/highlight} for smooth scrolling",
-  (shortcuts) =>
+  (_shortcuts, language) => translate(language, "tips.config_files"),
+  (_shortcuts, language) => translate(language, "tips.global_tui"),
+  (_shortcuts, language) => translate(language, "tips.schema"),
+  (_shortcuts, language) => translate(language, "tips.model"),
+  (_shortcuts, language) => translate(language, "tips.keybinds"),
+  (_shortcuts, language) => translate(language, "tips.disable_keybind"),
+  (_shortcuts, language) => translate(language, "tips.mcp"),
+  (_shortcuts, language) => translate(language, "tips.commands"),
+  (_shortcuts, language) => translate(language, "tips.arguments"),
+  (_shortcuts, language) => translate(language, "tips.backticks"),
+  (_shortcuts, language) => translate(language, "tips.agent_files"),
+  (_shortcuts, language) => translate(language, "tips.agent_permissions"),
+  (_shortcuts, language) => translate(language, "tips.allow_pattern"),
+  (_shortcuts, language) => translate(language, "tips.deny_pattern"),
+  (_shortcuts, language) => translate(language, "tips.ask_pattern"),
+  (_shortcuts, language) => translate(language, "tips.formatter_on"),
+  (_shortcuts, language) => translate(language, "tips.formatter_off"),
+  (_shortcuts, language) => translate(language, "tips.formatter_custom"),
+  (_shortcuts, language) => translate(language, "tips.lsp"),
+  (_shortcuts, language) => translate(language, "tips.tool_files"),
+  (_shortcuts, language) => translate(language, "tips.tool_scripts"),
+  (_shortcuts, language) => translate(language, "tips.plugin_files"),
+  (_shortcuts, language) => translate(language, "tips.plugin_notifications"),
+  (_shortcuts, language) => translate(language, "tips.plugin_sensitive"),
+  (_shortcuts, language) => translate(language, "tips.cli_run"),
+  (_shortcuts, language) => translate(language, "tips.cli_continue"),
+  (_shortcuts, language) => translate(language, "tips.cli_attach"),
+  (_shortcuts, language) => translate(language, "tips.cli_json"),
+  (_shortcuts, language) => translate(language, "tips.cli_serve"),
+  (_shortcuts, language) => translate(language, "tips.cli_attach_server"),
+  (_shortcuts, language) => translate(language, "tips.cli_upgrade"),
+  (_shortcuts, language) => translate(language, "tips.cli_auth"),
+  (_shortcuts, language) => translate(language, "tips.cli_agent"),
+  (_shortcuts, language) => translate(language, "tips.github_trigger"),
+  (_shortcuts, language) => translate(language, "tips.github_install"),
+  (_shortcuts, language) => translate(language, "tips.github_fix"),
+  (_shortcuts, language) => translate(language, "tips.github_review"),
+  (_shortcuts, language) => translate(language, "tips.theme_system"),
+  (_shortcuts, language) => translate(language, "tips.theme_files"),
+  (_shortcuts, language) => translate(language, "tips.theme_modes"),
+  (_shortcuts, language) => translate(language, "tips.theme_colors"),
+  (_shortcuts, language) => translate(language, "tips.env"),
+  (_shortcuts, language) => translate(language, "tips.file"),
+  (_shortcuts, language) => translate(language, "tips.instructions"),
+  (_shortcuts, language) => translate(language, "tips.temperature"),
+  (_shortcuts, language) => translate(language, "tips.steps"),
+  (_shortcuts, language) => translate(language, "tips.disable_tool"),
+  (_shortcuts, language) => translate(language, "tips.disable_mcp"),
+  (_shortcuts, language) => translate(language, "tips.agent_tools"),
+  (_shortcuts, language) => translate(language, "tips.share_auto"),
+  (_shortcuts, language) => translate(language, "tips.share_disabled"),
+  (_shortcuts, language) => translate(language, "tips.unshare"),
+  (_shortcuts, language) => translate(language, "tips.doom_loop"),
+  (_shortcuts, language) => translate(language, "tips.external_directory"),
+  (_shortcuts, language) => translate(language, "tips.debug_config"),
+  (_shortcuts, language) => translate(language, "tips.print_logs"),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/timeline", shortcuts.sessionTimeline(), language),
+      text: translate(language, "tips.timeline"),
+    }),
+  (shortcuts, language) => press(shortcuts.messagesToggleConceal(), translate(language, "tips.conceal"), language),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/status", shortcuts.statusView(), language),
+      text: translate(language, "tips.status"),
+    }),
+  (_shortcuts, language) => translate(language, "tips.scroll"),
+  (shortcuts, language) =>
     shortcuts.commandList()
-      ? `Toggle username display in chat via the command palette (${shortcutText(shortcuts.commandList())})`
-      : "Toggle username display in chat via the command palette",
-  "Run {highlight}docker run -it --rm ghcr.io/miaopan607/miaopan-code{/highlight} in a container",
-  "Use {highlight}/connect{/highlight} with MiaopanCode Zen for curated, tested models",
-  "Commit your project's {highlight}AGENTS.md{/highlight} file to Git for team sharing",
-  "Use {highlight}/review{/highlight} to review uncommitted changes, branches, or PRs",
-  (shortcuts) => `Use ${commandText("/help", shortcuts.helpShow())} to show the help dialog`,
-  "Use {highlight}/rename{/highlight} to rename the current session",
+      ? `${translate(language, "tips.username")} (${shortcutText(shortcuts.commandList())})`
+      : translate(language, "tips.username"),
+  (_shortcuts, language) => translate(language, "tips.docker"),
+  (_shortcuts, language) => translate(language, "tips.zen"),
+  (_shortcuts, language) => translate(language, "tips.agents_commit"),
+  (_shortcuts, language) => translate(language, "tips.review"),
+  (shortcuts, language) =>
+    translate(language, "tips.use", {
+      command: commandText("/help", shortcuts.helpShow(), language),
+      text: translate(language, "tips.help"),
+    }),
+  (_shortcuts, language) => translate(language, "tips.rename"),
 ]
 
-const INPUT_UNDO_TIP: Tip = (shortcuts) => press(shortcuts.inputUndo(), "to undo changes in your prompt")
-const TERMINAL_SUSPEND_TIP: Tip = (shortcuts) =>
-  press(shortcuts.terminalSuspend(), "to suspend the terminal and return to your shell")
+const INPUT_UNDO_TIP: Tip = (shortcuts, language) =>
+  press(shortcuts.inputUndo(), translate(language, "tips.undo_input"), language)
+const TERMINAL_SUSPEND_TIP: Tip = (shortcuts, language) =>
+  press(shortcuts.terminalSuspend(), translate(language, "tips.suspend"), language)

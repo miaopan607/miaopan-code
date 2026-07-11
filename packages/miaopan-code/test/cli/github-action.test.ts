@@ -3,6 +3,7 @@ import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { extractResponseText, formatPromptTooLargeError } from "../../src/cli/cmd/github"
 import type { MessageV2 } from "../../src/session/message-v2"
 import { SessionID, MessageID, PartID } from "../../src/session/schema"
+import { UI } from "../../src/cli/ui"
 
 // Helper to create minimal valid parts
 function createTextPart(text: string): SessionV1.Part {
@@ -123,7 +124,7 @@ describe("extractResponseText", () => {
   })
 
   test("throws on empty array", () => {
-    expect(() => extractResponseText([])).toThrow("no parts returned")
+    expect(() => extractResponseText([])).toThrow(UI.t("github.response_parse_failed"))
   })
 
   test("returns null for step-start only", () => {
@@ -165,7 +166,7 @@ describe("extractResponseText", () => {
 describe("formatPromptTooLargeError", () => {
   test("formats error without files", () => {
     const result = formatPromptTooLargeError([])
-    expect(result).toBe("PROMPT_TOO_LARGE: The prompt exceeds the model's context limit.")
+    expect(result).toBe(UI.t("github.prompt_too_large", { files: "" }))
   })
 
   test("formats error with files (base64 content)", () => {
@@ -177,8 +178,8 @@ describe("formatPromptTooLargeError", () => {
     ]
     const result = formatPromptTooLargeError(files)
 
-    expect(result).toStartWith("PROMPT_TOO_LARGE: The prompt exceeds the model's context limit.")
-    expect(result).toInclude("Files in prompt:")
+    expect(result).toStartWith(UI.t("github.prompt_too_large", { files: "" }))
+    expect(result).toInclude(UI.t("github.files_in_prompt"))
     expect(result).toInclude("screenshot.png (300 KB)")
     expect(result).toInclude("diagram.png (150 KB)")
   })

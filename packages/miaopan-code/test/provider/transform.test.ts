@@ -5,6 +5,7 @@ import { LLMRequestPrep } from "@/session/llm/request"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { jsonSchema } from "ai"
+import { t } from "@miaopan-code/core/i18n"
 
 describe("ProviderTransform.options - setCacheKey", () => {
   const sessionID = "test-session-123"
@@ -1921,7 +1922,7 @@ describe("ProviderTransform.message - empty image handling", () => {
     expect(result[0].content[0]).toEqual({ type: "text", text: "What is in this image?" })
     expect(result[0].content[1]).toEqual({
       type: "text",
-      text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
+      text: t("zh-CN", "error.provider_image_empty"),
     })
   })
 
@@ -1968,7 +1969,7 @@ describe("ProviderTransform.message - empty image handling", () => {
     expect(result[0].content[1]).toEqual({ type: "image", image: `data:image/png;base64,${validBase64}` })
     expect(result[0].content[2]).toEqual({
       type: "text",
-      text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
+      text: t("zh-CN", "error.provider_image_empty"),
     })
   })
 })

@@ -1,33 +1,34 @@
 import type { ProjectV2 } from "@miaopan-code/core/project"
 import type { WorkspaceAdapter, WorkspaceAdapterEntry } from "../types"
-import { WorktreeAdapter } from "./worktree"
+import { makeWorktreeAdapter } from "./worktree"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-const BUILTIN: Record<string, WorkspaceAdapter> = {
-  worktree: WorktreeAdapter,
-}
+const builtins = (language?: Language): Record<string, WorkspaceAdapter> => ({
+  worktree: makeWorktreeAdapter(language),
+})
 
 const state = new Map<ProjectV2.ID, Map<string, WorkspaceAdapter>>()
 
-export function getAdapter(projectID: ProjectV2.ID, type: string): WorkspaceAdapter {
+export function getAdapter(projectID: ProjectV2.ID, type: string, language?: Language): WorkspaceAdapter {
   const custom = state.get(projectID)?.get(type)
   if (custom) return custom
 
-  const builtin = BUILTIN[type]
+  const builtin = builtins(language)[type]
   if (builtin) return builtin
 
-  throw new Error(`Unknown workspace adapter: ${type}`)
+  throw new Error(t(language, "error.workspace_adapter_unknown", { type }))
 }
 
-export function listAdapters(projectID: ProjectV2.ID): WorkspaceAdapterEntry[] {
-  return registeredAdapters(projectID).map(([type, adapter]) => ({
+export function listAdapters(projectID: ProjectV2.ID, language?: Language): WorkspaceAdapterEntry[] {
+  return registeredAdapters(projectID, language).map(([type, adapter]) => ({
     type,
     name: adapter.name,
     description: adapter.description,
   }))
 }
 
-export function registeredAdapters(projectID: ProjectV2.ID): [string, WorkspaceAdapter][] {
-  const adapters = new Map(Object.entries(BUILTIN))
+export function registeredAdapters(projectID: ProjectV2.ID, language?: Language): [string, WorkspaceAdapter][] {
+  const adapters = new Map(Object.entries(builtins(language)))
   for (const [type, adapter] of state.get(projectID)?.entries() ?? []) adapters.set(type, adapter)
   return [...adapters.entries()]
 }

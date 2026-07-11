@@ -1,4 +1,5 @@
 import { Context, Effect } from "effect"
+import { zh } from "../i18n"
 
 type EffectMethod = (...args: ReadonlyArray<never>) => Effect.Effect<unknown, unknown, unknown>
 
@@ -29,7 +30,8 @@ export const serviceUse = <Identifier, Shape>(tag: Context.Service<Identifier, S
           tag.use((service) => {
             // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- Proxy keys are checked at runtime.
             const method = service[key as keyof Shape]
-            if (typeof method !== "function") return Effect.die(new Error(`Service method not found: ${key}`))
+            if (typeof method !== "function")
+              return Effect.die(new Error(zh("error.service_method_not_found", { method: key })))
             // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- ServiceUse exposes only Effect-returning methods.
             return (method as (...args: unknown[]) => Effect.Effect<unknown, unknown, unknown>)(...args)
           })

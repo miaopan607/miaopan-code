@@ -9,6 +9,8 @@ export function LocationProvider(props: ParentProps<{ location?: LocationRef }>)
 
 export function useLocation() {
   const value = useContext(context)
-  if (!value) throw new Error("Location context must be used within a LocationProvider")
+  if (!value) throw new Error(t(Locale.language(), "tui.error.location_provider_missing"))
   return value
 }
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"

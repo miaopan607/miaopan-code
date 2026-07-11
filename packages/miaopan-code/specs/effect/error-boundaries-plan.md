@@ -1,5 +1,7 @@
 # Error Boundaries Plan
 
+Languages: [简体中文索引](../README.md) · English
+
 Plan for removing `NamedError` as connective tissue while keeping public
 wire contracts stable.
 

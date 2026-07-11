@@ -39,6 +39,7 @@ import { type AutocompleteRef, Autocomplete } from "./autocomplete"
 import { useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import type { AssistantMessage, FilePart, UserMessage } from "@miaopan-code/sdk/v2"
 import { Locale } from "../../util/locale"
+import { t } from "@miaopan-code/core/i18n"
 import { errorMessage } from "../../util/error"
 import { formatDuration } from "../../util/format"
 import { createColors, createFrames } from "../../ui/spinner"
@@ -51,11 +52,18 @@ import { createFadeIn } from "../../util/signal"
 import { DialogSkill } from "../dialog-skill"
 import { DialogWorkspaceUnavailable } from "../dialog-workspace-unavailable"
 import { useArgs } from "../../context/args"
-import { MIAOPAN_CODE_BASE_MODE, useBindings, useCommandShortcut, useLeaderActive, useMiaopanCodeKeymap } from "../../keymap"
+import {
+  MIAOPAN_CODE_BASE_MODE,
+  useBindings,
+  useCommandShortcut,
+  useLeaderActive,
+  useMiaopanCodeKeymap,
+} from "../../keymap"
 import { useTuiConfig } from "../../config"
 import { usePromptWorkspace } from "./workspace"
 import { usePromptMove } from "./move"
 import { readLocalAttachment } from "./local-attachment"
+import { useI18n } from "../../context/i18n"
 
 registerMiaopanCodeSpinner()
 
@@ -95,11 +103,6 @@ export type PromptRef = {
   submit(): void
 }
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-})
-
 const DRAFT_RETENTION_MIN_CHARS = 20
 
 function randomIndex(count: number) {
@@ -127,14 +130,20 @@ function getEditorRangeLabel(selection: EditorSelection["ranges"][number]) {
 function formatEditorContext(selection: EditorSelection) {
   const selected = selection.ranges.filter(hasEditorRangeSelection)
   if (selected.length === 0)
-    return `<system-reminder>Note: The user opened the file "${selection.filePath}". This may or may not be relevant to the current task.</system-reminder>\n`
+    return t(Locale.language(), "prompt.editor_file_opened_reminder", { path: selection.filePath })
 
   const ranges = selected.map((range, index) => {
-    const prefix = selected.length > 1 ? `Selection ${index + 1}: ` : ""
-    return `Note: The user selected ${prefix}${getEditorRangeLabel(range)} from "${selection.filePath}". \`\`\`${range.text}\`\`\`\n\n`
+    const prefix =
+      selected.length > 1 ? t(Locale.language(), "prompt.editor_selection_prefix", { index: index + 1 }) : ""
+    return t(Locale.language(), "prompt.editor_selection_line", {
+      prefix,
+      range: getEditorRangeLabel(range),
+      path: selection.filePath,
+      text: range.text,
+    })
   })
 
-  return `<system-reminder>${ranges.join("\n")} This may or may not be relevant to the current task.</system-reminder>\n`
+  return t(Locale.language(), "prompt.editor_context_reminder", { ranges: ranges.join("\n") })
 }
 
 let stashed: { prompt: PromptInfo; cursor: number } | undefined
@@ -206,6 +215,7 @@ export function Prompt(props: PromptProps) {
   const editorContextLabelState = createMemo(() => editor.labelState())
   const [auto, setAuto] = createSignal<AutocompleteRef>()
   const workspace = usePromptWorkspace(props.sessionID)
+  const i18n = useI18n()
   const move = usePromptMove({ projectID: project.project, sessionID: () => props.sessionID })
   const [cursorVersion, setCursorVersion] = createSignal(0)
   const currentProviderLabel = createMemo(() => local.model.parsed().provider)
@@ -214,7 +224,7 @@ export function Prompt(props: PromptProps) {
   function promptModelWarning() {
     toast.show({
       variant: "warning",
-      message: "Connect a provider to send prompts",
+      message: i18n.t("prompt.connect_provider"),
       duration: 3000,
     })
     if (sync.data.provider.length === 0) {
@@ -274,7 +284,7 @@ export function Prompt(props: PromptProps) {
     const cost = session?.cost ?? 0
     return {
       context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
-      cost: cost > 0 ? money.format(cost) : undefined,
+      cost: cost > 0 ? Locale.currency(cost) : undefined,
     }
   })
 
@@ -332,7 +342,7 @@ export function Prompt(props: PromptProps) {
   const promptCommands = createMemo(() =>
     [
       {
-        title: "Clear prompt",
+        title: i18n.t("prompt.clear"),
         name: "prompt.clear",
         category: "Prompt",
         hidden: true,
@@ -342,7 +352,7 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Submit prompt",
+        title: i18n.t("prompt.submit"),
         name: "prompt.submit",
         category: "Prompt",
         hidden: true,
@@ -355,7 +365,7 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Remove editor context",
+        title: i18n.t("prompt.remove_context"),
         name: "prompt.editor_context.clear",
         category: "Prompt",
         enabled: Boolean(editorContext()),
@@ -365,7 +375,7 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Paste",
+        title: i18n.t("prompt.paste"),
         name: "prompt.paste",
         category: "Prompt",
         hidden: true,
@@ -387,9 +397,9 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Interrupt session",
+        title: i18n.t("prompt.interrupt"),
         name: "session.interrupt",
-        category: "Session",
+        category: i18n.t("tui.session"),
         hidden: true,
         enabled: status().type !== "idle",
         run: () => {
@@ -418,8 +428,8 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Open editor",
-        category: "Session",
+        title: i18n.t("prompt.open_editor"),
+        category: i18n.t("tui.session"),
         name: "prompt.editor",
         slashName: "editor",
         run: async () => {
@@ -510,7 +520,7 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Skills",
+        title: i18n.t("prompt.skills"),
         name: "prompt.skills",
         category: "Prompt",
         slashName: "skills",
@@ -530,10 +540,10 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Warp",
-        desc: "Change the workspace for the session",
+        title: i18n.t("prompt.warp"),
+        desc: i18n.t("prompt.warp_description"),
         name: "workspace.set",
-        category: "Session",
+        category: i18n.t("tui.session"),
         enabled: Flag.MIAOPAN_CODE_EXPERIMENTAL_WORKSPACES,
         slashName: "warp",
         run: () => {
@@ -541,10 +551,10 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Move session",
-        desc: "Move to another project dir",
+        title: i18n.t("prompt.move"),
+        desc: i18n.t("prompt.move_description"),
         name: "session.move",
-        category: "Session",
+        category: i18n.t("tui.session"),
         slashName: "move",
         run: () => {
           move.open()
@@ -733,7 +743,7 @@ export function Prompt(props: PromptProps) {
   const stashCommands = createMemo(() =>
     [
       {
-        title: "Stash prompt",
+        title: i18n.t("prompt.stash"),
         name: "prompt.stash",
         category: "Prompt",
         enabled: !!store.prompt.input,
@@ -751,7 +761,7 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Stash pop",
+        title: i18n.t("prompt.stash_pop"),
         name: "prompt.stash.pop",
         category: "Prompt",
         enabled: stash.list().length > 0,
@@ -767,7 +777,7 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
-        title: "Stash list",
+        title: i18n.t("prompt.stash_list"),
         name: "prompt.stash.list",
         category: "Prompt",
         enabled: stash.list().length > 0,
@@ -826,7 +836,7 @@ export function Prompt(props: PromptProps) {
       bindings: [
         {
           key: "!",
-          desc: "Shell mode",
+          desc: i18n.t("prompt.shell_mode"),
           group: "Prompt",
           cmd: () => {
             setStore("placeholder", randomIndex(shell().length))
@@ -841,7 +851,14 @@ export function Prompt(props: PromptProps) {
     return {
       target: inputTarget,
       enabled: inputTarget() !== undefined && store.mode === "shell",
-      bindings: [{ key: "escape", desc: "Exit shell mode", group: "Prompt", cmd: () => setStore("mode", "normal") }],
+      bindings: [
+        {
+          key: "escape",
+          desc: i18n.t("prompt.exit_shell_mode"),
+          group: "Prompt",
+          cmd: () => setStore("mode", "normal"),
+        },
+      ],
     }
   })
 
@@ -852,7 +869,14 @@ export function Prompt(props: PromptProps) {
         cursorVersion()
         return inputTarget() !== undefined && store.mode === "shell" && input?.visualCursor.offset === 0
       })(),
-      bindings: [{ key: "backspace", desc: "Exit shell mode", group: "Prompt", cmd: () => setStore("mode", "normal") }],
+      bindings: [
+        {
+          key: "backspace",
+          desc: i18n.t("prompt.exit_shell_mode"),
+          group: "Prompt",
+          cmd: () => setStore("mode", "normal"),
+        },
+      ],
     }
   })
 
@@ -866,7 +890,7 @@ export function Prompt(props: PromptProps) {
       commands: [
         {
           name: "prompt.history.previous",
-          title: "Previous prompt history",
+          title: i18n.t("prompt.previous_history"),
           category: "Prompt",
           run() {
             if (input.cursorOffset !== 0) {
@@ -898,7 +922,7 @@ export function Prompt(props: PromptProps) {
       commands: [
         {
           name: "prompt.history.next",
-          title: "Next prompt history",
+          title: i18n.t("prompt.next_history"),
           category: "Prompt",
           run() {
             if (input.cursorOffset !== input.plainText.length) {
@@ -1007,10 +1031,10 @@ export function Prompt(props: PromptProps) {
 
       if (res.error) {
         if (finishMoveProgress) move.finishSubmit()
-        console.log("Creating a session failed:", res.error)
+        console.log(i18n.t("tui.session_create_log"), res.error)
 
         toast.show({
-          message: "Creating a session failed. Open console for more details.",
+          message: i18n.t("prompt.create_failed"),
           variant: "error",
         })
 
@@ -1109,7 +1133,7 @@ export function Prompt(props: PromptProps) {
         )
         .catch((error) => {
           toast.show({
-            title: "Failed to send prompt",
+            title: i18n.t("prompt.send_failed"),
             message: errorMessage(error),
             variant: "error",
           })
@@ -1205,7 +1229,7 @@ export function Prompt(props: PromptProps) {
       (lineCount >= 3 || pastedContent.length > 150) &&
       kv.get("paste_summary_enabled", !sync.data.config.experimental?.disable_paste_summary)
     ) {
-      pasteText(pastedContent, `[Pasted ~${lineCount} lines]`)
+      pasteText(pastedContent, i18n.t("prompt.pasted_lines", { count: lineCount }))
       return
     }
 
@@ -1310,10 +1334,10 @@ export function Prompt(props: PromptProps) {
     if (store.mode === "shell") {
       if (!shell().length) return undefined
       const example = shell()[store.placeholder % shell().length]
-      return `Run a command... "${example}"`
+      return i18n.t("prompt.run_placeholder", { example })
     }
     if (!list().length) return undefined
-    return `Ask anything... "${list()[store.placeholder % list().length]}"`
+    return i18n.t("prompt.ask_placeholder_dynamic", { example: list()[store.placeholder % list().length] })
   })
 
   const spinnerDef = createMemo(() => {
@@ -1442,10 +1466,12 @@ export function Prompt(props: PromptProps) {
                   {(agent) => (
                     <>
                       <text fg={fadeColor(highlight(), agentMetaAlpha())}>
-                        {store.mode === "shell" ? "Shell" : Locale.titlecase(agent().name)}
+                        {store.mode === "shell" ? i18n.t("prompt.shell_mode") : Locale.titlecase(agent().name)}
                       </text>
                       <Show when={store.mode === "normal" && local.permission.mode === "auto"}>
-                        <text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>auto</text>
+                        <text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>
+                          {t(Locale.language(), "tui.auto")}
+                        </text>
                       </Show>
                       <Show when={store.mode === "normal"}>
                         <box flexDirection="row" gap={1}>
@@ -1531,7 +1557,7 @@ export function Prompt(props: PromptProps) {
                         const r = retry()
                         if (!r) return
                         if (r.message.includes("exceeded your current quota") && r.message.includes("gemini"))
-                          return "gemini is way too hot right now"
+                          return i18n.t("tui.gemini_quota")
                         if (r.message.length > 80) return r.message.slice(0, 80) + "..."
                         return r.message
                       })
@@ -1555,7 +1581,7 @@ export function Prompt(props: PromptProps) {
                         const r = retry()
                         if (!r) return
                         if (isTruncated()) {
-                          void DialogAlert.show(dialog, "Retry Error", r.message)
+                          void DialogAlert.show(dialog, i18n.t("tui.retry_error"), r.message)
                         }
                       }
 
@@ -1563,9 +1589,12 @@ export function Prompt(props: PromptProps) {
                         const r = retry()
                         if (!r) return ""
                         const baseMessage = message()
-                        const truncatedHint = isTruncated() ? " (click to expand)" : ""
+                        const truncatedHint = isTruncated() ? i18n.t("tui.retry_expand") : ""
                         const duration = formatDuration(seconds())
-                        const retryInfo = ` [retrying ${duration ? `in ${duration} ` : ""}attempt #${r.attempt}]`
+                        const retryInfo = i18n.t("tui.retry_info", {
+                          attempt: r.attempt,
+                          duration: duration ? ` ${duration} ` : " ",
+                        })
                         return baseMessage + truncatedHint + retryInfo
                       }
 
@@ -1582,7 +1611,7 @@ export function Prompt(props: PromptProps) {
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
-                    {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
+                    {i18n.t(store.interrupt > 0 ? "prompt.interrupt_again" : "prompt.interrupt_short")}
                   </span>
                 </text>
               </box>
@@ -1605,18 +1634,13 @@ export function Prompt(props: PromptProps) {
                       const item = label()
                       if (item.type === "new") {
                         if (workspace.creating())
-                          return `Creating ${item.workspaceType}${".".repeat(workspace.creatingDots())}`
-                        return (
-                          <>
-                            Workspace <span style={{ fg: theme.textMuted }}>(new {item.workspaceType})</span>
-                          </>
-                        )
+                          return t(Locale.language(), "workspace.creating_type", {
+                            type: item.workspaceType,
+                            dots: ".".repeat(workspace.creatingDots()),
+                          })
+                        return <>{t(Locale.language(), "workspace.new_type", { type: item.workspaceType })}</>
                       }
-                      return (
-                        <>
-                          Workspace <span style={{ fg: theme.textMuted }}>{item.workspaceName}</span>
-                        </>
-                      )
+                      return <>{t(Locale.language(), "workspace.current_name", { name: item.workspaceName })}</>
                     })()}
                   </text>
                 </box>
@@ -1634,7 +1658,7 @@ export function Prompt(props: PromptProps) {
             </Match>
             <Match when={move.pendingNew()}>
               <box paddingLeft={3}>
-                <text fg={theme.accent}>(new working copy)</text>
+                <text fg={theme.accent}>{t(Locale.language(), "tui.new_working_copy")}</text>
               </box>
             </Match>
             <Match when={true}>{props.hint ?? <text />}</Match>
@@ -1658,17 +1682,19 @@ export function Prompt(props: PromptProps) {
                     </Match>
                     <Match when={true}>
                       <text fg={theme.text}>
-                        {agentShortcut()} <span style={{ fg: theme.textMuted }}>agents</span>
+                        {agentShortcut()}{" "}
+                        <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.agents")}</span>
                       </text>
                     </Match>
                   </Switch>
                   <text fg={theme.text}>
-                    {paletteShortcut()} <span style={{ fg: theme.textMuted }}>commands</span>
+                    {paletteShortcut()}{" "}
+                    <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.commands")}</span>
                   </text>
                 </Match>
                 <Match when={store.mode === "shell"}>
                   <text fg={theme.text}>
-                    esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
+                    esc <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.exit_shell")}</span>
                   </text>
                 </Match>
               </Switch>

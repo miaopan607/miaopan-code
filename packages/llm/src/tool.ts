@@ -107,7 +107,7 @@ type DynamicToolConfig = {
  *
  *    ```ts
  *    Tool.make({
- *      description: "Get current weather",
+ *      description: t(language, "llm.example.current_weather"),
  *      parameters: Schema.Struct({ city: Schema.String }),
  *      success: Schema.Struct({ temperature: Schema.Number }),
  *      execute: ({ city }) => Effect.succeed({ temperature: 22 }),
@@ -121,7 +121,7 @@ type DynamicToolConfig = {
  *
  *    ```ts
  *    Tool.make({
- *      description: "Look something up",
+ *      description: t(language, "llm.example.lookup"),
  *      jsonSchema: { type: "object", properties: { ... } },
  *      execute: (params) => Effect.succeed(...),
  *    })

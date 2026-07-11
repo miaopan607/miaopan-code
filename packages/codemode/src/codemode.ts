@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect"
+import { t, type Language } from "./i18n.js"
 import { executeWithLimits } from "./interpreter/runtime.js"
 import { type HostTools, type Services, type ToolDescription, ToolRuntime } from "./tool-runtime.js"
 import type { Definition } from "./tool.js"
@@ -36,6 +37,8 @@ export type ResolvedExecutionLimits = {
 export type ExecuteOptions<Tools extends Record<string, unknown> = {}> = {
   /** Source for one program in the supported JavaScript subset. */
   code: string
+  /** Language used for model-facing instructions and diagnostics. Defaults to Simplified Chinese. */
+  language?: Language
   /** Explicit tool tree exposed to the program as `tools`. */
   tools?: Tools & ToolTree<Services<Tools>>
   /** Per-execution overrides for the default resource limits. */
@@ -120,17 +123,18 @@ const validateLimit = <Value extends number | undefined>(
   name: keyof ExecutionLimits,
   value: Value,
   minimum: number,
+  language?: Language,
 ): Value => {
   if (value !== undefined && (!Number.isSafeInteger(value) || value < minimum)) {
-    throw new RangeError(`${name} must be a safe integer greater than or equal to ${minimum}.`)
+    throw new RangeError(t(language, "codemode.error.invalid_limit", { name, minimum }))
   }
   return value
 }
 
-const resolveExecutionLimits = (limits?: ExecutionLimits): ResolvedExecutionLimits => ({
-  timeoutMs: validateLimit("timeoutMs", limits?.timeoutMs, 1),
-  maxToolCalls: validateLimit("maxToolCalls", limits?.maxToolCalls, 0),
-  maxOutputBytes: validateLimit("maxOutputBytes", limits?.maxOutputBytes, 0),
+const resolveExecutionLimits = (limits?: ExecutionLimits, language?: Language): ResolvedExecutionLimits => ({
+  timeoutMs: validateLimit("timeoutMs", limits?.timeoutMs, 1, language),
+  maxToolCalls: validateLimit("maxToolCalls", limits?.maxToolCalls, 0, language),
+  maxOutputBytes: validateLimit("maxOutputBytes", limits?.maxOutputBytes, 0, language),
 })
 
 /** Executes one Effect-native CodeMode program without constructing a reusable runtime. */
@@ -138,8 +142,12 @@ export const execute = <const Tools extends Record<string, unknown>>(
   options: ExecuteOptions<Tools>,
 ): Effect.Effect<Result, never, Services<Tools>> => {
   const tools = (options.tools ?? {}) as HostTools<Services<Tools>>
-  ToolRuntime.assertValidTools(tools)
-  return executeWithLimits(options, resolveExecutionLimits(options.limits), ToolRuntime.searchIndex(tools))
+  ToolRuntime.assertValidTools(tools, options.language)
+  return executeWithLimits(
+    options,
+    resolveExecutionLimits(options.limits, options.language),
+    ToolRuntime.searchIndex(tools),
+  )
 }
 
 /** Creates an Effect-native runtime over explicit, schema-described tools. */
@@ -147,9 +155,9 @@ export const make = <const Tools extends Record<string, unknown> = {}>(
   options: Options<Tools> = {} as Options<Tools>,
 ): Runtime<Services<Tools>> => {
   const tools = (options.tools ?? {}) as HostTools<Services<Tools>>
-  ToolRuntime.assertValidTools(tools)
-  const limits = resolveExecutionLimits(options.limits)
-  const prepared = ToolRuntime.prepare(tools, options.discovery?.catalogBudget)
+  ToolRuntime.assertValidTools(tools, options.language)
+  const limits = resolveExecutionLimits(options.limits, options.language)
+  const prepared = ToolRuntime.prepare(tools, options.discovery?.catalogBudget, options.language)
 
   return {
     catalog: () => prepared.catalog,

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import {
   accessTokenIsExpiring,
   buildAuthorizeUrl,
@@ -110,9 +111,9 @@ describe("plugin.xai", () => {
         await hooks.auth!.loader!(async () => ({ type: "wellknown", key: "k", token: "t" }) as any, {} as any),
       ).toEqual({})
       expect(hooks.auth!.methods.map((m) => [m.type, m.label])).toEqual([
-        ["oauth", "xAI Grok OAuth (SuperGrok Subscription)"],
-        ["oauth", "xAI Grok OAuth (Headless / Remote / VPS)"],
-        ["api", "Manually enter API Key"],
+        ["oauth", t("zh-CN", "plugin.xai.oauth_subscription")],
+        ["oauth", t("zh-CN", "plugin.xai.oauth_headless")],
+        ["api", t("zh-CN", "plugin.enter_api_key")],
       ])
     })
 
@@ -137,7 +138,7 @@ describe("plugin.xai", () => {
 
       expect(captured[0].get("authorization")).toBe("Bearer live-token")
       expect(captured[0].get("x-keep")).toBe("yes")
-      expect(captured[0].get("user-agent")).toMatch(/^miaopanCode\//)
+      expect(captured[0].get("user-agent")).toMatch(/^miaopan-code\//)
     })
 
     test("does not mutate caller headers and supports HeadersInit shapes", async () => {
@@ -177,7 +178,7 @@ describe("plugin.xai", () => {
       ])
       for (const headers of captured) {
         expect(headers.get("authorization")).toBe("Bearer tok")
-        expect(headers.get("user-agent")).toMatch(/^miaopanCode\//)
+        expect(headers.get("user-agent")).toMatch(/^miaopan-code\//)
       }
     })
 
@@ -327,7 +328,11 @@ describe("plugin.xai", () => {
 
       await opts.fetch!(new URL("/chat/completions", server.url), { headers: {} })
       await expect(opts.fetch!(new URL("/chat/completions", server.url), { headers: {} })).rejects.toThrow(
-        /xAI token refresh failed \(503\)/,
+        t("zh-CN", "error.oauth_refresh_failed", {
+          provider: "xAI",
+          status: 503,
+          detail: ": temporarily unavailable",
+        }),
       )
       await opts.fetch!(new URL("/chat/completions", server.url), { headers: {} })
       expect(tokenRequests).toBe(3)
@@ -426,7 +431,7 @@ describe("plugin.xai", () => {
       const hooks = await XaiAuthPlugin({} as any, serverOptions(server))
       const headless = hooks.auth!.methods.find(
         (m): m is Extract<typeof m, { type: "oauth" }> =>
-          m.type === "oauth" && m.label === "xAI Grok OAuth (Headless / Remote / VPS)",
+          m.type === "oauth" && m.label === t("zh-CN", "plugin.xai.oauth_headless"),
       )!
       const result = await headless.authorize!()
 
@@ -450,7 +455,7 @@ describe("plugin.xai", () => {
       })
       const headless = (await XaiAuthPlugin({} as any, serverOptions(server))).auth!.methods.find(
         (m): m is Extract<typeof m, { type: "oauth" }> =>
-          m.type === "oauth" && m.label === "xAI Grok OAuth (Headless / Remote / VPS)",
+          m.type === "oauth" && m.label === t("zh-CN", "plugin.xai.oauth_headless"),
       )!
       expect((await headless.authorize!()).url).toBe("https://x.ai/device")
     })
@@ -463,7 +468,7 @@ describe("plugin.xai", () => {
         expect(request.method).toBe("POST")
         expect(request.headers.get("content-type")).toBe("application/x-www-form-urlencoded")
         expect(request.headers.get("accept")).toBe("application/json")
-        expect(request.headers.get("user-agent")).toMatch(/^miaopanCode\//)
+        expect(request.headers.get("user-agent")).toMatch(/^miaopan-code\//)
         capturedBody = await request.text()
         return Response.json({ device_code: "DC", user_code: "UC", verification_uri: "https://x.ai/device" })
       })
@@ -476,10 +481,16 @@ describe("plugin.xai", () => {
       expect(parsed.get("scope")).toContain("api:access")
       await expect(
         requestDeviceCode({ deviceAuthorizationUrl: new URL("/error", server.url).toString() }),
-      ).rejects.toThrow(/429.*rate limited/)
+      ).rejects.toThrow(
+        t("zh-CN", "error.oauth_device_request_failed", {
+          provider: "xAI",
+          status: 429,
+          detail: ": rate limited",
+        }),
+      )
       await expect(
         requestDeviceCode({ deviceAuthorizationUrl: new URL("/missing", server.url).toString() }),
-      ).rejects.toThrow(/missing device_code/)
+      ).rejects.toThrow(t("zh-CN", "error.xai_device_missing"))
     })
 
     test("pollDeviceCodeToken resolves on success and posts the device-code grant", async () => {
@@ -522,9 +533,16 @@ describe("plugin.xai", () => {
 
     test("pollDeviceCodeToken handles terminal errors and timeout", async () => {
       for (const [body, error] of [
-        [{ error: "access_denied" }, /authorization was denied/],
-        [{ error: "expired_token" }, /device code expired/],
-        [{ error: "server_error", error_description: "oops" }, /500.*oops/],
+        [{ error: "access_denied" }, t("zh-CN", "error.xai_device_denied")],
+        [{ error: "expired_token" }, t("zh-CN", "error.xai_device_expired")],
+        [
+          { error: "server_error", error_description: "oops" },
+          t("zh-CN", "error.oauth_device_exchange_failed", {
+            provider: "xAI",
+            status: 500,
+            detail: ": oops",
+          }),
+        ],
       ] as const) {
         using server = makeServer(() => Response.json(body, { status: 500 }))
         await expect(
@@ -552,7 +570,7 @@ describe("plugin.xai", () => {
             tokenUrl: new URL("/oauth2/token", pending.url).toString(),
           },
         ),
-      ).rejects.toThrow(/timed out/)
+      ).rejects.toThrow(t("zh-CN", "error.xai_device_timeout"))
     })
 
     test("pollDeviceCodeToken normalizes bad interval and expires_in values", async () => {
@@ -612,7 +630,7 @@ describe("plugin.xai", () => {
       })
       const headless = (await XaiAuthPlugin({} as any, serverOptions(server))).auth!.methods.find(
         (m): m is Extract<typeof m, { type: "oauth" }> =>
-          m.type === "oauth" && m.label === "xAI Grok OAuth (Headless / Remote / VPS)",
+          m.type === "oauth" && m.label === t("zh-CN", "plugin.xai.oauth_headless"),
       )!
       expect(await ((await headless.authorize!()) as any).callback()).toEqual({ type: "failed" })
     })

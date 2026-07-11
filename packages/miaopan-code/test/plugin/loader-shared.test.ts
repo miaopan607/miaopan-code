@@ -6,6 +6,7 @@ import path from "path"
 import { pathToFileURL } from "url"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { FSUtil } from "@miaopan-code/core/fs-util"
+import { t } from "@miaopan-code/core/i18n"
 import { Config } from "@/config/config"
 import { disposeAllInstances, provideInstance, testInstanceStoreLayer, tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
@@ -840,10 +841,15 @@ describe("plugin.loader.shared", () => {
         Effect.gen(function* () {
           yield* load(tmp.path)
           expect(
-            (yield* (yield* FSUtil.Service).readJson(tmp.extra.mark)) as { source: string; enabled: boolean },
+            (yield* (yield* FSUtil.Service).readJson(tmp.extra.mark)) as {
+              source: string
+              enabled: boolean
+              language: string
+            },
           ).toEqual({
             source: "tuple",
             enabled: true,
+            language: "zh-CN",
           })
         }),
     ),
@@ -1129,7 +1135,7 @@ export default {
               pkg: tmp.extra.file,
               json,
             }),
-          ).toThrow("outside plugin directory")
+          ).toThrow(t("zh-CN", "error.plugin_entry_outside", { spec: "acme", kind: "oc-themes" }))
         }),
     ),
   )

@@ -1,5 +1,7 @@
 # Tool migration
 
+Languages: [简体中文索引](../README.md) · English
+
 Practical reference for the current tool-migration state in `packages/miaopan-code`.
 
 ## Status

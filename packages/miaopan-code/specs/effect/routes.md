@@ -1,5 +1,7 @@
 # HTTP Route Patterns
 
+Languages: [简体中文索引](../README.md) · English
+
 Current guidance for `packages/miaopan-code/src/server/routes/instance/httpapi`.
 
 ## Handler Shape

@@ -6,6 +6,8 @@ import { Global } from "@miaopan-code/core/global"
 import { readJson, writeJsonAtomic } from "../util/persistence"
 import { useTuiPaths } from "./runtime"
 import path from "path"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 export const { use: useKV, provider: KVProvider } = createSimpleContext({
   name: "KV",
@@ -24,7 +26,7 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
         setStore(x)
       })
       .catch((error) => {
-        console.error("Failed to read KV state", { error })
+        console.error(t(Locale.language(), "tui.kv_read_failed"), { error })
       })
       .finally(() => {
         setReady(true)
@@ -57,7 +59,7 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
         write = write
           .then(() => Flock.withLock(lock, () => writeJsonAtomic(file, snapshot)))
           .catch((error) => {
-            console.error("Failed to write KV state", { error })
+            console.error(t(Locale.language(), "tui.kv_write_failed"), { error })
           })
       },
     }

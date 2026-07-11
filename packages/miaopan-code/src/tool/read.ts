@@ -4,15 +4,15 @@ import * as path from "path"
 import * as Tool from "./tool"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { LSP } from "@/lsp/lsp"
-import DESCRIPTION from "./read.txt"
 import { InstanceState } from "@/effect/instance-state"
 import { assertExternalDirectoryEffect } from "./external-directory"
 import { Instruction } from "../session/instruction"
 import { isPdfAttachment, sniffAttachmentMime } from "@/util/media"
+import { ToolI18n } from "./i18n"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
-const MAX_LINE_SUFFIX = `... (line truncated to ${MAX_LINE_LENGTH} chars)`
 const MAX_BYTES = 50 * 1024
 const MAX_BYTES_LABEL = `${MAX_BYTES / 1024} KB`
 const SAMPLE_BYTES = 4096
@@ -25,15 +25,17 @@ class ReadStop extends Schema.TaggedErrorClass<ReadStop>()("ReadStop", {}) {}
 // purpose in the LLM tool-call path (the model emits typed JSON). The JSON
 // Schema output is identical (`type: "number"`), so the LLM view is
 // unchanged; purely CLI-facing uses must now send numbers rather than strings.
-export const Parameters = Schema.Struct({
-  filePath: Schema.String.annotate({ description: "The absolute path to the file or directory to read" }),
-  offset: Schema.optional(NonNegativeInt).annotate({
-    description: "The line number to start reading from (1-indexed)",
-  }),
-  limit: Schema.optional(NonNegativeInt).annotate({
-    description: "The maximum number of lines to read (defaults to 2000)",
-  }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    filePath: Schema.String.annotate({ description: t(language, "tool.param.read_path") }),
+    offset: Schema.optional(NonNegativeInt).annotate({
+      description: t(language, "tool.param.read_offset"),
+    }),
+    limit: Schema.optional(NonNegativeInt).annotate({
+      description: t(language, "tool.param.read_limit"),
+    }),
+  })
+export const Parameters = makeParameters()
 
 type Display =
   | {
@@ -72,8 +74,9 @@ export const ReadTool = Tool.define<
     const instruction = yield* Instruction.Service
     const lsp = yield* LSP.Service
     const scope = yield* Scope.Scope
+    const language = yield* ToolI18n.language()
 
-    const miss = Effect.fn("ReadTool.miss")(function* (filepath: string) {
+    const miss = Effect.fn("ReadTool.miss")(function* (filepath: string, ctx: Tool.Context) {
       const dir = path.dirname(filepath)
       const base = path.basename(filepath)
       const items = yield* fs.readDirectory(dir).pipe(
@@ -91,11 +94,13 @@ export const ReadTool = Tool.define<
 
       if (items.length > 0) {
         return yield* Effect.fail(
-          new Error(`File not found: ${filepath}\n\nDid you mean one of these?\n${items.join("\n")}`),
+          new Error(
+            `${ToolI18n.text(ctx, "tool.file_not_found", { path: filepath })}\n\n${ToolI18n.text(ctx, "error.did_you_mean", { items: items.join(", ") })}\n${items.join("\n")}`,
+          ),
         )
       }
 
-      return yield* Effect.fail(new Error(`File not found: ${filepath}`))
+      return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.file_not_found", { path: filepath })))
     })
 
     const list = Effect.fn("ReadTool.list")(function* (filepath: string) {
@@ -134,7 +139,11 @@ export const ReadTool = Tool.define<
       )
     })
 
-    const lines = Effect.fn("ReadTool.lines")(function* (filepath: string, opts: { limit: number; offset: number }) {
+    const lines = Effect.fn("ReadTool.lines")(function* (
+      filepath: string,
+      opts: { limit: number; offset: number },
+      ctx: Tool.Context,
+    ) {
       const start = opts.offset - 1
       const raw: string[] = []
       const flags = { bytes: 0, count: 0, cut: false, more: false, done: false }
@@ -159,7 +168,11 @@ export const ReadTool = Tool.define<
               return
             }
 
-            const line = text.length > MAX_LINE_LENGTH ? text.substring(0, MAX_LINE_LENGTH) + MAX_LINE_SUFFIX : text
+            const line =
+              text.length > MAX_LINE_LENGTH
+                ? text.substring(0, MAX_LINE_LENGTH) +
+                  ToolI18n.text(ctx, "tool.output.line_truncated", { max: MAX_LINE_LENGTH })
+                : text
             const size = Buffer.byteLength(line, "utf-8") + (raw.length > 0 ? 1 : 0)
             if (flags.bytes + size <= MAX_BYTES) {
               raw.push(line)
@@ -259,7 +272,7 @@ export const ReadTool = Tool.define<
         metadata: {},
       })
 
-      if (!stat) return yield* miss(filepath)
+      if (!stat) return yield* miss(filepath, ctx)
 
       if (stat.type === "Directory") {
         const items = yield* list(filepath)
@@ -277,8 +290,8 @@ export const ReadTool = Tool.define<
             `<entries>`,
             sliced.join("\n"),
             truncated
-              ? `\n(Showing ${sliced.length} of ${items.length} entries. Use 'offset' parameter to read beyond entry ${offset + sliced.length})`
-              : `\n(${items.length} entries)`,
+              ? `\n(${ToolI18n.text(ctx, "tool.read.directory_entries", { shown: sliced.length, total: items.length, next: offset + sliced.length })})`
+              : `\n(${ToolI18n.text(ctx, "tool.read.entries_count", { count: items.length })})`,
             `</entries>`,
           ].join("\n"),
           metadata: {
@@ -305,7 +318,9 @@ export const ReadTool = Tool.define<
 
       if (isImage || isPdfAttachment(mime)) {
         const bytes = yield* fs.readFile(filepath)
-        const msg = isPdfAttachment(mime) ? "PDF read successfully" : "Image read successfully"
+        const msg = isPdfAttachment(mime)
+          ? ToolI18n.text(ctx, "tool.read.pdf_success")
+          : ToolI18n.text(ctx, "tool.read.image_success")
         return {
           title,
           output: msg,
@@ -325,13 +340,17 @@ export const ReadTool = Tool.define<
       }
 
       if (isBinaryFile(filepath, sample)) {
-        return yield* Effect.fail(new Error(`Cannot read binary file: ${filepath}`))
+        return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.file_binary_unreadable", { path: filepath })))
       }
 
-      const file = yield* lines(filepath, { limit: params.limit ?? DEFAULT_READ_LIMIT, offset: params.offset || 1 })
+      const file = yield* lines(
+        filepath,
+        { limit: params.limit ?? DEFAULT_READ_LIMIT, offset: params.offset || 1 },
+        ctx,
+      )
       if (file.count < file.offset && !(file.count === 0 && file.offset === 1)) {
         return yield* Effect.fail(
-          new Error(`Offset ${file.offset} is out of range for this file (${file.count} lines)`),
+          new Error(ToolI18n.text(ctx, "tool.read.offset_error", { offset: file.offset, count: file.count })),
         )
       }
 
@@ -342,11 +361,11 @@ export const ReadTool = Tool.define<
       const next = last + 1
       const truncated = file.more || file.cut
       if (file.cut) {
-        output += `\n\n(Output capped at ${MAX_BYTES_LABEL}. Showing lines ${file.offset}-${last}. Use offset=${next} to continue.)`
+        output += `\n\n(${ToolI18n.text(ctx, "tool.read.capped", { max: MAX_BYTES_LABEL, start: file.offset, last, next })})`
       } else if (file.more) {
-        output += `\n\n(Showing lines ${file.offset}-${last} of ${file.count}. Use offset=${next} to continue.)`
+        output += `\n\n(${ToolI18n.text(ctx, "tool.read.more", { start: file.offset, last, count: file.count, next })})`
       } else {
-        output += `\n\n(End of file - total ${file.count} lines)`
+        output += `\n\n(${ToolI18n.text(ctx, "tool.read.end", { count: file.count })})`
       }
       output += "\n</content>"
 
@@ -377,8 +396,8 @@ export const ReadTool = Tool.define<
     })
 
     return {
-      description: DESCRIPTION,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.read"),
+      parameters: makeParameters(language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context<Metadata>) =>
         run(params, ctx).pipe(Effect.orDie),
     }

@@ -6,60 +6,64 @@ import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
 import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { t, type Language } from "../i18n"
 
 const root = "/config"
 
-export const ConfigApi = HttpApi.make("config")
-  .add(
-    HttpApiGroup.make("config")
-      .add(
-        HttpApiEndpoint.get("get", root, {
-          query: WorkspaceRoutingQuery,
-          success: described(ConfigV1.Info, "Get config info"),
-        }).annotateMerge(
+export const makeConfigApi = (language?: Language) =>
+  HttpApi.make("config")
+    .add(
+      HttpApiGroup.make("config")
+        .add(
+          HttpApiEndpoint.get("get", root, {
+            query: WorkspaceRoutingQuery,
+            success: described(ConfigV1.Info, t(language, "response_config_info")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "config.get",
+              summary: t(language, "config_get"),
+              description: t(language, "config_get_description"),
+            }),
+          ),
+          HttpApiEndpoint.patch("update", root, {
+            query: WorkspaceRoutingQuery,
+            payload: ConfigV1.Info,
+            success: described(ConfigV1.Info, t(language, "response_config_updated")),
+            error: HttpApiError.BadRequest,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "config.update",
+              summary: t(language, "config_update"),
+              description: t(language, "config_get_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("providers", `${root}/providers`, {
+            query: WorkspaceRoutingQuery,
+            success: described(Provider.ConfigProvidersResult, t(language, "response_provider_list")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "config.providers",
+              summary: t(language, "config_providers"),
+              description: t(language, "config_providers_description"),
+            }),
+          ),
+        )
+        .annotateMerge(
           OpenApi.annotations({
-            identifier: "config.get",
-            summary: "Get configuration",
-            description: "Retrieve the current MiaopanCode configuration settings and preferences.",
+            title: "config",
+            description: t(language, "config_routes"),
           }),
-        ),
-        HttpApiEndpoint.patch("update", root, {
-          query: WorkspaceRoutingQuery,
-          payload: ConfigV1.Info,
-          success: described(ConfigV1.Info, "Successfully updated config"),
-          error: HttpApiError.BadRequest,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "config.update",
-            summary: "Update configuration",
-            description: "Update MiaopanCode configuration settings and preferences.",
-          }),
-        ),
-        HttpApiEndpoint.get("providers", `${root}/providers`, {
-          query: WorkspaceRoutingQuery,
-          success: described(Provider.ConfigProvidersResult, "List of providers"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "config.providers",
-            summary: "List config providers",
-            description: "Get a list of all configured AI providers and their default models.",
-          }),
-        ),
-      )
-      .annotateMerge(
-        OpenApi.annotations({
-          title: "config",
-          description: "Experimental HttpApi config routes.",
-        }),
-      )
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode experimental HttpApi",
-      version: "0.0.1",
-      description: "Experimental HttpApi surface for selected instance routes.",
-    }),
-  )
+        )
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "httpapi_title"),
+        version: "0.0.1",
+        description: t(language, "httpapi_title"),
+      }),
+    )
+
+export const ConfigApi = makeConfigApi()

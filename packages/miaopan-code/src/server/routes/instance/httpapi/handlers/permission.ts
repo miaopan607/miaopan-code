@@ -4,6 +4,8 @@ import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import { PermissionNotFoundError } from "../errors"
+import { t } from "../i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 
 export const permissionHandlers = HttpApiBuilder.group(InstanceHttpApi, "permission", (handlers) =>
   Effect.gen(function* () {
@@ -17,6 +19,7 @@ export const permissionHandlers = HttpApiBuilder.group(InstanceHttpApi, "permiss
       params: { requestID: PermissionV1.ID }
       payload: PermissionV1.ReplyBody
     }) {
+      const language = yield* requestLanguage()
       yield* svc
         .reply({
           requestID: ctx.params.requestID,
@@ -28,7 +31,7 @@ export const permissionHandlers = HttpApiBuilder.group(InstanceHttpApi, "permiss
             Effect.fail(
               new PermissionNotFoundError({
                 requestID: String(error.requestID),
-                message: `Permission request not found: ${error.requestID}`,
+                message: t(language, "error.permission_not_found", { id: error.requestID }),
               }),
             ),
           ),

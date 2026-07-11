@@ -4,10 +4,11 @@ import { Cause, Clock, Duration, Effect, Schedule } from "effect"
 import { MessageV2 } from "./message-v2"
 import { iife } from "@/util/iife"
 import { isRecord } from "@/util/record"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export type Err = ReturnType<NamedError["toObject"]>
 
-export const GO_UPSELL_MESSAGE = "Free usage exceeded, subscribe to Go"
+export const GO_UPSELL_MESSAGE = t(undefined, "session.go_upsell_short")
 export const GO_UPSELL_URL = "https://github.com/miaopan607/miaopan-code/go"
 export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
 
@@ -65,7 +66,7 @@ export function delay(attempt: number, error?: SessionV1.APIError) {
   return cap(Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS))
 }
 
-export function retryable(error: Err, provider: string) {
+export function retryable(error: Err, provider: string, language?: Language) {
   // context overflow errors should not be retried
   if (SessionV1.ContextOverflowError.isInstance(error)) return undefined
   if (SessionV1.APIError.isInstance(error)) {
@@ -79,9 +80,9 @@ export function retryable(error: Err, provider: string) {
         action: {
           reason: "free_tier_limit",
           provider,
-          title: "Free limit reached",
-          message: "Subscribe to MiaopanCode Go for reliable access to the best open-source models, starting at $5/month.",
-          label: "subscribe",
+          title: t(language, "session.free_limit"),
+          message: t(language, "session.go_upsell_message"),
+          label: t(language, "session.subscribe"),
           link: GO_UPSELL_URL,
         },
       }
@@ -97,14 +98,20 @@ export function retryable(error: Err, provider: string) {
         const days = Math.floor(seconds / 86_400)
         const hours = Math.floor((seconds % 86_400) / 3_600)
         const minutes = Math.ceil((seconds % 3_600) / 60)
-        const unit = (value: number, name: string) => `${value} ${name}${value === 1 ? "" : "s"}`
+        const unit = (value: number, name: "day_unit" | "hour_unit" | "minute_unit") =>
+          `${value} ${t(language, `session.${name}` as const)}${value === 1 ? "" : ""}`
 
-        if (days > 0) return hours > 0 ? `${unit(days, "day")} ${unit(hours, "hour")}` : unit(days, "day")
-        if (hours > 0) return minutes > 0 ? `${unit(hours, "hour")} ${unit(minutes, "minute")}` : unit(hours, "hour")
-        return minutes > 0 ? unit(minutes, "minute") : "less than a minute"
+        if (days > 0)
+          return hours > 0 ? `${unit(days, "day_unit")} ${unit(hours, "hour_unit")}` : unit(days, "day_unit")
+        if (hours > 0)
+          return minutes > 0 ? `${unit(hours, "hour_unit")} ${unit(minutes, "minute_unit")}` : unit(hours, "hour_unit")
+        return minutes > 0 ? unit(minutes, "minute_unit") : t(language, "session.less_than_minute")
       })
 
-      const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
+      const message = t(language, "session.go_limit_message", {
+        limit: limitName ? `${language === "en" ? "" : " "}${limitName} ` : "",
+        reset: resetIn,
+      })
 
       const link = `https://github.com/miaopan607/miaopan-code/workspace/${workspace}/go`
       return {
@@ -112,14 +119,18 @@ export function retryable(error: Err, provider: string) {
         action: {
           reason: "account_rate_limit",
           provider,
-          title: "Go limit reached",
+          title: t(language, "session.go_limit"),
           message,
-          label: "open settings",
+          label: t(language, "session.open_settings"),
           link,
         },
       }
     }
-    return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
+    return {
+      message: error.data.message.includes("Overloaded")
+        ? t(language, "session.provider_overloaded")
+        : error.data.message,
+    }
   }
 
   // Check for rate limit patterns in plain text error messages
@@ -140,13 +151,13 @@ export function retryable(error: Err, provider: string) {
   const code = typeof json.code === "string" ? json.code : ""
 
   if (json.type === "error" && json.error?.type === "too_many_requests") {
-    return { message: "Too Many Requests" }
+    return { message: t(language, "session.too_many_requests") }
   }
   if (code.includes("exhausted") || code.includes("unavailable")) {
-    return { message: "Provider is overloaded" }
+    return { message: t(language, "session.provider_overloaded") }
   }
   if (json.type === "error" && typeof json.error?.code === "string" && json.error.code.includes("rate_limit")) {
-    return { message: "Rate Limited" }
+    return { message: t(language, "session.rate_limited") }
   }
   return undefined
 }
@@ -175,13 +186,14 @@ function parseJSON(value: unknown) {
 
 export function policy(opts: {
   provider: string
+  language?: Language
   parse: (error: unknown) => Err
   set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
 }) {
   return Schedule.fromStepWithMetadata(
     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
       const error = opts.parse(meta.input)
-      const retry = retryable(error, opts.provider)
+      const retry = retryable(error, opts.provider, opts.language)
       if (!retry) return Cause.done(meta.attempt)
       return Effect.gen(function* () {
         const wait = delay(meta.attempt, SessionV1.APIError.isInstance(error) ? error : undefined)

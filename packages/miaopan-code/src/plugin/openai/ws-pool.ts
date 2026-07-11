@@ -2,8 +2,9 @@ import WebSocket from "ws"
 import { ProviderError } from "@/provider/error"
 import { isRecord } from "@/util/record"
 import { OpenAIWebSocket } from "./ws"
+import type { Language } from "@miaopan-code/core/i18n"
 
-export const TITLE_HEADER = "x-miaopanCode-title"
+export const TITLE_HEADER = "x-miaopancode-title"
 
 export interface CreateWebSocketFetchOptions {
   httpFetch?: typeof globalThis.fetch
@@ -12,6 +13,7 @@ export interface CreateWebSocketFetchOptions {
   idleTimeout?: number
   maxConnectionAge?: number
   streamRetries?: number
+  language?: Language
 }
 
 interface PoolEntry {
@@ -89,6 +91,7 @@ export function createWebSocketFetch(options?: CreateWebSocketFetchOptions) {
         connectTimeout,
         maxConnectionAge,
         init?.signal,
+        options?.language,
       )
       let resolveFirstEvent: (event: boolean | OpenAIWebSocket.WrappedError) => void = () => {}
       let rejectFirstEvent: (error: Error) => void = () => {}
@@ -101,6 +104,7 @@ export function createWebSocketFetch(options?: CreateWebSocketFetchOptions) {
         body,
         idleTimeout,
         signal: init?.signal ?? undefined,
+        language: options?.language,
         onFirstEvent: (error) => resolveFirstEvent(error ?? true),
         onTerminal: (event) => {
           entry.busy = false
@@ -220,6 +224,7 @@ async function socket(
   connectTimeout: number,
   maxConnectionAge: number,
   signal?: AbortSignal | null,
+  language?: Language,
 ) {
   if (
     entry.socket?.readyState === WebSocket.OPEN &&
@@ -235,6 +240,7 @@ async function socket(
     headers,
     timeout: connectTimeout,
     signal: signal ?? undefined,
+    language,
   })
   entry.connectedAt = Date.now()
   return next

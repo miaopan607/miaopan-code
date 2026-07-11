@@ -343,10 +343,10 @@ export function withCliFixture<A, E>(
       const stderrChunks: string[] = []
       yield* forkStderrDrain(proc.stderr, stderrChunks)
 
-      // Watch stdout line-by-line for the listening sentinel. Format
-      // (see src/cli/cmd/serve.ts):
-      //   "miaopanCode server listening on http://<host>:<port>"
-      const readyRe = /listening on (http:\/\/([^\s:]+):(\d+))/
+      // Watch stdout line-by-line for the localized listening sentinel. Both
+      // locales include the bound URL, so parse that stable portion instead
+      // of coupling the harness to one natural-language translation.
+      const readyRe = /http:\/\/([^\s:]+):(\d+)/
       const readyDeferred = yield* Deferred.make<{ url: string; hostname: string; port: number }>()
       yield* Effect.forkScoped(
         fromBunStream("stdout", () => proc.stdout).pipe(
@@ -354,7 +354,9 @@ export function withCliFixture<A, E>(
           Stream.splitLines,
           Stream.runForEach((line) => {
             const m = line.match(readyRe)
-            return m ? Deferred.succeed(readyDeferred, { url: m[1], hostname: m[2], port: Number(m[3]) }) : Effect.void
+            return m
+              ? Deferred.succeed(readyDeferred, { url: m[0], hostname: m[1], port: Number(m[2]) })
+              : Effect.void
           }),
           Effect.ignore({ log: true }),
         ),

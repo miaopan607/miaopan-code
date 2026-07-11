@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import { define } from "../internal"
 import { ProviderV2 } from "../../provider"
+import { zh } from "../../i18n"
 
 function selectLanguage(sdk: any, modelID: string, useChat: boolean) {
   if (useChat && sdk.chat) return sdk.chat(modelID)
@@ -37,9 +38,7 @@ export const AzurePlugin = define({
             !evt.options.baseURL &&
             (evt.model.api.type !== "aisdk" || !evt.model.api.url)
           ) {
-            throw new Error(
-              "AZURE_RESOURCE_NAME is missing, set it using env var or reconnecting the azure provider and setting it",
-            )
+            throw new Error(zh("error.azure_resource_name_missing"))
           }
         }
         const mod = yield* Effect.promise(() => import("@ai-sdk/azure"))

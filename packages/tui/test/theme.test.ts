@@ -41,7 +41,7 @@ test("resolveTheme rejects circular color refs", () => {
   const item = structuredClone(DEFAULT_THEMES.miaopanCode)
   item.defs = { ...item.defs, one: "two", two: "one" }
   item.theme.primary = "one"
-  expect(() => resolveTheme(item, "dark")).toThrow("Circular color reference")
+  expect(() => resolveTheme(item, "dark")).toThrow("颜色引用循环")
 })
 
 function terminalColors(defaultBackground: string | null, palette: Array<string | null> = []): TerminalColors {

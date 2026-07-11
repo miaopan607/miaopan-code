@@ -45,6 +45,7 @@ import { DialogMcp } from "./component/dialog-mcp"
 import { DialogStatus } from "./component/dialog-status"
 import { DialogDebug } from "./component/dialog-debug"
 import { DialogThemeList } from "./component/dialog-theme-list"
+import { DialogLanguage } from "./component/dialog-language"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogAgent } from "./component/dialog-agent"
 import { DialogSessionList } from "./component/dialog-session-list"
@@ -66,6 +67,7 @@ import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { TuiConfigProvider, useTuiConfig, type TuiConfig } from "./config"
+import { I18nProvider, useI18n } from "./context/i18n"
 import { createTuiApiAdapters } from "./plugin/adapters"
 import { createTuiApi } from "./plugin/api"
 import { createPluginRuntime, PluginRuntimeProvider, usePluginRuntime, type TuiPluginHost } from "./plugin/runtime"
@@ -86,6 +88,7 @@ import * as TuiAudio from "./audio"
 import { win32DisableProcessedInput, win32FlushInputBuffer } from "./terminal-win32"
 import { destroyRenderer } from "./util/renderer"
 import { cliErrorMessage, errorFormat } from "./util/error"
+import { I18n, type Language } from "@miaopan-code/core/i18n"
 
 registerMiaopanCodeSpinner()
 
@@ -143,6 +146,7 @@ export type TuiInput = {
   url: string
   args: Args
   config: TuiConfig.Resolved
+  language?: Language
   onSnapshot?: () => Promise<string[]>
   directory?: string
   fetch?: typeof fetch
@@ -222,7 +226,7 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
           try {
             await input.pluginHost.dispose()
           } catch (error) {
-            console.error("Failed to dispose TUI plugins", error)
+            console.error(I18n.t(undefined, "tui.plugins_dispose_failed"), error)
           }
         }),
       )
@@ -274,7 +278,9 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                     >
                       <TuiStartupProvider
                         value={{
-                          initialRoute: process.env.MIAOPAN_CODE_ROUTE ? JSON.parse(process.env.MIAOPAN_CODE_ROUTE) : undefined,
+                          initialRoute: process.env.MIAOPAN_CODE_ROUTE
+                            ? JSON.parse(process.env.MIAOPAN_CODE_ROUTE)
+                            : undefined,
                           skipInitialLoading: Boolean(process.env.MIAOPAN_CODE_FAST_BOOT),
                         }}
                       >
@@ -294,46 +300,48 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                                     }
                                   >
                                     <TuiConfigProvider config={input.config}>
-                                      <PluginRuntimeProvider value={pluginRuntime}>
-                                        <SDKProvider
-                                          url={input.url}
-                                          directory={input.directory}
-                                          fetch={input.fetch}
-                                          headers={input.headers}
-                                          events={input.events}
-                                        >
-                                          <PermissionProvider>
-                                            <ProjectProvider>
-                                              <SyncProvider>
-                                                <DataProvider>
-                                                  <ThemeProvider mode={mode}>
-                                                    <LocalProvider>
-                                                      <PromptStashProvider>
-                                                        <DialogProvider>
-                                                          <FrecencyProvider>
-                                                            <PromptHistoryProvider>
-                                                              <PromptRefProvider>
-                                                                <EditorContextProvider>
-                                                                  <LocationProvider>
-                                                                    <App
-                                                                      onSnapshot={input.onSnapshot}
-                                                                      pluginHost={input.pluginHost}
-                                                                    />
-                                                                  </LocationProvider>
-                                                                </EditorContextProvider>
-                                                              </PromptRefProvider>
-                                                            </PromptHistoryProvider>
-                                                          </FrecencyProvider>
-                                                        </DialogProvider>
-                                                      </PromptStashProvider>
-                                                    </LocalProvider>
-                                                  </ThemeProvider>
-                                                </DataProvider>
-                                              </SyncProvider>
-                                            </ProjectProvider>
-                                          </PermissionProvider>
-                                        </SDKProvider>
-                                      </PluginRuntimeProvider>
+                                      <I18nProvider language={input.language}>
+                                        <PluginRuntimeProvider value={pluginRuntime}>
+                                          <SDKProvider
+                                            url={input.url}
+                                            directory={input.directory}
+                                            fetch={input.fetch}
+                                            headers={input.headers}
+                                            events={input.events}
+                                          >
+                                            <PermissionProvider>
+                                              <ProjectProvider>
+                                                <SyncProvider>
+                                                  <DataProvider>
+                                                    <ThemeProvider mode={mode}>
+                                                      <LocalProvider>
+                                                        <PromptStashProvider>
+                                                          <DialogProvider>
+                                                            <FrecencyProvider>
+                                                              <PromptHistoryProvider>
+                                                                <PromptRefProvider>
+                                                                  <EditorContextProvider>
+                                                                    <LocationProvider>
+                                                                      <App
+                                                                        onSnapshot={input.onSnapshot}
+                                                                        pluginHost={input.pluginHost}
+                                                                      />
+                                                                    </LocationProvider>
+                                                                  </EditorContextProvider>
+                                                                </PromptRefProvider>
+                                                              </PromptHistoryProvider>
+                                                            </FrecencyProvider>
+                                                          </DialogProvider>
+                                                        </PromptStashProvider>
+                                                      </LocalProvider>
+                                                    </ThemeProvider>
+                                                  </DataProvider>
+                                                </SyncProvider>
+                                              </ProjectProvider>
+                                            </PermissionProvider>
+                                          </SDKProvider>
+                                        </PluginRuntimeProvider>
+                                      </I18nProvider>
                                     </TuiConfigProvider>
                                   </RouteProvider>
                                 </ToastProvider>
@@ -378,12 +386,17 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   const themeState = useTheme()
   const { theme, mode, setMode, locked, lock, unlock } = themeState
   const sync = useSync()
+  const i18n = useI18n()
   const project = useProject()
   const exit = useExit()
   const promptRef = usePromptRef()
   const pluginRuntime = usePluginRuntime()
   const attention = createTuiAttention({ renderer, config: tuiConfig, kv })
   const clipboard = useClipboard()
+
+  createEffect(() => {
+    i18n.setLanguage(sync.data.config.language)
+  })
 
   const api = createTuiApi(
     createTuiApiAdapters({
@@ -402,6 +415,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       renderer,
       attention,
       Slot: pluginRuntime.Slot,
+      i18n,
     }),
   )
   const [ready, setReady] = createSignal(false)
@@ -413,7 +427,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       dispose: () => attention.dispose(),
     })
     .catch((error) => {
-      console.error("Failed to load TUI plugins", error)
+      console.error(i18n.t("tui.plugins_load_failed"), error)
     })
     .finally(() => {
       setReady(true)
@@ -439,7 +453,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
 
     await clipboard
       .write?.(text)
-      .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
+      .then(() => toast.show({ message: i18n.t("clipboard.copied"), variant: "info" }))
       .catch(toast.error)
 
     renderer.clearSelection()
@@ -484,7 +498,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         if (!providerID || !modelID)
           return toast.show({
             variant: "warning",
-            message: `Invalid model format: ${args.model}`,
+            message: i18n.t("cli.invalid_model_format", { model: args.model }),
             duration: 3000,
           })
         local.model.set({ providerID, modelID }, { recent: true })
@@ -512,7 +526,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
           if (result.data?.id) {
             route.navigate({ type: "session", sessionID: result.data.id })
           } else {
-            toast.show({ message: "Failed to fork session", variant: "error" })
+            toast.show({ message: i18n.t("session.fork_failed"), variant: "error" })
           }
         })
       } else {
@@ -532,7 +546,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       if (result.data?.id) {
         route.navigate({ type: "session", sessionID: result.data.id })
       } else {
-        toast.show({ message: "Failed to fork session", variant: "error" })
+        toast.show({ message: i18n.t("session.fork_failed"), variant: "error" })
       }
     })
   })
@@ -559,9 +573,18 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   const appCommands = createMemo(() =>
     [
       {
+        name: "language.switch",
+        title: i18n.t("tui.switch_language"),
+        category: i18n.t("tui.system"),
+        slashName: "language",
+        run: () => {
+          dialog.replace(() => <DialogLanguage />)
+        },
+      },
+      {
         name: COMMAND_PALETTE_COMMAND,
-        title: "Show command palette",
-        category: "System",
+        title: i18n.t("tui.command_palette"),
+        category: i18n.t("tui.system"),
         hidden: true,
         run: () => {
           dialog.replace(() => <CommandPaletteDialog />)
@@ -569,8 +592,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "session.list",
-        title: "Switch session",
-        category: "Session",
+        title: i18n.t("tui.switch_session"),
+        category: i18n.t("tui.session"),
         suggested: sync.data.session.length > 0,
         slashName: "sessions",
         slashAliases: ["resume", "continue"],
@@ -580,9 +603,9 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "session.new",
-        title: "New session",
+        title: i18n.t("tui.new_session"),
         suggested: route.data.type === "session",
-        category: "Session",
+        category: i18n.t("tui.session"),
         slashName: "new",
         slashAliases: ["clear"],
         run: () => {
@@ -594,23 +617,23 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "workspace.copy_path",
-        title: "Copy worktree path",
-        category: "Workspace",
+        title: i18n.t("tui.copy_worktree_path"),
+        category: i18n.t("tui.workspace"),
         enabled: () => currentWorktreeWorkspace() !== undefined,
         run: async () => {
           const workspace = currentWorktreeWorkspace()
           if (!workspace?.directory) return
           await clipboard
             .write?.(workspace.directory)
-            .then(() => toast.show({ message: "Copied worktree path", variant: "info" }))
+            .then(() => toast.show({ message: i18n.t("tui.worktree_path_copied"), variant: "info" }))
             .catch(toast.error)
           dialog.clear()
         },
       },
       {
         name: "workspace.list",
-        title: "Manage workspaces",
-        category: "Workspace",
+        title: i18n.t("tui.manage_workspaces"),
+        category: i18n.t("tui.workspace"),
         hidden: !Flag.MIAOPAN_CODE_EXPERIMENTAL_WORKSPACES,
         slashName: "workspaces",
         run: () => {
@@ -619,8 +642,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       ...Array.from({ length: 9 }, (_, i) => ({
         name: `session.quick_switch.${i + 1}`,
-        title: `Switch to session in quick slot ${i + 1}`,
-        category: "Session",
+        title: i18n.t("tui.quick_switch_session", { slot: i + 1 }),
+        category: i18n.t("tui.session"),
         hidden: true,
         run: () => {
           local.session.quickSwitch(i + 1)
@@ -628,9 +651,9 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       })),
       {
         name: "model.list",
-        title: "Switch model",
+        title: i18n.t("tui.switch_model"),
         suggested: true,
-        category: "Agent",
+        category: i18n.t("tui.agent"),
         slashName: "models",
         // Bias /mo toward /models over /move without changing global fuzzy scoring.
         slashAliases: ["mo"],
@@ -640,8 +663,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "model.cycle_recent",
-        title: "Model cycle",
-        category: "Agent",
+        title: i18n.t("tui.model_cycle"),
+        category: i18n.t("tui.agent"),
         hidden: true,
         run: () => {
           local.model.cycle(1)
@@ -649,8 +672,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "model.cycle_recent_reverse",
-        title: "Model cycle reverse",
-        category: "Agent",
+        title: i18n.t("tui.model_cycle_reverse"),
+        category: i18n.t("tui.agent"),
         hidden: true,
         run: () => {
           local.model.cycle(-1)
@@ -658,8 +681,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "model.cycle_favorite",
-        title: "Favorite cycle",
-        category: "Agent",
+        title: i18n.t("tui.favorite_cycle"),
+        category: i18n.t("tui.agent"),
         hidden: true,
         run: () => {
           local.model.cycleFavorite(1)
@@ -667,8 +690,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "model.cycle_favorite_reverse",
-        title: "Favorite cycle reverse",
-        category: "Agent",
+        title: i18n.t("tui.favorite_cycle_reverse"),
+        category: i18n.t("tui.agent"),
         hidden: true,
         run: () => {
           local.model.cycleFavorite(-1)
@@ -676,8 +699,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "agent.list",
-        title: "Switch agent",
-        category: "Agent",
+        title: i18n.t("tui.switch_agent"),
+        category: i18n.t("tui.agent"),
         slashName: "agents",
         run: () => {
           dialog.replace(() => <DialogAgent />)
@@ -685,8 +708,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "mcp.list",
-        title: "Toggle MCPs",
-        category: "Agent",
+        title: i18n.t("tui.toggle_mcps"),
+        category: i18n.t("tui.agent"),
         slashName: "mcps",
         run: () => {
           dialog.replace(() => <DialogMcp />)
@@ -694,8 +717,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "agent.cycle",
-        title: "Agent cycle",
-        category: "Agent",
+        title: i18n.t("tui.agent_cycle"),
+        category: i18n.t("tui.agent"),
         hidden: true,
         run: () => {
           local.agent.move(1)
@@ -703,23 +726,23 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "variant.cycle",
-        title: "Variant cycle",
-        category: "Agent",
+        title: i18n.t("tui.variant_cycle"),
+        category: i18n.t("tui.agent"),
         run: () => {
           local.model.variant.cycle()
         },
       },
       {
         name: "variant.list",
-        title: "Switch model variant",
-        category: "Agent",
+        title: i18n.t("tui.switch_model_variant"),
+        category: i18n.t("tui.agent"),
         hidden: local.model.variant.list().length === 0,
         slashName: "variants",
         run: () => {
           if (local.model.variant.list().length === 0) {
             return toast.show({
-              title: "No variants available",
-              message: "The current model does not support any variants.",
+              title: i18n.t("tui.no_variants"),
+              message: i18n.t("tui.model_no_variants"),
               variant: "info",
             })
           }
@@ -728,8 +751,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "agent.cycle.reverse",
-        title: "Agent cycle reverse",
-        category: "Agent",
+        title: i18n.t("tui.agent_cycle_reverse"),
+        category: i18n.t("tui.agent"),
         hidden: true,
         run: () => {
           local.agent.move(-1)
@@ -737,105 +760,105 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "provider.connect",
-        title: "Connect provider",
+        title: i18n.t("tui.connect_provider"),
         suggested: !connected(),
         slashName: "connect",
         run: () => {
           dialog.replace(() => <DialogProviderList />)
         },
-        category: "Provider",
+        category: i18n.t("tui.provider"),
       },
       ...(sync.data.console_state.switchableOrgCount > 1
         ? [
             {
               name: "console.org.switch",
-              title: "Switch org",
+              title: i18n.t("tui.switch_org"),
               suggested: Boolean(sync.data.console_state.activeOrgName),
               slashName: "org",
               slashAliases: ["orgs", "switch-org"],
               run: () => {
                 dialog.replace(() => <DialogConsoleOrg />)
               },
-              category: "Provider",
+              category: i18n.t("tui.provider"),
             },
           ]
         : []),
       {
         name: "miaopanCode.status",
-        title: "View status",
+        title: i18n.t("tui.view_status"),
         slashName: "status",
         run: () => {
           dialog.replace(() => <DialogStatus />)
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "miaopanCode.debug",
-        title: "View debug info",
+        title: i18n.t("tui.view_debug_info"),
         slashName: "debug",
         run: () => {
           dialog.replace(() => <DialogDebug />)
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "theme.switch",
-        title: "Switch theme",
+        title: i18n.t("tui.switch_theme"),
         slashName: "themes",
         run: () => {
           dialog.replace(() => <DialogThemeList />)
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "theme.switch_mode",
-        title: mode() === "dark" ? "Switch to light mode" : "Switch to dark mode",
+        title: mode() === "dark" ? i18n.t("tui.switch_light_mode") : i18n.t("tui.switch_dark_mode"),
         run: () => {
           setMode(mode() === "dark" ? "light" : "dark")
           dialog.clear()
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "theme.mode.lock",
-        title: locked() ? "Unlock theme mode" : "Lock theme mode",
+        title: locked() ? i18n.t("tui.unlock_theme_mode") : i18n.t("tui.lock_theme_mode"),
         run: () => {
           if (locked()) unlock()
           else lock()
           dialog.clear()
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "help.show",
-        title: "Help",
+        title: i18n.t("tui.help"),
         slashName: "help",
         run: () => {
           dialog.replace(() => <DialogHelp />)
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "docs.open",
-        title: "Open docs",
+        title: i18n.t("tui.open_docs"),
         run: () => {
           open("https://github.com/miaopan607/miaopan-code/docs").catch(() => {})
           dialog.clear()
         },
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "app.exit",
-        title: "Exit the app",
+        title: i18n.t("tui.exit"),
         slashName: "exit",
         slashAliases: ["quit", "q"],
         run: () => exit(),
-        category: "System",
+        category: i18n.t("tui.system"),
       },
       {
         name: "app.debug",
-        title: "Toggle debug panel",
-        category: "System",
+        title: i18n.t("tui.toggle_debug_panel"),
+        category: i18n.t("tui.system"),
         run: () => {
           renderer.toggleDebugOverlay()
           dialog.clear()
@@ -843,8 +866,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "app.console",
-        title: "Toggle console",
-        category: "System",
+        title: i18n.t("tui.toggle_console"),
+        category: i18n.t("tui.system"),
         run: () => {
           renderer.console.toggle()
           dialog.clear()
@@ -852,13 +875,13 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "app.heap_snapshot",
-        title: "Write heap snapshot",
-        category: "System",
+        title: i18n.t("tui.write_heap_snapshot"),
+        category: i18n.t("tui.system"),
         run: async () => {
           const files = await props.onSnapshot?.()
           toast.show({
             variant: "info",
-            message: `Heap snapshot written to ${files?.join(", ")}`,
+            message: i18n.t("tui.heap_snapshot_written", { files: files?.join(", ") }),
             duration: 5000,
           })
           dialog.clear()
@@ -866,8 +889,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "terminal.suspend",
-        title: "Suspend terminal",
-        category: "System",
+        title: i18n.t("tui.suspend_terminal"),
+        category: i18n.t("tui.system"),
         hidden: true,
         enabled: process.platform !== "win32",
         run: () => {
@@ -878,8 +901,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "terminal.title.toggle",
-        title: terminalTitleEnabled() ? "Disable terminal title" : "Enable terminal title",
-        category: "System",
+        title: terminalTitleEnabled() ? i18n.t("tui.disable_terminal_title") : i18n.t("tui.enable_terminal_title"),
+        category: i18n.t("tui.system"),
         run: () => {
           setTerminalTitleEnabled((prev) => {
             const next = !prev
@@ -892,8 +915,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "app.toggle.animations",
-        title: kv.get("animations_enabled", true) ? "Disable animations" : "Enable animations",
-        category: "System",
+        title: kv.get("animations_enabled", true) ? i18n.t("tui.disable_animations") : i18n.t("tui.enable_animations"),
+        category: i18n.t("tui.system"),
         run: () => {
           kv.set("animations_enabled", !kv.get("animations_enabled", true))
           dialog.clear()
@@ -901,8 +924,10 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "app.toggle.file_context",
-        title: kv.get("file_context_enabled", true) ? "Disable file context" : "Enable file context",
-        category: "System",
+        title: kv.get("file_context_enabled", true)
+          ? i18n.t("tui.disable_file_context")
+          : i18n.t("tui.enable_file_context"),
+        category: i18n.t("tui.system"),
         run: () => {
           kv.set("file_context_enabled", !kv.get("file_context_enabled", true))
           dialog.clear()
@@ -910,8 +935,11 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "app.toggle.diffwrap",
-        title: kv.get("diff_wrap_mode", "word") === "word" ? "Disable diff wrapping" : "Enable diff wrapping",
-        category: "System",
+        title:
+          kv.get("diff_wrap_mode", "word") === "word"
+            ? i18n.t("tui.disable_diff_wrapping")
+            : i18n.t("tui.enable_diff_wrapping"),
+        category: i18n.t("tui.system"),
         run: () => {
           const current = kv.get("diff_wrap_mode", "word")
           kv.set("diff_wrap_mode", current === "word" ? "none" : "word")
@@ -920,8 +948,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       },
       {
         name: "app.toggle.paste_summary",
-        title: pasteSummaryEnabled() ? "Disable paste summary" : "Enable paste summary",
-        category: "System",
+        title: pasteSummaryEnabled() ? i18n.t("tui.disable_paste_summary") : i18n.t("tui.enable_paste_summary"),
+        category: i18n.t("tui.system"),
         run: () => {
           setPasteSummaryEnabled((prev) => {
             const next = !prev
@@ -934,9 +962,9 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       {
         name: "app.toggle.session_directory_filter",
         title: kv.get("session_directory_filter_enabled", true)
-          ? "Disable session directory filtering"
-          : "Enable session directory filtering",
-        category: "System",
+          ? i18n.t("tui.disable_session_directory_filter")
+          : i18n.t("tui.enable_session_directory_filter"),
+        category: i18n.t("tui.system"),
         run: async () => {
           kv.set("session_directory_filter_enabled", !kv.get("session_directory_filter_enabled", true))
           await sync.session.refresh()
@@ -946,8 +974,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       {
         name: "permission.mode",
         title:
-          local.permission.mode === "auto" ? "Disable auto-approve permissions" : "Enable auto-approve permissions",
-        category: "System",
+          local.permission.mode === "auto" ? i18n.t("tui.disable_auto_approve") : i18n.t("tui.enable_auto_approve"),
+        category: i18n.t("tui.system"),
         run: () => {
           local.permission.toggle()
           dialog.clear()
@@ -1010,7 +1038,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
       route.navigate({ type: "home" })
       toast.show({
         variant: "info",
-        message: "The current session was deleted",
+        message: i18n.t("session.current_deleted"),
       })
     }
   })
@@ -1029,7 +1057,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
   })
 
   event.on("installation.update-available", async (evt) => {
-    console.log("installation.update-available", evt)
+    console.log(i18n.t("tui.installation_update_available"), evt)
     const version = evt.properties.version
 
     const skipped = kv.get("skipped_version")
@@ -1037,8 +1065,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
 
     const choice = await DialogConfirm.show(
       dialog,
-      `Update Available`,
-      `A new release v${version} is available. Would you like to update now?`,
+      i18n.t("update.available_title"),
+      i18n.t("update.available_message", { version }),
       "skip",
     )
 
@@ -1051,7 +1079,7 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
 
     toast.show({
       variant: "info",
-      message: `Updating to v${version}...`,
+      message: i18n.t("update.updating", { version }),
       duration: 30000,
     })
 
@@ -1060,8 +1088,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
     if (result.error || !result.data?.success) {
       toast.show({
         variant: "error",
-        title: "Update Failed",
-        message: "Update failed",
+        title: i18n.t("update.failed_title"),
+        message: i18n.t("update.failed"),
         duration: 10000,
       })
       return
@@ -1069,8 +1097,8 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
 
     await DialogAlert.show(
       dialog,
-      "Update Complete",
-      `Successfully updated to MiaopanCode v${result.data.version}. Please restart the application.`,
+      i18n.t("update.complete_title"),
+      i18n.t("update.complete_message", { version: result.data.version }),
     )
 
     void exit()

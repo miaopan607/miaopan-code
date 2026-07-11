@@ -1,5 +1,7 @@
 import { Effect, Schema } from "effect"
 import * as Tool from "./tool"
+import { t } from "@miaopan-code/core/i18n"
+import { ToolI18n } from "./i18n"
 
 export const Parameters = Schema.Struct({
   tool: Schema.String,
@@ -8,14 +10,17 @@ export const Parameters = Schema.Struct({
 
 export const InvalidTool = Tool.define(
   "invalid",
-  Effect.succeed({
-    description: "Do not use",
-    parameters: Parameters,
-    execute: (params: { tool: string; error: string }) =>
-      Effect.succeed({
-        title: "Invalid Tool",
-        output: `The arguments provided to the tool are invalid: ${params.error}`,
-        metadata: {},
-      }),
+  Effect.gen(function* () {
+    const language = yield* ToolI18n.language()
+    return {
+      description: t(language, "tool.invalid_description"),
+      parameters: Parameters,
+      execute: (params: { tool: string; error: string }, ctx: Tool.Context) =>
+        Effect.succeed({
+          title: ToolI18n.text(ctx, "tool.invalid_tool"),
+          output: ToolI18n.text(ctx, "tool.invalid_arguments_output", { error: params.error }),
+          metadata: {},
+        }),
+    }
   }),
 )

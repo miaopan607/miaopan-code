@@ -3,16 +3,7 @@ import { Context, Effect, Layer } from "effect"
 
 import { InstanceState } from "@/effect/instance-state"
 
-import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
-import PROMPT_DEFAULT from "./prompt/default.txt"
-import PROMPT_BEAST from "./prompt/beast.txt"
-import PROMPT_GEMINI from "./prompt/gemini.txt"
-import PROMPT_GPT from "./prompt/gpt.txt"
-import PROMPT_KIMI from "./prompt/kimi.txt"
-import PROMPT_META from "./prompt/meta.txt"
-
-import PROMPT_CODEX from "./prompt/codex.txt"
-import PROMPT_TRINITY from "./prompt/trinity.txt"
+import type { Language } from "@miaopan-code/core/i18n"
 import type { Provider } from "@/provider/provider"
 import type { Agent } from "@/agent/agent"
 import { Permission } from "@/permission"
@@ -23,22 +14,26 @@ import { LocationServiceMap, locationServiceMapLayer } from "@miaopan-code/core/
 import { Reference } from "@miaopan-code/core/reference"
 import { MCP } from "@/mcp"
 import { PermissionV1 } from "@miaopan-code/core/v1/permission"
+import { Config } from "@/config/config"
+import { t } from "@miaopan-code/core/i18n"
+import { PromptI18n, type PromptKey } from "@/i18n/prompt"
 
-export function provider(model: Provider.Model) {
-  if (model.api.id.includes("muse-spark")) return [PROMPT_META]
+export function provider(model: Provider.Model, language: Language = "zh-CN") {
+  const text = (key: PromptKey) => [PromptI18n.text(language, key)]
+  if (model.api.id.includes("muse-spark")) return text("session.meta")
   if (model.api.id.includes("gpt-4") || model.api.id.includes("o1") || model.api.id.includes("o3"))
-    return [PROMPT_BEAST]
+    return text("session.beast")
   if (model.api.id.includes("gpt")) {
     if (model.api.id.includes("codex")) {
-      return [PROMPT_CODEX]
+      return text("session.codex")
     }
-    return [PROMPT_GPT]
+    return text("session.gpt")
   }
-  if (model.api.id.includes("gemini-")) return [PROMPT_GEMINI]
-  if (model.api.id.includes("claude")) return [PROMPT_ANTHROPIC]
-  if (model.api.id.toLowerCase().includes("trinity")) return [PROMPT_TRINITY]
-  if (model.api.id.toLowerCase().includes("kimi")) return [PROMPT_KIMI]
-  return [PROMPT_DEFAULT]
+  if (model.api.id.includes("gemini-")) return text("session.gemini")
+  if (model.api.id.includes("claude")) return text("session.anthropic")
+  if (model.api.id.toLowerCase().includes("trinity")) return text("session.trinity")
+  if (model.api.id.toLowerCase().includes("kimi")) return text("session.kimi")
+  return text("session.default")
 }
 
 export interface Interface {
@@ -55,29 +50,33 @@ const layer = Layer.effect(
     const skill = yield* Skill.Service
     const mcp = yield* MCP.Service
     const locations = yield* LocationServiceMap.Service
+    const config = yield* Config.Service
 
     return Service.of({
       environment: Effect.fn("SystemPrompt.environment")(function* (model: Provider.Model) {
         const ctx = yield* InstanceState.context
+        const language = (yield* config.get()).language
         const references = yield* Effect.gen(function* () {
           return (yield* (yield* Reference.Service).list()).filter((reference) => reference.description !== undefined)
         }).pipe(Effect.provide(locations.get(Location.Ref.make({ directory: AbsolutePath.make(ctx.directory) }))))
         return [
           [
-            `You are powered by the model named ${model.api.id}. The exact model ID is ${model.providerID}/${model.api.id}`,
-            `Here is some useful information about the environment you are running in:`,
+            t(language, "prompt.environment_model", { model: model.api.id, id: `${model.providerID}/${model.api.id}` }),
+            t(language, "prompt.environment_intro"),
             `<env>`,
-            `  Working directory: ${ctx.directory}`,
-            `  Workspace root folder: ${ctx.worktree}`,
-            `  Is directory a git repo: ${ctx.project.vcs === "git" ? "yes" : "no"}`,
-            `  Platform: ${process.platform}`,
-            `  Today's date: ${new Date().toDateString()}`,
+            `  ${t(language, "prompt.environment_working_directory", { value: ctx.directory })}`,
+            `  ${t(language, "prompt.environment_workspace_root", { value: ctx.worktree })}`,
+            `  ${t(language, "prompt.environment_git_repo", {
+              value: t(language, ctx.project.vcs === "git" ? "common.yes" : "common.no"),
+            })}`,
+            `  ${t(language, "prompt.environment_platform", { value: process.platform })}`,
+            `  ${t(language, "prompt.environment_date", { value: new Date().toDateString() })}`,
             `</env>`,
           ].join("\n"),
           references.length === 0
             ? undefined
             : [
-                "Project references provide additional directories that can be accessed when relevant.",
+                t(language, "prompt.project_references"),
                 "<available_references>",
                 ...references
                   .toSorted((a, b) => a.name.localeCompare(b.name))
@@ -100,12 +99,12 @@ const layer = Layer.effect(
 
         const list = yield* skill.available(agent)
 
+        const language = (yield* config.get()).language
         return [
-          "Skills provide specialized instructions and workflows for specific tasks.",
-          "Use the skill tool to load a skill when a task matches its description.",
+          ...t(language, "prompt.skill_guidance").split("\n"),
           // the agents seem to ingest the information about skills a bit better if we present a more verbose
           // version of them here and a less verbose version in tool description, rather than vice versa.
-          Skill.fmt(list, { verbose: true }),
+          Skill.fmt(list, { verbose: true, language }),
         ].join("\n")
       }),
 
@@ -139,7 +138,7 @@ const locationServiceMapNode = LayerNode.make({
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [Skill.node, MCP.node, locationServiceMapNode],
+  deps: [Skill.node, MCP.node, locationServiceMapNode, Config.node],
 })
 
 export * as SystemPrompt from "./system"

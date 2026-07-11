@@ -1,10 +1,13 @@
 import type { TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo, For, Match, Show, Switch, createSignal } from "solid-js"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../../util/locale"
 
 const id = "internal:sidebar-mcp"
 
 function View(props: { api: TuiPluginApi }) {
+  const tr = (key: Parameters<typeof t>[1]) => t(Locale.language(), key)
   const [open, setOpen] = createSignal(true)
   const theme = () => props.api.theme.current
   const list = createMemo(() => props.api.state.mcp())
@@ -38,7 +41,8 @@ function View(props: { api: TuiPluginApi }) {
             <Show when={!open()}>
               <span style={{ fg: theme().textMuted }}>
                 {" "}
-                ({on()} active{bad() > 0 ? `, ${bad()} error${bad() > 1 ? "s" : ""}` : ""})
+                ({on()} {tr("sidebar.active")}
+                {bad() > 0 ? `, ${bad()} ${tr(bad() > 1 ? "sidebar.errors" : "sidebar.error")}` : ""})
               </span>
             </Show>
           </text>
@@ -59,13 +63,13 @@ function View(props: { api: TuiPluginApi }) {
                   {item.name}{" "}
                   <span style={{ fg: theme().textMuted }}>
                     <Switch fallback={item.status}>
-                      <Match when={item.status === "connected"}>Connected</Match>
+                      <Match when={item.status === "connected"}>{tr("status.connected")}</Match>
                       <Match when={item.status === "failed"}>
                         <i>{item.error}</i>
                       </Match>
-                      <Match when={item.status === "disabled"}>Disabled</Match>
-                      <Match when={item.status === "needs_auth"}>Needs auth</Match>
-                      <Match when={item.status === "needs_client_registration"}>Needs client ID</Match>
+                      <Match when={item.status === "disabled"}>{tr("status.disabled")}</Match>
+                      <Match when={item.status === "needs_auth"}>{tr("status.needs_auth")}</Match>
+                      <Match when={item.status === "needs_client_registration"}>{tr("status.needs_client_id")}</Match>
                     </Switch>
                   </span>
                 </text>

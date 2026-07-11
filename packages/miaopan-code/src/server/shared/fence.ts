@@ -4,6 +4,7 @@ import { EventSequenceTable } from "@miaopan-code/core/event/sql"
 import { Workspace } from "@/control-plane/workspace"
 import type { WorkspaceV2 } from "@miaopan-code/core/workspace"
 import { Effect } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export const HEADER = "x-miaopanCode-sync"
 export type State = Record<string, number>
@@ -51,10 +52,10 @@ export function parse(headers: Headers): State | undefined {
   )
 }
 
-export function wait(workspaceID: WorkspaceV2.ID, state: State, signal?: AbortSignal) {
+export function wait(workspaceID: WorkspaceV2.ID, state: State, signal?: AbortSignal, language?: Language) {
   return Effect.gen(function* () {
-    yield* Effect.logInfo("waiting for state", { workspaceID, state })
+    yield* Effect.logInfo(t(language, "log.server_waiting_state"), { workspaceID, state })
     yield* Workspace.Service.use((workspace) => workspace.waitForSync(workspaceID, state, signal))
-    yield* Effect.logInfo("state fully synced", { workspaceID, state })
+    yield* Effect.logInfo(t(language, "log.server_state_synced"), { workspaceID, state })
   })
 }

@@ -8,6 +8,7 @@ import { Cause, Context, Effect, Fiber, Layer } from "effect"
 import { ConfigParse } from "@/config/parse"
 import * as ConfigPaths from "@/config/paths"
 import { migrateTuiConfig } from "./tui-migrate"
+import { resolveLanguage, t, type MessageKey, type MessageParameters } from "@miaopan-code/core/i18n"
 import { resolveHostAttentionSoundPaths } from "./tui-host-attention"
 import { Flag } from "@miaopan-code/core/flag/flag"
 import { isRecord } from "@miaopan-code/tui/util/record"
@@ -23,6 +24,9 @@ import { ConfigVariable } from "@/config/variable"
 import { Npm } from "@miaopan-code/core/npm"
 import { FormatError, FormatUnknownError } from "@/cli/error"
 import { TuiConfig } from "@miaopan-code/tui/config"
+
+const configLanguage = () => resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
+const message = (key: MessageKey, parameters?: MessageParameters) => t(configLanguage(), key, parameters)
 
 export const Info = TuiConfig.Info
 export type Info = TuiConfig.Info
@@ -121,7 +125,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       // catchCause (not tapErrorCause + orElseSucceed) because JSONC parsing and validation
       // can sync-throw — those become defects, which orElseSucceed wouldn't catch.
       Effect.catchCause((cause) =>
-        Effect.logWarning("skipping invalid tui config", {
+        Effect.logWarning(message("log.config_tui_loading"), {
           path: configFilepath,
           reason: FormatError(Cause.squash(cause)) ?? FormatUnknownError(Cause.squash(cause)),
         }).pipe(Effect.as({} as Info)),
@@ -135,14 +139,14 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       // broken-config path degrades gracefully rather than crashing TUI startup.
       const text = yield* afs.readFileStringSafe(filepath).pipe(
         Effect.catchCause((cause) =>
-          Effect.logWarning("failed to read tui config", {
+          Effect.logWarning(message("log.config_global_failed"), {
             path: filepath,
             reason: FormatError(Cause.squash(cause)) ?? FormatUnknownError(Cause.squash(cause)),
           }).pipe(Effect.as(undefined)),
         ),
       )
       if (!text) return {} as Info
-      yield* Effect.logInfo("loading tui config", { path: filepath })
+      yield* Effect.logInfo(message("log.config_tui_loading"), { path: filepath })
       return yield* load(text, filepath)
     })
 
@@ -151,7 +155,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
       const data = yield* loadFile(file)
       if (Object.keys(data).length) {
         appliedOrder += 1
-        yield* Effect.logInfo("applying tui config", { path: file, order: appliedOrder })
+        yield* Effect.logInfo(message("log.config_tui_applying"), { path: file, order: appliedOrder })
       }
       acc.result = mergeDeep(acc.result, data)
       if (!data.plugin?.length) return
@@ -189,7 +193,7 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
   if (Flag.MIAOPAN_CODE_TUI_CONFIG) {
     const configFile = Flag.MIAOPAN_CODE_TUI_CONFIG
     yield* mergeFile(acc, configFile)
-    yield* Effect.logDebug("loaded custom tui config", { path: configFile })
+    yield* Effect.logDebug(message("log.config_tui_loaded"), { path: configFile })
   }
 
   // 3. Project tui files, applied root-first so the closest file wins.
@@ -200,7 +204,9 @@ const loadState = Effect.fn("TuiConfig.loadState")(function* (ctx: { directory: 
   // 4. `.miaopan-code` directories (and MIAOPAN_CODE_CONFIG_DIR) discovered while
   // walking up the tree. Also returned below so callers can install plugin
   // dependencies from each location.
-  const dirs = unique(directories).filter((dir) => dir.endsWith(".miaopan-code") || dir === Flag.MIAOPAN_CODE_CONFIG_DIR)
+  const dirs = unique(directories).filter(
+    (dir) => dir.endsWith(".miaopan-code") || dir === Flag.MIAOPAN_CODE_CONFIG_DIR,
+  )
 
   for (const dir of dirs) {
     if (!dir.endsWith(".miaopan-code") && dir !== Flag.MIAOPAN_CODE_CONFIG_DIR) continue

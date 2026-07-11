@@ -12,25 +12,24 @@ import { collectBoundedResponseBody } from "./http-body"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "webfetch"
 export const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 export const DEFAULT_TIMEOUT_SECONDS = 30
 export const MAX_TIMEOUT_SECONDS = 120
 
-export const description = `Fetch content from an HTTP or HTTPS URL and return it as text, markdown, or HTML. Markdown is the default.
-
-Use a more targeted tool when one is available. This tool is read-only. Large text results may be replaced with a preview while the complete output is retained in managed storage.`
+export const description = zh("tool.description.core_webfetch")
 
 const Timeout = Schema.Number.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(MAX_TIMEOUT_SECONDS))
 
 export const Input = Schema.Struct({
-  url: Schema.String.annotate({ description: "The HTTP or HTTPS URL to fetch content from" }),
+  url: Schema.String.annotate({ description: zh("tool.param.core_url") }),
   format: Schema.Literals(["text", "markdown", "html"])
-    .annotate({ description: "The format to return the content in. Defaults to markdown." })
+    .annotate({ description: zh("tool.param.core_format") })
     .pipe(Schema.withDecodingDefault(Effect.succeed("markdown" as const))),
   timeout: Timeout.pipe(Schema.optional).annotate({
-    description: `Optional timeout in seconds (maximum: ${MAX_TIMEOUT_SECONDS})`,
+    description: zh("tool.param.core_webfetch_timeout", { max: MAX_TIMEOUT_SECONDS }),
   }),
 })
 
@@ -82,18 +81,18 @@ const isCloudflareChallenge = (error: unknown) => {
 const request = (url: string, format: Format, userAgent = browserUserAgent) =>
   HttpClientRequest.get(url).pipe(HttpClientRequest.setHeaders(headers(format, userAgent)))
 
-const assertHttpUrl = (url: URL) => {
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("URL must use http:// or https://")
+const assertHttpUrl = (url: URL, language?: Language) => {
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(t(language, "tool.error.url_protocol"))
 }
 
 const execute = (http: HttpClient.HttpClient, url: string, format: Format, userAgent = browserUserAgent) =>
   http.execute(request(url, format, userAgent)).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk))
 
-const collectBody = (response: HttpClientResponse.HttpClientResponse) =>
+const collectBody = (response: HttpClientResponse.HttpClientResponse, language?: Language) =>
   collectBoundedResponseBody(
     response,
     MAX_RESPONSE_BYTES,
-    () => new Error(`Response too large (exceeds ${MAX_RESPONSE_BYTES} byte limit)`),
+    () => new Error(t(language, "tool.error.response_too_large", { max: MAX_RESPONSE_BYTES })),
   )
 
 const mimeFrom = (contentType: string) => contentType.split(";", 1)[0]?.trim().toLowerCase() ?? ""
@@ -131,7 +130,7 @@ const layer = Layer.effectDiscard(
           execute: (input, context) =>
             Effect.gen(function* () {
               yield* Effect.try({
-                try: () => assertHttpUrl(new URL(input.url)),
+                try: () => assertHttpUrl(new URL(input.url), context.language),
                 catch: (error) => error,
               })
 
@@ -152,14 +151,14 @@ const layer = Layer.effectDiscard(
                 const contentType = response.headers["content-type"] || ""
                 const mime = mimeFrom(contentType)
                 if (isImageAttachment(mime))
-                  return yield* Effect.fail(new Error(`Unsupported fetched image content type: ${mime}`))
+                  return yield* Effect.fail(new Error(t(context.language, "tool.error.fetched_image_type", { mime })))
                 if (!isTextualMime(mime))
-                  return yield* Effect.fail(new Error(`Unsupported fetched file content type: ${mime}`))
-                return { body: yield* collectBody(response), contentType }
+                  return yield* Effect.fail(new Error(t(context.language, "tool.error.fetched_file_type", { mime })))
+                return { body: yield* collectBody(response, context.language), contentType }
               }).pipe(
                 Effect.timeoutOrElse({
                   duration: Duration.seconds(input.timeout ?? DEFAULT_TIMEOUT_SECONDS),
-                  orElse: () => Effect.fail(new Error("Request timed out")),
+                  orElse: () => Effect.fail(new Error(t(context.language, "tool.error.timeout"))),
                 }),
               )
               const content = new TextDecoder().decode(body)
@@ -173,7 +172,11 @@ const layer = Layer.effectDiscard(
                 format: input.format,
                 output,
               }
-            }).pipe(Effect.mapError(() => new ToolFailure({ message: `Unable to fetch ${input.url}` }))),
+            }).pipe(
+              Effect.mapError(
+                () => new ToolFailure({ message: t(context.language, "tool.error.fetch", { url: input.url }) }),
+              ),
+            ),
         }),
       })
       .pipe(Effect.orDie)

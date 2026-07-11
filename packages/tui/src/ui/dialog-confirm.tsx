@@ -5,6 +5,7 @@ import { createStore } from "solid-js/store"
 import { For } from "solid-js"
 import { Locale } from "../util/locale"
 import { useBindings } from "../keymap"
+import { useI18n } from "../context/i18n"
 
 export type DialogConfirmProps = {
   title: string
@@ -19,6 +20,7 @@ export type DialogConfirmResult = boolean | undefined
 export function DialogConfirm(props: DialogConfirmProps) {
   const dialog = useDialog()
   const { theme } = useTheme()
+  const i18n = useI18n()
   const [store, setStore] = createStore({
     active: "confirm" as "confirm" | "cancel",
   })
@@ -27,8 +29,8 @@ export function DialogConfirm(props: DialogConfirmProps) {
     bindings: [
       {
         key: "return",
-        desc: "Confirm dialog selection",
-        group: "Dialog",
+        desc: i18n.t("dialog.confirm_selection"),
+        group: i18n.t("tui.category_dialog"),
         cmd: () => {
           if (store.active === "confirm") props.onConfirm?.()
           if (store.active === "cancel") props.onCancel?.()
@@ -37,16 +39,16 @@ export function DialogConfirm(props: DialogConfirmProps) {
       },
       {
         key: "left",
-        desc: "Previous dialog option",
-        group: "Dialog",
+        desc: i18n.t("dialog.previous_option"),
+        group: i18n.t("tui.category_dialog"),
         cmd: () => {
           setStore("active", store.active === "confirm" ? "cancel" : "confirm")
         },
       },
       {
         key: "right",
-        desc: "Next dialog option",
-        group: "Dialog",
+        desc: i18n.t("dialog.next_option"),
+        group: i18n.t("tui.category_dialog"),
         cmd: () => {
           setStore("active", store.active === "confirm" ? "cancel" : "confirm")
         },

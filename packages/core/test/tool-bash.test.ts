@@ -153,7 +153,7 @@ describe("BashTool", () => {
                 type: "content",
                 value: [
                   { type: "text", text: "hello\n" },
-                  { type: "text", text: "Command exited with code 0." },
+                  { type: "text", text: "命令退出，代码为 0。" },
                 ],
               },
               output: {
@@ -163,7 +163,7 @@ describe("BashTool", () => {
                 },
                 content: [
                   { type: "text", text: "hello\n" },
-                  { type: "text", text: "Command exited with code 0." },
+                  { type: "text", text: "命令退出，代码为 0。" },
                 ],
               },
             })
@@ -173,6 +173,34 @@ describe("BashTool", () => {
               maxOutputBytes: BashTool.MAX_CAPTURE_BYTES,
             })
             expect(assertions).toMatchObject([{ sessionID, action: "bash", resources: ["pwd"], save: ["pwd"] }])
+          }),
+        )
+      },
+      (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
+    ),
+  )
+
+  it.live("returns English execution and model output when requested", () =>
+    Effect.acquireUseRelease(
+      Effect.promise(() => tmpdir()),
+      (tmp) => {
+        reset()
+        result = {
+          ...result,
+          output: Buffer.alloc(0),
+          stdout: Buffer.alloc(0),
+          outputTruncated: true,
+        }
+        return withTool(tmp.path, (registry) =>
+          Effect.gen(function* () {
+            const settled = yield* settleTool(registry, call({ command: "pwd" }, "call-bash-en"), "en")
+            expect(settled.result).toEqual({
+              type: "content",
+              value: [
+                { type: "text", text: "(no output)\n\n[output capture truncated at the in-memory safety limit]" },
+                { type: "text", text: "Command exited with code 0." },
+              ],
+            })
           }),
         )
       },
@@ -244,7 +272,7 @@ describe("BashTool", () => {
                   type: "content",
                   value: [
                     { type: "text", text: "core-bash" },
-                    { type: "text", text: "Command exited with code 0." },
+                    { type: "text", text: "命令退出，代码为 0。" },
                   ],
                 })
                 expect(settled.output?.structured).toMatchObject({
@@ -319,7 +347,7 @@ describe("BashTool", () => {
         reset()
         denyAction = "external_directory"
         const target = path.join(outside.path, "secret.txt")
-        return withTool(active.path, (registry) => settleTool(registry, call({ command: `cat ${target}` }))).pipe(
+        return withTool(active.path, (registry) => settleTool(registry, call({ command: `cat ${target}` }), "en")).pipe(
           Effect.andThen((settled) =>
             Effect.sync(() => {
               expect(assertions.map((item) => item.action)).toEqual(["bash"])
@@ -330,7 +358,7 @@ describe("BashTool", () => {
               expect(settled.output?.structured).not.toHaveProperty("warnings")
               expect(settled.output?.content[1]).toMatchObject({
                 type: "text",
-                text: expect.stringContaining("Warnings:"),
+                text: expect.stringContaining("Warnings:\n- Command argument references external directory"),
               })
             }),
           ),
@@ -354,7 +382,7 @@ describe("BashTool", () => {
             Effect.sync(() => {
               expect(settled.output?.content[1]).toMatchObject({
                 type: "text",
-                text: expect.stringContaining("Command exited with code 7"),
+                text: expect.stringContaining("命令退出，代码为 7"),
               })
               expect(settled.output?.structured).toMatchObject({
                 exit: 7,
@@ -381,7 +409,7 @@ describe("BashTool", () => {
               expect(settled.output?.structured).toMatchObject({ truncated: true })
               expect(settled.output?.content[0]).toMatchObject({
                 type: "text",
-                text: expect.stringContaining("output capture truncated"),
+                text: expect.stringContaining("输出捕获已在内存安全限制处截断"),
               })
               expect(settled.output?.structured).not.toHaveProperty("resource")
             }),
@@ -403,7 +431,7 @@ describe("BashTool", () => {
             Effect.sync(() => {
               expect(settled.output?.content[1]).toMatchObject({
                 type: "text",
-                text: expect.stringContaining("Command timed out"),
+                text: expect.stringContaining("命令在完成前超时"),
               })
               expect(settled.output?.structured).toMatchObject({
                 timeout: true,

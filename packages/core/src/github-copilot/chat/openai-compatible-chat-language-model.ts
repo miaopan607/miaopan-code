@@ -29,12 +29,14 @@ import { type OpenAICompatibleChatModelId, openaiCompatibleProviderOptions } fro
 import { defaultOpenAICompatibleErrorStructure, type ProviderErrorStructure } from "../openai-compatible-error"
 import type { MetadataExtractor } from "./openai-compatible-metadata-extractor"
 import { prepareTools } from "./openai-compatible-prepare-tools"
+import { t, type Language } from "../../i18n"
 
 export type OpenAICompatibleChatConfig = {
   provider: string
   headers: () => Record<string, string | undefined>
   url: (options: { modelId: string; path: string }) => string
   fetch?: FetchFunction
+  language?: Language
   includeUsage?: boolean
   errorStructure?: ProviderErrorStructure<any>
   metadataExtractor?: MetadataExtractor
@@ -123,7 +125,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
       warnings.push({
         type: "unsupported",
         feature: "responseFormat",
-        details: "JSON response format schema is only supported with structuredOutputs",
+        details: t(this.config.language, "warning.copilot_json_schema_structured"),
       })
     }
 
@@ -134,6 +136,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
     } = prepareTools({
       tools,
       toolChoice,
+      language: this.config.language,
     })
 
     return {
@@ -304,6 +307,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
 
   async doStream(options: LanguageModelV3CallOptions) {
     const { args, warnings } = await this.getArgs({ ...options })
+    const language = this.config.language
 
     const body = {
       ...args,
@@ -470,8 +474,7 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
               if (reasoningOpaque != null) {
                 throw new InvalidResponseDataError({
                   data: delta,
-                  message:
-                    "Multiple reasoning_opaque values received in a single response. Only one thinking part per response is supported.",
+                  message: t(language, "error.copilot_multiple_reasoning_opaque"),
                 })
               }
               reasoningOpaque = delta.reasoning_opaque
@@ -541,14 +544,14 @@ export class OpenAICompatibleChatLanguageModel implements LanguageModelV3 {
                   if (toolCallDelta.id == null) {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
-                      message: `Expected 'id' to be a string.`,
+                      message: t(language, "error.copilot_tool_id_string"),
                     })
                   }
 
                   if (toolCallDelta.function?.name == null) {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
-                      message: `Expected 'function.name' to be a string.`,
+                      message: t(language, "error.copilot_tool_name_string"),
                     })
                   }
 

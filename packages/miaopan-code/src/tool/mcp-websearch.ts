@@ -1,5 +1,6 @@
 import { Duration, Effect, Schema } from "effect"
 import { HttpClient, HttpClientRequest } from "effect/unstable/http"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export const EXA_URL = process.env.EXA_API_KEY
   ? `https://mcp.exa.ai/mcp?exaApiKey=${encodeURIComponent(process.env.EXA_API_KEY)}`
@@ -74,6 +75,7 @@ export const call = <F extends Schema.Struct.Fields>(
   value: Schema.Struct.Type<F>,
   timeout: Duration.Input,
   headers?: Record<string, string>,
+  language?: Language,
 ) =>
   Effect.gen(function* () {
     const request = yield* HttpClientRequest.post(url).pipe(
@@ -89,7 +91,10 @@ export const call = <F extends Schema.Struct.Fields>(
     const response = yield* HttpClient.filterStatusOk(http)
       .execute(request)
       .pipe(
-        Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.die(new Error(`${tool} request timed out`)) }),
+        Effect.timeoutOrElse({
+          duration: timeout,
+          orElse: () => Effect.die(new Error(t(language, "tool.error.request_timeout_named", { tool }))),
+        }),
       )
     const body = yield* response.text
     return yield* parseResponse(body)

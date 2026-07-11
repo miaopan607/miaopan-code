@@ -580,6 +580,11 @@ export type TuiWorkspace = {
 
 export type TuiPluginApi = {
   app: TuiApp
+  /**
+   * Current host UI language. The accessor is reactive so plugins can select localized text.
+   * 当前宿主界面的语言；调用结果是响应式的，可用于插件自行选择文案。
+   */
+  language?: () => "zh-CN" | "en"
   attention: TuiAttention
   /**
    * Legacy `api.command` API kept so v1 plugins can initialize. Remove in v2.

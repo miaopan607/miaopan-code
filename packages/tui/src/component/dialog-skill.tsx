@@ -5,6 +5,8 @@ import { useDialog } from "../ui/dialog"
 import { useSDK } from "../context/sdk"
 import { useTheme } from "../context/theme"
 import { errorMessage } from "../util/error"
+import { useI18n } from "../context/i18n"
+import { Locale } from "../util/locale"
 
 export type DialogSkillProps = {
   onSelect: (skill: string) => void
@@ -12,6 +14,7 @@ export type DialogSkillProps = {
 
 export function DialogSkill(props: DialogSkillProps) {
   const dialog = useDialog()
+  const i18n = useI18n()
   const sdk = useSDK()
   const { theme } = useTheme()
   dialog.setSize("large")
@@ -40,7 +43,7 @@ export function DialogSkill(props: DialogSkillProps) {
       title: skill.name.padEnd(maxWidth),
       description: skill.description?.replace(/\s+/g, " ").trim(),
       value: skill.name,
-      category: "Skills",
+      category: Locale.category("Skills"),
       onSelect: () => {
         props.onSelect(skill.name)
         dialog.clear()
@@ -50,8 +53,8 @@ export function DialogSkill(props: DialogSkillProps) {
 
   return (
     <DialogSelect
-      title="Skills"
-      placeholder="Search skills..."
+      title={i18n.t("tui.skills_title")}
+      placeholder={i18n.t("tui.skills_search")}
       options={options()}
       renderFilter={!showError()}
       locked={showError()}
@@ -59,7 +62,7 @@ export function DialogSkill(props: DialogSkillProps) {
         showError() ? (
           <box paddingLeft={4} paddingRight={4}>
             <text fg={theme.error} attributes={TextAttributes.BOLD}>
-              Could not load skills
+              {i18n.t("dialog.load_skills_failed")}
             </text>
             <text fg={theme.textMuted}>{errorMessage(loadError())}</text>
           </box>

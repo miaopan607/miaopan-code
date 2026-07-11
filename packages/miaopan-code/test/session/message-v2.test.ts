@@ -9,6 +9,7 @@ import { SessionID, MessageID, PartID } from "../../src/session/schema"
 import { Question } from "../../src/question"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { t } from "@miaopan-code/core/i18n"
 
 const sessionID = SessionID.make("session")
 const providerID = ProviderV2.ID.make("test")
@@ -312,8 +313,8 @@ describe("session.message-v2.toModelMessage", () => {
             filename: "img.png",
             data: "https://example.com/img.png",
           },
-          { type: "text", text: "What did we do so far?" },
-          { type: "text", text: "The following tool was executed by the user" },
+          { type: "text", text: t("zh-CN", "prompt.compaction_question") },
+          { type: "text", text: t("zh-CN", "prompt.tool_executed_by_user") },
         ],
       },
     ])
@@ -589,7 +590,7 @@ describe("session.message-v2.toModelMessage", () => {
       {
         role: "user",
         content: [
-          { type: "text", text: "Attached media from tool result:" },
+          { type: "text", text: t("zh-CN", "prompt.synthetic_attachment_heading") },
           {
             type: "file",
             mediaType: "application/pdf",
@@ -744,7 +745,7 @@ describe("session.message-v2.toModelMessage", () => {
             type: "tool-result",
             toolCallId: "call-1",
             toolName: "bash",
-            output: { type: "text", value: "[Old tool result content cleared]" },
+            output: { type: "text", value: t("zh-CN", "prompt.old_tool_result_cleared") },
           },
         ],
       },
@@ -813,7 +814,7 @@ describe("session.message-v2.toModelMessage", () => {
             toolName: "bash",
             output: {
               type: "text",
-              value: "abcd\n[Tool output truncated for compaction: omitted 6 chars]",
+              value: `abcd\n${t("zh-CN", "prompt.tool_output_truncated", { chars: 6 })}`,
             },
           },
         ],
@@ -899,7 +900,7 @@ describe("session.message-v2.toModelMessage", () => {
       "4575",
       "",
       "<shell_metadata>",
-      "User aborted the command",
+      t("zh-CN", "tool.shell.user_aborted"),
       "</shell_metadata>",
     ].join("\n")
 
@@ -925,7 +926,7 @@ describe("session.message-v2.toModelMessage", () => {
             state: {
               status: "error",
               input: { command: "for i in {1..20}; do print -- $RANDOM; sleep 1; done" },
-              error: "Tool execution aborted",
+              error: t("zh-CN", "error.tool_execution_aborted"),
               metadata: { interrupted: true, output },
               time: { start: 0, end: 1 },
             },
@@ -1246,13 +1247,13 @@ describe("session.message-v2.toModelMessage", () => {
             type: "tool-result",
             toolCallId: "call-pending",
             toolName: "bash",
-            output: { type: "error-text", value: "[Tool execution was interrupted]" },
+            output: { type: "error-text", value: t("zh-CN", "prompt.tool_execution_interrupted") },
           },
           {
             type: "tool-result",
             toolCallId: "call-running",
             toolName: "read",
-            output: { type: "error-text", value: "[Tool execution was interrupted]" },
+            output: { type: "error-text", value: t("zh-CN", "prompt.tool_execution_interrupted") },
           },
         ],
       },
@@ -1376,7 +1377,7 @@ describe("session.message-v2.fromError", () => {
     expect(result).toStrictEqual({
       name: "ContextOverflowError",
       data: {
-        message: "Input exceeds context window of this model",
+        message: t("zh-CN", "error.provider_context_overflow"),
         responseBody: JSON.stringify(input),
       },
     })
@@ -1386,11 +1387,11 @@ describe("session.message-v2.fromError", () => {
     const cases = [
       {
         code: "insufficient_quota",
-        message: "Quota exceeded. Check your plan and billing details.",
+        message: t("zh-CN", "error.provider_quota"),
       },
       {
         code: "usage_not_included",
-        message: "To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus.",
+        message: t("zh-CN", "error.provider_codex_upgrade"),
       },
       {
         code: "invalid_prompt",
@@ -1521,7 +1522,7 @@ describe("session.message-v2.fromError", () => {
     expect(result).toStrictEqual({
       name: "UnknownError",
       data: {
-        message: "The user dismissed this question",
+        message: t("zh-CN", "question.user_dismissed"),
       },
     })
   })
@@ -1538,7 +1539,7 @@ describe("session.message-v2.fromError", () => {
 
     expect(SessionV1.APIError.isInstance(result)).toBe(true)
     expect((result as SessionV1.APIError).data.isRetryable).toBe(true)
-    expect((result as SessionV1.APIError).data.message).toInclude("decompression")
+    expect((result as SessionV1.APIError).data.message).toInclude(t("zh-CN", "error.response_decompression"))
   })
 
   test("classifies ZlibError as AbortedError when abort context is provided", () => {

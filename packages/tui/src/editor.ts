@@ -6,6 +6,8 @@ import path from "node:path"
 import { spawn } from "node:child_process"
 import type { Stream } from "node:stream"
 import { resolveZedDbPath, resolveZedSelection } from "./editor-zed"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./util/locale"
 
 type EditorStdio = "inherit" | "pipe" | "ignore" | number | Stream
 
@@ -41,7 +43,13 @@ export async function openEditor(input: { value: string; renderer: CliRenderer; 
       child.on("error", reject)
       child.on("exit", (code, signal) => {
         if (code === 0) return resolve()
-        reject(new Error(`Editor exited with ${signal ? `signal ${signal}` : `code ${code}`}`))
+        reject(
+          new Error(
+            signal
+              ? t(Locale.language(), "error.editor_exited_signal", { signal })
+              : t(Locale.language(), "error.editor_exited_code", { code: code ?? "" }),
+          ),
+        )
       })
     })
     return (await readFile(file, "utf8")) || undefined

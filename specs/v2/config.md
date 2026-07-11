@@ -1,55 +1,57 @@
-# V2 Config Review
+# V2 配置评审
 
-This document breaks the legacy configuration schema into small review groups. Work through one group at a time and decide whether each field should be ported as-is, removed, or redesigned for v2.
+语言：简体中文 · [English](config.en.md)
 
-## Status Labels
+本文档将旧版配置 Schema 拆分为较小的评审组。每次处理一组，并决定各字段是按原样移植、移除，还是为 v2 重新设计。
 
-- `pending`: not discussed yet
-- `keep`: port with substantially the existing meaning
-- `remove`: do not carry forward
-- `redesign`: keep the capability with a different shape, scope, or owning module
+## 状态标签
 
-## Schema Scope
+- `pending`：尚未讨论
+- `keep`：基本按现有含义移植
+- `remove`：不继续保留
+- `redesign`：以不同结构、作用域或所属模块保留该能力
 
-Use one v2 config schema for now. Some fields, such as `autoupdate`, are intended for global/user configuration, but there is not yet enough benefit to enforce that with separate global and location schemas. Revisit this if more scope-sensitive fields survive the review.
+## Schema 作用域
 
-V2 core discovers config documents named `miaopan-code.json` or `miaopan-code.jsonc` in the global config directory, ancestor project directories, and `.miaopan-code` config directories. The legacy `config.json` filename is not supported in V2.
+目前使用一个 v2 配置 Schema。`autoupdate` 等字段面向全局/用户配置，但现在还没有足够收益通过不同的全局和 location Schema 强制区分。如果评审后保留了更多对作用域敏感的字段，再重新考虑此事。
 
-## Group 1: File Metadata
+V2 Core 会在全局配置目录、祖先项目目录以及 `.miaopan-code` 配置目录中发现名为 `miaopan-code.json` 或 `miaopan-code.jsonc` 的配置文档。V2 不支持旧版 `config.json` 文件名。
 
-Small fields describing the config file itself rather than application behavior.
+## 第 1 组：文件元数据
 
-| Field     | Current Purpose                                            | Status | Notes                                                                                 |
-| --------- | ---------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
-| `$schema` | JSON schema reference for editor validation and completion | keep   | Keep as read-only metadata; loading config must not insert it or create files for it. |
+描述配置文件本身而非应用行为的小型字段。
 
-## Group 2: Process And Server Settings
+| 字段      | 当前用途                                   | 状态   | 说明                                                                      |
+| --------- | ------------------------------------------ | ------ | ------------------------------------------------------------------------- |
+| `$schema` | 用于编辑器验证和补全的 JSON Schema 引用    | keep   | 保留为只读元数据；加载配置不得插入它，也不得为此创建文件。                |
 
-Settings that affect process startup, shell execution, or network serving. Review global-only versus location-specific scope carefully.
+## 第 2 组：进程与服务器设置
 
-| Field        | Current Purpose                                     | Status | Notes                                                                          |
-| ------------ | --------------------------------------------------- | ------ | ------------------------------------------------------------------------------ |
-| `shell`      | Default shell for terminal and shell tool execution | keep   | Port as effective config; shared shell choice is used throughout miaopan-code.     |
-| `logLevel`   | Intended logging level configuration                | remove | Do not port: no config consumer exists and logging initializes from CLI input. |
-| `server`     | Hostname, port, mDNS, and CORS settings             | remove | Do not port: location config is loaded after the server is already running.    |
-| `autoupdate` | Automatic update or notification behavior           | keep   | Global-only user preference; keep `true`, `false`, and `"notify"`.             |
+影响进程启动、shell 执行或网络服务的设置。请仔细评审仅限全局与 location 专用作用域的区别。
 
-## Group 3: Commands And Project Resources
+| 字段         | 当前用途                                  | 状态   | 说明                                                                       |
+| ------------ | ----------------------------------------- | ------ | -------------------------------------------------------------------------- |
+| `shell`      | 终端和 shell 工具执行使用的默认 shell     | keep   | 作为有效配置移植；miaopan-code 各处会使用共享 shell 选择。                 |
+| `logLevel`   | 预期的日志级别配置                        | remove | 不移植：没有配置消费者，日志从 CLI 输入初始化。                            |
+| `server`     | 主机名、端口、mDNS 和 CORS 设置           | remove | 不移植：服务器运行后才会加载 location 配置。                               |
+| `autoupdate` | 自动更新或通知行为                        | keep   | 仅限全局的用户偏好；保留 `true`、`false` 和 `"notify"`。                  |
 
-Configuration that introduces location-scoped project resources or discoverable content.
+## 第 3 组：命令与项目资源
 
-| Field          | Current Purpose                         | Status   | Notes                                                                                                     |
-| -------------- | --------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
-| `command`      | User-defined commands                   | remove   | Do not port as v2 config; named reusable user workflows belong to skills.                                 |
-| `skills`       | Additional skill locations              | redesign | Replace `{ paths?, urls? }` with a single array of local path or remote URL discovery sources.            |
-| `reference`    | Named git or local directory references | redesign | Rename to plural `references`; retain named local path and Git repository external-context entries.       |
-| `instructions` | Additional ambient instruction sources  | keep     | Keep as one array of local paths, glob patterns, or remote URLs supplying automatically included context. |
+引入 location 作用域项目资源或可发现内容的配置。
 
-V2 does not expose separate user-authored command configuration. Skills should cover named reusable prompt workflows, whether invoked directly by the user or loaded by an agent. Internal command routing and built-in commands may remain runtime concerns without creating a `command` or `commands` config field.
+| 字段           | 当前用途                         | 状态     | 说明                                                                                           |
+| -------------- | -------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `command`      | 用户定义的命令                   | remove   | 不作为 v2 配置移植；具名可复用用户工作流属于 skill。                                           |
+| `skills`       | 额外的 skill 位置                | redesign | 将 `{ paths?, urls? }` 替换为由本地路径或远程 URL 发现源组成的单个数组。                        |
+| `reference`    | 具名 Git 或本地目录引用          | redesign | 重命名为复数 `references`；保留具名本地路径和 Git 仓库外部 context 条目。                       |
+| `instructions` | 额外的环境指令源                 | keep     | 保留一个本地路径、glob 模式或远程 URL 数组，用于提供自动包含的 context。                        |
 
-This intentionally does not port legacy command-only behavior such as per-command `model`, `agent`, `subtask`, prompt shell expansion, or positional/template substitution. If a related capability is needed in v2, it should be designed in the owning domain rather than preserved through a second workflow definition system.
+V2 不公开单独由用户编写的命令配置。Skill 应覆盖具名可复用 prompt 工作流，无论它是由用户直接调用还是由代理加载。内部命令路由和内置命令可以继续作为运行时关注点，而无需创建 `command` 或 `commands` 配置字段。
 
-Keep `skills` as discovery-source configuration rather than inline workflow definitions. Skill content remains owned by `SKILL.md`; each `skills` entry is either a local search root or a remote discovery URL. Direct invocation behavior can be designed separately without expanding the config shape.
+这有意不移植旧版命令专用行为，例如每条命令的 `model`、`agent`、`subtask`、prompt shell 展开或位置/template 替换。如果 v2 需要相关能力，应在其所属领域中进行设计，而不是通过第二套工作流定义系统保留。
+
+将 `skills` 保留为发现源配置，而不是内联工作流定义。Skill 内容仍由 `SKILL.md` 所有；每个 `skills` 条目可以是本地搜索根目录或远程发现 URL。可以单独设计直接调用行为，而无需扩展配置结构。
 
 ```jsonc
 {
@@ -57,7 +59,7 @@ Keep `skills` as discovery-source configuration rather than inline workflow defi
 }
 ```
 
-Keep ambient instructions separate from skills. Instructions are automatically included as model context, while skills are loaded or invoked intentionally. Each source is unambiguously either a local path/glob or a URL, so v2 keeps the simple array shape:
+保持环境指令与 skill 分离。指令会自动作为模型 context 包含，而 skill 会被有意加载或调用。每个来源都明确属于本地路径/glob 或 URL，因此 v2 保留简单数组结构：
 
 ```jsonc
 {
@@ -70,7 +72,7 @@ Keep ambient instructions separate from skills. Instructions are automatically i
 }
 ```
 
-Keep named external context references as a v2 configuration capability, renamed to plural `references` because it is a collection keyed by alias. References declare local directories or Git repositories that can later be addressed as `@alias` or `@alias/path` when the v2 runtime implements this behavior.
+保留具名外部 context 引用作为 v2 配置能力，并重命名为复数 `references`，因为它是按别名设置 key 的集合。引用声明本地目录或 Git 仓库；v2 运行时实现该行为后，可以通过 `@alias` 或 `@alias/path` 引用它们。
 
 ```jsonc
 {
@@ -81,17 +83,17 @@ Keep named external context references as a v2 configuration capability, renamed
 }
 ```
 
-Retain the compact string entry form as well: values starting with `.`, `/`, or `~` represent local paths, and other strings represent Git repositories.
+同时保留紧凑字符串条目形式：以 `.`、`/` 或 `~` 开头的值代表本地路径，其他字符串代表 Git 仓库。
 
-## Group 4: Plugins
+## 第 4 组：插件
 
-Plugin loading has source-path and scope-sensitive behavior, so it should be reviewed separately from other project resources.
+插件加载具有源路径和作用域敏感行为，因此应与其他项目资源分开评审。
 
-| Field    | Current Purpose               | Status   | Notes                                                                                                       |
-| -------- | ----------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
-| `plugin` | User-specified plugin modules | redesign | Rename to plural `plugins`; retain ordered loading with package strings or `{ package, options? }` entries. |
+| 字段     | 当前用途               | 状态     | 说明                                                                                       |
+| -------- | ---------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `plugin` | 用户指定的插件模块     | redesign | 重命名为复数 `plugins`；保留使用包字符串或 `{ package, options? }` 条目的有序加载。         |
 
-Plugin order remains part of the v2 configuration contract because hook registration and execution can depend on load order. Replace legacy option tuples with readable object entries:
+插件顺序仍是 v2 配置契约的一部分，因为钩子注册和执行可能依赖加载顺序。将旧版选项 tuple 替换为可读的对象条目：
 
 ```jsonc
 {
@@ -107,24 +109,24 @@ Plugin order remains part of the v2 configuration contract because hook registra
 }
 ```
 
-The configured `plugins` list represents package-loaded plugins only. Local plugin code remains discovered from plugin directories such as `.miaopan-code/plugins/`; v2 does not port arbitrary configured local paths or file URLs into this field.
+配置的 `plugins` 列表只代表由包加载的插件。本地插件代码仍从 `.miaopan-code/plugins/` 等插件目录发现；v2 不会将任意配置的本地路径或文件 URL 移植到此字段中。
 
-## Group 5: Filesystem And Tool Runtime
+## 第 5 组：文件系统与工具运行时
 
-Settings controlling local file observation, snapshots, language tooling, and tool output behavior.
+控制本地文件观测、快照、语言工具和工具输出行为的设置。
 
-| Field         | Current Purpose                         | Status   | Notes                                                                                                                                             |
-| ------------- | --------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `watcher`     | Ignore patterns for filesystem watching | keep     | Keep `{ ignore?: string[] }`; this configures the filesystem watcher subsystem.                                                                   |
-| `snapshot`    | Enable filesystem snapshot tracking     | redesign | Rename to plural `snapshots`; controls creation of snapshots used for undo and revert behavior.                                                   |
-| `formatter`   | Configure formatters                    | keep     | Keep singular `boolean \| Record<string, entry>` shape; it configures built-in enablement and named formatter overrides.                          |
-| `lsp`         | Configure language servers              | keep     | Keep singular `boolean \| Record<string, entry>` shape; custom servers need commands and file extensions.                                         |
-| `attachment`  | Configure attachment/image processing   | redesign | Rename to plural `attachments`; retain `{ image?: { auto_resize?, max_width?, max_height?, max_base64_bytes? } }` for input normalization limits. |
-| `tool_output` | Configure tool output truncation limits | keep     | Keep `{ max_lines?, max_bytes? }`; both positive thresholds apply to saved-preview truncation behavior.                                           |
+| 字段          | 当前用途                         | 状态     | 说明                                                                                                                        |
+| ------------- | -------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `watcher`     | 文件系统监视的忽略模式           | keep     | 保留 `{ ignore?: string[] }`；它配置文件系统 watcher 子系统。                                                               |
+| `snapshot`    | 启用文件系统快照跟踪             | redesign | 重命名为复数 `snapshots`；控制创建用于撤销和还原行为的快照。                                                                |
+| `formatter`   | 配置格式化程序                   | keep     | 保留单数 `boolean \| Record<string, entry>` 结构；它配置内置启用状态和具名 formatter 覆盖。                                 |
+| `lsp`         | 配置语言服务器                   | keep     | 保留单数 `boolean \| Record<string, entry>` 结构；自定义服务器需要命令和文件扩展名。                                       |
+| `attachment`  | 配置附件/图像处理                | redesign | 重命名为复数 `attachments`；为输入规范化限制保留 `{ image?: { auto_resize?, max_width?, max_height?, max_base64_bytes? } }`。|
+| `tool_output` | 配置工具输出截断限制             | keep     | 保留 `{ max_lines?, max_bytes? }`；两个正阈值都应用于已保存预览的截断行为。                                                  |
 
-`formatter` and `lsp` configure one project tooling subsystem each, so their singular names remain appropriate. `true` enables the built-in registrations, `false` disables them, and a keyed object enables built-ins while applying named overrides or custom registrations. Custom language servers must declare `extensions` so runtime file attachment is deterministic; validation of known built-in server IDs belongs with the eventual v2 LSP integration rather than the aggregate core config schema.
+`formatter` 和 `lsp` 各自配置一个项目工具子系统，因此单数名称仍然合适。`true` 启用内置注册，`false` 禁用它们；带 key 的对象启用内置项，同时应用具名覆盖或自定义注册。自定义语言服务器必须声明 `extensions`，以确保运行时文件附件行为具有确定性；已知内置服务器 ID 的验证属于最终的 v2 LSP 集成，而不是聚合 Core 配置 Schema。
 
-Rename legacy `attachment` to `attachments` in v2. This setting controls processing for the attachment domain and may expand beyond image handling, while singular `attachment` is already used as a model capability flag indicating whether one model accepts attachments.
+在 v2 中将旧版 `attachment` 重命名为 `attachments`。此设置控制附件领域的处理，并且未来可能扩展到图像处理以外；而单数 `attachment` 已被用作模型能力标志，表示某个模型是否接受附件。
 
 ```jsonc
 {
@@ -143,20 +145,20 @@ Rename legacy `attachment` to `attachments` in v2. This setting controls process
 }
 ```
 
-## Group 6: Sharing And Identity
+## 第 6 组：共享与身份
 
-Settings affecting sharing behavior or user/account identity rather than model execution.
+影响共享行为或用户/账户身份，而不是模型执行的设置。
 
-| Field        | Current Purpose                                 | Status | Notes                                                                                                                  |
-| ------------ | ----------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `share`      | Session sharing behavior                        | keep   | Keep `"manual" \| "auto" \| "disabled"`; it controls manual sharing permission and automatic sharing of new sessions.  |
-| `autoshare`  | Legacy automatic sharing flag                   | remove | Do not port deprecated alias; use `share: "auto"`.                                                                     |
-| `enterprise` | Enterprise URL configuration                    | keep   | Keep `{ url?: string }`; currently selects the legacy sharing service endpoint when no organization account is active. |
-| `username`   | Display username in conversations and telemetry | keep   | Keep string identity override; runtime may otherwise resolve an operating-system username.                             |
+| 字段         | 当前用途                             | 状态   | 说明                                                                                                            |
+| ------------ | ------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------- |
+| `share`      | Session 共享行为                     | keep   | 保留 `"manual" \| "auto" \| "disabled"`；它控制手动共享权限和新 session 的自动共享。                      |
+| `autoshare`  | 旧版自动共享标志                     | remove | 不移植已弃用别名；使用 `share: "auto"`。                                                                      |
+| `enterprise` | 企业 URL 配置                        | keep   | 保留 `{ url?: string }`；当前在没有活动组织账户时选择旧版共享服务端点。                                         |
+| `username`   | 在对话和遥测中显示用户名             | keep   | 保留字符串身份覆盖；否则运行时可以解析操作系统用户名。                                                         |
 
-Retain `share` as the single session-sharing setting. `"manual"` permits explicit sharing, `"auto"` shares newly created top-level sessions, and `"disabled"` prevents sharing. Legacy `autoshare: true` is only an alias for `share: "auto"`, so v2 does not expose it.
+将 `share` 保留为唯一 session 共享设置。`"manual"` 允许显式共享，`"auto"` 共享新创建的顶级 session，`"disabled"` 阻止共享。旧版 `autoshare: true` 只是 `share: "auto"` 的别名，因此 v2 不公开它。
 
-Retain `enterprise.url` for legacy enterprise share hosting selection and `username` as a user-facing identity override. These remain separate from server authentication credentials; `username` identifies the user in conversation and telemetry behavior rather than HTTP basic-auth configuration.
+保留 `enterprise.url` 以选择旧版企业共享托管服务，并保留 `username` 作为面向用户的身份覆盖。它们与服务器认证凭据分离；`username` 标识对话和遥测行为中的用户，而不是 HTTP basic-auth 配置。
 
 ```jsonc
 {
@@ -166,19 +168,19 @@ Retain `enterprise.url` for legacy enterprise share hosting selection and `usern
 }
 ```
 
-## Group 7: Providers And Model Selection
+## 第 7 组：提供商与模型选择
 
-Provider catalog customization and model-choice configuration. The new core work has started here.
+提供商 catalog 自定义和模型选择配置。新的 Core 工作已经从这里开始。
 
-| Field                | Current Purpose                                   | Status   | Notes                                                                                                                        |
-| -------------------- | ------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `provider`           | Custom provider configuration and model overrides | redesign | Rename to plural `providers` in v2; do not preserve the legacy singular key. Review nested provider/model fields separately. |
-| `disabled_providers` | Disable automatically loaded providers            | redesign | Replace with `experimental.policies: [{ effect: "deny", action: "provider.use", resource: "..." }]`.                         |
-| `enabled_providers`  | Restrict enabled providers to an allowlist        | redesign | Replace with ordered `provider.use` allow/deny statements and wildcard resources.                                            |
-| `model`              | Default model selection                           | keep     | Keep as the fallback model when an active session or agent does not specify a model.                                         |
-| `small_model`        | Small/utility model selection                     | remove   | Do not port; its only runtime consumer is title generation, which can use an explicit `title` agent model override.          |
+| 字段                   | 当前用途                         | 状态     | 说明                                                                                                                       |
+| ---------------------- | -------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `provider`             | 自定义提供商配置和模型覆盖       | redesign | 在 v2 中重命名为复数 `providers`；不保留旧版单数 key。单独评审嵌套的提供商/模型字段。                                      |
+| `disabled_providers`   | 禁用自动加载的提供商             | redesign | 替换为 `experimental.policies: [{ effect: "deny", action: "provider.use", resource: "..." }]`。                       |
+| `enabled_providers`    | 将已启用提供商限制到 allowlist   | redesign | 替换为有序 `provider.use` allow/deny 语句和通配符 resource。                                                               |
+| `model`                | 默认模型选择                     | keep     | 活动 session 或 agent 未指定模型时，保留为回退模型。                                                                       |
+| `small_model`          | 小型/工具模型选择                | remove   | 不移植；它唯一的运行时消费者是标题生成，而标题可使用显式 `title` agent 模型覆盖。                                          |
 
-Provider selection rules belong in `experimental.policies` rather than provider entries or repeated top-level provider fields. Initial proposed shape:
+提供商选择规则属于 `experimental.policies`，而不是提供商条目或重复的顶级提供商字段。初始建议结构：
 
 ```jsonc
 {
@@ -199,23 +201,23 @@ Provider selection rules belong in `experimental.policies` rather than provider 
 }
 ```
 
-See [provider-policy.md](./provider-policy.md) for the provider policy semantics and precedence rules.
+提供商政策语义和优先级规则参见 [provider-policy.md](./provider-policy.md)。
 
-Policy evaluation will consume authored config documents in reverse order while preserving statement order inside each document. The precedence of `.miaopan-code` policy sources remains open until `.miaopan-code` configuration is reviewed.
+政策求值会以相反顺序使用编写的配置文档，同时保留每份文档中的语句顺序。在评审 `.miaopan-code` 配置前，`.miaopan-code` 政策源的优先级仍待确定。
 
-Provider configuration uses the plural `providers` key in v2. This intentionally differs from the legacy singular `provider` key; v2 does not add a compatibility alias while its configuration surface is still being defined.
+提供商配置在 v2 中使用复数 `providers` key。这有意与旧版单数 `provider` key 不同；v2 配置接口仍在定义期间，不添加兼容别名。
 
-Keep `model` as the default model fallback. It is application-wide behavior used when an active session or agent has no explicit model selection, so it does not belong inside any individual provider configuration.
+将 `model` 保留为默认模型回退。它是活动 session 或 agent 没有显式模型选择时使用的应用级行为，因此不属于任何单独提供商配置内部。
 
-Do not port `small_model`. In the current runtime it is only consulted while generating a session title: the `title` agent model wins first, then `small_model`, then automatic/current-model fallback. In v2, users who need a specific title model should configure the `title` agent directly rather than use a separate top-level model setting.
+不移植 `small_model`。当前运行时仅在生成 session 标题时查询它：首先使用 `title` agent 模型，然后使用 `small_model`，最后使用自动/当前模型回退。在 v2 中，需要指定标题模型的用户应直接配置 `title` agent，而不是使用单独的顶级模型设置。
 
-Provider, model, variant, and provisional agent `options` are authored as partial patches rather than fully materialized runtime option records. Users should be able to set only the override they need, such as a header or an AI SDK request option; catalog state supplies empty defaults and merges patches in configuration order.
+提供商、模型、variant 和临时 agent 的 `options` 以部分补丁形式编写，而不是完全具体化的运行时选项记录。用户应能只设置所需覆盖，例如标头或 AI SDK 请求选项；catalog 状态提供空默认值，并按配置顺序合并补丁。
 
-Keep provider `env` as an authored list of recognized credential environment variable names. Built-in catalog providers already carry this metadata for automatic environment-backed availability, and configured providers may need to declare the same source. For a configured provider this is additive metadata, not a requirement that one of the variables exists: the provider may instead be usable through configured options, a stored account, or an endpoint that needs no credential.
+将提供商 `env` 保留为已识别凭据环境变量名称的编写列表。内置 catalog 提供商已携带此元数据，以支持由环境变量自动提供的可用性，配置的提供商也可能需要声明相同来源。对配置的提供商而言，这是附加元数据，并不要求其中一个变量必须存在：提供商也可以通过配置选项、存储的账户或无需凭据的端点使用。
 
-Within configured models, nest the legacy upstream model identifier `id` under `api.id` with the rest of the model API override. Model `limit` is an authored patch, so an override may change only `context`, `input`, or `output`. Model `cost` accepts one simple pricing object or an array of tiered pricing entries; omitted cache prices default to zero.
+在配置的模型中，将旧版上游模型标识符 `id` 与模型 API 覆盖的其余内容一起嵌套在 `api.id` 下。模型 `limit` 是编写的补丁，因此覆盖可以只改变 `context`、`input` 或 `output`。模型 `cost` 接受一个简单定价对象或 tiered 定价条目数组；省略的缓存价格默认为零。
 
-Do not port legacy provider model `reasoning`, `temperature`, or `interleaved` flags as first-class config fields; provider/request behavior belongs in structured `options` or model variants. Do not port `release_date`, `status`, `experimental`, `whitelist`, or `blacklist` in this v2 surface.
+不要将旧版提供商模型 `reasoning`、`temperature` 或 `interleaved` 标志作为一等配置字段移植；提供商/请求行为属于结构化 `options` 或模型 variant。不要在此 v2 接口中移植 `release_date`、`status`、`experimental`、`whitelist` 或 `blacklist`。
 
 ```jsonc
 {
@@ -236,35 +238,35 @@ Do not port legacy provider model `reasoning`, `temperature`, or `interleaved` f
 }
 ```
 
-## Group 8: Agents And Permissions
+## 第 8 组：Agent 与权限
 
-Agent behavior and tool-access policy. Review together because agent configuration can contain permissions and model choices.
+Agent 行为和工具访问政策。二者应一起评审，因为 agent 配置可以包含权限和模型选择。
 
-| Field           | Current Purpose                                     | Status   | Notes                                                                                                                       |
-| --------------- | --------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `default_agent` | Choose default primary agent                        | remove   | Do not retain a separate top-level selector; default choice should be designed with the v2 agent configuration model.       |
-| `mode`          | Legacy agent configuration alias                    | remove   | Do not port deprecated alias; configure agents through the v2 agent surface only.                                           |
-| `agent`         | Configure primary, subagent, and specialized agents | redesign | Rename to plural `agents`; retain a named map of built-in overrides and custom agent definitions.                           |
-| `permission`    | Tool permission rules                               | redesign | Rename to plural `permissions`; replace legacy map shorthand with an ordered array of `{ action, resource, effect }` rules. |
-| `tools`         | Legacy tool enable/disable map                      | remove   | Do not port boolean enable/disable alias; express tool access through permissions.                                          |
+| 字段            | 当前用途                               | 状态     | 说明                                                                                                                    |
+| --------------- | -------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `default_agent` | 选择默认 primary agent                 | remove   | 不保留单独的顶级选择器；默认选择应与 v2 agent 配置模型一起设计。                                                        |
+| `mode`          | 旧版 agent 配置别名                    | remove   | 不移植已弃用别名；只通过 v2 agent 接口配置 agent。                                                                      |
+| `agent`         | 配置 primary、subagent 和专用 agent    | redesign | 重命名为复数 `agents`；保留内置覆盖和自定义 agent 定义的具名 map。                                                      |
+| `permission`    | 工具权限规则                           | redesign | 重命名为复数 `permissions`；将旧版 map 简写替换为有序 `{ action, resource, effect }` 规则数组。                          |
+| `tools`         | 旧版工具启用/禁用 map                  | remove   | 不移植布尔启用/禁用别名；通过权限表达工具访问。                                                                         |
 
-Do not port `default_agent` ahead of the v2 agent design. The legacy runtime uses it to choose a visible, non-subagent fallback instead of `build`, but exposing that selection as an isolated top-level field would pre-commit v2 to the legacy agent model before agents and their policy surface are defined together.
+在 v2 agent 设计前不要移植 `default_agent`。旧版运行时使用它选择可见的非 subagent 回退，而不是 `build`；但将该选择公开为孤立的顶级字段，会在 agent 及其政策接口共同定义前，让 v2 预先承诺采用旧版 agent 模型。
 
-Do not port `mode`. The legacy loader already merges this deprecated alias into `agent`, and v2 should expose only one authoring surface for agent definitions.
+不要移植 `mode`。旧版加载器已将此弃用别名合并到 `agent` 中，v2 应只公开一套 agent 定义编写接口。
 
-Rename legacy `agent` to `agents` because the setting is a collection keyed by agent name. It should continue to support overriding built-in agents such as `build`, `plan`, and `title`, as well as declaring named custom agents. The nested entry schema remains open until agent-local `permission` and deprecated `tools` behavior are decided.
+将旧版 `agent` 重命名为 `agents`，因为该设置是以 agent 名称为 key 的集合。它应继续支持覆盖 `build`、`plan`、`title` 等内置 agent，以及声明具名自定义 agent。在决定 agent 本地 `permission` 和弃用 `tools` 行为前，嵌套条目 Schema 保持开放。
 
-Keep nested `agents.<name>.mode` with values `"primary"`, `"subagent"`, or `"all"`. This identifies an agent's runtime role and is separate from the removed top-level legacy `mode` alias, which was an alternate container for agent definitions.
+保留嵌套的 `agents.<name>.mode`，取值为 `"primary"`、`"subagent"` 或 `"all"`。它标识 agent 的运行时角色，与被移除的顶级旧版 `mode` 别名不同；后者是 agent 定义的替代容器。
 
-For named configurable entries across v2, use `disabled?: boolean` consistently when an entry should remain configured but inactive. Agent definitions should therefore redesign legacy `disable` as `disabled`; this matches formatters, language servers, future MCP server definitions, and configured model overrides. Runtime catalog state may still track active availability as `enabled`; that is not user-authored config.
+对于 v2 中的具名可配置条目，当条目应保持配置但不活动时，统一使用 `disabled?: boolean`。因此，agent 定义应将旧版 `disable` 重新设计为 `disabled`；这与 formatter、语言服务器、未来 MCP 服务器定义和配置模型覆盖一致。运行时 catalog 状态仍可用 `enabled` 跟踪活动可用性；该状态不是用户编写的配置。
 
-Keep separate `model` and `variant` fields on agent definitions. A model reference uses `provider/model-id`, but model IDs may themselves contain slash-delimited segments, such as `openrouter/openai/gpt-5`; appending a variant to that string would be ambiguous.
+在 agent 定义上保留分开的 `model` 和 `variant` 字段。模型引用使用 `provider/model-id`，但模型 ID 本身可能包含斜杠分隔的片段，例如 `openrouter/openai/gpt-5`；将 variant 附加到该字符串会产生歧义。
 
-Keep `color` on agent definitions. Agents are user-visible selectable entities, so a user-authored display color is appropriate metadata for the agent rather than an unrelated application presentation setting. Retain hex colors and named theme colors supported by the existing configuration.
+在 agent 定义上保留 `color`。Agent 是用户可见、可选择的实体，因此用户编写的显示颜色是 agent 的适当元数据，而不是无关的应用呈现设置。保留现有配置支持的十六进制颜色和具名主题颜色。
 
-Keep agent-local `options` provisionally using the same structured provider options shape available on configured providers and models: headers, body, and AI SDK provider/request overrides. Its long-term ownership remains open for team review because reusable provider-specific presets can instead be modeled as variants. Do not retain dedicated agent `temperature` or `top_p` fields.
+暂时保留 agent 本地 `options`，使用配置提供商和模型可用的同一结构化提供商选项结构：headers、body 和 AI SDK provider/request 覆盖。其长期归属仍待团队评审，因为可复用的提供商专用预设也可以建模为 variant。不要保留专用 agent `temperature` 或 `top_p` 字段。
 
-Retain `description`, `hidden`, and `steps`; they define an agent's discoverability, visibility, and iteration budget rather than model request parameters. Rename legacy agent `prompt` to `system`, making clear that it supplies persistent system-level agent content without colliding with top-level ambient `instructions`. Remove deprecated `maxSteps` in favor of `steps`.
+保留 `description`、`hidden` 和 `steps`；它们定义 agent 的可发现性、可见性和迭代预算，而不是模型请求参数。将旧版 agent `prompt` 重命名为 `system`，明确它提供持久系统级 agent 内容，而不会与顶级环境 `instructions` 冲突。移除已弃用的 `maxSteps`，改用 `steps`。
 
 ```jsonc
 {
@@ -289,9 +291,9 @@ Retain `description`, `hidden`, and `steps`; they define an agent's discoverabil
 }
 ```
 
-Do not port `tools`, either as a top-level setting or as an agent-entry alias. The legacy loader already converts tool booleans into permission rules, including collapsing write-adjacent tool names into `edit`; v2 should avoid carrying that lossy compatibility input forward.
+不要移植 `tools`，无论作为顶级设置还是 agent 条目别名。旧版加载器已将工具布尔值转换为权限规则，包括将相邻写入工具名称合并到 `edit`；v2 应避免继续保留这种有损兼容输入。
 
-Rename legacy `permission` to `permissions` and expose the normalized ordered ruleset already modeled by `PermissionV2.Ruleset`. Rules retain the interactive `"ask"` effect in addition to `"allow"` and `"deny"`; this is distinct from `experimental.policies`, whose provider enforcement currently needs only allow/deny decisions. The same `permissions` ruleset shape should be used inside future `agents` entries.
+将旧版 `permission` 重命名为 `permissions`，并公开已经由 `PermissionV2.Ruleset` 建模的规范化有序规则集。除 `"allow"` 和 `"deny"` 外，规则还保留交互式 `"ask"` Effect；这与 `experimental.policies` 不同，后者的提供商执行目前只需要 allow/deny 决策。未来 `agents` 条目内部应使用同样的 `permissions` 规则集结构。
 
 ```jsonc
 {
@@ -302,17 +304,17 @@ Rename legacy `permission` to `permissions` and expose the normalized ordered ru
 }
 ```
 
-## Group 9: Integrations
+## 第 9 组：集成
 
-External protocol and server integration configuration.
+外部协议和服务器集成配置。
 
-| Field | Current Purpose                       | Status   | Notes                                                                                                                                                      |
-| ----- | ------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mcp` | MCP server definitions and enablement | redesign | Keep miaopan-code's explicit local/remote server entry format, nested under `mcp.servers`; use `disabled` for inactive entries and move timeout defaults here. |
+| 字段  | 当前用途                     | 状态     | 说明                                                                                                                         |
+| ----- | ---------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `mcp` | MCP 服务器定义和启用状态     | redesign | 保留 miaopan-code 的显式本地/远程服务器条目格式，嵌套在 `mcp.servers` 下；对不活动条目使用 `disabled`，并将超时默认值移到此处。|
 
-Keep the miaopan-code MCP server entry format instead of adopting the common `mcpServers` copy/paste shape. Local servers remain explicit `type: "local"` entries with command arrays and `environment`; remote servers remain explicit `type: "remote"` entries with `url`, `headers`, and optional `oauth`. Nest the server map under `mcp.servers` so protocol-wide settings such as timeout defaults can live under the same subsystem.
+保留 miaopan-code MCP 服务器条目格式，而不是采用常见的 `mcpServers` 复制/粘贴结构。本地服务器仍是显式 `type: "local"` 条目，带有命令数组和 `environment`；远程服务器仍是显式 `type: "remote"` 条目，带有 `url`、`headers` 和可选 `oauth`。将服务器 map 嵌套在 `mcp.servers` 下，使超时默认值等协议级设置可以位于同一子系统中。
 
-MCP timeouts have separate startup and request budgets, expressed in milliseconds. `startup` covers establishing the transport and completing MCP initialization. `request` applies independently to each post-initialization MCP request. A server may override either default without repeating the other.
+MCP 超时分为启动和请求预算，以毫秒表示。`startup` 覆盖建立传输和完成 MCP 初始化。`request` 独立应用于初始化后的每个 MCP 请求。服务器可以覆盖任一默认值，而无需重复另一个默认值。
 
 ```jsonc
 {
@@ -345,15 +347,15 @@ MCP timeouts have separate startup and request budgets, expressed in millisecond
 }
 ```
 
-## Group 10: Conversation Lifecycle
+## 第 10 组：对话生命周期
 
-Behavior affecting long-running conversations and context management.
+影响长时间运行的对话和 context 管理的行为。
 
-| Field        | Current Purpose                                             | Status   | Notes                                                                                 |
-| ------------ | ----------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------- |
-| `compaction` | Automatic compaction, pruning, and context reserve settings | redesign | Group retained verbatim history under `keep` and rename context headroom to `buffer`. |
+| 字段         | 当前用途                              | 状态     | 说明                                                                              |
+| ------------ | ------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `compaction` | 自动压缩、修剪和 context 预留设置     | redesign | 将逐字保留的历史记录分组到 `keep` 下，并将 context 余量重命名为 `buffer`。         |
 
-Retain the compaction capability but redesign the less clear limits. `keep.tokens` is the token budget for recent history serialized into the textual compaction checkpoint. `buffer` is the token headroom reserved so automatic compaction triggers before the input window is exhausted.
+保留压缩能力，但重新设计含义不够清晰的限制。`keep.tokens` 是序列化到文本压缩检查点中的近期历史记录 token 预算。`buffer` 是预留的 token 余量，使自动压缩在输入窗口耗尽前触发。
 
 ```jsonc
 {
@@ -368,32 +370,32 @@ Retain the compaction capability but redesign the less clear limits. `keep.token
 }
 ```
 
-## Group 11: Deprecated And Experimental Settings
+## 第 11 组：弃用与实验性设置
 
-Fields that should not be ported by inertia; each needs an explicit justification.
+不应因惯性而移植的字段；每个字段都需要明确理由。
 
-| Field                                | Current Purpose                         | Status   | Notes                                                                                                                       |
-| ------------------------------------ | --------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `layout`                             | Legacy layout selection                 | remove   | Do not port deprecated option; stretch layout is always used.                                                               |
-| `experimental.disable_paste_summary` | Disable pasted-content summary behavior | remove   | Do not port; pasted-input presentation behavior belongs to the client/UI surface.                                           |
-| `experimental.batch_tool`            | Enable batch tool                       | remove   | Do not port; batch tool is no longer a supported feature.                                                                   |
-| `experimental.openTelemetry`         | Enable AI SDK telemetry spans           | remove   | Do not port; observability is process-level and should use standard OpenTelemetry environment or declarative configuration. |
-| `experimental.primary_tools`         | Restrict tools to primary agents        | remove   | Do not port obsolete gating; agent tool access is configured through permissions.                                           |
-| `experimental.continue_loop_on_deny` | Continue loop after denied tool call    | remove   | Do not port legacy denied-tool loop behavior.                                                                               |
-| `experimental.mcp_timeout`           | MCP request timeout                     | redesign | Move to `mcp.timeout.request` for the default and `mcp.servers.<name>.timeout.request` for per-server overrides.            |
+| 字段                                  | 当前用途                       | 状态     | 说明                                                                                                                      |
+| ------------------------------------- | ------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `layout`                              | 旧版布局选择                   | remove   | 不移植已弃用选项；始终使用 stretch 布局。                                                                                |
+| `experimental.disable_paste_summary`  | 禁用粘贴内容摘要行为           | remove   | 不移植；粘贴输入呈现行为属于客户端/UI 接口。                                                                             |
+| `experimental.batch_tool`             | 启用批处理工具                 | remove   | 不移植；批处理工具不再是受支持功能。                                                                                     |
+| `experimental.openTelemetry`          | 启用 AI SDK 遥测 span          | remove   | 不移植；可观测性属于进程级，应使用标准 OpenTelemetry 环境或声明式配置。                                                   |
+| `experimental.primary_tools`          | 将工具限制为 primary agent     | remove   | 不移植过时的 gating；agent 工具访问通过权限配置。                                                                         |
+| `experimental.continue_loop_on_deny`  | 工具调用被拒后继续循环         | remove   | 不移植旧版工具拒绝循环行为。                                                                                              |
+| `experimental.mcp_timeout`            | MCP 请求超时                   | redesign | 将默认值移到 `mcp.timeout.request`，每服务器覆盖移到 `mcp.servers.<name>.timeout.request`。                                |
 
-## Review Order
+## 评审顺序
 
-Work through the groups in this order unless a dependency between decisions becomes clear:
+除非决策之间出现明确依赖，否则按以下顺序处理各组：
 
-1. File Metadata
-2. Process And Server Settings
-3. Providers And Model Selection
-4. Commands And Project Resources
-5. Plugins
-6. Filesystem And Tool Runtime
-7. Sharing And Identity
-8. Agents And Permissions
-9. Integrations
-10. Conversation Lifecycle
-11. Deprecated And Experimental Settings
+1. 文件元数据
+2. 进程与服务器设置
+3. 提供商与模型选择
+4. 命令与项目资源
+5. 插件
+6. 文件系统与工具运行时
+7. 共享与身份
+8. Agent 与权限
+9. 集成
+10. 对话生命周期
+11. 弃用与实验性设置

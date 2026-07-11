@@ -1,6 +1,8 @@
 # @miaopan-code/llm
 
-Schema-first LLM core for miaopan-code. One typed request, response, event, and tool language; provider quirks live in adapters, not in calling code.
+语言：简体中文 · [English](README.en.md)
+
+miaopan-code 的 Schema 优先 LLM 核心。请求、响应、事件和工具语言均采用统一的类型化表示；提供商差异由适配器处理，而不是散落在调用代码中。
 
 ```ts
 import { Effect } from "effect"
@@ -22,28 +24,30 @@ const program = Effect.gen(function* () {
 })
 ```
 
-Run `LLMClient.stream(request)` instead of `generate` when you want incremental `LLMEvent`s. The event stream is provider-neutral — same shape across OpenAI Chat, OpenAI Responses, Anthropic Messages, Gemini, Bedrock Converse, and any OpenAI-compatible deployment.
+需要增量 `LLMEvent` 时，请运行 `LLMClient.stream(request)`，而不是 `generate`。事件流与提供商无关——OpenAI Chat、OpenAI Responses、Anthropic Messages、Gemini、Bedrock Converse 以及任何 OpenAI 兼容部署都使用相同结构。
 
-## Public API
+库中用户和模型可见的消息默认使用简体中文。在 `LLM.request(...)` 上设置 `language: "en"`，即可让验证错误、传输诊断、流回退消息和生成的工具消息保持英文。独立工具分派也接受相同值，作为 `ToolRuntime.dispatch(tools, call, language)` 的第三个参数。
 
-- **`LLM.request({...})`** — build a provider-neutral `LLMRequest`. Accepts ergonomic inputs (`system: string`, `prompt: string`) that normalize into the canonical Schema classes.
-- **`LLM.generate` / `LLM.stream`** — re-exported from `LLMClient` for one-import use.
-- **`Message.user(...)` / `Message.assistant(...)` / `Message.tool(...)`** — message constructors from the canonical schema model.
-- **`Model.make(...)` / `ToolCallPart.make(...)` / `ToolResultPart.make(...)` / `ToolDefinition.make(...)`** — model and tool-related constructors from the canonical schema model.
-- **`LLMClient.prepare(request)`** — compile a request through protocol body construction, validation, and HTTP preparation without sending. Useful for inspection and testing.
-- **`LLMEvent.is.*`** — typed guards (`is.textDelta`, `is.toolCall`, `is.finish`, …) for filtering streams.
+## 公共 API
 
-## Caching
+- **`LLM.request({...})`** —— 构建与提供商无关的 `LLMRequest`。接受便于使用的输入（`system: string`、`prompt: string`），并将其规范化为标准 Schema 类。
+- **`LLM.generate` / `LLM.stream`** —— 从 `LLMClient` 重新导出，便于只用一次导入。
+- **`Message.user(...)` / `Message.assistant(...)` / `Message.tool(...)`** —— 标准 Schema 模型中的消息构造器。
+- **`Model.make(...)` / `ToolCallPart.make(...)` / `ToolResultPart.make(...)` / `ToolDefinition.make(...)`** —— 标准 Schema 模型中的模型及工具相关构造器。
+- **`LLMClient.prepare(request)`** —— 依次完成协议请求体构造、验证和 HTTP 准备，编译请求但不发送，适用于检查和测试。
+- **`LLMEvent.is.*`** —— 用于过滤流的类型化守卫（`is.textDelta`、`is.toolCall`、`is.finish` 等）。
 
-Prompt caching is **on by default**. Every `LLMRequest` resolves to `cache: "auto"` unless the caller opts out with `cache: "none"`. Each protocol translates `CacheHint`s to its wire format (`cache_control` on Anthropic, `cachePoint` on Bedrock; OpenAI and Gemini do implicit caching server-side and don't need inline markers — auto is a no-op there).
+## 缓存
 
-### Auto placement
+提示词缓存**默认启用**。除非调用方通过 `cache: "none"` 选择退出，否则每个 `LLMRequest` 都会解析为 `cache: "auto"`。每种协议会将 `CacheHint` 转换为自身的线路格式（Anthropic 使用 `cache_control`，Bedrock 使用 `cachePoint`；OpenAI 和 Gemini 在服务端隐式缓存，不需要内联标记——因此 auto 在这些协议上不执行操作）。
 
-`"auto"` places three breakpoints — last tool definition, last system part, latest user message. The last-user-message boundary is the load-bearing detail: in a tool-use loop, a single user turn expands into many assistant/tool round-trips, all sharing that prefix. Caching at that boundary lets every intra-turn API call hit.
+### 自动放置
 
-The math justifies the default: Anthropic's 5-minute cache write is 1.25× base, read is 0.1×, so a single reuse within 5 minutes already wins. One-shot completions below the per-model minimum-cacheable-token threshold silently no-op on the wire, so the worst case is harmless.
+`"auto"` 会放置三个断点——最后一个工具定义、最后一个系统部分和最新的用户消息。最新用户消息边界是关键细节：在工具使用循环中，一次用户轮次会扩展为多个助手/工具往返，并且这些往返共享同一前缀。在该边界缓存，可以让轮次内的每次 API 调用都命中缓存。
 
-### Opting out
+计算结果支持将其作为默认值：Anthropic 的 5 分钟缓存写入费用是基础费用的 1.25 倍，读取费用是 0.1 倍，因此在 5 分钟内复用一次就已经更划算。低于各模型最低可缓存 token 阈值的单次补全会在线路层静默地不执行缓存，因此最坏情况也无害。
+
+### 选择退出
 
 ```ts
 LLM.request({
@@ -54,20 +58,20 @@ LLM.request({
 })
 ```
 
-### Granular policy
+### 细粒度策略
 
 ```ts
 cache: {
   tools?: boolean,
   system?: boolean,
   messages?: "latest-user-message" | "latest-assistant" | { tail: number },
-  ttlSeconds?: number,         // ≥ 3600 → 1h on Anthropic/Bedrock; else 5m
+  ttlSeconds?: number,         // ≥ 3600 → Anthropic/Bedrock 上为 1 小时；否则为 5 分钟
 }
 ```
 
-### Manual hints
+### 手动提示
 
-Inline `CacheHint` on any text / system / tool / tool-result part overrides automatic placement. The auto policy preserves manual hints; it only fills gaps.
+任何文本、系统、工具或工具结果部分上的内联 `CacheHint` 都会覆盖自动放置。自动策略会保留手动提示，只填补空缺。
 
 ```ts
 LLM.request({
@@ -79,20 +83,20 @@ LLM.request({
 })
 ```
 
-### Provider behavior table
+### 提供商行为表
 
-| Protocol                | `cache: "auto"`                                                           |
-| ----------------------- | ------------------------------------------------------------------------- |
-| Anthropic Messages      | emits up to 3 `cache_control` markers (4-breakpoint cap enforced)         |
-| Bedrock Converse        | emits up to 3 `cachePoint` blocks (4-breakpoint cap enforced)             |
-| OpenAI Chat / Responses | no-op (implicit caching above 1024 tokens)                                |
-| Gemini                  | no-op (implicit caching on 2.5+; explicit `CachedContent` is out-of-band) |
+| 协议                    | `cache: "auto"`                                                |
+| ----------------------- | -------------------------------------------------------------- |
+| Anthropic Messages      | 最多发出 3 个 `cache_control` 标记（强制执行 4 个断点的上限）   |
+| Bedrock Converse        | 最多发出 3 个 `cachePoint` 块（强制执行 4 个断点的上限）        |
+| OpenAI Chat / Responses | 不执行操作（对 1024 token 以上内容进行隐式缓存）                |
+| Gemini                  | 不执行操作（2.5+ 隐式缓存；显式 `CachedContent` 位于带外）      |
 
-Normalized cache usage is read back into `response.usage.cacheReadInputTokens` and `cacheWriteInputTokens` across every provider.
+所有提供商的规范化缓存用量都会读入 `response.usage.cacheReadInputTokens` 和 `cacheWriteInputTokens`。
 
-## Providers
+## 提供商
 
-Provider facades configure endpoint/auth/deployment details first, then expose model selectors that take only a model or deployment id. The selected model carries the executable route value used at runtime.
+提供商门面先配置端点、认证和部署详情，再公开只接受模型或部署 ID 的模型选择器。选中的模型携带运行时使用的可执行路由值。
 
 ```ts
 import { OpenAI, CloudflareAIGateway } from "@miaopan-code/llm/providers"
@@ -104,28 +108,28 @@ const gateway = CloudflareAIGateway.configure({
 }).model("workers-ai/@cf/meta/llama-3.1-8b-instruct")
 ```
 
-Included providers: OpenAI, Anthropic, Google (Gemini), Amazon Bedrock, Azure OpenAI, Cloudflare AI Gateway, Cloudflare Workers AI, GitHub Copilot, OpenRouter, xAI, plus generic OpenAI-compatible helpers for DeepSeek, Cerebras, Groq, Fireworks, Together, etc.
+内置提供商包括 OpenAI、Anthropic、Google（Gemini）、Amazon Bedrock、Azure OpenAI、Cloudflare AI Gateway、Cloudflare Workers AI、GitHub Copilot、OpenRouter 和 xAI，此外还提供适用于 DeepSeek、Cerebras、Groq、Fireworks、Together 等服务的通用 OpenAI 兼容辅助工具。
 
-## Provider options & HTTP overlays
+## 提供商选项与 HTTP 覆盖
 
-Three escape hatches in order of stability:
+按稳定性从高到低提供三种逃生口：
 
-1. **`generation`** — portable knobs (`maxTokens`, `temperature`, `topP`, `topK`, penalties, seed, stop).
-2. **`providerOptions: { <provider>: {...} }`** — typed-at-the-facade provider-specific knobs (OpenAI `promptCacheKey`, Anthropic `thinking`, Gemini `thinkingConfig`, OpenRouter routing).
-3. **`http: { body, headers, query }`** — last-resort serializable overlays merged into the final HTTP request. Reach for this only when a stable typed path doesn't yet exist.
+1. **`generation`** —— 可移植的调节项（`maxTokens`、`temperature`、`topP`、`topK`、惩罚项、seed、stop）。
+2. **`providerOptions: { <provider>: {...} }`** —— 在门面处类型化的提供商专用调节项（OpenAI `promptCacheKey`、Anthropic `thinking`、Gemini `thinkingConfig`、OpenRouter 路由）。
+3. **`http: { body, headers, query }`** —— 合并到最终 HTTP 请求中的最终手段型可序列化覆盖项。只有在尚不存在稳定的类型化路径时才使用它。
 
-Route/provider defaults are overridden by request-level values for each axis.
+对于每个维度，请求级值都会覆盖路由/提供商默认值。
 
-## Routes
+## 路由
 
-Adding a new model or deployment is usually 5-15 lines using `Route.make({ protocol, endpoint, auth, framing, ... })`. The route owns endpoint/auth/framing and the protocol owns body construction plus stream parsing. Transports are reusable IO templates that receive route endpoint/auth at compile time. Capability/catalog metadata lives outside this low-level package; unsupported request shapes fail during protocol lowering. See `AGENTS.md` for the architectural detail.
+使用 `Route.make({ protocol, endpoint, auth, framing, ... })` 添加新模型或部署通常只需 5–15 行代码。路由负责端点、认证和帧格式，协议负责请求体构造及流解析。传输是可复用的 IO 模板，在编译时接收路由端点和认证。能力/目录元数据位于这个底层包之外；不受支持的请求结构会在协议降级转换期间失败。架构详情参见 `AGENTS.md`。
 
 ## Effect
 
-This package is built on Effect. Public methods return `Effect` or `Stream`; provide `LLMClient.layer` for runtime dispatch and import the provider/protocol modules for the routes you use. The example at `example/tutorial.ts` is a runnable walkthrough.
+此包构建于 Effect 之上。公共方法返回 `Effect` 或 `Stream`；请提供 `LLMClient.layer` 以执行运行时分派，并导入所用路由对应的提供商/协议模块。`example/tutorial.ts` 中的示例是一份可运行的演练教程。
 
-## See also
+## 另请参阅
 
-- `AGENTS.md` — architecture, route construction, contributor guide
-- `example/tutorial.ts` — runnable end-to-end walkthrough
-- `test/provider/*.test.ts` — fixture-first protocol tests
+- `AGENTS.md` —— 架构、路由构造和贡献者指南
+- `example/tutorial.ts` —— 可运行的端到端演练教程
+- `test/provider/*.test.ts` —— 以 fixture 为先的协议测试

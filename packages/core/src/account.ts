@@ -2,6 +2,7 @@ export * as AccountV2 from "./account"
 
 import { Schema } from "effect"
 import type * as HttpClientError from "effect/unstable/http/HttpClientError"
+import { zh } from "./i18n"
 
 export const ID = Schema.String.pipe(Schema.brand("AccountID"))
 export type ID = Schema.Schema.Type<typeof ID>
@@ -60,10 +61,10 @@ export class AccountTransportError extends Schema.TaggedErrorClass<AccountTransp
 
   override get message(): string {
     return [
-      `Could not reach ${this.method} ${this.url}.`,
-      `This failed before the server returned an HTTP response.`,
+      zh("error.account_unreachable", { method: this.method, url: this.url }),
+      zh("error.account_no_response"),
       this.description,
-      `Check your network, proxy, or VPN configuration and try again.`,
+      zh("error.account_network_hint"),
     ]
       .filter(Boolean)
       .join("\n")

@@ -4,6 +4,7 @@ import { makeLocationNode } from "./effect/app-node"
 import { Context, Effect, Layer, Schema } from "effect"
 import { Config } from "./config"
 import { FileSystem } from "./filesystem"
+import { zh } from "./i18n"
 
 export class ResizerUnavailableError extends Schema.TaggedErrorClass<ResizerUnavailableError>()(
   "Image.ResizerUnavailableError",
@@ -14,7 +15,7 @@ export class DecodeError extends Schema.TaggedErrorClass<DecodeError>()("Image.D
   resource: Schema.String,
 }) {
   override get message() {
-    return `Image could not be decoded: ${this.resource}`
+    return zh("error.image_decode_resource", { resource: this.resource })
   }
 }
 
@@ -28,7 +29,15 @@ export class SizeError extends Schema.TaggedErrorClass<SizeError>()("Image.SizeE
   maxBytes: Schema.Number,
 }) {
   override get message() {
-    return `Image ${this.resource} is ${this.width}x${this.height} with base64 size ${this.bytes}, exceeding configured limits ${this.maxWidth}x${this.maxHeight}/${this.maxBytes} bytes`
+    return zh("error.image_size_resource", {
+      resource: this.resource,
+      width: this.width,
+      height: this.height,
+      bytes: this.bytes,
+      maxWidth: this.maxWidth,
+      maxHeight: this.maxHeight,
+      maxBytes: this.maxBytes,
+    })
   }
 }
 

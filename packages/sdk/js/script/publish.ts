@@ -3,6 +3,9 @@
 import { Script } from "@miaopan-code/script"
 import { $ } from "bun"
 import { fileURLToPath } from "url"
+import { resolveLanguage, t } from "../src/i18n"
+
+const language = resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
@@ -32,7 +35,7 @@ function transformExports(exports: Record<string, unknown>) {
   )
 }
 if (await published(pkg.name, pkg.version)) {
-  console.log(`already published ${pkg.name}@${pkg.version}`)
+  console.log(t(language, "publish_already_published", { name: pkg.name, version: pkg.version }))
 } else {
   pkg.exports = transformExports(pkg.exports)
   await Bun.write("package.json", JSON.stringify(pkg, null, 2))

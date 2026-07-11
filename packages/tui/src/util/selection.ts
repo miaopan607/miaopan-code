@@ -1,4 +1,6 @@
 import type { ClipboardService } from "../context/clipboard"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./locale"
 
 type Toast = {
   show: (input: { message: string; variant: "info" | "success" | "warning" | "error" }) => void
@@ -36,7 +38,7 @@ export function copy(renderer: Renderer, toast: Toast, clipboard: ClipboardServi
 
   clipboard
     ?.write?.(clipboardText)
-    .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
+    .then(() => toast.show({ message: t(Locale.language(), "clipboard.copied"), variant: "info" }))
     .catch(toast.error)
 
   renderer.clearSelection()

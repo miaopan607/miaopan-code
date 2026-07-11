@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 const prefixes = {
   job: "job",
@@ -19,21 +20,26 @@ const LENGTH = 26
 let lastTimestamp = 0
 let counter = 0
 
-export function ascending(prefix: keyof typeof prefixes, given?: string) {
-  return generateID(prefix, "ascending", given)
+export function ascending(prefix: keyof typeof prefixes, given?: string, language?: Language) {
+  return generateID(prefix, "ascending", given, language)
 }
 
-export function descending(prefix: keyof typeof prefixes, given?: string) {
-  return generateID(prefix, "descending", given)
+export function descending(prefix: keyof typeof prefixes, given?: string, language?: Language) {
+  return generateID(prefix, "descending", given, language)
 }
 
-function generateID(prefix: keyof typeof prefixes, direction: "descending" | "ascending", given?: string): string {
+function generateID(
+  prefix: keyof typeof prefixes,
+  direction: "descending" | "ascending",
+  given?: string,
+  language?: Language,
+): string {
   if (!given) {
     return create(prefixes[prefix], direction)
   }
 
   if (!given.startsWith(prefixes[prefix])) {
-    throw new Error(`ID ${given} does not start with ${prefixes[prefix]}`)
+    throw new Error(t(language, "error.id_prefix", { given, prefix: prefixes[prefix] }))
   }
   return given
 }

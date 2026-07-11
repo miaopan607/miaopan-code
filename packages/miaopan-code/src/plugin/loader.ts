@@ -2,6 +2,7 @@ import {
   checkPluginCompatibility,
   createPluginEntry,
   isDeprecatedPlugin,
+  PluginDirectoryMissingError,
   pluginSource,
   resolvePluginTarget,
   type PluginKind,
@@ -11,6 +12,7 @@ import {
 import { ConfigPlugin } from "@/config/plugin"
 import { ConfigPluginV1 } from "@miaopan-code/core/v1/config/plugin"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export namespace PluginLoader {
   // A normalized plugin declaration derived from config before any filesystem or npm work happens.
@@ -62,15 +64,8 @@ export namespace PluginLoader {
     retry: boolean
   }
 
-  function errorMessage(error: unknown) {
-    if (!error || typeof error !== "object") return ""
-    const message = "message" in error && typeof error.message === "string" ? error.message : ""
-    return message
-  }
-
   function isRetryableResolveError(stage: "install" | "entry" | "compatibility", error: unknown) {
-    if (stage !== "install") return false
-    return errorMessage(error).includes("missing package.json or index file")
+    return stage === "install" && error instanceof PluginDirectoryMissingError
   }
 
   // Normalize a config item into the loader's internal representation.
@@ -86,6 +81,7 @@ export namespace PluginLoader {
   export async function resolve(
     plan: Plan,
     kind: PluginKind,
+    language?: Language,
   ): Promise<
     | { ok: true; value: Resolved }
     | { ok: false; stage: "missing"; value: Missing }
@@ -94,16 +90,21 @@ export namespace PluginLoader {
     // First make sure the plugin exists locally, installing npm plugins on demand.
     let target = ""
     try {
-      target = await resolvePluginTarget(plan.spec)
+      target = await resolvePluginTarget(plan.spec, language)
     } catch (error) {
       return { ok: false, stage: "install", error }
     }
-    if (!target) return { ok: false, stage: "install", error: new Error(`Plugin ${plan.spec} target is empty`) }
+    if (!target)
+      return {
+        ok: false,
+        stage: "install",
+        error: new Error(t(language, "error.plugin_target_empty", { spec: plan.spec })),
+      }
 
     // Then inspect the target for the requested server/tui entrypoint.
     let base
     try {
-      base = await createPluginEntry(plan.spec, target, kind)
+      base = await createPluginEntry(plan.spec, target, kind, language)
     } catch (error) {
       return { ok: false, stage: "entry", error }
     }
@@ -116,7 +117,7 @@ export namespace PluginLoader {
           source: base.source,
           target: base.target,
           pkg: base.pkg,
-          message: `Plugin ${plan.spec} does not expose a ${kind} entrypoint`,
+          message: t(language, "error.plugin_entrypoint_missing", { spec: plan.spec, kind }),
         },
       }
 
@@ -124,7 +125,7 @@ export namespace PluginLoader {
     // as local development code and skip this compatibility gate.
     if (base.source === "npm") {
       try {
-        await checkPluginCompatibility(base.target, InstallationVersion, base.pkg)
+        await checkPluginCompatibility(base.target, InstallationVersion, base.pkg, language)
       } catch (error) {
         return { ok: false, stage: "compatibility", error }
       }
@@ -133,14 +134,17 @@ export namespace PluginLoader {
   }
 
   // Import the resolved module only after all earlier validation has succeeded.
-  export async function load(row: Resolved): Promise<{ ok: true; value: Loaded } | { ok: false; error: unknown }> {
+  export async function load(
+    row: Resolved,
+    language?: Language,
+  ): Promise<{ ok: true; value: Loaded } | { ok: false; error: unknown }> {
     let mod
     try {
       mod = await import(row.entry)
     } catch (error) {
       return { ok: false, error }
     }
-    if (!mod) return { ok: false, error: new Error(`Plugin ${row.spec} module is empty`) }
+    if (!mod) return { ok: false, error: new Error(t(language, "error.plugin_module_empty", { spec: row.spec })) }
     return { ok: true, value: { ...row, mod } }
   }
 
@@ -153,6 +157,7 @@ export namespace PluginLoader {
     finish: ((load: Loaded, origin: ConfigPlugin.Origin, retry: boolean) => Promise<R | undefined>) | undefined,
     missing: ((value: Missing, origin: ConfigPlugin.Origin, retry: boolean) => Promise<R | undefined>) | undefined,
     report: Report | undefined,
+    language: Language | undefined,
   ): Promise<AttemptResult<R>> {
     const plan = candidate.plan
     const filePlugin = pluginSource(plan.spec) === "file"
@@ -162,7 +167,7 @@ export namespace PluginLoader {
 
     report?.start?.(candidate, retry)
 
-    const resolved = await resolve(plan, kind)
+    const resolved = await resolve(plan, kind, language)
     if (!resolved.ok) {
       if (resolved.stage === "missing") {
         // Missing entrypoints are handled separately so callers can still inspect package metadata,
@@ -178,7 +183,7 @@ export namespace PluginLoader {
       return { retry: filePlugin && isRetryableResolveError(resolved.stage, resolved.error) }
     }
 
-    const loaded = await load(resolved.value)
+    const loaded = await load(resolved.value, language)
     if (!loaded.ok) {
       report?.error?.(candidate, retry, "load", loaded.error, resolved.value)
       return { retry: false }
@@ -198,6 +203,7 @@ export namespace PluginLoader {
     finish?: (load: Loaded, origin: ConfigPlugin.Origin, retry: boolean) => Promise<R | undefined>
     missing?: (value: Missing, origin: ConfigPlugin.Origin, retry: boolean) => Promise<R | undefined>
     report?: Report
+    language?: Language
   }
 
   // Resolve and load all configured plugins in parallel.
@@ -209,7 +215,7 @@ export namespace PluginLoader {
     const candidates = input.items.map((origin) => ({ origin, plan: plan(origin.spec) }))
     const list: Array<Promise<AttemptResult<R>>> = []
     for (const candidate of candidates) {
-      list.push(attempt(candidate, input.kind, false, input.finish, input.missing, input.report))
+      list.push(attempt(candidate, input.kind, false, input.finish, input.missing, input.report, input.language))
     }
     const out = await Promise.all(list)
     if (input.wait) {
@@ -225,7 +231,7 @@ export namespace PluginLoader {
         if (!candidate || pluginSource(candidate.plan.spec) !== "file") continue
         deps ??= input.wait()
         await deps
-        out[i] = await attempt(candidate, input.kind, true, input.finish, input.missing, input.report)
+        out[i] = await attempt(candidate, input.kind, true, input.finish, input.missing, input.report, input.language)
       }
     }
 

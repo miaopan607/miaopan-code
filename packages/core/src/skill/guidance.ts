@@ -3,9 +3,11 @@ export * as SkillGuidance from "./guidance"
 import { makeLocationNode } from "../effect/app-node"
 import { Context, Effect, Layer, Schema } from "effect"
 import { AgentV2 } from "../agent"
+import { Config } from "../config"
 import { PermissionV2 } from "../permission"
 import { SkillV2 } from "../skill"
 import { SystemContext } from "../system-context/index"
+import { t, type Language } from "../i18n"
 
 const Summary = Schema.Struct({
   name: Schema.String,
@@ -13,12 +15,12 @@ const Summary = Schema.Struct({
 })
 type Summary = typeof Summary.Type
 
-const render = (skills: ReadonlyArray<Summary>) =>
+const render = (skills: ReadonlyArray<Summary>, language: Language | undefined) =>
   [
-    "Skills provide specialized instructions and workflows for specific tasks.",
-    "Use the skill tool to load a skill when a task matches its description.",
+    t(language, "prompt.skill_guidance_intro"),
+    t(language, "prompt.skill_guidance_use"),
     ...(skills.length === 0
-      ? ["No skills are currently available."]
+      ? [t(language, "prompt.no_skills")]
       : [
           "<available_skills>",
           ...skills.flatMap((skill) => [
@@ -40,7 +42,9 @@ export class Service extends Context.Service<Service, Interface>()("@miaopan-cod
 const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
+    const config = yield* Config.Service
     const skills = yield* SkillV2.Service
+    const language = Config.latest(yield* config.entries(), "language")
 
     return Service.of({
       load: Effect.fn("SkillGuidance.load")(function* (selection) {
@@ -58,13 +62,10 @@ const layer = Layer.effect(
           key: SystemContext.Key.make("core/skill-guidance"),
           codec: Schema.toCodecJson(Schema.Array(Summary)),
           load: Effect.succeed(available),
-          baseline: render,
+          baseline: (current) => render(current, language),
           update: (_previous, current) =>
-            [
-              "The available skills have changed. This list supersedes the previous available skills list.",
-              render(current),
-            ].join("\n"),
-          removed: () => "Skill guidance is no longer available. Do not use any previously listed skill.",
+            [t(language, "prompt.skill_guidance_changed"), render(current, language)].join("\n"),
+          removed: () => t(language, "prompt.skill_guidance_removed"),
         })
       }),
     })
@@ -73,4 +74,4 @@ const layer = Layer.effect(
 
 export const locationLayer = layer
 
-export const node = makeLocationNode({ service: Service, layer, deps: [SkillV2.node] })
+export const node = makeLocationNode({ service: Service, layer, deps: [Config.node, SkillV2.node] })

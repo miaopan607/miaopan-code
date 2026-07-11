@@ -1,6 +1,7 @@
 import launch from "cross-spawn"
 import { type Config } from "./gen/types.gen.js"
 import { stop, bindAbort } from "./process.js"
+import { resolveLanguage, t, type Language } from "./i18n.js"
 
 export type ServerOptions = {
   hostname?: string
@@ -8,6 +9,7 @@ export type ServerOptions = {
   signal?: AbortSignal
   timeout?: number
   config?: Config
+  language?: Language
 }
 
 export type TuiOptions = {
@@ -17,6 +19,7 @@ export type TuiOptions = {
   agent?: string
   signal?: AbortSignal
   config?: Config
+  language?: Language
 }
 
 export async function createMiaopanCodeServer(options?: ServerOptions) {
@@ -28,6 +31,8 @@ export async function createMiaopanCodeServer(options?: ServerOptions) {
     },
     options ?? {},
   )
+  const language = resolveLanguage(options.language)
+  const config = { ...options.config, ...(options.language ? { language: options.language } : {}) }
 
   const args = [`serve`, `--hostname=${options.hostname}`, `--port=${options.port}`]
   if (options.config?.logLevel) args.push(`--log-level=${options.config.logLevel}`)
@@ -35,7 +40,7 @@ export async function createMiaopanCodeServer(options?: ServerOptions) {
   const proc = launch(`miaopan-code`, args, {
     env: {
       ...process.env,
-      MIAOPAN_CODE_CONFIG_CONTENT: JSON.stringify(options.config ?? {}),
+      MIAOPAN_CODE_CONFIG_CONTENT: JSON.stringify(config),
     },
   })
   let clear = () => {}
@@ -44,7 +49,7 @@ export async function createMiaopanCodeServer(options?: ServerOptions) {
     const id = setTimeout(() => {
       clear()
       stop(proc)
-      reject(new Error(`Timeout waiting for server to start after ${options.timeout}ms`))
+      reject(new Error(t(language, "server_timeout", { timeout: options.timeout })))
     }, options.timeout)
     let output = ""
     let resolved = false
@@ -59,7 +64,7 @@ export async function createMiaopanCodeServer(options?: ServerOptions) {
             clear()
             stop(proc)
             clearTimeout(id)
-            reject(new Error(`Failed to parse server url from output: ${line}`))
+            reject(new Error(t(language, "server_url_parse_failed", { line })))
             return
           }
           clearTimeout(id)
@@ -74,9 +79,9 @@ export async function createMiaopanCodeServer(options?: ServerOptions) {
     })
     proc.on("exit", (code) => {
       clearTimeout(id)
-      let msg = `Server exited with code ${code}`
+      let msg = t(language, "server_exited", { code: code ?? "" })
       if (output.trim()) {
-        msg += `\nServer output: ${output}`
+        msg += `\n${t(language, "server_output", { output })}`
       }
       reject(new Error(msg))
     })
@@ -101,6 +106,7 @@ export async function createMiaopanCodeServer(options?: ServerOptions) {
 
 export function createMiaopanCodeTui(options?: TuiOptions) {
   const args = []
+  const config = { ...options?.config, ...(options?.language ? { language: options.language } : {}) }
 
   if (options?.project) {
     args.push(`--project=${options.project}`)
@@ -119,7 +125,7 @@ export function createMiaopanCodeTui(options?: TuiOptions) {
     stdio: "inherit",
     env: {
       ...process.env,
-      MIAOPAN_CODE_CONFIG_CONTENT: JSON.stringify(options?.config ?? {}),
+      MIAOPAN_CODE_CONFIG_CONTENT: JSON.stringify(config),
     },
   })
 

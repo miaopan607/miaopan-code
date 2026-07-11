@@ -1,5 +1,7 @@
 # LLM Call Site Sketches
 
+Languages: [简体中文概览](../README.md) · English
+
 Scratchpad for examples first, abstractions second. Current direction: routes
 execute, provider facades organize configured route sets, and models carry route
 values directly.

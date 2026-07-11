@@ -15,6 +15,7 @@ import { SessionID, MessageID } from "../../src/session/schema"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { disposeAllInstances, TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { t } from "@miaopan-code/core/i18n"
 
 const ctx = {
   sessionID: SessionID.make("ses_test-write-session"),
@@ -66,7 +67,7 @@ describe("tool.write", () => {
         const filepath = path.join(test.directory, "newfile.txt")
         const result = yield* run({ filePath: filepath, content: "Hello, World!" })
 
-        expect(result.output).toContain("Wrote file successfully")
+        expect(result.output).toContain(t("zh-CN", "tool.output.write_success"))
         expect(result.metadata.exists).toBe(false)
 
         const content = yield* Effect.promise(() => fs.readFile(filepath, "utf-8"))
@@ -104,7 +105,7 @@ describe("tool.write", () => {
         yield* Effect.promise(() => fs.writeFile(filepath, "old content", "utf-8"))
         const result = yield* run({ filePath: filepath, content: "new content" })
 
-        expect(result.output).toContain("Wrote file successfully")
+        expect(result.output).toContain(t("zh-CN", "tool.output.write_success"))
         expect(result.metadata.exists).toBe(true)
 
         const content = yield* Effect.promise(() => fs.readFile(filepath, "utf-8"))
@@ -258,6 +259,7 @@ describe("tool.write", () => {
         const readonlyPath = path.join(test.directory, "readonly.txt")
         yield* Effect.promise(() => fs.writeFile(readonlyPath, "test", "utf-8"))
         yield* Effect.promise(() => fs.chmod(readonlyPath, 0o444))
+        if (process.platform !== "win32" && process.getuid?.() === 0) return
         const exit = yield* run({ filePath: readonlyPath, content: "new content" }).pipe(Effect.exit)
         expect(exit._tag).toBe("Failure")
       }),

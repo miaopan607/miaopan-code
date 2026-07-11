@@ -8,6 +8,7 @@ import { mergeDeep } from "remeda"
 import { Global } from "@miaopan-code/core/global"
 import fsNode from "fs/promises"
 import { Flag } from "@miaopan-code/core/flag/flag"
+import { resolveLanguage, t, type MessageKey, type MessageParameters } from "@miaopan-code/core/i18n"
 import { Auth } from "../auth"
 import { Env } from "../env"
 import { applyEdits, modify } from "jsonc-parser"
@@ -35,6 +36,9 @@ import { ConfigPlugin } from "./plugin"
 import { ConfigVariable } from "./variable"
 import { Npm } from "@miaopan-code/core/npm"
 import { withTransientReadRetry } from "@/util/effect-http-client"
+
+const configLanguage = () => resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
+const message = (key: MessageKey, parameters?: MessageParameters) => t(configLanguage(), key, parameters)
 
 // Custom merge function that concatenates array fields instead of replacing them
 // Keep remeda's deep conditional merge type out of hot config-loading paths; TS profiling showed it dominates here.
@@ -195,10 +199,14 @@ const layer = Layer.effect(
           HttpClientRequest.get(url).pipe(HttpClientRequest.acceptJson, HttpClientRequest.setHeaders(headers ?? {})),
         )
         .pipe(
-          Effect.catch((error) => Effect.die(new Error(`failed to fetch remote config from ${url}: ${String(error)}`))),
+          Effect.catch((error) =>
+            Effect.die(new Error(message("error.remote_config_fetch", { url, error: String(error) }))),
+          ),
         )
       const body = yield* response.text.pipe(
-        Effect.catch((error) => Effect.die(new Error(`failed to read remote config from ${url}: ${String(error)}`))),
+        Effect.catch((error) =>
+          Effect.die(new Error(message("error.remote_config_read", { url, error: String(error) }))),
+        ),
       )
       // An auth proxy can answer with an HTML login page at HTTP 200 (passes filterStatusOk); treat it as a re-auth error, not a decode failure.
       const contentType = (response.headers["content-type"] ?? "").toLowerCase()
@@ -206,7 +214,9 @@ const layer = Layer.effect(
         return yield* Effect.die(new RemoteAuthError({ url: loginOrigin, remote: url }))
       }
       return yield* Schema.decodeEffect(Schema.fromJsonString(schema))(body).pipe(
-        Effect.catch((error) => Effect.die(new Error(`failed to decode remote config from ${url}: ${String(error)}`))),
+        Effect.catch((error) =>
+          Effect.die(new Error(message("error.remote_config_decode", { url, error: String(error) }))),
+        ),
       )
     })
 
@@ -230,14 +240,17 @@ const layer = Layer.effect(
       yield* Effect.promise(() => resolveLoadedPlugins(data, options.path))
       if (!data.$schema) {
         data.$schema = "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"
-        const updated = text.replace(/^\s*\{/, '{\n  "$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json",')
+        const updated = text.replace(
+          /^\s*\{/,
+          '{\n  "$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json",',
+        )
         yield* fs.writeFileString(options.path, updated).pipe(Effect.catch(() => Effect.void))
       }
       return data
     })
 
     const loadFile = Effect.fnUntraced(function* (filepath: string, env?: Record<string, string>) {
-      yield* Effect.logInfo("loading", { path: filepath })
+      yield* Effect.logInfo(message("log.config_loading"), { path: filepath })
       const text = yield* readConfigFile(filepath)
       if (!text) return {} as Info
       return yield* loadConfig(text, { path: filepath }, env)
@@ -251,7 +264,14 @@ const layer = Layer.effect(
         const file = globalConfigFile()
         if (!existsSync(file)) {
           yield* fs
-            .writeWithDirs(file, JSON.stringify({ $schema: "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json" }, null, 2))
+            .writeWithDirs(
+              file,
+              JSON.stringify(
+                { $schema: "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json" },
+                null,
+                2,
+              ),
+            )
             .pipe(Effect.catch(() => Effect.void))
         }
       }
@@ -280,9 +300,7 @@ const layer = Layer.effect(
 
     const [cachedGlobal, invalidateGlobal] = yield* Effect.cachedInvalidateWithTTL(
       loadGlobal().pipe(
-        Effect.tapError((error) =>
-          Effect.logError("failed to load global config, using defaults", { error: String(error) }),
-        ),
+        Effect.tapError((error) => Effect.logError(message("log.config_global_failed"), { error: String(error) })),
         Effect.orElseSucceed((): Info => ({})),
       ),
       Duration.infinity,
@@ -358,7 +376,7 @@ const layer = Layer.effect(
             const url = key.replace(/\/+$/, "")
             authEnv[value.key] = value.token
             const wellknownURL = `${url}/.well-known/miaopanCode`
-            yield* Effect.logDebug("fetching remote config", { url: wellknownURL })
+            yield* Effect.logDebug(message("log.config_remote_fetch"), { url: wellknownURL })
             const wellknown = yield* fetchRemoteJson(wellknownURL, undefined, ConfigV1.WellKnown, url)
             const remote = yield* Effect.promise(() =>
               substituteWellKnownRemoteConfig({
@@ -370,17 +388,19 @@ const layer = Layer.effect(
             )
             const fetchedConfig = remote
               ? yield* Effect.gen(function* () {
-                  yield* Effect.logDebug("fetching remote config", { url: remote.url })
+                  yield* Effect.logDebug(message("log.config_remote_fetch"), { url: remote.url })
                   const data = yield* fetchRemoteJson(remote.url, remote.headers, Schema.Json, url)
                   if (isRecord(data) && isRecord(data.config)) return data.config
                   if (isRecord(data)) return data
                   return yield* Effect.die(
-                    new Error(`failed to decode remote config from ${remote.url}: expected object`),
+                    new Error(message("error.remote_config_expected_object", { url: remote.url })),
                   )
                 })
               : {}
             const remoteConfig = mergeConfig(isRecord(wellknown.config) ? wellknown.config : {}, fetchedConfig)
-            if (!remoteConfig.$schema) remoteConfig.$schema = "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"
+            if (!remoteConfig.$schema)
+              remoteConfig.$schema =
+                "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"
             const source = wellknownURL
             const next = yield* loadConfig(
               JSON.stringify(remoteConfig),
@@ -391,7 +411,7 @@ const layer = Layer.effect(
               authEnv,
             )
             yield* merge(source, next, "global")
-            yield* Effect.logDebug("loaded remote config from well-known", { url })
+            yield* Effect.logDebug(message("log.config_remote_loaded"), { url })
           }
         }
 
@@ -400,7 +420,7 @@ const layer = Layer.effect(
 
         if (Flag.MIAOPAN_CODE_CONFIG) {
           yield* merge(Flag.MIAOPAN_CODE_CONFIG, yield* loadFile(Flag.MIAOPAN_CODE_CONFIG, authEnv))
-          yield* Effect.logDebug("loaded custom config", { path: Flag.MIAOPAN_CODE_CONFIG })
+          yield* Effect.logDebug(message("log.config_custom_loaded"), { path: Flag.MIAOPAN_CODE_CONFIG })
         }
 
         if (!Flag.MIAOPAN_CODE_DISABLE_PROJECT_CONFIG) {
@@ -416,7 +436,7 @@ const layer = Layer.effect(
         const directories = yield* ConfigPaths.directories(ctx.directory, ctx.worktree)
 
         if (Flag.MIAOPAN_CODE_CONFIG_DIR) {
-          yield* Effect.logDebug("loading config from MIAOPAN_CODE_CONFIG_DIR", { path: Flag.MIAOPAN_CODE_CONFIG_DIR })
+          yield* Effect.logDebug(message("log.config_dir_loading"), { path: Flag.MIAOPAN_CODE_CONFIG_DIR })
         }
 
         const deps: Fiber.Fiber<void>[] = []
@@ -425,7 +445,7 @@ const layer = Layer.effect(
           if (dir.endsWith(".miaopan-code") || dir === Flag.MIAOPAN_CODE_CONFIG_DIR) {
             for (const file of ["miaopan-code.json", "miaopan-code.jsonc"]) {
               const source = path.join(dir, file)
-              yield* Effect.logDebug(`loading config from ${source}`)
+              yield* Effect.logDebug(message("log.config_source_loading", { source }))
               yield* merge(source, yield* loadFile(source, authEnv))
               result.agent ??= {}
               result.mode ??= {}
@@ -448,7 +468,7 @@ const layer = Layer.effect(
               Effect.exit,
               Effect.tap((exit) =>
                 Exit.isFailure(exit)
-                  ? Effect.logWarning("background dependency install failed", { dir, error: String(exit.cause) })
+                  ? Effect.logWarning(message("log.config_global_failed"), { dir, error: String(exit.cause) })
                   : Effect.void,
               ),
               Effect.asVoid,
@@ -472,7 +492,7 @@ const layer = Layer.effect(
             source,
           })
           yield* merge(source, next, "local")
-          yield* Effect.logDebug("loaded custom config from MIAOPAN_CODE_CONFIG_CONTENT")
+          yield* Effect.logDebug(message("log.config_content_loaded"))
         }
 
         const activeAccount = Option.getOrUndefined(
@@ -506,7 +526,7 @@ const layer = Layer.effect(
           }).pipe(
             Effect.withSpan("Config.loadActiveOrgConfig"),
             Effect.catch((err) =>
-              Effect.logDebug("failed to fetch remote account config", {
+              Effect.logDebug(message("log.config_account_fetch_failed"), {
                 error: err instanceof Error ? err.message : String(err),
               }),
             ),
@@ -546,7 +566,7 @@ const layer = Layer.effect(
           try {
             result.permission = mergeDeep(result.permission ?? {}, JSON.parse(Flag.MIAOPAN_CODE_PERMISSION))
           } catch (err) {
-            yield* Effect.logWarning("MIAOPAN_CODE_PERMISSION contains invalid JSON, skipping", { err })
+            yield* Effect.logWarning(message("log.config_global_failed"), { err })
           }
         }
 
@@ -567,7 +587,7 @@ const layer = Layer.effect(
           try {
             result.username = os.userInfo().username || "user"
           } catch (err) {
-            yield* Effect.logWarning("failed to read system username, using fallback", { err })
+            yield* Effect.logWarning(message("log.config_global_failed"), { err })
             result.username = "user"
           }
         }

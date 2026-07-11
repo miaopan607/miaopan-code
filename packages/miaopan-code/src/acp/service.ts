@@ -30,6 +30,7 @@ import {
   type SetSessionModeResponse,
 } from "@agentclientprotocol/sdk"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
+import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import type { AssistantMessage, Message, MiaopanCodeClient, SessionMessageResponse } from "@miaopan-code/sdk/v2"
 import { Context, Effect, Layer, ManagedRuntime } from "effect"
@@ -79,21 +80,23 @@ export function make(input: {
   session?: ACPSession.Interface
   usage?: UsageService.Interface
   eventSubscription?: (subscription: ACPEvent.Subscription) => void
+  language?: Language
 }): Interface {
+  const language = resolveLanguage(input.language)
   const session = input.session ?? makeSessionService()
-  const directoryService = input.directory ?? makeDirectoryService(input.sdk)
+  const directoryService = input.directory ?? makeDirectoryService(input.sdk, language)
   const registeredMcp = new Map<string, Set<string>>()
   const sessionSnapshots = new Map<string, Directory.Snapshot>()
   const events = input.connection
-    ? ACPEvent.start({ sdk: input.sdk, connection: input.connection, session })
+    ? ACPEvent.start({ sdk: input.sdk, connection: input.connection, session, language })
     : undefined
   if (events) input.eventSubscription?.(events)
 
   const initialize = Effect.fn("ACP.initialize")(function* (params: InitializeRequest) {
     const started = performance.now()
     const authMethod: AuthMethod = {
-      description: "Run `miaopanCode auth login` in the terminal",
-      name: "Login with miaopanCode",
+      description: t(language, "acp.auth_login"),
+      name: t(language, "acp.auth_name"),
       id: AuthMethodID,
     }
 
@@ -102,7 +105,7 @@ export function make(input: {
         "terminal-auth": {
           command: "miaopan-code",
           args: ["auth", "login"],
-          label: "MiaopanCode Login",
+          label: t(language, "acp.login_label"),
         },
       }
     }
@@ -180,6 +183,7 @@ export function make(input: {
           { throwOnError: true },
         ),
       "session",
+      language,
     )
     const state = yield* session.create({
       id: created.id,
@@ -191,16 +195,20 @@ export function make(input: {
     })
     sessionSnapshots.set(state.id, snapshot)
 
-    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers)
+    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers, language)
     yield* sendAvailableCommands(input.connection, state.id, snapshot)
 
     const response = {
       sessionId: state.id,
-      configOptions: configOptions(snapshot, {
-        model: state.model ?? selected,
-        variant: state.variant,
-        modeId: state.modeId,
-      }),
+      configOptions: configOptions(
+        snapshot,
+        {
+          model: state.model ?? selected,
+          variant: state.variant,
+          modeId: state.modeId,
+        },
+        language,
+      ),
     }
     ACPProfile.duration("acp.newSession", started)
     return response
@@ -211,10 +219,12 @@ export function make(input: {
     yield* request(
       () => input.sdk.session.get({ directory: params.cwd, sessionID: params.sessionId }, { throwOnError: true }),
       "session",
+      language,
     )
     const messages = yield* request(
       () => input.sdk.session.messages({ directory: params.cwd, sessionID: params.sessionId }, { throwOnError: true }),
       "session",
+      language,
     )
     const restored = restoreFromMessages(messages.map((item) => item.info))
     const model = restored.model ?? selectDefaultModel(snapshot)
@@ -228,16 +238,20 @@ export function make(input: {
     })
     sessionSnapshots.set(state.id, snapshot)
 
-    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers)
+    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers, language)
     yield* sendAvailableCommands(input.connection, state.id, snapshot)
     yield* replayMessages(events, messages)
 
     return {
-      configOptions: configOptions(snapshot, {
-        model: state.model ?? model,
-        variant: state.variant,
-        modeId: state.modeId,
-      }),
+      configOptions: configOptions(
+        snapshot,
+        {
+          model: state.model ?? model,
+          variant: state.variant,
+          modeId: state.modeId,
+        },
+        language,
+      ),
     }
   })
 
@@ -254,6 +268,7 @@ export function make(input: {
           { throwOnError: true },
         ),
       "session",
+      language,
     )
     const serverEntries = sessions.map(
       (item): SessionInfo => ({
@@ -292,6 +307,7 @@ export function make(input: {
     yield* request(
       () => input.sdk.session.get({ directory: params.cwd, sessionID: params.sessionId }, { throwOnError: true }),
       "session",
+      language,
     )
     const messages = yield* request(
       () =>
@@ -300,6 +316,7 @@ export function make(input: {
           { throwOnError: true },
         ),
       "session",
+      language,
     )
     const restored = restoreFromMessages(messages.map((item) => item.info))
     const model = restored.model ?? selectDefaultModel(snapshot)
@@ -313,15 +330,19 @@ export function make(input: {
     })
     sessionSnapshots.set(state.id, snapshot)
 
-    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers ?? [])
+    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers ?? [], language)
     yield* sendAvailableCommands(input.connection, state.id, snapshot)
 
     return {
-      configOptions: configOptions(snapshot, {
-        model: state.model ?? model,
-        variant: state.variant,
-        modeId: state.modeId,
-      }),
+      configOptions: configOptions(
+        snapshot,
+        {
+          model: state.model ?? model,
+          variant: state.variant,
+          modeId: state.modeId,
+        },
+        language,
+      ),
     }
   })
 
@@ -329,9 +350,10 @@ export function make(input: {
     yield* request(
       () => input.sdk.session.abort({ directory: current.cwd, sessionID: current.id }, { throwOnError: true }),
       "session",
+      language,
     ).pipe(
       Effect.catch((error) =>
-        Effect.logError("failed to abort ACP backing session", { error: error, sessionID: current.id }),
+        Effect.logError(t(language, "log.acp_abort_failed"), { error: error, sessionID: current.id }),
       ),
     )
   })
@@ -363,11 +385,13 @@ export function make(input: {
           { throwOnError: true },
         ),
       "session",
+      language,
     )
     const messages = yield* request(
       () =>
         input.sdk.session.messages({ directory: params.cwd, sessionID: forked.id, limit: 20 }, { throwOnError: true }),
       "session",
+      language,
     )
     const restored = restoreFromMessages(messages.map((item) => item.info))
     const model = restored.model ?? selectDefaultModel(snapshot)
@@ -381,17 +405,21 @@ export function make(input: {
     })
     sessionSnapshots.set(state.id, snapshot)
 
-    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers ?? [])
+    yield* registerMcpServers(input.sdk, registeredMcp, params.cwd, state.id, params.mcpServers ?? [], language)
     yield* sendAvailableCommands(input.connection, state.id, snapshot)
     yield* replayMessages(events, messages)
 
     return {
       sessionId: state.id,
-      configOptions: configOptions(snapshot, {
-        model: state.model ?? model,
-        variant: state.variant,
-        modeId: state.modeId,
-      }),
+      configOptions: configOptions(
+        snapshot,
+        {
+          model: state.model ?? model,
+          variant: state.variant,
+          modeId: state.modeId,
+        },
+        language,
+      ),
     }
   })
 
@@ -411,11 +439,15 @@ export function make(input: {
         .setVariant(params.sessionId, Directory.variants(snapshot, selected.model) ? variant : undefined)
         .pipe(Effect.andThen(session.setModel(params.sessionId, selected.model)))
       return {
-        configOptions: configOptions(snapshot, {
-          model: state.model ?? selected.model,
-          variant: state.variant,
-          modeId: state.modeId,
-        }),
+        configOptions: configOptions(
+          snapshot,
+          {
+            model: state.model ?? selected.model,
+            variant: state.variant,
+            modeId: state.modeId,
+          },
+          language,
+        ),
       }
     }
 
@@ -427,11 +459,15 @@ export function make(input: {
       }
       const state = yield* session.setVariant(params.sessionId, params.value)
       return {
-        configOptions: configOptions(snapshot, {
-          model: state.model ?? model,
-          variant: state.variant,
-          modeId: state.modeId,
-        }),
+        configOptions: configOptions(
+          snapshot,
+          {
+            model: state.model ?? model,
+            variant: state.variant,
+            modeId: state.modeId,
+          },
+          language,
+        ),
       }
     }
 
@@ -441,11 +477,15 @@ export function make(input: {
       }
       const state = yield* session.setMode(params.sessionId, params.value)
       return {
-        configOptions: configOptions(snapshot, {
-          model: state.model ?? selectDefaultModel(snapshot),
-          variant: state.variant,
-          modeId: state.modeId,
-        }),
+        configOptions: configOptions(
+          snapshot,
+          {
+            model: state.model ?? selectDefaultModel(snapshot),
+            variant: state.variant,
+            modeId: state.modeId,
+          },
+          language,
+        ),
       }
     }
 
@@ -519,9 +559,10 @@ export function make(input: {
               { throwOnError: true },
             ),
           "session",
+          language,
         )
-        yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd)
-        return yield* promptResponse(response.info, params.messageId)
+        yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd, language)
+        return yield* promptResponse(response.info, params.messageId, language)
       }
 
       const known = snapshot.availableCommands.find((item) => item.name === command.name)
@@ -541,9 +582,10 @@ export function make(input: {
               { throwOnError: true },
             ),
           "session",
+          language,
         )
-        yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd)
-        return yield* promptResponse(response.info, params.messageId)
+        yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd, language)
+        return yield* promptResponse(response.info, params.messageId, language)
       }
 
       if (command.name === "compact") {
@@ -559,11 +601,12 @@ export function make(input: {
               { throwOnError: true },
             ),
           "session",
+          language,
         )
       }
 
-      yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd)
-      return yield* promptResponse(undefined, params.messageId)
+      yield* sendUsageUpdate(input.usage, input.sdk, input.connection, current.id, current.cwd, language)
+      return yield* promptResponse(undefined, params.messageId, language)
     }),
     cancel,
   }
@@ -575,7 +618,7 @@ function makeSessionService() {
   )
 }
 
-function makeDirectoryService(sdk: MiaopanCodeClient) {
+function makeDirectoryService(sdk: MiaopanCodeClient, language: Language) {
   return ManagedRuntime.make(
     AppNodeBuilder.build(Directory.node, [
       [
@@ -583,7 +626,7 @@ function makeDirectoryService(sdk: MiaopanCodeClient) {
         Layer.succeed(
           Directory.Loader,
           Directory.Loader.of({
-            load: (directory) => request(() => loadDirectorySnapshot(sdk, directory), "directory"),
+            load: (directory) => request(() => loadDirectorySnapshot(sdk, directory), "directory", language),
           }),
         ),
       ],
@@ -591,7 +634,7 @@ function makeDirectoryService(sdk: MiaopanCodeClient) {
   ).runSync(Directory.Service.use((service) => Effect.succeed(service)))
 }
 
-function makeUsageService(sdk: MiaopanCodeClient) {
+function makeUsageService(sdk: MiaopanCodeClient, language: Language) {
   const limits = new Map<string, Promise<number | undefined>>()
   const contextLimit: UsageService.Interface["contextLimit"] = Effect.fn("ACP.promptUsage.contextLimit")(
     function* (params) {
@@ -624,10 +667,11 @@ function makeUsageService(sdk: MiaopanCodeClient) {
           { throwOnError: true },
         ),
       "session",
+      language,
     ).pipe(
       Effect.map((messages) => messages as readonly UsageService.SessionMessage[]),
       Effect.catch((error) =>
-        Effect.logError("failed to fetch messages for usage update", { error: error }).pipe(Effect.as(undefined)),
+        Effect.logError(t(language, "log.acp_messages_failed"), { error: error }).pipe(Effect.as(undefined)),
       ),
     )
     if (!messages) return
@@ -699,7 +743,7 @@ type MessageInfo = {
 type AssistantError = NonNullable<AssistantMessage["error"]>
 type AssistantInfo = (UsageService.AssistantTokenCost & Pick<AssistantMessage, "error">) | undefined
 
-function request<T>(fn: () => Promise<T | SdkResponse<T>>, service?: string) {
+function request<T>(fn: () => Promise<T | SdkResponse<T>>, service?: string, language?: Language) {
   return Effect.tryPromise({
     try: async () => {
       const result = await fn()
@@ -709,12 +753,17 @@ function request<T>(fn: () => Promise<T | SdkResponse<T>>, service?: string) {
       }
       return result as T
     },
-    catch: (error) => fromUnknownError(error, service),
+    catch: (error) => fromUnknownError(error, service, language),
   })
 }
 
-function profiledRequest<T>(name: string, fn: () => Promise<T | SdkResponse<T>>, service?: string) {
-  return request(() => ACPProfile.measure(name, fn), service)
+function profiledRequest<T>(
+  name: string,
+  fn: () => Promise<T | SdkResponse<T>>,
+  service?: string,
+  language?: Language,
+) {
+  return request(() => ACPProfile.measure(name, fn), service, language)
 }
 
 async function loadDirectorySnapshot(sdk: MiaopanCodeClient, directory: string) {
@@ -786,7 +835,8 @@ function defaultModelFromConfig(
   // the protocol response deterministic without extra session/message reads.
   const miaopanCodeProvider = providers[ProviderV2.ID.make("miaopan-code")]
   const miaopanCodeModel = miaopanCodeProvider ? Provider.sort(Object.values(miaopanCodeProvider.models))[0] : undefined
-  if (miaopanCodeProvider && miaopanCodeModel) return { providerID: miaopanCodeProvider.id, modelID: miaopanCodeModel.id }
+  if (miaopanCodeProvider && miaopanCodeModel)
+    return { providerID: miaopanCodeProvider.id, modelID: miaopanCodeModel.id }
 
   const best = Provider.sort(Object.values(providers).flatMap((provider) => Object.values(provider.models)))[0]
   if (best) return { providerID: best.providerID, modelID: best.id }
@@ -816,6 +866,7 @@ function detectSlashCommand(parts: ReturnType<typeof promptContentToParts>) {
 const promptResponse = Effect.fn("ACP.promptResponse")(function* (
   info: AssistantInfo,
   messageId: string | null | undefined,
+  language?: Language,
 ) {
   if (!info?.error) {
     return {
@@ -859,14 +910,14 @@ const promptResponse = Effect.fn("ACP.promptResponse")(function* (
 
   return yield* new ACPError.ServiceFailureError({
     service: "session",
-    safeMessage: promptErrorMessage(info.error),
+    safeMessage: promptErrorMessage(info.error, language),
     errorName: info.error.name,
   })
 })
 
-function promptErrorMessage(error: AssistantError) {
+function promptErrorMessage(error: AssistantError, language?: Language) {
   if ("message" in error.data && typeof error.data.message === "string") return error.data.message
-  return "MiaopanCode prompt failed"
+  return t(language, "acp.prompt_failed")
 }
 
 function sendUsageUpdate(
@@ -875,12 +926,14 @@ function sendUsageUpdate(
   connection: ServiceConnection | undefined,
   sessionID: string,
   directory: string,
+  language: Language,
 ) {
   if (!connection) return Effect.void
-  return (usage ?? makeUsageService(sdk)).sendUpdate({
+  return (usage ?? makeUsageService(sdk, language)).sendUpdate({
     connection,
     sessionID,
     directory,
+    language,
   })
 }
 
@@ -891,13 +944,14 @@ function selectVariant(snapshot: Directory.Snapshot, model: Directory.DefaultMod
   return Object.keys(variants)[0]
 }
 
-function configOptions(snapshot: Directory.Snapshot, session: ConfigState) {
+function configOptions(snapshot: Directory.Snapshot, session: ConfigState, language: Language) {
   return buildConfigOptions({
     providers: Object.values(snapshot.providers),
     currentModel: session.model,
     currentVariant: session.variant,
     modes: snapshot.availableModes,
     currentModeId: session.modeId,
+    language,
   })
 }
 
@@ -953,6 +1007,7 @@ function registerMcpServers(
   directory: string,
   sessionId: string,
   servers: readonly McpServer[],
+  language: Language,
 ) {
   const started = performance.now()
   const current = registered.get(sessionId) ?? new Set<string>()
@@ -980,6 +1035,7 @@ function registerMcpServers(
               { throwOnError: true },
             ),
           "mcp",
+          language,
         ).pipe(
           Effect.tap(() => Effect.sync(() => current.add(mcpRegistrationKey(entry.server.name, entry.config)))),
           Effect.ignore,
@@ -1054,12 +1110,12 @@ function isSdkResponse<T>(value: T | SdkResponse<T>): value is SdkResponse<T> {
   return typeof value === "object" && value !== null && ("data" in value || "error" in value)
 }
 
-function fromUnknownError(error: unknown, service?: string): Error {
+function fromUnknownError(error: unknown, service?: string, language?: Language): Error {
   if (isACPError(error)) return error
   if (isAuthRequired(error)) {
     return new ACPError.AuthRequiredError({ providerId: findProviderID(error) })
   }
-  return new ACPError.ServiceFailureError({ safeMessage: "MiaopanCode service failure", service })
+  return new ACPError.ServiceFailureError({ safeMessage: t(language, "acp.service_failure"), service })
 }
 
 function isACPError(error: unknown): error is Error {

@@ -23,6 +23,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { disposeAllInstances } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 import { ProviderV2 } from "@miaopan-code/core/provider"
+import { t } from "@miaopan-code/core/i18n"
 import { ModelV2 } from "@miaopan-code/core/model"
 
 afterEach(async () => {
@@ -647,7 +648,7 @@ describe("tool.task", () => {
 
       expect(result.metadata.sessionId).toBe(started.metadata.sessionId)
       expect(result.metadata.background).toBe(true)
-      expect(result.output).toContain("Background task updated")
+      expect(result.output).toContain(t("zh-CN", "tool.summary.background_updated"))
       first.resolve()
       expect((yield* jobs.get(started.metadata.sessionId))?.status).toBe("running")
       expect((yield* Effect.promise(() => updated.promise)).parts).toEqual([

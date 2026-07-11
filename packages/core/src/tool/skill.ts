@@ -10,12 +10,13 @@ import { PermissionV2 } from "../permission"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "skill"
 const FILE_LIMIT = 10
 
 export const Input = Schema.Struct({
-  name: Schema.String.annotate({ description: "The name of the skill from the available skills list" }),
+  name: Schema.String.annotate({ description: zh("tool.param.core_skill") }),
 })
 
 export const Output = Schema.Struct({
@@ -24,25 +25,19 @@ export const Output = Schema.Struct({
   output: Schema.String,
 })
 
-export const description = [
-  "Load a specialized skill when the task at hand matches one of the available skills in the system context.",
-  "",
-  "Use this tool to inject the skill's instructions and resources into the current conversation. The output may contain detailed workflow guidance as well as references to scripts, files, etc. in the same directory as the skill.",
-  "",
-  "The skill name must match one of the available skills in the system context.",
-].join("\n")
+export const description = zh("tool.description.core_skill")
 
-export const toModelOutput = (skill: SkillV2.Info, files: ReadonlyArray<string>) => {
+export const toModelOutput = (skill: SkillV2.Info, files: ReadonlyArray<string>, language?: Language) => {
   const directory = path.dirname(skill.location)
   return [
     `<skill_content name="${skill.name}">`,
-    `# Skill: ${skill.name}`,
+    t(language, "tool.skill_heading", { name: skill.name }),
     "",
     skill.content.trim(),
     "",
-    `Base directory for this skill: ${directory}`,
-    "Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.",
-    "Note: file list is sampled.",
+    t(language, "tool.skill_base", { base: directory }),
+    t(language, "tool.skill_relative"),
+    t(language, "tool.skill_files_sampled"),
     "",
     "<skill_files>",
     ...files.map((file) => `<file>${file}</file>`),
@@ -51,8 +46,8 @@ export const toModelOutput = (skill: SkillV2.Info, files: ReadonlyArray<string>)
   ].join("\n")
 }
 
-const unableToLoad = (name: string, error?: unknown) =>
-  new ToolFailure({ message: `Unable to load skill ${name}`, error })
+const unableToLoad = (name: string, language?: Language, error?: unknown) =>
+  new ToolFailure({ message: t(language, "tool.error.skill", { name }), error })
 
 const layer = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -71,7 +66,7 @@ const layer = Layer.effectDiscard(
             Effect.gen(function* () {
               const current = yield* skills.list()
               const skill = current.find((skill) => skill.name === input.name)
-              if (!skill) return yield* unableToLoad(input.name)
+              if (!skill) return yield* unableToLoad(input.name, context.language)
               return yield* Effect.gen(function* () {
                 yield* permission.assert({
                   action: name,
@@ -92,9 +87,9 @@ const layer = Layer.effectDiscard(
                 return {
                   name: skill.name,
                   directory,
-                  output: toModelOutput(skill, files),
+                  output: toModelOutput(skill, files, context.language),
                 }
-              }).pipe(Effect.mapError((error) => unableToLoad(input.name, error)))
+              }).pipe(Effect.mapError((error) => unableToLoad(input.name, context.language, error)))
             }),
         }),
       })

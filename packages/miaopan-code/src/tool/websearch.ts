@@ -2,27 +2,31 @@ import { Effect, Schema } from "effect"
 import { HttpClient } from "effect/unstable/http"
 import * as Tool from "./tool"
 import * as McpWebSearch from "./mcp-websearch"
-import DESCRIPTION from "./websearch.txt"
+import { ToolI18n } from "./i18n"
 import { checksum } from "@miaopan-code/core/util/encode"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { RuntimeFlags } from "@/effect/runtime-flags"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-export const Parameters = Schema.Struct({
-  query: Schema.String.annotate({ description: "Websearch query" }),
-  numResults: Schema.optional(Schema.Number).annotate({
-    description: "Number of search results to return (default: 8)",
-  }),
-  livecrawl: Schema.optional(Schema.Literals(["fallback", "preferred"])).annotate({
-    description:
-      "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
-  }),
-  type: Schema.optional(Schema.Literals(["auto", "fast", "deep"])).annotate({
-    description: "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
-  }),
-  contextMaxCharacters: Schema.optional(Schema.Number).annotate({
-    description: "Maximum characters for context string optimized for LLMs (default: 10000)",
-  }),
-})
+export function parameterSchema(language: Language = "zh-CN") {
+  return Schema.Struct({
+    query: Schema.String.annotate({ description: t(language, "tool.param.websearch_query") }),
+    numResults: Schema.optional(Schema.Number).annotate({
+      description: t(language, "tool.param.websearch_limit"),
+    }),
+    livecrawl: Schema.optional(Schema.Literals(["fallback", "preferred"])).annotate({
+      description: t(language, "tool.param.core_livecrawl"),
+    }),
+    type: Schema.optional(Schema.Literals(["auto", "fast", "deep"])).annotate({
+      description: t(language, "tool.param.websearch_type"),
+    }),
+    contextMaxCharacters: Schema.optional(Schema.Number).annotate({
+      description: t(language, "tool.param.websearch_context"),
+    }),
+  })
+}
+
+export const Parameters = parameterSchema()
 
 const WebSearchProviderSchema = Schema.Literals(["exa", "parallel"])
 export type WebSearchProvider = Schema.Schema.Type<typeof WebSearchProviderSchema>
@@ -36,10 +40,10 @@ export function selectWebSearchProvider(sessionID: string, flags = { exa: false,
   return Number.parseInt(checksum(sessionID) ?? "0", 36) % 2 === 0 ? "exa" : "parallel"
 }
 
-export function webSearchProviderLabel(provider: unknown) {
-  if (provider === "parallel") return "Parallel Web Search"
-  if (provider === "exa") return "Exa Web Search"
-  return "Web Search"
+export function webSearchProviderLabel(provider: unknown, language: Language = "zh-CN") {
+  if (provider === "parallel") return t(language, "tui.web_search_parallel")
+  if (provider === "exa") return t(language, "tui.web_search_exa")
+  return t(language, "tui.web_search")
 }
 
 export function webSearchModelName(extra: Tool.Context["extra"]) {
@@ -77,6 +81,7 @@ function callProvider(
       },
       "25 seconds",
       parallelAuthHeaders(),
+      ctx.language,
     )
   }
 
@@ -93,6 +98,8 @@ function callProvider(
       contextMaxCharacters: params.contextMaxCharacters,
     },
     "25 seconds",
+    undefined,
+    ctx.language,
   )
 }
 
@@ -101,20 +108,26 @@ export const WebSearchTool = Tool.define(
   Effect.gen(function* () {
     const http = yield* HttpClient.HttpClient
     const flags = yield* RuntimeFlags.Service
+    const language = yield* ToolI18n.language()
+    const description = (yield* ToolI18n.description("tool.websearch")).replace(
+      "{{year}}",
+      new Date().getFullYear().toString(),
+    )
 
     return {
-      get description() {
-        return DESCRIPTION.replace("{{year}}", new Date().getFullYear().toString())
-      },
-      parameters: Parameters,
+      description,
+      parameters: parameterSchema(language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
           const provider = selectWebSearchProvider(ctx.sessionID, {
             exa: flags.enableExa,
             parallel: flags.enableParallel,
           })
-          const title = webSearchProviderLabel(provider)
-          yield* ctx.metadata({ title: `${title} "${params.query}"`, metadata: { provider } })
+          const title = webSearchProviderLabel(provider, ctx.language)
+          yield* ctx.metadata({
+            title: ToolI18n.text(ctx, "tool.title.search", { title, query: params.query }),
+            metadata: { provider },
+          })
 
           yield* ctx.ask({
             permission: "websearch",
@@ -133,8 +146,8 @@ export const WebSearchTool = Tool.define(
           const result = yield* callProvider(http, provider, params, ctx)
 
           return {
-            output: result ?? "No search results found. Please try a different query.",
-            title: `${title}: ${params.query}`,
+            output: result ?? ToolI18n.text(ctx, "tool.output.no_search_results"),
+            title: ToolI18n.text(ctx, "tool.title.search", { title, query: params.query }),
             metadata: { provider },
           }
         }).pipe(Effect.orDie),

@@ -270,6 +270,7 @@ export type ResponseFormat = Schema.Schema.Type<typeof ResponseFormat>
 
 export class LLMRequest extends Schema.Class<LLMRequest>("LLM.Request")({
   id: Schema.optional(Schema.String),
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
   model: ModelSchema,
   system: Schema.Array(SystemPart),
   messages: Schema.Array(Message),
@@ -288,6 +289,7 @@ export namespace LLMRequest {
 
   export const input = (request: LLMRequest): Input => ({
     id: request.id,
+    language: request.language,
     model: request.model,
     system: request.system,
     messages: request.messages,

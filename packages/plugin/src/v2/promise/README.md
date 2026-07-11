@@ -1,13 +1,10 @@
-# miaopan-code V2 Promise Plugin API
+# miaopan-code V2 Promise 插件 API
 
-The Promise plugin API is the async/await equivalent of `@miaopan-code/plugin/v2/effect`. It grants plugins the same two in-process capabilities:
+语言版本：简体中文 · [English](README.en.md)
 
-- `hook` installs behavior at an miaopan-code extension point.
-- `reload` reruns every transform hook for a stateful domain.
+Promise 插件 API 是 `@miaopan-code/plugin/v2/effect` 的 async/await 版本，提供相同的 `hook` 和 `reload` 能力。Hook 回调、注册、`reload` 以及 `Registration.dispose` 使用 Promise，而不是 Effect。
 
-The only difference from the Effect API is the async boundary: hook callbacks, hook registration, `reload`, and `Registration.dispose` use Promises instead of Effects.
-
-## Defining A Plugin
+## 定义插件
 
 ```ts
 import { define } from "@miaopan-code/plugin/v2/promise"
@@ -24,80 +21,4 @@ export const Plugin = define({
 })
 ```
 
-Plugin setup registers hooks imperatively. It does not return a hook object.
-
-Configuration supplied for the plugin is available as `ctx.options`.
-
-A registration may be removed early through `dispose`:
-
-```ts
-const registration = await ctx.catalog.transform(applyCatalog)
-await registration.dispose()
-```
-
-## Transform Hooks
-
-Transform hooks contribute to stateful domains. The draft editor is synchronous; the callback may be `async` when it needs to await other work:
-
-```ts
-await ctx.agent.transform((agent) => {
-  agent.update("reviewer", (item) => {
-    item.description = "Reviews code for regressions"
-    item.mode = "subagent"
-  })
-})
-```
-
-Available transform hooks are namespaced by domain:
-
-```ts
-ctx.agent.transform
-ctx.catalog.transform
-ctx.command.transform
-ctx.integration.transform
-ctx.reference.transform
-ctx.skill.transform
-```
-
-## Runtime Hooks
-
-Runtime hooks intercept live operations:
-
-```ts
-await ctx.aisdk.sdk(async (event) => {
-  if (event.package !== "@ai-sdk/xai") return
-  const mod = await import("@ai-sdk/xai")
-  event.sdk = mod.createXai(event.options)
-})
-
-await ctx.aisdk.language((event) => {
-  if (event.model.providerID !== "xai") return
-  event.language = event.sdk.responses(event.model.api.id)
-})
-```
-
-## Reloading A Domain
-
-When data captured by a transform changes, reload the affected domain:
-
-```ts
-let data = await loadCatalog()
-
-await ctx.catalog.transform((catalog) => {
-  applyCatalog(data, catalog)
-})
-
-data = await loadCatalog()
-await ctx.catalog.reload()
-```
-
-Available reload operations are:
-
-```ts
-ctx.agent.reload()
-ctx.catalog.reload()
-ctx.command.reload()
-ctx.integration.reload()
-ctx.reference.reload()
-ctx.skill.reload()
-```
+配置通过 `ctx.options` 提供。Transform hook 可作用于 agent、catalog、command、integration、reference 和 skill 等状态域；runtime hook 用于拦截实时操作。完整示例和生命周期说明请参阅 [英文文档](README.en.md)。

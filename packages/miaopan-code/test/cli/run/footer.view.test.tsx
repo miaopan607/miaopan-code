@@ -1,5 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 import { expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import { BoxRenderable, RGBA, type RootRenderable } from "@opentui/core"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createSignal } from "solid-js"
@@ -399,24 +400,23 @@ test("direct command panel renders grouped command palette", async () => {
     await app.renderOnce()
     const frame = app.captureCharFrame()
 
-    expect(frame).toContain("Commands")
-    expect(frame).toContain("Search")
-    expect(frame).toContain("Session")
-    expect(frame).toContain("Agent")
-    expect(frame).toContain("Prompt")
-    expect(frame).toContain("Open editor")
+    expect(frame).toContain(t("zh-CN", "cli.run.commands"))
+    expect(frame).toContain(t("zh-CN", "cli.run.search"))
+    expect(frame).toContain(t("zh-CN", "cli.run.category_session"))
+    expect(frame).toContain(t("zh-CN", "cli.run.category_agent"))
+    expect(frame).toContain(t("zh-CN", "cli.run.category_prompt"))
+    expect(frame).toContain(t("zh-CN", "cli.run.open_editor_title"))
     expect(frame).toContain("/editor")
-    expect(frame).toContain("Switch model")
-    expect(frame).toContain("Skills")
+    expect(frame).toContain(t("zh-CN", "cli.run.skills"))
     expect(frame).toContain("/skills")
-    expect(frame.match(/\bAgent\b/g)?.length).toBe(1)
+    expect(frame.match(new RegExp(t("zh-CN", "cli.run.category_agent"), "g"))?.length).toBe(1)
     expect(frame).not.toContain("┌")
     expect(frame).not.toContain("┃")
     expect(frame).not.toContain("/internal")
     expect(frame).not.toContain("Choose model for future turns")
     expect(frame).not.toContain("Cycle reasoning effort for future turns")
     expect(frame).not.toContain("Review code")
-    expect(frame).not.toContain("Commands 8")
+    expect(frame).not.toContain(`${t("zh-CN", "cli.run.commands")} 8`)
   } finally {
     app.renderer.destroy()
   }
@@ -450,8 +450,8 @@ test("direct skill panel renders searchable skill list", async () => {
     await app.renderOnce()
     const frame = app.captureCharFrame()
 
-    expect(frame).toContain("Skills")
-    expect(frame).toContain("Search")
+    expect(frame).toContain(t("zh-CN", "cli.run.skills"))
+    expect(frame).toContain(t("zh-CN", "cli.run.search"))
     expect(frame).toContain("internal")
     expect(frame).not.toContain("/internal")
     expect(frame).toContain("formatter")
@@ -540,8 +540,8 @@ test("direct command panel shows subagent entry when available", async () => {
     await app.renderOnce()
     const frame = app.captureCharFrame()
 
-    expect(frame).toContain("View subagents")
-    expect(frame).toContain("1 active")
+    expect(frame).toContain(t("zh-CN", "cli.run.view_subagents_title"))
+    expect(frame).toContain(t("zh-CN", "cli.run.active_count", { count: 1 }))
   } finally {
     app.renderer.destroy()
   }
@@ -588,8 +588,8 @@ test("direct command panel keeps completed subagents available", async () => {
     await app.renderOnce()
     const frame = app.captureCharFrame()
 
-    expect(frame).toContain("View subagents")
-    expect(frame).toContain("1 recent")
+    expect(frame).toContain(t("zh-CN", "cli.run.view_subagents_title"))
+    expect(frame).toContain(t("zh-CN", "cli.run.recent_count", { count: 1 }))
   } finally {
     app.renderer.destroy()
   }
@@ -629,7 +629,7 @@ test("direct subagent panel renders active subagents", async () => {
     const frame = app.captureCharFrame()
     const list = panelMenu(app.renderer.root)
 
-    expect(frame).toContain("Select subagent")
+    expect(frame).toContain(t("zh-CN", "cli.run.select_subagent"))
     expect(frame).toContain("Inspect auth flow")
     expect(frame).toContain("Write migration plan")
     expect(frame).toContain("done")
@@ -667,7 +667,7 @@ test("direct queued prompt panel renders pending prompt actions", async () => {
     const frame = app.captureCharFrame()
     const list = panelMenu(app.renderer.root)
 
-    expect(frame).toContain("Queued prompts")
+    expect(frame).toContain(t("zh-CN", "cli.run.manage_queued"))
     expect(frame).toContain("fix the auth test")
     expect(frame).toContain("queued")
     expect(frame).not.toContain("┌")
@@ -1002,13 +1002,15 @@ test("direct footer shows editable prompts and additional queued work while runn
 
     expect(spinner).toBeDefined()
     expect(frame).toContain("a-model-name-long-enough-to-force-responsive-truncation")
-    expect(frame).toContain("3 queued")
-    expect(frame).toContain("ctrl+b background")
-    expect(frame).toContain("ctrl+x q 3 queued")
-    expect(frame).toContain("ctrl+x down subagents")
-    expect(frame).toContain("ctrl+p cmd")
+    expect(frame).toContain(t("zh-CN", "cli.run.queued_count", { count: 3 }))
+    expect(frame).toContain(`ctrl+b ${t("zh-CN", "cli.run.context_background")}`)
+    expect(frame).toContain(`ctrl+x q ${t("zh-CN", "cli.run.queued_count", { count: 3 })}`)
+    expect(frame).toContain(`ctrl+x down ${t("zh-CN", "cli.run.context_subagents")}`)
+    expect(frame).toContain(`ctrl+p ${t("zh-CN", "cli.run.context_command")}`)
     expect(frame).toContain("a-model-name-long-enough-to-force-responsive-truncation")
-    expect(frame).toContain("subagents · ctrl+p cmd")
+    expect(frame).toContain(
+      `${t("zh-CN", "cli.run.context_subagents")} · ctrl+p ${t("zh-CN", "cli.run.context_command")}`,
+    )
     expect(frame).not.toContain("1 agent")
     expect(statusline.backgroundColor.toInts()).toEqual(tinted)
     expect(mode.backgroundColor.toInts()).toEqual(accent)
@@ -1044,8 +1046,10 @@ test("direct footer separates a lone context hint from model and command hint", 
     const frame = app.captureCharFrame()
 
     expect(frame).toContain("GPT-5")
-    expect(frame).toContain("xhigh · ctrl+x down subagents · ctrl+p cmd")
-    expect(frame).not.toContain("ctrl+b background")
+    expect(frame).toContain(
+      `xhigh · ctrl+x down ${t("zh-CN", "cli.run.context_subagents")} · ctrl+p ${t("zh-CN", "cli.run.context_command")}`,
+    )
+    expect(frame).not.toContain(`ctrl+b ${t("zh-CN", "cli.run.context_background")}`)
     expect(frame).not.toContain("queued")
   } finally {
     app.cleanup()
@@ -1072,8 +1076,8 @@ test("direct footer hides the subagent hint when only completed subagents remain
     const frame = app.captureCharFrame()
 
     expect(frame).toContain("GPT-5")
-    expect(frame).toContain("xhigh · ctrl+p cmd")
-    expect(frame).not.toContain("ctrl+x down subagents")
+    expect(frame).toContain(`xhigh · ctrl+p ${t("zh-CN", "cli.run.context_command")}`)
+    expect(frame).not.toContain(`ctrl+x down ${t("zh-CN", "cli.run.context_subagents")}`)
   } finally {
     app.cleanup()
   }
@@ -1089,7 +1093,7 @@ test("direct footer omits interrupt key hint when interrupt is unbound", async (
     await app.renderOnce()
     const frame = app.captureCharFrame()
 
-    expect(frame).toContain("interrupt")
+    expect(frame).toContain(t("zh-CN", "prompt.interrupt_short"))
     expect(frame).not.toContain("ctrl+l")
   } finally {
     app.cleanup()
@@ -1116,13 +1120,15 @@ test("direct footer mode label keeps left padding without a status pill", async 
 
   try {
     await app.renderOnce()
+    const mode = t("zh-CN", "cli.run.mode_build")
+    const command = t("zh-CN", "cli.run.context_command")
     const statusline = app
       .captureCharFrame()
       .split("\n")
-      .find((line) => line.includes("BUILD") && line.includes("cmd"))
+      .find((line) => line.includes(mode) && line.includes(command))
 
     expect(statusline).toBeDefined()
-    expect(statusline?.startsWith(" BUILD ")).toBe(true)
+    expect(statusline?.startsWith(` ${mode} `)).toBe(true)
   } finally {
     app.cleanup()
   }
@@ -1318,13 +1324,13 @@ test("direct model panel renders current model selector", async () => {
     const frame = app.captureCharFrame()
     const list = panelMenu(app.renderer.root)
 
-    expect(frame).toContain("Select model")
-    expect(frame).toContain("Search")
+    expect(frame).toContain(t("zh-CN", "dialog.select_model"))
+    expect(frame).toContain(t("zh-CN", "cli.run.search"))
     expect(frame).toContain("miaopan-code")
     expect(frame).toContain("GPT-5")
-    expect(frame).toContain("current")
+    expect(frame).toContain(t("zh-CN", "cli.run.current"))
     expect(frame).toContain("GPT Free")
-    expect(frame).toContain("Free")
+    expect(frame).toContain(t("zh-CN", "cli.run.free"))
     expect(frame).not.toContain("┌")
     expect(frame).not.toContain("┃")
     expect(frame).not.toContain("Old Model")
@@ -1361,11 +1367,11 @@ test("direct variant panel renders current variant selector", async () => {
     const frame = app.captureCharFrame()
     const list = panelMenu(app.renderer.root)
 
-    expect(frame).toContain("Select variant")
-    expect(frame).toContain("Default")
+    expect(frame).toContain(t("zh-CN", "dialog.select_variant"))
+    expect(frame).toContain(t("zh-CN", "cli.run.default_variant"))
     expect(frame).toContain("high")
     expect(frame).toContain("minimal")
-    expect(frame).toContain("current")
+    expect(frame).toContain(t("zh-CN", "cli.run.current"))
     expect(frame).not.toContain("┌")
     expect(frame).not.toContain("┃")
     expectPaletteList(list, 1)

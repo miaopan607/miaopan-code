@@ -14,6 +14,7 @@ import { Config } from "@/config/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Shell } from "@miaopan-code/core/shell"
 import { ShellID } from "./shell/id"
+import { I18n } from "@miaopan-code/core/i18n"
 
 import * as Truncate from "./truncate"
 import { Plugin } from "@/plugin"
@@ -21,6 +22,7 @@ import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { ShellPrompt, type Parameters } from "./shell/prompt"
 import { BashArity } from "@/permission/arity"
+import { ToolI18n } from "./i18n"
 
 export { Parameters } from "./shell/prompt"
 
@@ -254,9 +256,9 @@ function tail(text: string, maxLines: number, maxBytes: number) {
   }
 }
 
-const parse = Effect.fn("ShellTool.parse")(function* (command: string, ps: boolean) {
+const parse = Effect.fn("ShellTool.parse")(function* (command: string, ps: boolean, language?: I18n.Language) {
   const tree = yield* Effect.promise(() => parser().then((p) => (ps ? p.ps : p.bash).parse(command)))
-  if (!tree) throw new Error("Failed to parse command")
+  if (!tree) throw new Error(I18n.t(language, "tool.error.shell_parse_command"))
   return tree
 })
 
@@ -381,6 +383,7 @@ export const ShellTool = Tool.define(
       ps: boolean,
       shell: string,
       instance: InstanceContext,
+      language?: I18n.Language,
     ) {
       const scan: Scan = {
         dirs: new Set<string>(),
@@ -397,7 +400,7 @@ export const ShellTool = Tool.define(
         if (cmd && (FILES.has(cmd) || (shellKind === "cmd" && CMD_FILES.has(cmd)))) {
           for (const arg of pathArgs(command, ps, shellKind === "cmd")) {
             const resolved = yield* argPath(arg, cwd, ps, shell)
-            yield* Effect.logInfo("resolved path", { arg, resolved })
+            yield* Effect.logInfo(I18n.t(language, "log.shell_resolved_path"), { arg, resolved })
             if (!resolved || containsPath(resolved, instance)) continue
             const dir = (yield* fs.isDir(resolved)) ? resolved : path.dirname(resolved)
             scan.dirs.add(dir)
@@ -560,11 +563,9 @@ export const ShellTool = Tool.define(
 
       const meta: string[] = []
       if (expired) {
-        meta.push(
-          `shell tool terminated command after exceeding timeout ${input.timeout} ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.`,
-        )
+        meta.push(ToolI18n.text(ctx, "tool.shell.timeout_message", { ms: input.timeout }))
       }
-      if (aborted) meta.push("User aborted the command")
+      if (aborted) meta.push(ToolI18n.text(ctx, "tool.shell.user_aborted"))
       const raw = list.map((item) => item.text).join("")
       const end = tail(raw, limits.maxLines, limits.maxBytes)
       if (end.cut) cut = true
@@ -573,10 +574,10 @@ export const ShellTool = Tool.define(
       }
 
       let output = end.text
-      if (!output) output = "(no output)"
+      if (!output) output = ToolI18n.text(ctx, "tool.shell.no_output")
 
       if (cut && file) {
-        output = `...output truncated...\n\nFull output saved to: ${file}\n\n` + output
+        output = ToolI18n.text(ctx, "tool.shell.output_saved", { file }) + output
       }
 
       if (meta.length > 0) {
@@ -600,8 +601,8 @@ export const ShellTool = Tool.define(
         const shell = Shell.acceptable(cfg.shell)
         const name = Shell.name(shell)
         const limits = yield* trunc.limits()
-        const prompt = ShellPrompt.render(name, process.platform, limits, defaultTimeoutMs)
-        yield* Effect.logInfo("shell tool using shell", { shell })
+        const prompt = ShellPrompt.render(name, process.platform, limits, defaultTimeoutMs, cfg.language)
+        yield* Effect.logInfo(I18n.t(cfg.language, "log.shell_using_shell"), { shell })
 
         return {
           description: prompt.description,
@@ -613,16 +614,16 @@ export const ShellTool = Tool.define(
                 ? yield* resolvePath(params.workdir, instanceCtx.directory, shell)
                 : instanceCtx.directory
               if (params.timeout !== undefined && params.timeout < 0) {
-                throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
+                throw new Error(ToolI18n.text(ctx, "tool.error.invalid_timeout", { timeout: params.timeout }))
               }
               const timeout = params.timeout ?? defaultTimeoutMs
               const ps = Shell.ps(shell)
               yield* Effect.scoped(
                 Effect.gen(function* () {
-                  const tree = yield* Effect.acquireRelease(parse(params.command, ps), (tree) =>
+                  const tree = yield* Effect.acquireRelease(parse(params.command, ps, ctx.language), (tree) =>
                     Effect.sync(() => tree.delete()),
                   )
-                  const scan = yield* collect(tree.rootNode, cwd, ps, shell, instanceCtx)
+                  const scan = yield* collect(tree.rootNode, cwd, ps, shell, instanceCtx, ctx.language)
                   if (!containsPath(cwd, instanceCtx)) scan.dirs.add(cwd)
                   yield* ask(ctx, scan, params)
                 }),

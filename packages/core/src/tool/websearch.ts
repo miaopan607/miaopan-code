@@ -14,9 +14,11 @@ import { Tools } from "./tools"
 import { collectBoundedResponseBody } from "./http-body"
 import { checksum } from "../util/encode"
 import { ToolRegistry } from "./registry"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "websearch"
-export const NO_RESULTS = "No search results found. Please try a different query."
+export const NO_RESULTS = zh("tool.output.no_search_results")
+export const noResults = (language?: Language) => t(language, "tool.output.no_search_results")
 export const EXA_URL = "https://mcp.exa.ai/mcp"
 export const PARALLEL_URL = "https://search.parallel.ai/mcp"
 export const MAX_NUM_RESULTS = 20
@@ -29,29 +31,22 @@ export const MAX_RESPONSE_BYTES = 256 * 1024
  * from provider-hosted web search tools, which remain route-owned and execute
  * at the model provider. Ownership of this compromise can be revisited later.
  */
-export const description = `Search the web using the session's local web search provider. Use this for current information beyond knowledge cutoff.
-
-This is a provider-independent local tool backed by Exa or Parallel. Provider-hosted web search tools are separate and execute at the model provider.
-
-Optional controls support result count, live crawling ('fallback' or 'preferred'), search type ('auto', 'fast', or 'deep'), and maximum context characters.
-
-The current year is ${new Date().getFullYear()}. Use this year when searching for recent information or current events.`
+export const description = zh("tool.description.core_websearch", { year: new Date().getFullYear() })
 
 export const Input = Schema.Struct({
-  query: Schema.String.annotate({ description: "Websearch query" }),
+  query: Schema.String.annotate({ description: zh("tool.param.websearch_query") }),
   numResults: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(MAX_NUM_RESULTS))).annotate({
-    description: `Number of search results to return (default: 8, maximum: ${MAX_NUM_RESULTS})`,
+    description: zh("tool.param.core_websearch_limit", { max: MAX_NUM_RESULTS }),
   }),
   livecrawl: Schema.optional(Schema.Literals(["fallback", "preferred"])).annotate({
-    description:
-      "Live crawl mode - 'fallback': use live crawling as backup if cached unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
+    description: zh("tool.param.core_livecrawl"),
   }),
   type: Schema.optional(Schema.Literals(["auto", "fast", "deep"])).annotate({
-    description: "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
+    description: zh("tool.param.websearch_type"),
   }),
   contextMaxCharacters: Schema.optional(PositiveInt.check(Schema.isLessThanOrEqualTo(MAX_CONTEXT_CHARACTERS))).annotate(
     {
-      description: `Maximum characters for context string optimized for models (default: 10000, maximum: ${MAX_CONTEXT_CHARACTERS})`,
+      description: zh("tool.param.core_websearch_context", { max: MAX_CONTEXT_CHARACTERS }),
     },
   ),
 })
@@ -73,10 +68,14 @@ export class ConfigService extends Context.Service<ConfigService, Config>()("@mi
 export const defaultConfigLayer = Layer.sync(ConfigService, () =>
   ConfigService.of({
     provider:
-      process.env.MIAOPAN_CODE_WEBSEARCH_PROVIDER === "exa" || process.env.MIAOPAN_CODE_WEBSEARCH_PROVIDER === "parallel"
+      process.env.MIAOPAN_CODE_WEBSEARCH_PROVIDER === "exa" ||
+      process.env.MIAOPAN_CODE_WEBSEARCH_PROVIDER === "parallel"
         ? process.env.MIAOPAN_CODE_WEBSEARCH_PROVIDER
         : undefined,
-    enableExa: truthy("MIAOPAN_CODE_EXPERIMENTAL") || truthy("MIAOPAN_CODE_ENABLE_EXA") || truthy("MIAOPAN_CODE_EXPERIMENTAL_EXA"),
+    enableExa:
+      truthy("MIAOPAN_CODE_EXPERIMENTAL") ||
+      truthy("MIAOPAN_CODE_ENABLE_EXA") ||
+      truthy("MIAOPAN_CODE_EXPERIMENTAL_EXA"),
     enableParallel: truthy("MIAOPAN_CODE_ENABLE_PARALLEL") || truthy("MIAOPAN_CODE_EXPERIMENTAL_PARALLEL"),
     exaApiKey: process.env.EXA_API_KEY,
     parallelApiKey: process.env.PARALLEL_API_KEY,
@@ -156,6 +155,7 @@ const callMcp = <F extends Schema.Struct.Fields>(
   args: Schema.Struct<F>,
   value: Schema.Struct.Type<F>,
   headers: Record<string, string> = {},
+  language?: Language,
 ) =>
   Effect.gen(function* () {
     const request = yield* HttpClientRequest.post(url).pipe(
@@ -173,13 +173,13 @@ const callMcp = <F extends Schema.Struct.Fields>(
       const body = yield* collectBoundedResponseBody(
         response,
         MAX_RESPONSE_BYTES,
-        () => new Error(`${tool} response exceeded ${MAX_RESPONSE_BYTES} bytes`),
+        () => new Error(t(language, "tool.error.search_response_too_large", { tool, max: MAX_RESPONSE_BYTES })),
       )
       return yield* parseResponse(body.toString("utf8"))
     }).pipe(
       Effect.timeoutOrElse({
         duration: Duration.seconds(25),
-        orElse: () => Effect.fail(new Error(`${tool} request timed out`)),
+        orElse: () => Effect.fail(new Error(t(language, "tool.error.search_timeout", { tool }))),
       }),
     )
   })
@@ -218,13 +218,21 @@ const layer = Layer.effectDiscard(
 
               const text =
                 provider === "exa"
-                  ? yield* callMcp(http, exaUrl(config.exaApiKey), "web_search_exa", ExaArgs, {
-                      query: input.query,
-                      type: input.type || "auto",
-                      numResults: input.numResults || 8,
-                      livecrawl: input.livecrawl || "fallback",
-                      contextMaxCharacters: input.contextMaxCharacters,
-                    })
+                  ? yield* callMcp(
+                      http,
+                      exaUrl(config.exaApiKey),
+                      "web_search_exa",
+                      ExaArgs,
+                      {
+                        query: input.query,
+                        type: input.type || "auto",
+                        numResults: input.numResults || 8,
+                        livecrawl: input.livecrawl || "fallback",
+                        contextMaxCharacters: input.contextMaxCharacters,
+                      },
+                      undefined,
+                      context.language,
+                    )
                   : yield* callMcp(
                       http,
                       PARALLEL_URL,
@@ -240,12 +248,17 @@ const layer = Layer.effectDiscard(
                         "User-Agent": `miaopan-code/${InstallationVersion}`,
                         ...(config.parallelApiKey ? { Authorization: `Bearer ${config.parallelApiKey}` } : {}),
                       },
+                      context.language,
                     )
               return {
                 provider,
-                text: text ?? NO_RESULTS,
+                text: text ?? noResults(context.language),
               }
-            }).pipe(Effect.mapError(() => new ToolFailure({ message: `Unable to search the web for ${input.query}` })))
+            }).pipe(
+              Effect.mapError(
+                () => new ToolFailure({ message: t(context.language, "tool.error.websearch", { query: input.query }) }),
+              ),
+            )
           },
         }),
       })

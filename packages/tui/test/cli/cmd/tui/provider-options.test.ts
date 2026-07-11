@@ -1,17 +1,18 @@
 import { describe, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import { normalizeCustomProviderID, providerOptions } from "../../../../src/component/dialog-provider"
 
 describe("providerOptions", () => {
   test("includes a synthetic Other option for custom providers", () => {
     expect(providerOptions([{ id: "openai", name: "OpenAI" }]).at(-1)).toMatchObject({
-      title: "Other",
-      description: "Custom provider",
-      category: "Providers",
+      title: t("zh-CN", "dialog.other"),
+      description: t("zh-CN", "provider.custom"),
+      category: t("zh-CN", "provider.providers"),
     })
   })
 
   test("does not use Other as the generic provider category", () => {
-    expect(providerOptions([{ id: "mistral", name: "Mistral" }])[0]?.category).toBe("Providers")
+    expect(providerOptions([{ id: "mistral", name: "Mistral" }])[0]?.category).toBe(t("zh-CN", "provider.providers"))
   })
 
   test("keeps popular providers first and sorts the rest alphabetically", () => {

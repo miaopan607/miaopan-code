@@ -33,7 +33,7 @@ describe("VercelPlugin", () => {
       expect((yield* catalog.provider.get(ProviderV2.ID.make("vercel")))?.request.headers).toEqual({
         Existing: "1",
         "http-referer": "https://github.com/miaopan607/miaopan-code/",
-        "x-title": "miaopanCode",
+        "x-title": "miaopan-code",
       })
     }),
   )

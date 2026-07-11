@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import stripAnsi from "strip-ansi"
 
 import { defaultConsoleUrl, formatAccountLabel, formatOrgLine } from "../../src/cli/cmd/account"
+import { UI } from "../../src/cli/ui"
 
 describe("console account display", () => {
   test("uses console.miaopanCode.ai as the default login URL", () => {
@@ -16,7 +17,7 @@ describe("console account display", () => {
 
   test("includes the active marker in account labels", () => {
     expect(stripAnsi(formatAccountLabel({ email: "one@example.com", url: "https://one.example.com" }, true))).toBe(
-      "one@example.com https://one.example.com (active)",
+      `one@example.com https://one.example.com${UI.t("account.active")}`,
     )
   })
 

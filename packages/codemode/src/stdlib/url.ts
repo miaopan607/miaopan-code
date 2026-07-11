@@ -42,10 +42,17 @@ export const urlSearchParamsMethods = new Set([
   "toString",
 ])
 
-export const uriArgument = (value: unknown, label: string): string => coerceToString(boundedData(value, label))
+export const uriArgument = (value: unknown, label: string, language?: Language): string =>
+  coerceToString(boundedData(value, label, language))
 
-export const invokeUriFunction = (ref: UriFunction, args: Array<unknown>, node: AstNode): string => {
-  const value = uriArgument(args[0], `${ref.name} input`)
+export const invokeUriFunction = (
+  ref: UriFunction,
+  args: Array<unknown>,
+  node: AstNode,
+  language?: Language,
+): string => {
+  language ??= languageOf(node)
+  const value = uriArgument(args[0], t(language, "codemode.stdlib.method_input", { name: ref.name }), language)
   try {
     switch (ref.name) {
       case "encodeURI":
@@ -59,20 +66,35 @@ export const invokeUriFunction = (ref: UriFunction, args: Array<unknown>, node: 
     }
   } catch (error) {
     throw new InterpreterRuntimeError(
-      `${ref.name} received malformed URI data: ${error instanceof Error ? error.message : String(error)}`,
+      t(language, "codemode.stdlib.uri_malformed", {
+        name: ref.name,
+        cause: error instanceof Error ? error.message : String(error),
+      }),
       node,
     ).as("URIError")
   }
 }
 
-export const urlArgument = (value: unknown, label: string): string =>
-  value instanceof SandboxURL ? value.url.href : uriArgument(value, label)
+export const urlArgument = (value: unknown, label: string, language?: Language): string =>
+  value instanceof SandboxURL ? value.url.href : uriArgument(value, label, language)
 
-export const invokeURLStatic = (name: string, args: Array<unknown>, node: AstNode): unknown => {
-  if (!urlStatics.has(name)) throw new InterpreterRuntimeError(`URL.${name} is not available in CodeMode.`, node)
-  if (args.length === 0) throw new InterpreterRuntimeError(`URL.${name} requires a URL argument.`, node).as("TypeError")
-  const input = urlArgument(args[0], `URL.${name} input`)
-  const base = args[1] === undefined ? undefined : urlArgument(args[1], `URL.${name} base`)
+export const invokeURLStatic = (name: string, args: Array<unknown>, node: AstNode, language?: Language): unknown => {
+  language ??= languageOf(node)
+  const method = `URL.${name}`
+  if (!urlStatics.has(name))
+    throw new InterpreterRuntimeError(
+      t(language, "codemode.stdlib.unavailable_static", { namespace: "URL", name }),
+      node,
+    )
+  if (args.length === 0)
+    throw new InterpreterRuntimeError(t(language, "codemode.stdlib.url_argument_required", { name: method }), node).as(
+      "TypeError",
+    )
+  const input = urlArgument(args[0], t(language, "codemode.stdlib.method_input", { name: method }), language)
+  const base =
+    args[1] === undefined
+      ? undefined
+      : urlArgument(args[1], t(language, "codemode.stdlib.method_base", { name: method }), language)
   try {
     const url = new URL(input, base)
     return name === "canParse" ? true : new SandboxURL(url)
@@ -81,10 +103,12 @@ export const invokeURLStatic = (name: string, args: Array<unknown>, node: AstNod
   }
 }
 
-export const invokeURLMethod = (value: SandboxURL, name: string, node: AstNode): string => {
+export const invokeURLMethod = (value: SandboxURL, name: string, node: AstNode, language?: Language): string => {
+  language ??= languageOf(node)
   if (name === "toString" || name === "toJSON") return value.url.href
-  throw new InterpreterRuntimeError(`URL method '${name}' is not available in CodeMode.`, node)
+  throw new InterpreterRuntimeError(t(language, "codemode.stdlib.unavailable_method", { namespace: "URL", name }), node)
 }
-import { type AstNode, InterpreterRuntimeError, UriFunction } from "../interpreter/model.js"
+import { type AstNode, InterpreterRuntimeError, languageOf, UriFunction } from "../interpreter/model.js"
+import { t, type Language } from "../i18n.js"
 import { SandboxURL } from "../values.js"
 import { boundedData, coerceToString } from "./value.js"

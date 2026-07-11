@@ -2,15 +2,13 @@ import type { AssistantMessage } from "@miaopan-code/sdk/v2"
 import type { TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo } from "solid-js"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../../util/locale"
 
 const id = "internal:sidebar-context"
 
-const money = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-})
-
 function View(props: { api: TuiPluginApi; session_id: string }) {
+  const tr = (key: Parameters<typeof t>[1]) => t(Locale.language(), key)
   const theme = () => props.api.theme.current
   const msg = createMemo(() => props.api.state.session.messages(props.session_id))
   const session = createMemo(() => props.api.state.session.get(props.session_id))
@@ -37,11 +35,17 @@ function View(props: { api: TuiPluginApi; session_id: string }) {
   return (
     <box>
       <text fg={theme().text}>
-        <b>Context</b>
+        <b>{tr("sidebar.context")}</b>
       </text>
-      <text fg={theme().textMuted}>{state().tokens.toLocaleString()} tokens</text>
-      <text fg={theme().textMuted}>{state().percent ?? 0}% used</text>
-      <text fg={theme().textMuted}>{money.format(cost())} spent</text>
+      <text fg={theme().textMuted}>
+        {Locale.integer(state().tokens)} {tr("sidebar.tokens")}
+      </text>
+      <text fg={theme().textMuted}>
+        {state().percent ?? 0}% {tr("sidebar.used")}
+      </text>
+      <text fg={theme().textMuted}>
+        {Locale.currency(cost())} {tr("sidebar.spent")}
+      </text>
     </box>
   )
 }

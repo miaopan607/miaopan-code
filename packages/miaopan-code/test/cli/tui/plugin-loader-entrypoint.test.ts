@@ -7,6 +7,7 @@ import { createTuiPluginApi } from "../../fixture/tui-plugin"
 import { createTuiResolvedConfig } from "../../fixture/tui-runtime"
 import { TuiConfig } from "../../../src/config/tui"
 import { Npm } from "@miaopan-code/core/npm"
+import { t } from "@miaopan-code/core/i18n"
 
 const { TuiPluginRuntime } = await import("../../../src/plugin/tui/runtime")
 
@@ -309,7 +310,11 @@ test("does not use npm package main for tui entry", async () => {
     await expect(fs.readFile(tmp.extra.marker, "utf8")).rejects.toThrow()
     expect(TuiPluginRuntime.list().some((item) => item.spec === tmp.extra.spec)).toBe(false)
     expect(error).not.toHaveBeenCalled()
-    expect(warn.mock.calls.some((call) => String(call[0]).includes("tui plugin has no entrypoint"))).toBe(true)
+    expect(
+      warn.mock.calls.some((call) =>
+        String(call[0]).includes(t("zh-CN", "error.plugin_entrypoint_missing", { spec: tmp.extra.spec, kind: "tui" })),
+      ),
+    ).toBe(true)
   } finally {
     await TuiPluginRuntime.dispose()
     install.mockRestore()

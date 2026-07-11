@@ -7,43 +7,13 @@ import type { EventV2 } from "../event"
 import { SessionEvent } from "./event"
 import { SessionMessage } from "./message"
 import { SessionSchema } from "./schema"
+import { t, type Language } from "../i18n"
 import { Token } from "../util/token"
 
 const DEFAULT_BUFFER = 20_000
 const DEFAULT_KEEP_TOKENS = 8_000
 const TOOL_OUTPUT_MAX_CHARS = 2_000
 const SUMMARY_OUTPUT_TOKENS = 4_096
-const SUMMARY_TEMPLATE = `Output exactly the Markdown structure shown inside <template> and keep the section order unchanged. Do not include the <template> tags in your response.
-<template>
-## Objective
-- [one or two brief sentences describing what the user is trying to accomplish]
-
-## Important Details
-- [constraints/preferences, decisions and why, important facts/assumptions, exact context needed to continue, or "(none)"]
-
-## Work State
-### Completed
-- [finished work, verified facts, or changes made; otherwise "(none)"]
-
-### Active
-- [current work, partial changes, or investigation state; otherwise "(none)"]
-
-### Blocked
-- [blockers, failing commands, or unknowns; otherwise "(none)"]
-
-## Next Move
-1. [immediate concrete action, or "(none)"]
-2. [next action if known, or "(none)"]
-
-## Relevant Files
-- [file or directory path: why it matters, or "(none)"]
-</template>
-
-Rules:
-- Keep every section, even when empty.
-- Use terse bullets, not prose paragraphs.
-- Preserve exact file paths, symbols, commands, error strings, URLs, and identifiers when known.
-- Do not mention the summary process or that context was compacted.`
 
 type Entry = {
   readonly seq: number
@@ -73,41 +43,60 @@ type Input = {
 
 const estimate = (value: unknown) => Token.estimate(JSON.stringify(value))
 
-const truncate = (value: string) =>
-  value.length <= TOOL_OUTPUT_MAX_CHARS ? value : `${value.slice(0, TOOL_OUTPUT_MAX_CHARS)}\n[truncated]`
+const truncate = (value: string, language: Language | undefined) =>
+  value.length <= TOOL_OUTPUT_MAX_CHARS
+    ? value
+    : `${value.slice(0, TOOL_OUTPUT_MAX_CHARS)}\n${t(language, "prompt.compaction_truncated")}`
 
-export const serializeToolContent = (content: SessionMessage.ToolStateCompleted["content"]) =>
+export const serializeToolContent = (content: SessionMessage.ToolStateCompleted["content"], language?: Language) =>
   content
     .map((item) =>
-      item.type === "text" ? item.text : `[Attached ${item.mime}${item.name === undefined ? "" : `: ${item.name}`}]`,
+      item.type === "text"
+        ? item.text
+        : item.name === undefined
+          ? t(language, "prompt.compaction_attached_unnamed", { mime: item.mime })
+          : t(language, "prompt.compaction_attached", { mime: item.mime, name: item.name }),
     )
     .join("\n")
 
-const serialize = (message: SessionMessage.Message) => {
+const serialize = (message: SessionMessage.Message, language: Language | undefined) => {
   if (message.type === "user") {
-    const files = message.files?.map((file) => `[Attached ${file.mime}: ${file.name ?? file.uri}]`) ?? []
-    return [`[User]: ${message.text}`, ...files].join("\n")
+    const files =
+      message.files?.map((file) =>
+        t(language, "prompt.compaction_attached", { mime: file.mime, name: file.name ?? file.uri }),
+      ) ?? []
+    return [t(language, "prompt.compaction_user", { text: message.text }), ...files].join("\n")
   }
   if (message.type === "assistant") {
     return message.content
       .flatMap((part) => {
-        if (part.type === "text") return [`[Assistant]: ${part.text}`]
-        if (part.type === "reasoning") return part.text ? [`[Assistant reasoning]: ${part.text}`] : []
+        if (part.type === "text") return [t(language, "prompt.compaction_assistant", { text: part.text })]
+        if (part.type === "reasoning")
+          return part.text ? [t(language, "prompt.compaction_assistant_reasoning", { text: part.text })] : []
         const input = typeof part.state.input === "string" ? part.state.input : JSON.stringify(part.state.input)
         if (part.state.status === "completed")
           return [
-            `[Assistant tool call]: ${part.name}(${input})`,
-            `[Tool result]: ${truncate(serializeToolContent(part.state.content))}`,
+            t(language, "prompt.compaction_tool_call", { name: part.name, input }),
+            t(language, "prompt.compaction_tool_result", {
+              result: truncate(serializeToolContent(part.state.content, language), language),
+            }),
           ]
         if (part.state.status === "error")
-          return [`[Assistant tool call]: ${part.name}(${input})`, `[Tool error]: ${part.state.error.message}`]
-        return [`[Assistant tool call]: ${part.name}(${input})`]
+          return [
+            t(language, "prompt.compaction_tool_call", { name: part.name, input }),
+            t(language, "prompt.compaction_tool_error", { error: part.state.error.message }),
+          ]
+        return [t(language, "prompt.compaction_tool_call", { name: part.name, input })]
       })
       .join("\n")
   }
-  if (message.type === "system") return `[System update]: ${message.text}`
-  if (message.type === "synthetic") return `[Synthetic context]: ${message.text}`
-  if (message.type === "shell") return `[Shell]: ${message.command}\n${truncate(message.output)}`
+  if (message.type === "system") return t(language, "prompt.compaction_system", { text: message.text })
+  if (message.type === "synthetic") return t(language, "prompt.compaction_synthetic", { text: message.text })
+  if (message.type === "shell")
+    return t(language, "prompt.compaction_shell", {
+      command: message.command,
+      output: truncate(message.output, language),
+    })
   return ""
 }
 
@@ -128,10 +117,11 @@ const settings = (documents: readonly Config.Entry[]) => {
 const select = (
   entries: readonly Entry[],
   tokens: number,
+  language: Language | undefined,
 ): { readonly head: string; readonly recent: string } | undefined => {
   const conversation = entries
     .filter((entry) => entry.message.type !== "compaction")
-    .map((entry) => serialize(entry.message))
+    .map((entry) => serialize(entry.message, language))
     .filter(Boolean)
   if (conversation.length === 0) return
   let total = 0
@@ -158,12 +148,16 @@ const select = (
   }
 }
 
-export const buildPrompt = (input: { readonly previousSummary?: string; readonly context: readonly string[] }) =>
+export const buildPrompt = (input: {
+  readonly previousSummary?: string
+  readonly context: readonly string[]
+  readonly language?: Language
+}) =>
   [
     input.previousSummary
-      ? `Update the anchored summary below using the conversation history above.\nPreserve still-true details, remove stale details, and merge in the new facts.\n<previous-summary>\n${input.previousSummary}\n</previous-summary>`
-      : "Create a new anchored summary from the conversation history.",
-    SUMMARY_TEMPLATE,
+      ? t(input.language, "prompt.compaction_update_previous", { summary: input.previousSummary })
+      : t(input.language, "prompt.compaction_create_new"),
+    t(input.language, "prompt.compaction_summary_template"),
     ...input.context,
   ].join("\n\n")
 
@@ -173,12 +167,13 @@ export const make = (dependencies: Dependencies) => {
     const context = input.model.route.defaults.limits?.context
     if (context === undefined || context <= 0) return false
     const output = input.request.generation?.maxTokens ?? input.model.route.defaults.limits?.output ?? 0
-    const selected = select(input.entries, config.tokens)
+    const selected = select(input.entries, config.tokens, input.request.language)
     const previousSummary = input.entries.find((entry) => entry.message.type === "compaction")?.message
     if (!selected || (selected.head.length === 0 && previousSummary?.type !== "compaction")) return false
     const summaryPrompt = buildPrompt({
       previousSummary: previousSummary?.type === "compaction" ? previousSummary.summary : undefined,
       context: [previousSummary?.type === "compaction" ? previousSummary.recent : "", selected.head].filter(Boolean),
+      language: input.request.language,
     })
     const summaryOutput = Math.min(output || SUMMARY_OUTPUT_TOKENS, SUMMARY_OUTPUT_TOKENS)
     if (Token.estimate(summaryPrompt) > context - summaryOutput) return false
@@ -196,6 +191,7 @@ export const make = (dependencies: Dependencies) => {
       .stream(
         LLM.request({
           model: input.model,
+          language: input.request.language,
           messages: [Message.user(summaryPrompt)],
           tools: [],
           generation: { maxTokens: summaryOutput },

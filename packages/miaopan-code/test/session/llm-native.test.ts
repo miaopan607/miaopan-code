@@ -12,6 +12,7 @@ import { OAUTH_DUMMY_KEY } from "@/auth"
 import { testEffect } from "../lib/effect"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { t } from "@miaopan-code/core/i18n"
 
 const baseModel: Provider.Model = {
   id: ModelV2.ID.make("gpt-5-mini"),
@@ -384,7 +385,30 @@ describe("session.llm-native.request", () => {
         model: { ...baseModel, api: { ...baseModel.api, npm: "unknown-provider" } },
         messages: [],
       }),
+    ).toThrow("原生 LLM 请求适配器不支持提供商包 unknown-provider")
+    expect(() =>
+      LLMNative.request({
+        model: { ...baseModel, api: { ...baseModel.api, npm: "unknown-provider" } },
+        messages: [],
+        language: "en",
+      }),
     ).toThrow("Native LLM request adapter does not support provider package unknown-provider")
+  })
+
+  test("uses the request language for message conversion errors", () => {
+    expect(() =>
+      LLMNative.request({
+        model: baseModel,
+        messages: [{ role: "user", content: [{ type: "image" }] } as unknown as ModelMessage],
+      }),
+    ).toThrow("原生 LLM 请求适配器不支持 image 内容部分")
+    expect(() =>
+      LLMNative.request({
+        model: baseModel,
+        messages: [{ role: "user", content: [{ type: "image" }] } as unknown as ModelMessage],
+        language: "en",
+      }),
+    ).toThrow("Native LLM request adapter does not support image content parts")
   })
 
   test("only enables native runtime for supported OpenAI API-key models", () => {
@@ -422,14 +446,14 @@ describe("session.llm-native.request", () => {
         provider: { ...providerInfo, id: ProviderV2.ID.make("google") },
         auth: undefined,
       }),
-    ).toEqual({ type: "unsupported", reason: "provider is not openai, miaopanCode, or anthropic" })
+    ).toEqual({ type: "unsupported", reason: t("zh-CN", "error.native_provider_unsupported") })
     expect(
       LLMNativeRuntime.status({
         model: baseModel,
         provider: providerInfo,
         auth: { type: "oauth", refresh: "refresh", access: "access", expires: 1 },
       }),
-    ).toEqual({ type: "unsupported", reason: "OAuth auth requires a provider fetch override" })
+    ).toEqual({ type: "unsupported", reason: t("zh-CN", "error.native_oauth_fetch_required") })
     expect(
       LLMNativeRuntime.status({
         model: baseModel,
@@ -444,7 +468,7 @@ describe("session.llm-native.request", () => {
         provider: providerInfo,
         auth: undefined,
       }),
-    ).toEqual({ type: "unsupported", reason: "provider package is not OpenAI, OpenAI-compatible, or Anthropic" })
+    ).toEqual({ type: "unsupported", reason: t("zh-CN", "error.native_package_unsupported") })
 
     expect(
       LLMNativeRuntime.status({
@@ -452,7 +476,7 @@ describe("session.llm-native.request", () => {
         provider: { ...providerInfo, options: {} },
         auth: undefined,
       }),
-    ).toEqual({ type: "unsupported", reason: "API key is not configured" })
+    ).toEqual({ type: "unsupported", reason: t("zh-CN", "error.native_api_key_missing") })
   })
 
   test("enables native runtime for Anthropic API-key models", () => {

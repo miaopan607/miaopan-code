@@ -8,6 +8,7 @@ import { Context, Schema } from "effect"
 import { HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { PermissionNotFoundError, SessionNotFoundError } from "../errors"
 import { LocationQuery, locationQueryOpenApi } from "./location"
+import { t, type Language } from "../i18n"
 
 export const makePermissionGroup = <
   LocationId extends HttpApiMiddleware.AnyId,
@@ -17,6 +18,7 @@ export const makePermissionGroup = <
 >(
   locationMiddleware: Context.Key<LocationId, LocationService>,
   sessionLocationMiddleware: Context.Key<SessionLocationId, SessionLocationService>,
+  language?: Language,
 ) =>
   HttpApiGroup.make("server.permission")
     .add(
@@ -28,8 +30,8 @@ export const makePermissionGroup = <
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.permission.request.list",
-            summary: "List pending permission requests",
-            description: "Retrieve pending permission requests for a location.",
+            summary: t(language, "permission_list_pending"),
+            description: t(language, "permission_list_pending_description"),
           }),
         ),
     )
@@ -40,8 +42,8 @@ export const makePermissionGroup = <
       }).annotateMerge(
         OpenApi.annotations({
           identifier: "v2.permission.saved.list",
-          summary: "List saved permissions",
-          description: "Retrieve saved permissions, optionally filtered by project.",
+          summary: t(language, "permission_list_saved"),
+          description: t(language, "permission_list_saved_description"),
         }),
       ),
     )
@@ -52,8 +54,8 @@ export const makePermissionGroup = <
       }).annotateMerge(
         OpenApi.annotations({
           identifier: "v2.permission.saved.remove",
-          summary: "Remove saved permission",
-          description: "Remove a saved permission by ID.",
+          summary: t(language, "permission_remove_saved"),
+          description: t(language, "permission_remove_saved_description"),
         }),
       ),
     )
@@ -80,8 +82,8 @@ export const makePermissionGroup = <
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.permission.create",
-            summary: "Create permission request",
-            description: "Evaluate and, when approval is required, create a permission request for a session.",
+            summary: t(language, "permission_create"),
+            description: t(language, "permission_create_description"),
           }),
         ),
     )
@@ -95,8 +97,8 @@ export const makePermissionGroup = <
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.permission.list",
-            summary: "List session permission requests",
-            description: "Retrieve pending permission requests owned by a session.",
+            summary: t(language, "permission_session_list"),
+            description: t(language, "permission_session_list_description"),
           }),
         ),
     )
@@ -110,8 +112,8 @@ export const makePermissionGroup = <
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.permission.get",
-            summary: "Get permission request",
-            description: "Retrieve a pending permission request owned by a session.",
+            summary: t(language, "permission_get"),
+            description: t(language, "permission_get_description"),
           }),
         ),
     )
@@ -129,9 +131,14 @@ export const makePermissionGroup = <
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.permission.reply",
-            summary: "Reply to pending permission request",
-            description: "Respond to a pending permission request owned by a session.",
+            summary: t(language, "permission_reply"),
+            description: t(language, "permission_reply_description"),
           }),
         ),
     )
-    .annotateMerge(OpenApi.annotations({ title: "permissions", description: "Experimental permission routes." }))
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "permission_title"),
+        description: t(language, "permission_description"),
+      }),
+    )

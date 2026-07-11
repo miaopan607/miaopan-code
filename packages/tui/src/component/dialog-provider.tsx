@@ -15,6 +15,9 @@ import { isConsoleManagedProvider } from "../util/provider-origin"
 import { useConnected } from "./use-connected"
 import { useBindings } from "../keymap"
 import { useClipboard } from "../context/clipboard"
+import { useI18n } from "../context/i18n"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
   miaopanCode: 0,
@@ -45,6 +48,7 @@ type ProviderOption =
     })
 
 export function providerOptions(list: { id: string; name: string }[]): ProviderOption[] {
+  const tr = (key: Parameters<typeof t>[1]) => t(Locale.language(), key)
   return [
     ...pipe(
       list,
@@ -59,20 +63,20 @@ export function providerOptions(list: { id: string; name: string }[]): ProviderO
         value: provider.id,
         providerID: provider.id,
         description: {
-          miaopanCode: "(Recommended)",
-          anthropic: "(API key)",
-          openai: "(ChatGPT Plus/Pro or API key)",
-          "miaopanCode-go": "Low cost subscription for everyone",
+          miaopanCode: tr("provider.recommended"),
+          anthropic: tr("provider.api_key_hint"),
+          openai: tr("provider.plus_or_api"),
+          "miaopanCode-go": tr("provider.low_cost"),
         }[provider.id],
-        category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Providers",
+        category: provider.id in PROVIDER_PRIORITY ? tr("provider.popular") : tr("provider.providers"),
       })),
     ),
     {
       type: "custom",
-      title: "Other",
+      title: tr("dialog.other"),
       value: CUSTOM_PROVIDER_OPTION_VALUE,
-      description: "Custom provider",
-      category: "Providers",
+      description: tr("provider.custom"),
+      category: tr("provider.providers"),
     },
   ]
 }
@@ -90,15 +94,12 @@ export function createDialogProviderOptions() {
   const toast = useToast()
   const { theme } = useTheme()
   const onboarded = useConnected()
+  const i18n = useI18n()
 
   async function promptCustomProviderID(): Promise<string | undefined> {
-    const value = await DialogPrompt.show(dialog, "Other", {
-      placeholder: "Provider id",
-      description: () => (
-        <text fg={theme.textMuted}>
-          This only stores a credential. Configure the provider in miaopan-code.json to use it.
-        </text>
-      ),
+    const value = await DialogPrompt.show(dialog, i18n.t("dialog.other"), {
+      placeholder: i18n.t("provider.id"),
+      description: () => <text fg={theme.textMuted}>{i18n.t("provider.credential_only")}</text>,
     })
     if (value === null) return
 
@@ -107,8 +108,7 @@ export function createDialogProviderOptions() {
 
     toast.show({
       variant: "error",
-      message:
-        "Provider ids must start with a lowercase letter or number and only use lowercase letters, numbers, hyphens, and underscores",
+      message: i18n.t("provider.invalid_id"),
     })
     return promptCustomProviderID()
   }
@@ -126,7 +126,7 @@ export function createDialogProviderOptions() {
             async onSelect() {
               const providerID = await promptCustomProviderID()
               if (!providerID) return
-              return dialog.replace(() => <ApiMethod providerID={providerID} title="API key" custom />)
+              return dialog.replace(() => <ApiMethod providerID={providerID} title={i18n.t("tui.api_key")} custom />)
             },
           }
         }
@@ -148,7 +148,7 @@ export function createDialogProviderOptions() {
             const methods = sync.data.provider_auth[providerID] ?? [
               {
                 type: "api",
-                label: "API key",
+                label: i18n.t("tui.api_key"),
               },
             ]
             let index: number | null = 0
@@ -157,7 +157,7 @@ export function createDialogProviderOptions() {
                 dialog.replace(
                   () => (
                     <DialogSelect
-                      title="Select auth method"
+                      title={i18n.t("tui.select_auth_method")}
                       options={methods.map((x, index) => ({
                         title: x.label,
                         value: index,
@@ -227,7 +227,8 @@ export function createDialogProviderOptions() {
 
 export function DialogProvider() {
   const options = createDialogProviderOptions()
-  return <DialogSelect title="Connect a provider" options={options()} />
+  const i18n = useI18n()
+  return <DialogSelect title={i18n.t("provider.connect")} options={options()} />
 }
 
 interface AutoMethodProps {
@@ -243,19 +244,20 @@ function AutoMethod(props: AutoMethodProps) {
   const sync = useSync()
   const toast = useToast()
   const clipboard = useClipboard()
+  const i18n = useI18n()
 
   useBindings(() => ({
     bindings: [
       {
         key: "c",
-        desc: "Copy provider code",
+        desc: i18n.t("provider.copy_code"),
         group: "Dialog",
         cmd: () => {
           const code =
             props.authorization.instructions.match(/[A-Z0-9]{4}-[A-Z0-9]{4,5}/)?.[0] ?? props.authorization.url
           clipboard
             .write?.(code)
-            .then(() => toast.show({ message: "Copied to clipboard", variant: "info" }))
+            .then(() => toast.show({ message: i18n.t("provider.copied"), variant: "info" }))
             .catch(toast.error)
         },
       },
@@ -272,7 +274,7 @@ function AutoMethod(props: AutoMethodProps) {
         variant: "error",
         message:
           "name" in result.error && result.error.name === "ProviderAuthOauthCallbackFailed"
-            ? "OAuth authorization failed. Try /connect again."
+            ? i18n.t("provider.oauth_failed")
             : JSON.stringify(result.error),
       })
       dialog.clear()
@@ -297,9 +299,9 @@ function AutoMethod(props: AutoMethodProps) {
         <Link href={props.authorization.url} fg={theme.primary} />
         <text fg={theme.textMuted}>{props.authorization.instructions}</text>
       </box>
-      <text fg={theme.textMuted}>Waiting for authorization...</text>
+      <text fg={theme.textMuted}>{i18n.t("provider.authorization_waiting")}</text>
       <text fg={theme.text}>
-        c <span style={{ fg: theme.textMuted }}>copy</span>
+        c <span style={{ fg: theme.textMuted }}>{i18n.t("provider.copy_short")}</span>
       </text>
     </box>
   )
@@ -317,11 +319,12 @@ function CodeMethod(props: CodeMethodProps) {
   const sync = useSync()
   const dialog = useDialog()
   const [error, setError] = createSignal(false)
+  const i18n = useI18n()
 
   return (
     <DialogPrompt
       title={props.title}
-      placeholder="Authorization code"
+      placeholder={i18n.t("provider.authorization_code")}
       onConfirm={async (value) => {
         const { error } = await sdk.client.provider.oauth.callback({
           providerID: props.providerID,
@@ -341,7 +344,7 @@ function CodeMethod(props: CodeMethodProps) {
           <text fg={theme.textMuted}>{props.authorization.instructions}</text>
           <Link href={props.authorization.url} fg={theme.primary} />
           <Show when={error()}>
-            <text fg={theme.error}>Invalid code</text>
+            <text fg={theme.error}>{i18n.t("provider.invalid_code")}</text>
           </Show>
         </box>
       )}
@@ -361,32 +364,29 @@ function ApiMethod(props: ApiMethodProps) {
   const sync = useSync()
   const toast = useToast()
   const { theme } = useTheme()
+  const i18n = useI18n()
 
   return (
     <DialogPrompt
       title={props.title}
-      placeholder="API key"
+      placeholder={i18n.t("provider.api_key")}
       description={() =>
         ({
           miaopanCode: (
             <box gap={1}>
-              <text fg={theme.textMuted}>
-                MiaopanCode Zen gives you access to all the best coding models at the cheapest prices with a single API
-                key.
-              </text>
+              <text fg={theme.textMuted}>{i18n.t("provider.zen_description")}</text>
               <text fg={theme.text}>
-                Go to <span style={{ fg: theme.primary }}>https://github.com/miaopan607/miaopan-code/zen</span> to get a key
+                {i18n.t("provider.get_key")}{" "}
+                <span style={{ fg: theme.primary }}>https://github.com/miaopan607/miaopan-code/zen</span>
               </text>
             </box>
           ),
           "miaopanCode-go": (
             <box gap={1}>
-              <text fg={theme.textMuted}>
-                MiaopanCode Go is a $10 per month subscription that provides reliable access to popular open coding models
-                with generous usage limits.
-              </text>
+              <text fg={theme.textMuted}>{i18n.t("provider.go_description")}</text>
               <text fg={theme.text}>
-                Go to <span style={{ fg: theme.primary }}>https://github.com/miaopan607/miaopan-code/go</span> and enable MiaopanCode Go
+                {i18n.t("provider.enable_go")}{" "}
+                <span style={{ fg: theme.primary }}>https://github.com/miaopan607/miaopan-code/go</span>
               </text>
             </box>
           ),
@@ -407,7 +407,7 @@ function ApiMethod(props: ApiMethodProps) {
         if (props.custom && !sync.data.provider_next.all.some((provider) => provider.id === props.providerID)) {
           toast.show({
             variant: "info",
-            message: `Saved credential for ${props.providerID}. Configure it in miaopan-code.json to use it.`,
+            message: i18n.t("provider.saved_credential", { provider: props.providerID }),
           })
           dialog.clear()
           return

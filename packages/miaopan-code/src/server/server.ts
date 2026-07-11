@@ -3,6 +3,7 @@ import "./init-projectors"
 import { NodeHttpServer } from "@effect/platform-node"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { ConfigProvider, Context, Effect, Exit, Layer, Scope } from "effect"
+import { resolveLanguage, t } from "@miaopan-code/core/i18n"
 import { HttpRouter, HttpServer } from "effect/unstable/http"
 import { OpenApi } from "effect/unstable/httpapi"
 import { createServer } from "node:http"
@@ -10,7 +11,8 @@ import { MDNS } from "./mdns"
 import { HttpApiApp } from "./routes/instance/httpapi/server"
 import { disposeMiddleware } from "./routes/instance/httpapi/lifecycle"
 import { WebSocketTracker } from "./routes/instance/httpapi/websocket-tracker"
-import { PublicApi } from "./routes/instance/httpapi/public"
+import { makeApi, PublicApi } from "./routes/instance/httpapi/public"
+import type { Language } from "./routes/instance/httpapi/i18n"
 import type { CorsOptions } from "@miaopan-code/server/cors"
 import { lazy } from "@/util/lazy"
 
@@ -34,6 +36,7 @@ type ListenOptions = CorsOptions & {
   hostname: string
   mdns?: boolean
   mdnsDomain?: string
+  language?: Language
 }
 type ListenerState = {
   scope: Scope.Scope
@@ -64,8 +67,8 @@ export const Default = lazy(() => {
   return { app }
 })
 
-export async function openapi() {
-  return OpenApi.fromApi(PublicApi)
+export async function openapi(language?: Language) {
+  return OpenApi.fromApi(makeApi(language))
 }
 
 export let url: URL | undefined
@@ -83,7 +86,7 @@ export async function listen(opts: ListenOptions): Promise<Listener> {
 const listenEffect: (opts: ListenOptions) => Effect.Effect<EffectListener, unknown> = Effect.fn("Server.listen")(
   function* (opts: ListenOptions) {
     const state = yield* startWithPortFallback(opts)
-    const address = yield* tcpAddress(state)
+    const address = yield* tcpAddress(state, opts.language)
     const listenerUrl = makeURL(opts.hostname, address.port)
     const unpublishMdns = yield* setupMdns(opts, address.port, state.scope)
     url = listenerUrl
@@ -137,11 +140,17 @@ function startListener(opts: ListenOptions, port: number) {
   )
 }
 
-function tcpAddress(state: ListenerState) {
+function tcpAddress(state: ListenerState, language?: Language) {
   return Effect.gen(function* () {
     if (state.server.address._tag === "TcpAddress") return state.server.address
     yield* Scope.close(state.scope, Exit.void).pipe(Effect.ignore)
-    return yield* Effect.die(new Error(`Unexpected HttpServer address tag: ${state.server.address._tag}`))
+    return yield* Effect.die(
+      new Error(
+        t(resolveLanguage(language ?? process.env.MIAOPAN_CODE_LANGUAGE), "error.http_address_tag", {
+          tag: state.server.address._tag,
+        }),
+      ),
+    )
   })
 }
 
@@ -163,7 +172,9 @@ function setupMdns(opts: ListenOptions, port: number, scope: Scope.Scope) {
       return unpublish
     }
     if (opts.mdns) {
-      yield* Effect.logWarning("mDNS enabled but hostname is loopback; skipping mDNS publish")
+      yield* Effect.logWarning(
+        t(resolveLanguage(opts.language ?? process.env.MIAOPAN_CODE_LANGUAGE), "log.server_mdns_loopback"),
+      )
     }
     return Effect.void
   })

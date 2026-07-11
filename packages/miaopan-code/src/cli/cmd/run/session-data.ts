@@ -28,6 +28,7 @@ import type { Event, Part, PermissionRequest, QuestionRequest, ToolPart } from "
 import * as Locale from "@/util/locale"
 import { toolView } from "./tool"
 import type { FooterOutput, FooterPatch, FooterView, StreamCommit } from "./types"
+import { UI } from "../../ui"
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -179,7 +180,7 @@ export function formatError(error: {
     return error.name
   }
 
-  return "unknown error"
+  return UI.t("session.unknown_error")
 }
 
 function isAbort(error: { name?: string } | undefined): boolean {
@@ -230,11 +231,11 @@ export function pickBlockerView(input: { permission?: PermissionRequest; questio
 
 export function blockerStatus(view: FooterView) {
   if (view.type === "permission") {
-    return "awaiting permission"
+    return UI.t("session.awaiting_permission")
   }
 
   if (view.type === "question") {
-    return "awaiting answer"
+    return UI.t("session.awaiting_answer")
   }
 
   return ""
@@ -415,7 +416,7 @@ function toolStatus(part: ToolPart): string {
     return `running ${type.trim()}`
   }
 
-  return "running task"
+  return UI.t("run.running_task")
 }
 
 // Returns true if we can flush this part's text to scrollback.
@@ -529,7 +530,7 @@ function flushPart(data: SessionData, commits: SessionCommit[], partID: string, 
       return
     }
     if (kind === "reasoning" && chunk) {
-      chunk = `Thinking: ${chunk.replace(/\[REDACTED\]/g, "")}`
+      chunk = UI.t("cli.run.thinking", { text: chunk.replace(/\[REDACTED\]/g, "") })
     }
     if (kind === "assistant" && chunk) {
       chunk = stripEcho(data, msg, chunk)
@@ -694,7 +695,7 @@ function startShell(callID: string, command: string): SessionCommit {
       command,
     },
     {
-      text: "running shell",
+      text: UI.t("run.running_shell"),
       phase: "start",
       toolState: "running",
     },
@@ -787,12 +788,12 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
 
     const partID = shellPartID(event.properties.callID)
     if (data.ids.has(partID) || data.tools.has(partID)) {
-      return out(data, commits, patch({ status: "running shell" }))
+      return out(data, commits, patch({ status: UI.t("run.running_shell") }))
     }
 
     data.tools.add(partID)
     commits.push(startShell(event.properties.callID, shell.command ?? event.properties.command))
-    return out(data, commits, patch({ status: "running shell" }))
+    return out(data, commits, patch({ status: UI.t("run.running_shell") }))
   }
 
   if (event.type === "session.next.shell.ended") {
@@ -840,7 +841,7 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
     let next: FooterPatch | undefined
     if (!data.announced) {
       data.announced = true
-      next = { status: "assistant responding" }
+      next = { status: UI.t("cli.run.assistant_responding") }
     }
 
     const usage = formatUsage(
@@ -992,7 +993,7 @@ export function reduceSessionData(input: SessionDataInput): SessionDataOutput {
 
         data.ids.add(part.id)
         const text =
-          typeof part.state.error === "string" && part.state.error.trim() ? part.state.error : "unknown error"
+          typeof part.state.error === "string" && part.state.error.trim() ? part.state.error : UI.t("run.unknown_error")
         commits.push(failTool(part, text))
         return out(data, commits, view)
       }

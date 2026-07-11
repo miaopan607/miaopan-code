@@ -218,7 +218,7 @@ describe("EventV2", () => {
       const events = yield* EventV2.Service
       const exit = yield* events.publish(Message, { text: "hello" }, { commit: () => Effect.void }).pipe(Effect.exit)
 
-      expect(String(exit)).toContain("Local commit hooks require a durable event")
+      expect(String(exit)).toContain("本地提交钩子需要持久化事件")
     }),
   )
 
@@ -624,7 +624,7 @@ describe("EventV2", () => {
           .get()
           .pipe(Effect.orDie)
 
-        expect(String(exit)).toContain("Aggregate mismatch")
+        expect(String(exit)).toContain("聚合不匹配")
         expect(received).toHaveLength(0)
         expect(rows).toHaveLength(1)
         expect(sequence).toEqual({ seq: 0 })
@@ -653,7 +653,7 @@ describe("EventV2", () => {
         })
         .pipe(Effect.exit)
 
-      expect(String(exit)).toContain("Sequence mismatch")
+      expect(String(exit)).toContain("序列不匹配")
     }),
   )
 
@@ -693,7 +693,7 @@ describe("EventV2", () => {
         })
         .pipe(Effect.exit)
 
-      expect(String(exit)).toContain("Unknown durable event type")
+      expect(String(exit)).toContain("未知持久化事件类型")
     }),
   )
 
@@ -817,7 +817,7 @@ describe("EventV2", () => {
 
       const exit = yield* events.replay(replayed, { ownerID: "owner-b", strictOwner: true }).pipe(Effect.exit)
 
-      expect(String(exit)).toContain("Replay owner mismatch")
+      expect(String(exit)).toContain("重放所有者不匹配")
     }),
   )
 
@@ -850,7 +850,7 @@ describe("EventV2", () => {
           { ownerID: "owner-b", strictOwner: true },
         )
         .pipe(Effect.exit)
-      expect(String(exit)).toContain("Replay owner mismatch")
+      expect(String(exit)).toContain("重放所有者不匹配")
     }),
   )
 
@@ -954,7 +954,7 @@ describe("EventV2", () => {
         )
         .pipe(Effect.exit)
 
-      expect(String(exit)).toContain("Replay owner mismatch")
+      expect(String(exit)).toContain("重放所有者不匹配")
     }),
   )
 
@@ -998,7 +998,7 @@ describe("EventV2", () => {
         .replay({ ...replayed, data: durableData(aggregateID, "divergent") }, { publish: true })
         .pipe(Effect.exit)
 
-      expect(String(exit)).toContain("Replay diverged")
+      expect(String(exit)).toContain("重放分叉")
       expect(received).toHaveLength(1)
     }),
   )
@@ -1026,7 +1026,7 @@ describe("EventV2", () => {
         })
         .pipe(Effect.exit)
 
-      expect(String(exit)).toContain(`Event ${id} already exists`)
+      expect(String(exit)).toContain(`事件 ${id} 已存在`)
     }),
   )
 

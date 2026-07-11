@@ -1,4 +1,6 @@
 import { isRecord } from "./record"
+import { language } from "./locale"
+import { t } from "@miaopan-code/core/i18n"
 
 type ConfigIssue = { message: string; path: string[] }
 
@@ -22,26 +24,29 @@ export function cliErrorMessage(input: unknown): string | undefined {
       ? model.suggestions.filter((item): item is string => typeof item === "string")
       : []
     return [
-      `Model not found: ${field(model, "providerID")}/${field(model, "modelID")}`,
-      ...(suggestions.length ? ["Did you mean: " + suggestions.join(", ")] : []),
-      "Try: `miaopanCode models` to list available models",
-      "Or check your config (miaopan-code.json) provider/model names",
+      t(language(), "error.model_not_found", { model: `${field(model, "providerID")}/${field(model, "modelID")}` }),
+      ...(suggestions.length ? [t(language(), "error.did_you_mean", { items: suggestions.join(", ") })] : []),
+      t(language(), "error.model_list"),
+      t(language(), "error.model_config"),
     ].join("\n")
   }
 
   const provider = configData(input, "ProviderInitError")
-  if (provider)
-    return `Failed to initialize provider "${field(provider, "providerID")}". Check credentials and configuration.`
+  if (provider) return t(language(), "error.provider_init", { providerID: field(provider, "providerID") })
 
   const json = configData(input, "ConfigJsonError")
   if (json) {
     const message = field(json, "message")
-    return `Config file at ${field(json, "path")} is not valid JSON(C)` + (message ? `: ${message}` : "")
+    return t(language(), "error.config_json", { path: field(json, "path") }) + (message ? `: ${message}` : "")
   }
 
   const directory = configData(input, "ConfigDirectoryTypoError")
   if (directory) {
-    return `Directory "${field(directory, "dir")}" in ${field(directory, "path")} is not valid. Rename the directory to "${field(directory, "suggestion")}" or remove it. This is a common typo.`
+    return t(language(), "error.config_directory_typo", {
+      dir: field(directory, "dir"),
+      path: field(directory, "path"),
+      suggestion: field(directory, "suggestion"),
+    })
   }
 
   const frontmatter = configData(input, "ConfigFrontmatterError")
@@ -62,7 +67,8 @@ export function cliErrorMessage(input: unknown): string | undefined {
         })
       : []
     return [
-      `Configuration is invalid${path && path !== "config" ? ` at ${path}` : ""}` + (message ? `: ${message}` : ""),
+      t(language(), "error.config_invalid", { path: path && path !== "config" ? path : "" }) +
+        (message ? `: ${message}` : ""),
       ...issues.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")),
     ].join("\n")
   }
@@ -70,7 +76,7 @@ export function cliErrorMessage(input: unknown): string | undefined {
   if (tagged(input, "UICancelledError") || named(input, "UICancelledError")) return ""
   if (isRecord(input) && named(input, "MCPFailed")) {
     const name = isRecord(input.data) ? field(input.data, "name") : undefined
-    return `MCP server "${name}" failed. Note, miaopanCode does not support MCP authentication yet.`
+    return t(language(), "error.mcp_failed", { name })
   }
   return undefined
 }
@@ -111,11 +117,13 @@ export function errorFormat(error: unknown): string {
         const ctor = error.constructor?.name
         const prefix = ctor && ctor !== "Object" ? ctor : "Error"
         const names = Object.getOwnPropertyNames(error)
-        return names.length === 0 ? `${prefix} (no message)` : `${prefix} { ${names.join(", ")} }`
+        return names.length === 0
+          ? `${prefix} (${t(language(), "error.no_message")})`
+          : `${prefix} { ${names.join(", ")} }`
       }
       return json
     } catch {
-      return "Unexpected error (unserializable)"
+      return t(language(), "error.unserializable")
     }
   }
 
@@ -141,7 +149,7 @@ export function errorMessage(error: unknown): string {
 
   const formatted = errorFormat(error)
   if (formatted) return formatted
-  return "unknown error"
+  return t(language(), "session.unknown_error")
 }
 
 export function errorData(error: unknown) {

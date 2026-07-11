@@ -19,6 +19,7 @@ import { Git } from "@/git"
 import { Filesystem } from "@/util/filesystem"
 import { Permission } from "../../src/permission"
 import type * as Tool from "../../src/tool/tool"
+import { t } from "@miaopan-code/core/i18n"
 
 const toolLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
   LayerNode.compile(
@@ -125,7 +126,9 @@ describe("tool.glob", () => {
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
         const err = Cause.squash(exit.cause)
-        expect(err instanceof Error ? err.message : String(err)).toContain("glob path must be a directory")
+        expect(err instanceof Error ? err.message : String(err)).toContain(
+          t("zh-CN", "tool.glob_directory_required", { path: file }),
+        )
       }
     }),
   )

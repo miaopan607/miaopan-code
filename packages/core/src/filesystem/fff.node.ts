@@ -1,7 +1,10 @@
+import { t, type Language } from "../i18n"
+
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 
 export interface Init {
   basePath: string
+  language?: Language
   frecencyDbPath?: string
   historyDbPath?: string
   useUnsafeNoLock?: boolean
@@ -131,8 +134,8 @@ export function available() {
   return false
 }
 
-export function create(_opts: Init): Result<Picker> {
-  return { ok: false, error: "fff unavailable on node runtime" }
+export function create(opts: Init): Result<Picker> {
+  return { ok: false, error: t(opts.language, "error.fff_node_unavailable") }
 }
 
 export * as Fff from "./fff.node"

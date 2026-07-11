@@ -8,22 +8,14 @@ import { QuestionV2 } from "../question"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "question"
 
-export const description = `Use this tool when you need to ask the user questions during execution. This allows you to:
-1. Gather user preferences or requirements
-2. Clarify ambiguous instructions
-3. Get decisions on implementation choices as you work
-4. Offer choices to the user about what direction to take.
-
-Usage notes:
-- When \`custom\` is enabled (default), a "Type your own answer" option is added automatically; don't include "Other" or catch-all options
-- Answers are returned as arrays of labels; set \`multiple: true\` to allow selecting more than one
-- If you recommend a specific option, make that the first option in the list and add "(Recommended)" at the end of the label`
+export const description = zh("tool.description.core_question")
 
 export const Input = Schema.Struct({
-  questions: Schema.Array(QuestionV2.Prompt).annotate({ description: "Questions to ask" }),
+  questions: Schema.Array(QuestionV2.Prompt).annotate({ description: zh("question.questions") }),
 })
 
 export const Output = Schema.Struct({
@@ -34,14 +26,15 @@ export type Output = typeof Output.Type
 export const toModelOutput = (
   questions: ReadonlyArray<QuestionV2.Prompt>,
   answers: ReadonlyArray<QuestionV2.Answer>,
+  language?: Language,
 ) => {
   const formatted = questions
     .map(
       (question, index) =>
-        `"${question.question}"="${answers[index]?.length ? answers[index].join(", ") : "Unanswered"}"`,
+        `"${question.question}"="${answers[index]?.length ? answers[index].join(", ") : t(language, "tool.question.unanswered")}"`,
     )
     .join(", ")
-  return `User has answered your questions: ${formatted}. You can now continue with the user's answers in mind.`
+  return t(language, "tool.question.answered", { formatted })
 }
 
 const layer = Layer.effectDiscard(
@@ -56,8 +49,8 @@ const layer = Layer.effectDiscard(
           description,
           input: Input,
           output: Output,
-          toModelOutput: ({ input, output }) => [
-            { type: "text", text: toModelOutput(input.questions, output.answers) },
+          toModelOutput: ({ input, output, context }) => [
+            { type: "text", text: toModelOutput(input.questions, output.answers, context.language) },
           ],
           execute: (input, context) =>
             permission
@@ -69,7 +62,9 @@ const layer = Layer.effectDiscard(
                 source: { type: "tool", messageID: context.assistantMessageID, callID: context.toolCallID },
               })
               .pipe(
-                Effect.mapError(() => new ToolFailure({ message: "Permission denied: question" })),
+                Effect.mapError(
+                  () => new ToolFailure({ message: t(context.language, "tool.error.permission_question") }),
+                ),
                 Effect.andThen(
                   question
                     .ask({

@@ -121,7 +121,7 @@ describe("Anthropic Messages route", () => {
         }),
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain("Anthropic Messages system messages only support text content for now")
+      expect(error.message).toContain("Anthropic Messages 的 system 消息目前只支持文本内容")
     }),
   )
 
@@ -183,7 +183,7 @@ describe("Anthropic Messages route", () => {
         }),
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain("system updates cannot split a local tool call from its tool result")
+      expect(error.message).toContain("系统更新不能拆分本地工具调用及其工具结果")
     }),
   )
 
@@ -520,7 +520,7 @@ describe("Anthropic Messages route", () => {
         Effect.provide(fixedResponse(sseEvents({ type: "error" }))),
       )
 
-      expect(response.events).toEqual([{ type: "provider-error", message: "Anthropic Messages stream error" }])
+      expect(response.events).toMatchObject([{ type: "provider-error", message: "Anthropic Messages 流错误" }])
     }),
   )
 
@@ -538,7 +538,7 @@ describe("Anthropic Messages route", () => {
 
       expect(error).toBeInstanceOf(LLMError)
       expect(error.reason).toMatchObject({ _tag: "InvalidRequest" })
-      expect(error.message).toContain("HTTP 400")
+      expect(error.message).toContain("HTTP 状态码为 400")
     }),
   )
 

@@ -23,6 +23,8 @@ import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"
 import { useEvent } from "./event"
 import { createSignal, onCleanup, onMount } from "solid-js"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 type LocationData = {
   agent?: AgentV2Info[]
@@ -560,7 +562,7 @@ export const { use: useData, provider: DataProvider } = createSimpleContext({
         result.location.skill.refresh(),
       ]).then((settled) => {
         for (const failure of settled.filter((item) => item.status === "rejected"))
-          console.error("Failed to refresh default location data", failure.reason)
+          console.error(t(Locale.language(), "tui.location_refresh_failed"), failure.reason)
       })
     })
 

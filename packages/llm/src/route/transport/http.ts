@@ -5,6 +5,7 @@ import { render as renderEndpoint } from "../endpoint"
 import { Framing, type Framing as FramingDef } from "../framing"
 import type { Transport, TransportPrepareInput } from "./index"
 import * as ProviderShared from "../../protocols/shared"
+import { t } from "../../i18n"
 import { mergeJsonRecords, type LLMRequest } from "../../schema"
 
 export type JsonRequestInput<Body> = TransportPrepareInput<Body>
@@ -76,13 +77,13 @@ const bodyWithOverlay = <Body>(body: Body, request: LLMRequest, encodeBody: (bod
     const forbiddenKeys = forbiddenBodyOverlayKeys(request.http.body)
     if (forbiddenKeys.length > 0)
       return yield* ProviderShared.invalidRequest(
-        `http.body cannot overlay protocol-owned field(s): ${forbiddenKeys.join(", ")}`,
+        t(request.language, "llm.http.body_overlay_forbidden", { fields: forbiddenKeys.join(", ") }),
       )
     if (ProviderShared.isRecord(body)) {
       const overlaid = mergeJsonRecords(body, request.http.body) ?? {}
       return { jsonBody: overlaid, bodyText: ProviderShared.encodeJson(overlaid) }
     }
-    return yield* ProviderShared.invalidRequest("http.body can only overlay JSON object request bodies")
+    return yield* ProviderShared.invalidRequest(t(request.language, "llm.http.body_overlay_object_only"))
   })
 
 export const jsonRequestParts = <Body>(input: JsonRequestInput<Body>) =>
@@ -129,23 +130,24 @@ export const httpJson = <Body, Frame>(input: HttpJsonInput<Body, Frame>): HttpJs
     ),
   frames: (prepared, request, runtime) =>
     Stream.unwrap(
-      runtime.http
-        .execute(prepared.request)
-        .pipe(
-          Effect.map((response) =>
-            prepared.framing.frame(
-              response.stream.pipe(
-                Stream.mapError((error) =>
-                  ProviderShared.eventError(
-                    `${request.model.provider}/${request.model.route.id}`,
-                    `Failed to read ${request.model.provider}/${request.model.route.id} stream`,
-                    ProviderShared.errorText(error),
-                  ),
+      runtime.http.execute(prepared.request, request.language).pipe(
+        Effect.map((response) =>
+          prepared.framing.frame(
+            response.stream.pipe(
+              Stream.mapError((error) =>
+                ProviderShared.eventError(
+                  `${request.model.provider}/${request.model.route.id}`,
+                  t(request.language, "llm.route.stream_read_failed", {
+                    route: `${request.model.provider}/${request.model.route.id}`,
+                  }),
+                  ProviderShared.errorText(error, request.language),
                 ),
               ),
             ),
+            request.language,
           ),
         ),
+      ),
     ),
 })
 

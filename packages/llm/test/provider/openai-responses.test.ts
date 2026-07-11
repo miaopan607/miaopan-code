@@ -238,7 +238,7 @@ describe("OpenAI Responses route", () => {
         { url: "wss://api.openai.test/v1/responses", headers: Headers.empty },
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain("closed before opening")
+      expect(error.message).toContain("在打开前已关闭")
     }),
   )
 
@@ -279,7 +279,7 @@ describe("OpenAI Responses route", () => {
           dynamicResponse((input) =>
             Effect.gen(function* () {
               const web = yield* HttpClientRequest.toWeb(input.request).pipe(Effect.orDie)
-              expect(web.url).toBe("https://miaopanCode-test.openai.azure.com/openai/v1/responses?api-version=v1")
+              expect(web.url).toBe("https://miaopancode-test.openai.azure.com/openai/v1/responses?api-version=v1")
               expect(web.headers.get("api-key")).toBe("azure-key")
               expect(web.headers.get("authorization")).toBeNull()
               return input.respond(sseEvents({ type: "response.completed", response: {} }), {
@@ -1325,7 +1325,7 @@ describe("OpenAI Responses route", () => {
         }),
       ).pipe(Effect.flip)
 
-      expect(error.message).toContain("OpenAI Responses does not support media type application/pdf")
+      expect(error.message).toContain("OpenAI Responses 不支持媒体类型 application/pdf")
     }),
   )
 
@@ -1438,7 +1438,7 @@ describe("OpenAI Responses route", () => {
         Effect.provide(fixedResponse(sseEvents({ type: "error" }))),
       )
 
-      expect(response.events).toEqual([{ type: "provider-error", message: "OpenAI Responses stream error" }])
+      expect(response.events).toMatchObject([{ type: "provider-error", message: "OpenAI Responses 流错误" }])
     }),
   )
 
@@ -1448,7 +1448,7 @@ describe("OpenAI Responses route", () => {
         Effect.provide(fixedResponse(sseEvents({ type: "response.failed", response: { id: "resp_failed_3" } }))),
       )
 
-      expect(response.events).toEqual([{ type: "provider-error", message: "OpenAI Responses response failed" }])
+      expect(response.events).toMatchObject([{ type: "provider-error", message: "OpenAI Responses 响应失败" }])
     }),
   )
 
@@ -1466,7 +1466,7 @@ describe("OpenAI Responses route", () => {
 
       expect(error).toBeInstanceOf(LLMError)
       expect(error.reason).toMatchObject({ _tag: "InvalidRequest" })
-      expect(error.message).toContain("HTTP 400")
+      expect(error.message).toContain("HTTP 状态码为 400")
     }),
   )
 })

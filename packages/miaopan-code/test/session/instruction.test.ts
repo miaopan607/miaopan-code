@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
+import { t } from "@miaopan-code/core/i18n"
 import path from "path"
 import { Effect, FileSystem, Layer } from "effect"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
@@ -223,8 +224,18 @@ describe("Instruction.system", () => {
 
         const rules = yield* svc.system()
         expect(rules).toHaveLength(2)
-        expect(rules[0]).toBe(`Instructions from: ${path.join(globalTmp, "AGENTS.md")}\n# Global Instructions`)
-        expect(rules[1]).toBe(`Instructions from: ${path.join(projectTmp, "AGENTS.md")}\n# Project Instructions`)
+        expect(rules[0]).toBe(
+          t("zh-CN", "prompt.instructions_from", {
+            source: path.join(globalTmp, "AGENTS.md"),
+            content: "# Global Instructions",
+          }),
+        )
+        expect(rules[1]).toBe(
+          t("zh-CN", "prompt.instructions_from", {
+            source: path.join(projectTmp, "AGENTS.md"),
+            content: "# Project Instructions",
+          }),
+        )
       }).pipe(provideInstance(projectTmp), provideInstruction({ home: globalTmp, config: globalTmp }))
     }),
   )

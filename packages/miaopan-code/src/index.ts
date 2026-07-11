@@ -28,8 +28,10 @@ import { DbCommand } from "./cli/cmd/db"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
+import { t } from "@miaopan-code/core/i18n"
 
 const args = hideBin(process.argv)
+const language = UI.getLanguage()
 
 function show(out: string) {
   const text = out.trimStart()
@@ -44,21 +46,21 @@ const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
   .scriptName("miaopan-code")
   .wrap(100)
-  .help("help", "show help")
+  .help("help", t(language, "cli.help"))
   .alias("help", "h")
-  .version("version", "show version number", InstallationVersion)
+  .version("version", t(language, "cli.version"), InstallationVersion)
   .alias("version", "v")
   .option("print-logs", {
-    describe: "print logs to stderr",
+    describe: t(language, "cli.print_logs"),
     type: "boolean",
   })
   .option("log-level", {
-    describe: "log level",
+    describe: t(language, "cli.log_level"),
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
   .option("pure", {
-    describe: "run without external plugins",
+    describe: t(language, "cli.pure"),
     type: "boolean",
   })
   .middleware(async (opts) => {
@@ -74,7 +76,7 @@ const cli = yargs(args)
     process.env.MIAOPAN_CODE_PID = String(process.pid)
   })
   .usage("")
-  .completion("completion", "generate shell completion script")
+  .completion("completion", t(language, "cli.completion"))
   .command(AcpCommand)
   .command(McpCommand)
   .command(TuiThreadCommand)
@@ -125,7 +127,7 @@ try {
   const formatted = FormatError(e)
   if (formatted) UI.error(formatted)
   if (formatted === undefined) {
-    UI.error("Unexpected error" + EOL)
+    UI.error(t(language, "cli.unexpected_error") + EOL)
     process.stderr.write(errorMessage(e) + EOL)
   }
   process.exitCode = 1

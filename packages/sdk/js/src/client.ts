@@ -4,6 +4,7 @@ import { createClient } from "./gen/client/client.gen.js"
 import { type Config } from "./gen/client/types.gen.js"
 import { MiaopanCodeClient } from "./gen/sdk.gen.js"
 import { wrapClientError } from "./error-interceptor.js"
+import { resolveLanguage, type Language } from "./i18n.js"
 export { type Config as MiaopanCodeClientConfig, MiaopanCodeClient }
 
 function pick(value: string | null, fallback?: string) {
@@ -30,7 +31,8 @@ function rewrite(request: Request, directory?: string) {
   return next
 }
 
-export function createMiaopanCodeClient(config?: Config & { directory?: string }) {
+export function createMiaopanCodeClient(config?: Config & { directory?: string; language?: Language }) {
+  const language = resolveLanguage(config?.language)
   if (!config?.fetch) {
     const customFetch: any = (req: any) => {
       // @ts-ignore
@@ -52,6 +54,8 @@ export function createMiaopanCodeClient(config?: Config & { directory?: string }
 
   const client = createClient(config)
   client.interceptors.request.use((request) => rewrite(request, config?.directory))
-  client.interceptors.error.use(wrapClientError)
+  client.interceptors.error.use((error, response, request, options) =>
+    wrapClientError(error, response, request, options, language),
+  )
   return new MiaopanCodeClient({ client })
 }

@@ -18,6 +18,7 @@
 import type { Event, GlobalEvent, MiaopanCodeClient } from "@miaopan-code/sdk/v2"
 import { Context, Deferred, Effect, Exit, Layer, Scope, Stream } from "effect"
 import { makeRuntime } from "@/effect/run-service"
+import { UI } from "../../ui"
 import {
   blockerStatus,
   bootstrapSessionData,
@@ -267,7 +268,7 @@ export function formatUnknownError(error: unknown): string {
     }
   }
 
-  return "unknown error"
+  return UI.t("run.unknown_error")
 }
 
 function sameView(a: FooterView, b: FooterView) {
@@ -550,7 +551,7 @@ function createLayer(input: StreamInput) {
             return next
           }
 
-          return yield* Effect.fail(new Error("no primary agent available for shell mode"))
+          return yield* Effect.fail(new Error(UI.t("run.no_primary_agent")))
         })
 
         const recoverQuestion = Effect.fn("RunStreamTransport.recoverQuestion")(function* (partID: string) {
@@ -1077,7 +1078,7 @@ function createLayer(input: StreamInput) {
             })
             input.footer.append({
               kind: "error",
-              text: "resize replay failed; disabled for this session",
+              text: UI.t("run.resize_replay_failed"),
               phase: "start",
               source: "system",
             })
@@ -1109,7 +1110,7 @@ function createLayer(input: StreamInput) {
             })
             input.footer.append({
               kind: "error",
-              text: "resize replay failed; disabled for this session",
+              text: UI.t("run.resize_replay_failed"),
               phase: "start",
               source: "system",
             })
@@ -1137,7 +1138,7 @@ function createLayer(input: StreamInput) {
                 }
 
                 if (isMatchingDisposeEvent(item, input.directory)) {
-                  yield* fail(new Error("instance disposed"))
+                  yield* fail(new Error(UI.t("run.instance_disposed")))
                   yield* closeScope()
                   return
                 }
@@ -1173,7 +1174,7 @@ function createLayer(input: StreamInput) {
             Effect.ensuring(
               Effect.gen(function* () {
                 if (!abort.signal.aborted && !state.fault) {
-                  yield* fail(new Error("global event stream closed"))
+                  yield* fail(new Error(UI.t("run.global_stream_closed")))
                 }
                 closeStream()
               }),
@@ -1195,7 +1196,7 @@ function createLayer(input: StreamInput) {
           }
 
           if (state.wait) {
-            yield* Effect.fail(new Error("prompt already running"))
+            yield* Effect.fail(new Error(UI.t("run.prompt_already_running")))
             return
           }
 
@@ -1347,7 +1348,7 @@ function createLayer(input: StreamInput) {
               if (!input.footer.isClosed && !state.data.announced) {
                 input.trace?.write("ui.patch", {
                   phase: "running",
-                  status: "waiting for assistant",
+                  status: UI.t("cli.run.waiting_assistant"),
                 })
                 input.footer.event({
                   type: "turn.wait",

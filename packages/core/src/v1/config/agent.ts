@@ -3,6 +3,7 @@ export * as ConfigAgentV1 from "./agent"
 import { Schema, SchemaGetter } from "effect"
 import { PositiveInt } from "../../schema"
 import { ConfigPermissionV1 } from "./permission"
+import { zh } from "../../i18n"
 
 const Color = Schema.Union([
   Schema.String.check(Schema.isPattern(/^#[0-9a-fA-F]{6}$/)),
@@ -13,28 +14,28 @@ const AgentSchema = Schema.StructWithRest(
   Schema.Struct({
     model: Schema.optional(Schema.String),
     variant: Schema.optional(Schema.String).annotate({
-      description: "Default model variant for this agent (applies only when using the agent's configured model).",
+      description: zh("config.v1.model_format"),
     }),
     temperature: Schema.optional(Schema.Finite),
     top_p: Schema.optional(Schema.Finite),
     prompt: Schema.optional(Schema.String),
     tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)).annotate({
-      description: "@deprecated Use 'permission' field instead",
+      description: zh("config.v1.agent_deprecated"),
     }),
     disable: Schema.optional(Schema.Boolean),
-    description: Schema.optional(Schema.String).annotate({ description: "Description of when to use the agent" }),
+    description: Schema.optional(Schema.String).annotate({ description: zh("config.v1.agent") }),
     mode: Schema.optional(Schema.Literals(["subagent", "primary", "all"])),
     hidden: Schema.optional(Schema.Boolean).annotate({
-      description: "Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)",
+      description: zh("config.v1.primary_tools"),
     }),
     options: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
     color: Schema.optional(Color).annotate({
-      description: "Hex color code (e.g., #FF5733) or theme color (e.g., primary)",
+      description: zh("config.v1.agent"),
     }),
     steps: Schema.optional(PositiveInt).annotate({
-      description: "Maximum number of agentic iterations before forcing text-only response",
+      description: zh("config.v1.compaction_turns"),
     }),
-    maxSteps: Schema.optional(PositiveInt).annotate({ description: "@deprecated Use 'steps' field instead." }),
+    maxSteps: Schema.optional(PositiveInt).annotate({ description: zh("config.v1.agent_deprecated") }),
     permission: Schema.optional(ConfigPermissionV1.Info),
   }),
   [Schema.Record(Schema.String, Schema.Any)],

@@ -178,7 +178,7 @@ describe("convertToOpenAIResponsesInput", () => {
     expect(input).toEqual([])
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toMatchObject({
-      message: expect.stringContaining("Non-OpenAI reasoning parts are not supported"),
+      message: expect.stringContaining("不支持非 OpenAI 推理部分"),
     })
   })
 

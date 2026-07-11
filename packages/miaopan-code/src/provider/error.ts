@@ -3,12 +3,16 @@ import { STATUS_CODES } from "http"
 import { iife } from "@/util/iife"
 import type { ProviderV2 } from "@miaopan-code/core/provider"
 import { isContextOverflow } from "@miaopan-code/llm"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export class HeaderTimeoutError extends Error {
   public override readonly name = "ProviderHeaderTimeoutError"
 
-  constructor(public readonly ms: number) {
-    super(`Provider response headers timed out after ${ms}ms`)
+  constructor(
+    public readonly ms: number,
+    language?: Language,
+  ) {
+    super(t(language, "error.provider_headers_timeout", { ms }))
   }
 }
 
@@ -29,7 +33,7 @@ function isOpenAiErrorRetryable(e: APICallError) {
 
 // Providers not reliably handled in this function:
 // - z.ai: can accept overflow silently (needs token-count/context-window checks)
-function message(providerID: ProviderV2.ID, e: APICallError) {
+function message(providerID: ProviderV2.ID, e: APICallError, language?: Language) {
   return iife(() => {
     const msg = e.message
     if (msg === "") {
@@ -38,7 +42,7 @@ function message(providerID: ProviderV2.ID, e: APICallError) {
         const err = STATUS_CODES[e.statusCode]
         if (err) return err
       }
-      return "Unknown error"
+      return t(language, "error.provider_unknown")
     }
 
     if (!e.responseBody || (e.statusCode && msg !== STATUS_CODES[e.statusCode])) {
@@ -58,10 +62,10 @@ function message(providerID: ProviderV2.ID, e: APICallError) {
     // provide a human-readable message instead of dumping raw markup
     if (/^\s*<!doctype|^\s*<html/i.test(e.responseBody)) {
       if (e.statusCode === 401) {
-        return "Unauthorized: request was blocked by a gateway or proxy. Your authentication token may be missing or expired — try running `miaopanCode auth login <your provider URL>` to re-authenticate."
+        return t(language, "error.provider_unauthorized_proxy")
       }
       if (e.statusCode === 403) {
-        return "Forbidden: request was blocked by a gateway or proxy. You may not have permission to access this resource — check your account and provider settings."
+        return t(language, "error.provider_forbidden_proxy")
       }
       return msg
     }
@@ -99,7 +103,7 @@ export type ParsedStreamError =
       responseBody: string
     }
 
-export function parseStreamError(input: unknown): ParsedStreamError | undefined {
+export function parseStreamError(input: unknown, language?: Language): ParsedStreamError | undefined {
   const raw = json(input)
   const body = typeof raw?.message === "string" ? (json(raw.message) ?? raw) : raw
   if (!body) return
@@ -111,27 +115,30 @@ export function parseStreamError(input: unknown): ParsedStreamError | undefined 
     case "context_length_exceeded":
       return {
         type: "context_overflow",
-        message: "Input exceeds context window of this model",
+        message: t(language, "error.provider_context_overflow"),
         responseBody,
       }
     case "insufficient_quota":
       return {
         type: "api_error",
-        message: "Quota exceeded. Check your plan and billing details.",
+        message: t(language, "error.provider_quota"),
         isRetryable: false,
         responseBody,
       }
     case "usage_not_included":
       return {
         type: "api_error",
-        message: "To use Codex with your ChatGPT plan, upgrade to Plus: https://chatgpt.com/explore/plus.",
+        message: t(language, "error.provider_codex_upgrade"),
         isRetryable: false,
         responseBody,
       }
     case "invalid_prompt":
       return {
         type: "api_error",
-        message: typeof body?.error?.message === "string" ? body?.error?.message : "Invalid prompt.",
+        message:
+          typeof body?.error?.message === "string"
+            ? body?.error?.message
+            : t(language, "error.provider_invalid_prompt"),
         isRetryable: false,
         responseBody,
       }
@@ -139,7 +146,7 @@ export function parseStreamError(input: unknown): ParsedStreamError | undefined 
     case "server_error":
       return {
         type: "api_error",
-        message: typeof body?.error?.message === "string" ? body?.error?.message : "Server error.",
+        message: typeof body?.error?.message === "string" ? body?.error?.message : t(language, "error.provider_server"),
         isRetryable: true,
         responseBody,
       }
@@ -162,8 +169,12 @@ export type ParsedAPICallError =
       metadata?: Record<string, string>
     }
 
-export function parseAPICallError(input: { providerID: ProviderV2.ID; error: APICallError }): ParsedAPICallError {
-  const m = message(input.providerID, input.error)
+export function parseAPICallError(input: {
+  providerID: ProviderV2.ID
+  error: APICallError
+  language?: Language
+}): ParsedAPICallError {
+  const m = message(input.providerID, input.error, input.language)
   const body = json(input.error.responseBody)
   if (isContextOverflow(m) || input.error.statusCode === 413 || body?.error?.code === "context_length_exceeded") {
     return {

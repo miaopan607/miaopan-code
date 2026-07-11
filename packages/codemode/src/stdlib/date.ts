@@ -25,7 +25,8 @@ export const dateMethods = new Set([
 
 export const dateStatics = new Set(["now", "parse", "UTC"])
 
-export const invokeDateStatic = (name: string, args: Array<unknown>, node: AstNode): number => {
+export const invokeDateStatic = (name: string, args: Array<unknown>, node: AstNode, language?: Language): number => {
+  language ??= languageOf(node)
   switch (name) {
     case "now":
       return Date.now()
@@ -34,18 +35,23 @@ export const invokeDateStatic = (name: string, args: Array<unknown>, node: AstNo
     case "UTC":
       return Date.UTC(...(args.map((arg) => coerceToNumber(arg)) as Parameters<typeof Date.UTC>))
     default:
-      throw new InterpreterRuntimeError(`Date.${name} is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        t(language, "codemode.stdlib.unavailable_static", { namespace: "Date", name }),
+        node,
+      )
   }
 }
 
-export const invokeDateMethod = (value: SandboxDate, name: string, node: AstNode): unknown => {
+export const invokeDateMethod = (value: SandboxDate, name: string, node: AstNode, language?: Language): unknown => {
+  language ??= languageOf(node)
   const hosted = new Date(value.time)
   switch (name) {
     case "getTime":
     case "valueOf":
       return value.time
     case "toISOString":
-      if (!Number.isFinite(value.time)) throw new InterpreterRuntimeError("Invalid time value.", node)
+      if (!Number.isFinite(value.time))
+        throw new InterpreterRuntimeError(t(language, "codemode.stdlib.invalid_time"), node)
       return hosted.toISOString()
     case "toJSON":
       return Number.isFinite(value.time) ? hosted.toISOString() : null
@@ -86,9 +92,13 @@ export const invokeDateMethod = (value: SandboxDate, name: string, node: AstNode
     case "getTimezoneOffset":
       return hosted.getTimezoneOffset()
     default:
-      throw new InterpreterRuntimeError(`Date method '${name}' is not available in CodeMode.`, node)
+      throw new InterpreterRuntimeError(
+        t(language, "codemode.stdlib.unavailable_method", { namespace: "Date", name }),
+        node,
+      )
   }
 }
-import { type AstNode, InterpreterRuntimeError } from "../interpreter/model.js"
+import { type AstNode, InterpreterRuntimeError, languageOf } from "../interpreter/model.js"
 import { SandboxDate } from "../values.js"
 import { coerceToNumber, coerceToString } from "./value.js"
+import { t, type Language } from "../i18n.js"

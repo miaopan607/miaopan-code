@@ -1,5 +1,7 @@
 import { Audio, type AudioErrorContext, type AudioPlayOptions, type AudioSound, type AudioVoice } from "@opentui/core"
 import { readFile } from "node:fs/promises"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./util/locale"
 
 let audio: Audio | null | undefined
 const sounds = new Map<string, Promise<AudioSound | null>>()
@@ -9,12 +11,12 @@ function getAudio() {
   try {
     const next = Audio.create({ autoStart: false })
     next.on("error", (error: Error, context: AudioErrorContext) => {
-      console.debug("tui audio error", { error, context })
+      console.debug(t(Locale.language(), "tui.audio_error"), { error, context })
     })
     audio = next
     return next
   } catch (error) {
-    console.debug("failed to create tui audio", { error })
+    console.debug(t(Locale.language(), "tui.audio_create_failed"), { error })
     audio = null
     return null
   }
@@ -28,7 +30,7 @@ export function loadSoundFile(file: string) {
   const task = readFile(file)
     .then((bytes) => current.loadSound(bytes))
     .catch((error) => {
-      console.debug("failed to load tui sound", { file, error })
+      console.debug(t(Locale.language(), "tui.audio_load_failed"), { file, error })
       return null
     })
   sounds.set(file, task)

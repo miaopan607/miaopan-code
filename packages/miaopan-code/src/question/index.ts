@@ -1,10 +1,12 @@
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import { t } from "@miaopan-code/core/i18n"
 import { Deferred, Effect, Layer, Schema, Context } from "effect"
 import { InstanceState } from "@/effect/instance-state"
 import { SessionID } from "@/session/schema"
 import { QuestionID } from "./schema"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { QuestionV1 } from "@miaopan-code/schema/question-v1"
+import { Config } from "@/config/config"
 
 export const Option = QuestionV1.Option
 export type Option = typeof Option.Type
@@ -24,9 +26,11 @@ export const Replied = QuestionV1.Replied
 export const Rejected = QuestionV1.Rejected
 export const Event = QuestionV1.Event
 
-export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("QuestionRejectedError", {}) {
+export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("QuestionRejectedError", {
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
+}) {
   override get message() {
-    return "The user dismissed this question"
+    return t(this.language, "question.user_dismissed")
   }
 }
 
@@ -37,6 +41,7 @@ export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("Que
 interface PendingEntry {
   info: Request
   deferred: Deferred.Deferred<ReadonlyArray<Answer>, RejectedError>
+  language: "zh-CN" | "en"
 }
 
 interface State {
@@ -65,6 +70,7 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const events = yield* EventV2Bridge.Service
+    const config = yield* Config.Service
     const state = yield* InstanceState.make<State>(
       Effect.fn("Question.state")(function* () {
         const state = {
@@ -74,7 +80,7 @@ const layer = Layer.effect(
         yield* Effect.addFinalizer(() =>
           Effect.gen(function* () {
             for (const item of state.pending.values()) {
-              yield* Deferred.fail(item.deferred, new RejectedError())
+              yield* Deferred.fail(item.deferred, new RejectedError({ language: item.language }))
             }
             state.pending.clear()
           }),
@@ -90,8 +96,9 @@ const layer = Layer.effect(
       tool?: Tool
     }) {
       const pending = (yield* InstanceState.get(state)).pending
+      const language = (yield* config.get()).language === "en" ? "en" : "zh-CN"
       const id = QuestionID.ascending()
-      yield* Effect.logInfo("asking", { id, questions: input.questions.length })
+      yield* Effect.logInfo(t(language, "log.question_asking"), { id, questions: input.questions.length })
 
       const deferred = yield* Deferred.make<ReadonlyArray<Answer>, RejectedError>()
       const info: Request = {
@@ -100,7 +107,7 @@ const layer = Layer.effect(
         questions: input.questions,
         tool: input.tool,
       }
-      pending.set(id, { info, deferred })
+      pending.set(id, { info, deferred, language })
       yield* events.publish(Event.Asked, info)
 
       return yield* Effect.ensuring(
@@ -116,13 +123,17 @@ const layer = Layer.effect(
       answers: ReadonlyArray<Answer>
     }) {
       const pending = (yield* InstanceState.get(state)).pending
+      const language = (yield* config.get()).language
       const existing = pending.get(input.requestID)
       if (!existing) {
-        yield* Effect.logWarning("reply for unknown request", { requestID: input.requestID })
+        yield* Effect.logWarning(t(language, "log.question_unknown_reply"), { requestID: input.requestID })
         return yield* new NotFoundError({ requestID: input.requestID })
       }
       pending.delete(input.requestID)
-      yield* Effect.logInfo("replied", { requestID: input.requestID, answers: input.answers })
+      yield* Effect.logInfo(t(language, "log.question_replied"), {
+        requestID: input.requestID,
+        answers: input.answers,
+      })
       yield* events.publish(Event.Replied, {
         sessionID: existing.info.sessionID,
         requestID: existing.info.id,
@@ -133,18 +144,19 @@ const layer = Layer.effect(
 
     const reject = Effect.fn("Question.reject")(function* (requestID: QuestionID) {
       const pending = (yield* InstanceState.get(state)).pending
+      const language = (yield* config.get()).language
       const existing = pending.get(requestID)
       if (!existing) {
-        yield* Effect.logWarning("reject for unknown request", { requestID })
+        yield* Effect.logWarning(t(language, "log.question_unknown_reject"), { requestID })
         return yield* new NotFoundError({ requestID })
       }
       pending.delete(requestID)
-      yield* Effect.logInfo("rejected", { requestID })
+      yield* Effect.logInfo(t(language, "log.question_rejected"), { requestID })
       yield* events.publish(Event.Rejected, {
         sessionID: existing.info.sessionID,
         requestID: existing.info.id,
       })
-      yield* Deferred.fail(existing.deferred, new RejectedError())
+      yield* Deferred.fail(existing.deferred, new RejectedError({ language: existing.language }))
     })
 
     const list = Effect.fn("Question.list")(function* () {
@@ -156,6 +168,6 @@ const layer = Layer.effect(
   }),
 )
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node] })
+export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node, Config.node] })
 
 export * as Question from "."

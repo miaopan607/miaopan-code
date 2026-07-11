@@ -4,8 +4,9 @@ import { type ParseError as JsoncParseError, parse as parseJsoncImpl, printParse
 import { Cause, Exit, Schema as EffectSchema, SchemaIssue } from "effect"
 import type { DeepMutable } from "@miaopan-code/core/schema"
 import { InvalidError, JsonError } from "@miaopan-code/core/v1/config/error"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-export function jsonc(text: string, filepath: string): unknown {
+export function jsonc(text: string, filepath: string, language?: Language): unknown {
   const errors: JsoncParseError[] = []
   const data = parseJsoncImpl(text, errors, { allowTrailingComma: true })
   if (errors.length) {
@@ -17,15 +18,19 @@ export function jsonc(text: string, filepath: string): unknown {
         const column = beforeOffset[beforeOffset.length - 1].length + 1
         const problemLine = lines[line - 1]
 
-        const error = `${printParseErrorCode(e.error)} at line ${line}, column ${column}`
+        const error = t(language, "error.jsonc_position", {
+          error: printParseErrorCode(e.error),
+          line,
+          column,
+        })
         if (!problemLine) return error
 
-        return `${error}\n   Line ${line}: ${problemLine}\n${"".padStart(column + 9)}^`
+        return `${error}\n${t(language, "error.jsonc_line", { line, text: problemLine })}\n${"".padStart(column + 9)}^`
       })
       .join("\n")
     throw new JsonError({
       path: filepath,
-      message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${issues}\n--- End ---`,
+      message: t(language, "error.jsonc_report", { input: text, errors: issues }),
     })
   }
 
@@ -36,6 +41,7 @@ export function schema<S extends EffectSchema.Decoder<unknown, never>>(
   schema: S,
   data: unknown,
   source: string,
+  language?: Language,
 ): DeepMutable<S["Type"]> {
   const extra = topLevelExtraKeys(schema, data)
   if (extra.length) {
@@ -46,7 +52,10 @@ export function schema<S extends EffectSchema.Decoder<unknown, never>>(
           code: "unrecognized_keys",
           keys: extra,
           path: [],
-          message: `Unrecognized key${extra.length === 1 ? "" : "s"}: ${extra.join(", ")}`,
+          message: t(language, "error.config_unrecognized_keys", {
+            suffix: extra.length === 1 ? "" : "s",
+            keys: extra.join(", "),
+          }),
         },
       ],
     })

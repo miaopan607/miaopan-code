@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 import { formatAssistantHeader, formatMessage, formatPart, formatTranscript } from "../../src/util/transcript"
 import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan-code/sdk/v2"
+import { Locale } from "../../src/util/locale"
 
 const providers: Provider[] = [
   {
@@ -62,6 +63,8 @@ const providers: Provider[] = [
 ]
 
 describe("transcript", () => {
+  beforeEach(() => Locale.setLanguage("en"))
+
   describe("formatAssistantHeader", () => {
     const baseMsg: AssistantMessage = {
       id: "msg_123",
@@ -91,6 +94,11 @@ describe("transcript", () => {
     test("excludes metadata when disabled", () => {
       const result = formatAssistantHeader(baseMsg, false)
       expect(result).toBe("## Assistant\n\n")
+    })
+
+    test("uses Simplified Chinese labels when selected", () => {
+      Locale.setLanguage("zh-CN")
+      expect(formatAssistantHeader(baseMsg, false)).toBe("## 助手\n\n")
     })
 
     test("handles missing completed time", () => {

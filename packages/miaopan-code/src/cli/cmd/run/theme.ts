@@ -8,6 +8,7 @@
 import { RGBA, SyntaxStyle, type CliRenderer, type ColorInput, type TerminalColors } from "@opentui/core"
 import type { TuiThemeCurrent } from "@miaopan-code/plugin/tui"
 import type { EntryKind } from "./types"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 type Tone = {
   body: ColorInput
@@ -273,7 +274,7 @@ function splashShadow(indexed: RGBA[], base: RGBA, overlay: RGBA, value: number)
   return nearestIndexed(indexed, mixed)
 }
 
-export function resolveTheme(theme: ThemeJson, pick: "dark" | "light"): TuiThemeCurrent {
+export function resolveTheme(theme: ThemeJson, pick: "dark" | "light", language?: Language): TuiThemeCurrent {
   const defs = theme.defs ?? {}
 
   const resolveColor = (value: ColorValue, chain: string[] = []): RGBA => {
@@ -296,12 +297,12 @@ export function resolveTheme(theme: ThemeJson, pick: "dark" | "light"): TuiTheme
     }
 
     if (chain.includes(value)) {
-      throw new Error(`Circular color reference: ${[...chain, value].join(" -> ")}`)
+      throw new Error(t(language, "error.theme_circular", { chain: [...chain, value].join(" -> ") }))
     }
 
     const next = defs[value] ?? theme.theme[value as ThemeColor]
     if (next === undefined) {
-      throw new Error(`Color reference "${value}" not found in defs or theme`)
+      throw new Error(t(language, "error.theme_reference_missing", { value }))
     }
 
     return resolveColor(next, [...chain, value])

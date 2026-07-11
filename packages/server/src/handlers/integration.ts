@@ -4,17 +4,22 @@ import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { InvalidRequestError } from "@miaopan-code/protocol/errors"
 import { response } from "../location"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
 const authorize = <A, R>(effect: Effect.Effect<A, Integration.AuthorizationError, R>) =>
-  effect.pipe(
-    Effect.mapError(
-      () =>
-        new InvalidRequestError({
-          message: "Authentication failed",
-          kind: "integration_authorization",
-        }),
-    ),
-  )
+  Effect.gen(function* () {
+    const language = yield* requestLanguage()
+    return yield* effect.pipe(
+      Effect.mapError(
+        () =>
+          new InvalidRequestError({
+            message: t(language, "error.auth_failed"),
+            kind: "integration_authorization",
+          }),
+      ),
+    )
+  })
 
 export const IntegrationHandler = HttpApiBuilder.group(Api, "server.integration", (handlers) =>
   Effect.gen(function* () {
@@ -74,14 +79,15 @@ export const IntegrationHandler = HttpApiBuilder.group(Api, "server.integration"
         "integration.attempt.complete",
         Effect.fn(function* (ctx) {
           const service = yield* Integration.Service
+          const language = yield* requestLanguage()
           yield* service.attempt.complete({ attemptID: ctx.params.attemptID, code: ctx.payload.code }).pipe(
             Effect.mapError(
               (error) =>
                 new InvalidRequestError({
                   message:
                     error._tag === "Integration.CodeRequired"
-                      ? "Authorization code is required"
-                      : "Authentication failed",
+                      ? t(language, "error.auth_code_required")
+                      : t(language, "error.auth_failed"),
                   kind:
                     error._tag === "Integration.CodeRequired"
                       ? "integration_code_required"

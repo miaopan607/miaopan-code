@@ -1,26 +1,28 @@
 import { Context } from "effect"
+import { t, type Language } from "./i18n"
 import { HttpApi, HttpApiGroup, HttpApiMiddleware, OpenApi } from "effect/unstable/httpapi"
 import { SchemaErrorMiddleware } from "./middleware/schema-error"
-import { MessageGroup } from "./groups/message"
-import { ModelGroup } from "./groups/model"
-import { ProviderGroup } from "./groups/provider"
+import { makeMessageGroup } from "./groups/message"
+import { makeModelGroup } from "./groups/model"
+import { makeProviderGroup } from "./groups/provider"
 import { makeSessionGroup } from "./groups/session"
 import { makePermissionGroup } from "./groups/permission"
-import { FileSystemGroup } from "./groups/fs"
-import { CommandGroup } from "./groups/command"
-import { SkillGroup } from "./groups/skill"
-import { EventGroup, makeEventGroup } from "./groups/event"
+import { makeFileSystemGroup } from "./groups/fs"
+import { makeCommandGroup } from "./groups/command"
+import { makeSkillGroup } from "./groups/skill"
+import { makeEventGroup } from "./groups/event"
 import type { Definition } from "@miaopan-code/schema/event"
-import { AgentGroup } from "./groups/agent"
-import { HealthGroup } from "./groups/health"
-import { PtyGroup } from "./groups/pty"
+import { EventManifest } from "@miaopan-code/schema/event-manifest"
+import { makeAgentGroup } from "./groups/agent"
+import { makeHealthGroup } from "./groups/health"
+import { makePtyGroup } from "./groups/pty"
 import { makeQuestionGroup } from "./groups/question"
-import { ReferenceGroup } from "./groups/reference"
+import { makeReferenceGroup } from "./groups/reference"
 import { Authorization } from "./middleware/authorization"
-import { LocationGroup } from "./groups/location"
-import { IntegrationGroup } from "./groups/integration"
-import { CredentialGroup } from "./groups/credential"
-import { ProjectCopyGroup } from "./groups/project-copy"
+import { makeLocationGroup } from "./groups/location"
+import { makeIntegrationGroup } from "./groups/integration"
+import { makeCredentialGroup } from "./groups/credential"
+import { makeProjectCopyGroup } from "./groups/project-copy"
 
 // Protocol owns middleware placement, while Server injects concrete keys so Core service identities stay downstream.
 const makeApiFromGroup = <
@@ -33,31 +35,32 @@ const makeApiFromGroup = <
   eventGroup: Group,
   locationMiddleware: Context.Key<LocationId, LocationService>,
   sessionLocationMiddleware: Context.Key<SessionLocationId, SessionLocationService>,
+  language?: Language,
 ) =>
   HttpApi.make("server")
-    .add(HealthGroup)
-    .add(LocationGroup.middleware(locationMiddleware))
-    .add(AgentGroup.middleware(locationMiddleware))
-    .add(makeSessionGroup(sessionLocationMiddleware))
-    .add(MessageGroup.middleware(sessionLocationMiddleware))
-    .add(ModelGroup.middleware(locationMiddleware))
-    .add(ProviderGroup.middleware(locationMiddleware))
-    .add(IntegrationGroup.middleware(locationMiddleware))
-    .add(CredentialGroup.middleware(locationMiddleware))
-    .add(makePermissionGroup(locationMiddleware, sessionLocationMiddleware))
-    .add(FileSystemGroup.middleware(locationMiddleware))
-    .add(CommandGroup.middleware(locationMiddleware))
-    .add(SkillGroup.middleware(locationMiddleware))
+    .add(makeHealthGroup(language))
+    .add(makeLocationGroup(language).middleware(locationMiddleware))
+    .add(makeAgentGroup(language).middleware(locationMiddleware))
+    .add(makeSessionGroup(sessionLocationMiddleware, language))
+    .add(makeMessageGroup(language).middleware(sessionLocationMiddleware))
+    .add(makeModelGroup(language).middleware(locationMiddleware))
+    .add(makeProviderGroup(language).middleware(locationMiddleware))
+    .add(makeIntegrationGroup(language).middleware(locationMiddleware))
+    .add(makeCredentialGroup(language).middleware(locationMiddleware))
+    .add(makePermissionGroup(locationMiddleware, sessionLocationMiddleware, language))
+    .add(makeFileSystemGroup(language).middleware(locationMiddleware))
+    .add(makeCommandGroup(language).middleware(locationMiddleware))
+    .add(makeSkillGroup(language).middleware(locationMiddleware))
     .add(eventGroup)
-    .add(PtyGroup.middleware(locationMiddleware))
-    .add(makeQuestionGroup(locationMiddleware, sessionLocationMiddleware))
-    .add(ReferenceGroup.middleware(locationMiddleware))
-    .add(ProjectCopyGroup.middleware(locationMiddleware))
+    .add(makePtyGroup(language).middleware(locationMiddleware))
+    .add(makeQuestionGroup(locationMiddleware, sessionLocationMiddleware, language))
+    .add(makeReferenceGroup(language).middleware(locationMiddleware))
+    .add(makeProjectCopyGroup(language).middleware(locationMiddleware))
     .annotateMerge(
       OpenApi.annotations({
-        title: "miaopanCode HttpApi",
+        title: t(language, "api_title"),
         version: "0.0.1",
-        description: "Experimental HttpApi surface for selected instance routes.",
+        description: t(language, "api_description"),
       }),
     )
     .middleware(Authorization)
@@ -72,8 +75,14 @@ export const makeApi = <
   readonly definitions: ReadonlyArray<Definition>
   readonly locationMiddleware: Context.Key<LocationId, LocationService>
   readonly sessionLocationMiddleware: Context.Key<SessionLocationId, SessionLocationService>
+  readonly language?: Language
 }) =>
-  makeApiFromGroup(makeEventGroup(options.definitions), options.locationMiddleware, options.sessionLocationMiddleware)
+  makeApiFromGroup(
+    makeEventGroup(options.definitions, options.language),
+    options.locationMiddleware,
+    options.sessionLocationMiddleware,
+    options.language,
+  )
 
 export const makeDefaultApi = <
   LocationId extends HttpApiMiddleware.AnyId,
@@ -83,4 +92,11 @@ export const makeDefaultApi = <
 >(options: {
   readonly locationMiddleware: Context.Key<LocationId, LocationService>
   readonly sessionLocationMiddleware: Context.Key<SessionLocationId, SessionLocationService>
-}) => makeApiFromGroup(EventGroup, options.locationMiddleware, options.sessionLocationMiddleware)
+  readonly language?: Language
+}) =>
+  makeApiFromGroup(
+    makeEventGroup(EventManifest.ServerDefinitions, options.language),
+    options.locationMiddleware,
+    options.sessionLocationMiddleware,
+    options.language,
+  )

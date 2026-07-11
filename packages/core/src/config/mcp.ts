@@ -2,13 +2,14 @@ export * as ConfigMCP from "./mcp"
 
 import { Schema } from "effect"
 import { PositiveInt } from "../schema"
+import { zh } from "../i18n"
 
 export class Timeout extends Schema.Class<Timeout>("ConfigV2.MCP.Timeout")({
   startup: PositiveInt.pipe(Schema.optional).annotate({
-    description: "Maximum time in milliseconds to establish and initialize the MCP server.",
+    description: zh("config.mcp.startup_timeout"),
   }),
   request: PositiveInt.pipe(Schema.optional).annotate({
-    description: "Maximum time in milliseconds to wait for each MCP request after initialization.",
+    description: zh("config.mcp.request_timeout"),
   }),
 }) {}
 
@@ -16,7 +17,7 @@ export class Local extends Schema.Class<Local>("ConfigV2.MCP.Local")({
   type: Schema.Literal("local"),
   command: Schema.String.pipe(Schema.Array),
   cwd: Schema.String.pipe(Schema.optional).annotate({
-    description: "Working directory for the MCP server process. Relative paths resolve from the workspace directory.",
+    description: zh("config.mcp.cwd"),
   }),
   environment: Schema.Record(Schema.String, Schema.String).pipe(Schema.optional),
   disabled: Schema.Boolean.pipe(Schema.optional),

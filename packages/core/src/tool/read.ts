@@ -12,16 +12,17 @@ import { ReadToolFileSystem } from "./read-filesystem"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { localizeKnownText, t, zh } from "../i18n"
 
 export const name = "read"
 const SUPPORTED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"])
 const LocationInput = Schema.Struct({
   path: Schema.String,
   offset: ReadToolFileSystem.PageInput.fields.offset.annotate({
-    description: "The 1-based directory entry or text line offset to start reading from",
+    description: zh("tool.param.read_offset"),
   }),
   limit: ReadToolFileSystem.PageInput.fields.limit.annotate({
-    description: "The maximum number of directory entries or text lines to read",
+    description: zh("tool.param.read_limit"),
   }),
 })
 const Input = LocationInput
@@ -38,15 +39,14 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description:
-            "Read a text file or supported image, page through a large UTF-8 text file by line offset, or list a directory page. Relative paths resolve from the current location; absolute paths inside it are accepted, while external absolute paths require external_directory approval.",
+          description: zh("tool.description.core_read"),
           input: Input,
           output: Output,
-          toModelOutput: ({ input, output }) => {
+          toModelOutput: ({ input, output, context }) => {
             if (!("encoding" in output) || output.encoding !== "base64" || !SUPPORTED_IMAGE_MIMES.has(output.mime))
               return []
             return [
-              { type: "text", text: "Image read successfully" },
+              { type: "text", text: t(context.language, "tool.output.image_read_success") },
               { type: "file", data: output.content, mime: output.mime, name: input.path },
             ]
           },
@@ -98,8 +98,8 @@ const layer = Layer.effectDiscard(
                   error instanceof ReadToolFileSystem.MediaIngestLimitError ||
                   error instanceof Image.DecodeError ||
                   error instanceof Image.SizeError
-                    ? error.message
-                    : `Unable to read ${input.path}`
+                    ? localizeKnownText(context.language, error.message)
+                    : t(context.language, "tool.error.read", { path: input.path })
                 return new ToolFailure({ message })
               }),
             )

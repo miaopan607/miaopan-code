@@ -4,7 +4,8 @@ import { Effect } from "effect"
 import * as Tool from "./tool"
 import { LSP } from "@/lsp/lsp"
 import { createTwoFilesPatch } from "diff"
-import DESCRIPTION from "./write.txt"
+import { ToolI18n } from "./i18n"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { FileSystem } from "@miaopan-code/core/filesystem"
 import { Watcher } from "@miaopan-code/core/filesystem/watcher"
@@ -17,24 +18,27 @@ import * as Bom from "@/util/bom"
 
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
 
-export const Parameters = Schema.Struct({
-  content: Schema.String.annotate({ description: "The content to write to the file" }),
-  filePath: Schema.String.annotate({
-    description: "The absolute path to the file to write (must be absolute, not relative)",
-  }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    content: Schema.String.annotate({ description: t(language, "tool.param.write_content") }),
+    filePath: Schema.String.annotate({
+      description: t(language, "tool.param.write_path"),
+    }),
+  })
+export const Parameters = makeParameters()
 
 export const WriteTool = Tool.define(
   "write",
   Effect.gen(function* () {
+    const language = yield* ToolI18n.language()
     const lsp = yield* LSP.Service
     const fs = yield* FSUtil.Service
     const events = yield* EventV2Bridge.Service
     const format = yield* Format.Service
 
     return {
-      description: DESCRIPTION,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.write"),
+      parameters: makeParameters(language),
       execute: (params: { content: string; filePath: string }, ctx: Tool.Context) =>
         Effect.gen(function* () {
           const instance = yield* InstanceState.context
@@ -71,7 +75,7 @@ export const WriteTool = Tool.define(
             event: exists ? "change" : "add",
           })
 
-          let output = "Wrote file successfully."
+          let output = ToolI18n.text(ctx, "tool.output.write_success")
           yield* lsp.touchFile(filepath, "document")
           const diagnostics = yield* lsp.diagnostics()
           const normalizedFilepath = FSUtil.normalizePath(filepath)
@@ -82,11 +86,11 @@ export const WriteTool = Tool.define(
             const block = LSP.Diagnostic.report(current ? filepath : file, issues)
             if (!block) continue
             if (current) {
-              output += `\n\nLSP errors detected in this file, please fix:\n${block}`
+              output += `\n\n${ToolI18n.text(ctx, "tool.output.lsp_errors")}\n${block}`
               continue
             }
             projectDiagnosticsCount++
-            output += `\n\nLSP errors detected in other files:\n${block}`
+            output += `\n\n${ToolI18n.text(ctx, "tool.output.lsp_project_errors")}\n${block}`
           }
 
           return {

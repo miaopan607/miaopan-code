@@ -3,6 +3,8 @@ import { OAUTH_DUMMY_KEY } from "../auth"
 import { createServer } from "http"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { pluginLanguage } from "./language"
 
 // Public Grok-CLI OAuth client. xAI's auth server rejects loopback OAuth from
 // non-allowlisted clients, so we reuse the Grok-CLI client_id that xAI ships
@@ -46,6 +48,7 @@ interface XaiAuthPluginOptions {
   authorizeUrl?: string
   tokenUrl?: string
   deviceAuthorizationUrl?: string
+  language?: Language
 }
 
 interface PkceCodes {
@@ -159,7 +162,13 @@ async function exchangeCodeForTokens(
   })
   if (!response.ok) {
     const detail = await response.text().catch(() => "")
-    throw new Error(`xAI token exchange failed (${response.status})${detail ? `: ${detail}` : ""}`)
+    throw new Error(
+      t(pluginLanguage(options), "error.oauth_exchange_failed", {
+        provider: "xAI",
+        status: response.status,
+        detail: detail ? `: ${detail}` : "",
+      }),
+    )
   }
   return response.json() as Promise<TokenResponse>
 }
@@ -176,7 +185,13 @@ async function refreshAccessToken(refreshToken: string, options: XaiAuthPluginOp
   })
   if (!response.ok) {
     const detail = await response.text().catch(() => "")
-    throw new Error(`xAI token refresh failed (${response.status})${detail ? `: ${detail}` : ""}`)
+    throw new Error(
+      t(pluginLanguage(options), "error.oauth_refresh_failed", {
+        provider: "xAI",
+        status: response.status,
+        detail: detail ? `: ${detail}` : "",
+      }),
+    )
   }
   return response.json() as Promise<TokenResponse>
 }
@@ -206,11 +221,17 @@ export async function requestDeviceCode(options: XaiAuthPluginOptions = {}): Pro
   })
   if (!response.ok) {
     const detail = await response.text().catch(() => "")
-    throw new Error(`xAI device code request failed (${response.status})${detail ? `: ${detail}` : ""}`)
+    throw new Error(
+      t(pluginLanguage(options), "error.oauth_device_request_failed", {
+        provider: "xAI",
+        status: response.status,
+        detail: detail ? `: ${detail}` : "",
+      }),
+    )
   }
   const json = (await response.json()) as DeviceCodeResponse
   if (!json.device_code || !json.user_code || !json.verification_uri) {
-    throw new Error("xAI device code response is missing device_code / user_code / verification_uri")
+    throw new Error(t(pluginLanguage(options), "error.xai_device_missing"))
   }
   return json
 }
@@ -274,15 +295,21 @@ export async function pollDeviceCodeToken(
       continue
     }
     if (body.error === "access_denied" || body.error === "authorization_denied") {
-      throw new Error("xAI device authorization was denied")
+      throw new Error(t(pluginLanguage(options), "error.xai_device_denied"))
     }
     if (body.error === "expired_token") {
-      throw new Error("xAI device code expired - please re-run login")
+      throw new Error(t(pluginLanguage(options), "error.xai_device_expired"))
     }
     const detail = body.error_description ?? body.error ?? ""
-    throw new Error(`xAI device token exchange failed (${response.status})${detail ? `: ${detail}` : ""}`)
+    throw new Error(
+      t(pluginLanguage(options), "error.oauth_device_exchange_failed", {
+        provider: "xAI",
+        status: response.status,
+        detail: detail ? `: ${detail}` : "",
+      }),
+    )
   }
-  throw new Error("xAI device authorization timed out")
+  throw new Error(t(pluginLanguage(options), "error.xai_device_timeout"))
 }
 
 // CORS allowlist for the loopback callback. The redirect_uri itself is
@@ -296,6 +323,7 @@ interface PendingOAuth {
   state: string
   resolve: (tokens: TokenResponse) => void
   reject: (error: Error) => void
+  language: Language
 }
 
 let oauthServer: ReturnType<typeof createServer> | undefined
@@ -332,53 +360,57 @@ async function startOAuthServer(): Promise<{ port: number; redirectUri: string }
 
       if (error) {
         const errorMsg = errorDescription || error
+        const language = pendingOAuth?.language
         pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
         res.writeHead(200, { "Content-Type": "text/html" })
-        res.end(OauthCallbackPage.error(errorMsg, { provider: "xAI" }))
+        res.end(OauthCallbackPage.error(errorMsg, { provider: "xAI", language }))
         return
       }
 
       if (!code) {
-        const errorMsg = "Missing authorization code"
+        const language = pendingOAuth?.language
+        const errorMsg = t(language, "error.oauth_code_missing")
         pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html" })
-        res.end(OauthCallbackPage.error(errorMsg, { provider: "xAI" }))
+        res.end(OauthCallbackPage.error(errorMsg, { provider: "xAI", language }))
         return
       }
 
       if (!pendingOAuth || state !== pendingOAuth.state) {
-        const errorMsg = "Invalid state - potential CSRF attack"
+        const language = pendingOAuth?.language
+        const errorMsg = t(language, "error.oauth_state_invalid")
         pendingOAuth?.reject(new Error(errorMsg))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html" })
-        res.end(OauthCallbackPage.error(errorMsg, { provider: "xAI" }))
+        res.end(OauthCallbackPage.error(errorMsg, { provider: "xAI", language }))
         return
       }
 
       const current = pendingOAuth
       pendingOAuth = undefined
 
-      exchangeCodeForTokens(code, current.pkce)
+      exchangeCodeForTokens(code, current.pkce, { language: current.language })
         .then((tokens) => current.resolve(tokens))
         .catch((err) => current.reject(err))
 
       res.writeHead(200, { "Content-Type": "text/html" })
-      res.end(OauthCallbackPage.success({ provider: "xAI" }))
+      res.end(OauthCallbackPage.success({ provider: "xAI", language: current.language }))
       return
     }
 
     if (url.pathname === "/cancel") {
-      pendingOAuth?.reject(new Error("Login cancelled"))
+      const language = pendingOAuth?.language
+      pendingOAuth?.reject(new Error(t(language, "error.oauth_login_cancelled")))
       pendingOAuth = undefined
       res.writeHead(200)
-      res.end("Login cancelled")
+      res.end(t(language, "error.oauth_login_cancelled"))
       return
     }
 
     res.writeHead(404)
-    res.end("Not found")
+    res.end(t(pendingOAuth?.language, "error.oauth_not_found"))
   })
 
   // listen() failures (e.g. EADDRINUSE because Grok-CLI is bound to the same
@@ -414,13 +446,13 @@ function stopOAuthServer() {
   }
 }
 
-function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResponse> {
+function waitForOAuthCallback(pkce: PkceCodes, state: string, language: Language): Promise<TokenResponse> {
   // A previous in-flight authorize() that the user abandoned (or that is
   // being superseded by a fresh attempt) still owns `pendingOAuth`. Reject
   // it eagerly so its caller stops waiting on a state value that can never
   // match the next callback.
   if (pendingOAuth) {
-    pendingOAuth.reject(new Error("Superseded by a newer xAI authorize request"))
+    pendingOAuth.reject(new Error(t(pendingOAuth.language, "error.oauth_superseded")))
     pendingOAuth = undefined
   }
   return new Promise((resolve, reject) => {
@@ -428,7 +460,7 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
       () => {
         if (pendingOAuth) {
           pendingOAuth = undefined
-          reject(new Error("OAuth callback timeout - authorization took too long"))
+          reject(new Error(t(language, "error.oauth_timeout")))
         }
       },
       5 * 60 * 1000,
@@ -437,6 +469,7 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
     pendingOAuth = {
       pkce,
       state,
+      language,
       resolve: (tokens) => {
         clearTimeout(timeout)
         resolve(tokens)
@@ -456,6 +489,7 @@ interface RefreshResult {
 }
 
 export async function XaiAuthPlugin(input: PluginInput, options: XaiAuthPluginOptions = {}): Promise<Hooks> {
+  const language = pluginLanguage(options)
   return {
     auth: {
       provider: "xai",
@@ -549,7 +583,7 @@ export async function XaiAuthPlugin(input: PluginInput, options: XaiAuthPluginOp
       },
       methods: [
         {
-          label: "xAI Grok OAuth (SuperGrok Subscription)",
+          label: t(language, "plugin.xai.oauth_subscription"),
           type: "oauth",
           authorize: async () => {
             await startOAuthServer()
@@ -558,11 +592,11 @@ export async function XaiAuthPlugin(input: PluginInput, options: XaiAuthPluginOp
             const nonce = generateState()
             const authUrl = buildAuthorizeUrl(pkce, state, nonce, options)
 
-            const callbackPromise = waitForOAuthCallback(pkce, state)
+            const callbackPromise = waitForOAuthCallback(pkce, state, language)
 
             return {
               url: authUrl,
-              instructions: "Complete authorization in your browser. This window will close automatically.",
+              instructions: t(language, "plugin.oauth.browser_instructions"),
               method: "auto" as const,
               callback: async () => {
                 try {
@@ -591,14 +625,17 @@ export async function XaiAuthPlugin(input: PluginInput, options: XaiAuthPluginOp
           // user's browser. Defends the only attack surface (the polling
           // loop) with the standard authorization_pending / slow_down
           // backoff and a hard deadline from xAI's `expires_in`.
-          label: "xAI Grok OAuth (Headless / Remote / VPS)",
+          label: t(language, "plugin.xai.oauth_headless"),
           type: "oauth",
           authorize: async () => {
             const device = await requestDeviceCode(options)
             const browserUrl = device.verification_uri_complete ?? device.verification_uri
             return {
               url: browserUrl,
-              instructions: `Open ${device.verification_uri} on any device and enter code: ${device.user_code}`,
+              instructions: t(language, "plugin.oauth.device_instructions", {
+                url: device.verification_uri,
+                code: device.user_code,
+              }),
               method: "auto" as const,
               callback: async () => {
                 try {
@@ -617,7 +654,7 @@ export async function XaiAuthPlugin(input: PluginInput, options: XaiAuthPluginOp
           },
         },
         {
-          label: "Manually enter API Key",
+          label: t(language, "plugin.enter_api_key"),
           type: "api",
         },
       ],

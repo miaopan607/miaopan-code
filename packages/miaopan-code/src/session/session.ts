@@ -13,6 +13,8 @@ import { EventV2Bridge } from "@/event-v2-bridge"
 import { SessionV2 } from "@miaopan-code/core/session"
 import * as SessionExecutionLocal from "@miaopan-code/core/session/execution/local"
 import { locationServiceMapLayer } from "@miaopan-code/core/location-services"
+import { t } from "@miaopan-code/core/i18n"
+import { Config } from "@/config/config"
 
 import { NotFoundError } from "@/storage/storage"
 import { eq } from "drizzle-orm"
@@ -488,7 +490,7 @@ export type Patch = Omit<Partial<Info>, "time" | "share" | "summary" | "revert" 
 const layer: Layer.Layer<
   Service,
   never,
-  BackgroundJob.Service | RuntimeFlags.Service | Database.Service | EventV2Bridge.Service
+  BackgroundJob.Service | RuntimeFlags.Service | Database.Service | EventV2Bridge.Service | Config.Service
 > = Layer.effect(
   Service,
   Effect.gen(function* () {
@@ -497,6 +499,7 @@ const layer: Layer.Layer<
     const background = yield* BackgroundJob.Service
     const events = yield* EventV2Bridge.Service
     const flags = yield* RuntimeFlags.Service
+    const config = yield* Config.Service
 
     const createNext = Effect.fn("Session.createNext")(function* (input: {
       id?: SessionID
@@ -532,7 +535,7 @@ const layer: Layer.Layer<
           updated: Date.now(),
         },
       }
-      yield* Effect.logInfo("created", result)
+      yield* Effect.logInfo(t((yield* config.get()).language, "log.session_created"), result)
 
       yield* events.publish(SessionV1.Event.Created, { sessionID: result.id, info: result })
 
@@ -541,7 +544,10 @@ const layer: Layer.Layer<
 
     const get = Effect.fn("Session.get")(function* (id: SessionID) {
       const row = yield* db.select().from(SessionTable).where(eq(SessionTable.id, id)).get().pipe(Effect.orDie)
-      if (!row) return yield* Effect.fail(new NotFoundError({ message: `Session not found: ${id}` }))
+      if (!row)
+        return yield* Effect.fail(
+          new NotFoundError({ message: t((yield* config.get()).language, "error.session_not_found", { id }) }),
+        )
       return fromRow(row)
     })
 
@@ -624,7 +630,7 @@ const layer: Layer.Layer<
         yield* events.publish(SessionV1.Event.Deleted, { sessionID, info: session })
         yield* events.remove(sessionID)
       } catch (error) {
-        yield* Effect.logError("failed to remove session", { sessionID, error })
+        yield* Effect.logError(t((yield* config.get()).language, "log.failed_remove_session"), { sessionID, error })
       }
     })
 
@@ -829,18 +835,23 @@ const layer: Layer.Layer<
 
     const messages: Interface["messages"] = Effect.fn("Session.messages")(function* (input) {
       if (input.limit) {
-        return (yield* MessageV2.page({ sessionID: input.sessionID, limit: input.limit }).pipe(
-          Effect.provideService(Database.Service, database),
-        )).items
+        return (yield* MessageV2.page({
+          sessionID: input.sessionID,
+          limit: input.limit,
+          language: (yield* config.get()).language,
+        }).pipe(Effect.provideService(Database.Service, database))).items
       }
 
       const size = 50
       const result = [] as SessionV1.WithParts[]
       let before: string | undefined
       while (true) {
-        const page = yield* MessageV2.page({ sessionID: input.sessionID, limit: size, before }).pipe(
-          Effect.provideService(Database.Service, database),
-        )
+        const page = yield* MessageV2.page({
+          sessionID: input.sessionID,
+          limit: size,
+          before,
+          language: (yield* config.get()).language,
+        }).pipe(Effect.provideService(Database.Service, database))
         if (page.items.length === 0) break
         for (let i = page.items.length - 1; i >= 0; i--) {
           const item = page.items[i]
@@ -891,9 +902,12 @@ const layer: Layer.Layer<
       const size = 50
       let before: string | undefined
       while (true) {
-        const page = yield* MessageV2.page({ sessionID, limit: size, before }).pipe(
-          Effect.provideService(Database.Service, database),
-        )
+        const page = yield* MessageV2.page({
+          sessionID,
+          limit: size,
+          before,
+          language: (yield* config.get()).language,
+        }).pipe(Effect.provideService(Database.Service, database))
         if (page.items.length === 0) break
         for (let i = page.items.length - 1; i >= 0; i--) {
           const item = page.items[i]
@@ -1012,7 +1026,7 @@ function listByProject(
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [BackgroundJob.node, RuntimeFlags.node, Database.node, EventV2Bridge.node],
+  deps: [BackgroundJob.node, RuntimeFlags.node, Database.node, EventV2Bridge.node, Config.node],
 })
 
 export * as Session from "./session"

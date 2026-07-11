@@ -1,6 +1,7 @@
 import { fromSchemaOpenApi3_0, fromSchemaOpenApi3_1 } from "effect/JsonSchema"
 import type { JsonSchema } from "../tool.js"
 import { isBlockedMember } from "../tool-runtime.js"
+import { t, type Language } from "../i18n.js"
 import type {
   Body,
   Document,
@@ -105,6 +106,7 @@ const operationParameters = (
   document: Document,
   pathItem: Record<string, unknown>,
   operation: Record<string, unknown>,
+  language?: Language,
 ): Parsed<ReadonlyArray<PlannedField>> => {
   // Operation-level parameters override path-level ones sharing (location, name).
   const declared = new Map<
@@ -113,11 +115,11 @@ const operationParameters = (
   >()
   for (const raw of [...asArray(pathItem.parameters), ...asArray(operation.parameters)]) {
     const resolved = resolve(document, raw)
-    if (!isRecord(resolved)) return { ok: false, reason: "parameter declaration is invalid or unresolved" }
+    if (!isRecord(resolved)) return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_invalid") }
     const name = nonEmptyString(resolved.name)
     const location = nonEmptyString(resolved.in)
     if (name === undefined || location === undefined)
-      return { ok: false, reason: "parameter declaration is missing name or location" }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_missing_identity") }
     declared.set(`${location}:${name}`, { name, location, parameter: resolved })
   }
   const unordered: Array<PlannedField> = []
@@ -125,38 +127,55 @@ const operationParameters = (
     const name = item.name
     const location = item.location
     const resolved = item.parameter
-    if (location === "cookie") return { ok: false, reason: `cookie parameter '${name}' is not supported` }
+    if (location === "cookie")
+      return { ok: false, reason: t(language, "codemode.openapi.spec.cookie_parameter_unsupported", { name }) }
     if (location !== "path" && location !== "query" && location !== "header") {
-      return { ok: false, reason: `parameter '${name}' uses unsupported location '${location}'` }
+      return {
+        ok: false,
+        reason: t(language, "codemode.openapi.spec.parameter_location_unsupported", { name, location }),
+      }
     }
     if (location === "header" && ignoredHeaderParameters.has(name.toLowerCase())) continue
     if (resolved.schema === undefined && resolved.content === undefined) {
-      return { ok: false, reason: `parameter '${name}' declares neither schema nor content` }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_schema_missing", { name }) }
     }
     if (resolved.content !== undefined)
-      return { ok: false, reason: `parameter '${name}' uses unsupported content encoding` }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_content_unsupported", { name }) }
     if (resolved.style !== undefined && nonEmptyString(resolved.style) === undefined) {
-      return { ok: false, reason: `parameter '${name}' has an invalid style` }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_style_invalid", { name }) }
     }
     if (resolved.explode !== undefined && typeof resolved.explode !== "boolean") {
-      return { ok: false, reason: `parameter '${name}' has an invalid explode value` }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_explode_invalid", { name }) }
     }
     if (resolved.allowReserved !== undefined && typeof resolved.allowReserved !== "boolean") {
-      return { ok: false, reason: `parameter '${name}' has an invalid allowReserved value` }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.parameter_allow_reserved_invalid", { name }) }
     }
     if (resolved.allowReserved === true)
-      return { ok: false, reason: `parameter '${name}' uses unsupported allowReserved encoding` }
+      return {
+        ok: false,
+        reason: t(language, "codemode.openapi.spec.parameter_allow_reserved_unsupported", { name }),
+      }
     const declaredStyle = nonEmptyString(resolved.style) ?? (location === "query" ? "form" : "simple")
     if (location === "query" && declaredStyle !== "form" && declaredStyle !== "deepObject") {
-      return { ok: false, reason: `query parameter '${name}' uses unsupported style '${declaredStyle}'` }
+      return {
+        ok: false,
+        reason: t(language, "codemode.openapi.spec.query_style_unsupported", { name, style: declaredStyle }),
+      }
     }
     if (location !== "query" && declaredStyle !== "simple") {
-      return { ok: false, reason: `${location} parameter '${name}' uses unsupported style '${declaredStyle}'` }
+      return {
+        ok: false,
+        reason: t(language, "codemode.openapi.spec.location_style_unsupported", {
+          location,
+          name,
+          style: declaredStyle,
+        }),
+      }
     }
     const style = declaredStyle === "deepObject" ? "deepObject" : declaredStyle === "form" ? "form" : "simple"
     const explode = typeof resolved.explode === "boolean" ? resolved.explode : style === "form"
     if (style === "deepObject" && !explode) {
-      return { ok: false, reason: `query parameter '${name}' uses deepObject with explode=false` }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.deep_object_explode_false", { name }) }
     }
     const base = projectSchema(document, resolved.schema)
     const description = nonEmptyString(resolved.description)
@@ -181,6 +200,7 @@ const operationParameters = (
 const operationBody = (
   document: Document,
   operation: Record<string, unknown>,
+  language?: Language,
 ): Parsed<{ readonly fields: ReadonlyArray<PlannedField>; readonly body: Body | undefined }> => {
   const resolved = resolve(document, operation.requestBody)
   if (!isRecord(resolved)) return { ok: true, value: { fields: [], body: undefined } }
@@ -189,7 +209,9 @@ const operationBody = (
   if (selected === undefined) {
     return {
       ok: false,
-      reason: `request body has no JSON content (declared: ${Object.keys(content).join(", ") || "none"})`,
+      reason: t(language, "codemode.openapi.spec.body_no_json", {
+        declared: Object.keys(content).join(", ") || t(language, "codemode.openapi.spec.none"),
+      }),
     }
   }
   const schema = resolve(document, selected.schema)
@@ -235,10 +257,11 @@ export const operationInput = (
   document: Document,
   pathItem: Record<string, unknown>,
   operation: Record<string, unknown>,
+  language?: Language,
 ): Parsed<OperationInput> => {
-  const parameters = operationParameters(document, pathItem, operation)
+  const parameters = operationParameters(document, pathItem, operation, language)
   if (!parameters.ok) return parameters
-  const requestBody = operationBody(document, operation)
+  const requestBody = operationBody(document, operation, language)
   if (!requestBody.ok) return requestBody
   const fields = [...parameters.value, ...requestBody.value.fields]
 
@@ -285,6 +308,7 @@ export const inputSchema = (
 const successfulResponses = (
   document: Document,
   operation: Record<string, unknown>,
+  language?: Language,
 ): Parsed<ReadonlyArray<Record<string, unknown>>> => {
   if (!isRecord(operation.responses)) return { ok: true, value: [] }
   const entries = Object.entries(operation.responses)
@@ -296,7 +320,7 @@ const successfulResponses = (
   for (const [, value] of selected) {
     const resolved = resolve(document, value)
     if (!isRecord(resolved) || nonEmptyString(resolved.$ref) !== undefined) {
-      return { ok: false, reason: "successful response declaration is invalid or unresolved" }
+      return { ok: false, reason: t(language, "codemode.openapi.spec.response_invalid") }
     }
     responses.push(resolved)
   }
@@ -307,9 +331,11 @@ export const operationOutput = (
   document: Document,
   operation: Record<string, unknown>,
   definitions: Readonly<Record<string, JsonSchema>>,
+  language?: Language,
 ): Parsed<JsonSchema | undefined> => {
-  if (operation["x-websocket"] === true) return { ok: false, reason: "WebSocket operations are not supported" }
-  const responses = successfulResponses(document, operation)
+  if (operation["x-websocket"] === true)
+    return { ok: false, reason: t(language, "codemode.openapi.spec.websocket_unsupported") }
+  const responses = successfulResponses(document, operation, language)
   if (!responses.ok) return responses
   const streams = responses.value.some(
     (response) =>
@@ -318,13 +344,13 @@ export const operationOutput = (
         (mediaType) => mediaType.split(";")[0]?.trim().toLowerCase() === "text/event-stream",
       ),
   )
-  if (streams) return { ok: false, reason: "SSE operations are not supported" }
+  if (streams) return { ok: false, reason: t(language, "codemode.openapi.spec.sse_unsupported") }
   const binary = responses.value.some(
     (response) =>
       isRecord(response.content) &&
       Object.entries(response.content).some(([mediaType, value]) => isBinaryMediaType(document, mediaType, value)),
   )
-  if (binary) return { ok: false, reason: "binary responses are not supported" }
+  if (binary) return { ok: false, reason: t(language, "codemode.openapi.spec.binary_unsupported") }
 
   const outcomes: Array<JsonSchema> = []
   for (const response of responses.value) {
@@ -415,40 +441,46 @@ const isOperationPathAvailable = (
   return segments.slice(0, -1).every((_, index) => !used.has(segments.slice(0, index + 1).join(".")))
 }
 
-export const specServerUrl = (source: Record<string, unknown>): Parsed<string> => {
+export const specServerUrl = (source: Record<string, unknown>, language?: Language): Parsed<string> => {
   const server = asArray(source.servers).find(isRecord)
   const url = server === undefined ? undefined : nonEmptyString(server.url)
-  if (url === undefined) return { ok: false, reason: "spec declares no servers; pass baseUrl" }
+  if (url === undefined) return { ok: false, reason: t(language, "codemode.openapi.spec.no_servers") }
   if (/\{[^{}]+\}/.test(url)) {
-    return { ok: false, reason: `server URL '${url}' is not an absolute URL; pass baseUrl` }
+    return { ok: false, reason: t(language, "codemode.openapi.spec.server_not_absolute", { url }) }
   }
-  return validateBaseUrl(url)
+  return validateBaseUrl(url, language)
 }
 
-export const validateBaseUrl = (value: string): Parsed<string> => {
-  if (!/^https?:\/\//i.test(value)) return { ok: false, reason: `server URL '${value}' is not an absolute HTTP(S) URL` }
+export const validateBaseUrl = (value: string, language?: Language): Parsed<string> => {
+  if (!/^https?:\/\//i.test(value))
+    return { ok: false, reason: t(language, "codemode.openapi.spec.server_not_http", { url: value }) }
   const url = URL.parse(value)
   if (url === null || (url.protocol !== "http:" && url.protocol !== "https:")) {
-    return { ok: false, reason: `server URL '${value}' is not an absolute HTTP(S) URL` }
+    return { ok: false, reason: t(language, "codemode.openapi.spec.server_not_http", { url: value }) }
   }
   if (url.search !== "" || url.hash !== "") {
-    return { ok: false, reason: `server URL '${value}' contains an unsupported query string or fragment` }
+    return { ok: false, reason: t(language, "codemode.openapi.spec.server_query_unsupported", { url: value }) }
   }
   return { ok: true, value }
 }
 
-export const securityRequirements = (value: unknown): Parsed<ReadonlyArray<SecurityRequirement>> => {
+export const securityRequirements = (
+  value: unknown,
+  language?: Language,
+): Parsed<ReadonlyArray<SecurityRequirement>> => {
   if (value === undefined) return { ok: true, value: [] }
-  if (!Array.isArray(value)) return { ok: false, reason: "security declaration is not an array" }
+  if (!Array.isArray(value)) return { ok: false, reason: t(language, "codemode.openapi.spec.security_not_array") }
   const requirements: Array<SecurityRequirement> = []
   for (const item of value) {
-    if (!isRecord(item)) return { ok: false, reason: "security requirement is not an object" }
+    if (!isRecord(item))
+      return { ok: false, reason: t(language, "codemode.openapi.spec.security_requirement_not_object") }
     const requirement = Object.create(null) as Record<string, ReadonlyArray<string>>
     for (const [name, scopes] of Object.entries(item)) {
-      if (!Array.isArray(scopes)) return { ok: false, reason: "security requirement scopes are not string arrays" }
+      if (!Array.isArray(scopes))
+        return { ok: false, reason: t(language, "codemode.openapi.spec.security_scopes_invalid") }
       const parsed = scopes.filter((scope): scope is string => typeof scope === "string")
       if (parsed.length !== scopes.length) {
-        return { ok: false, reason: "security requirement scopes are not string arrays" }
+        return { ok: false, reason: t(language, "codemode.openapi.spec.security_scopes_invalid") }
       }
       requirement[name] = parsed
     }
@@ -461,8 +493,9 @@ export const operationSecurityRequirements = (
   value: unknown,
   defaults: Parsed<ReadonlyArray<SecurityRequirement>>,
   schemes: Readonly<Record<string, SecurityScheme>>,
+  language?: Language,
 ): Parsed<ReadonlyArray<SecurityRequirement>> => {
-  const parsed = value === undefined ? defaults : securityRequirements(value)
+  const parsed = value === undefined ? defaults : securityRequirements(value, language)
   if (!parsed.ok) return parsed
   const supported = parsed.value.filter((requirement) =>
     Object.keys(requirement).every((name) => {
@@ -481,8 +514,8 @@ export const operationSecurityRequirements = (
     ok: false,
     reason:
       cookieScheme === undefined
-        ? `security requirement references missing or malformed scheme: ${names.join(", ")}`
-        : `cookie authentication '${cookieScheme}' is not supported`,
+        ? t(language, "codemode.openapi.spec.security_scheme_invalid", { names: names.join(", ") })
+        : t(language, "codemode.openapi.spec.cookie_auth_unsupported", { name: cookieScheme }),
   }
 }
 

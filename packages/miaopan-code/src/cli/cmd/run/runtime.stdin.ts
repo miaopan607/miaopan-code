@@ -1,7 +1,8 @@
 import fs from "fs"
 import * as tty from "node:tty"
+import { UI } from "../../ui"
 
-export const INTERACTIVE_INPUT_ERROR = "--mini requires a controlling terminal for input"
+export const INTERACTIVE_INPUT_ERROR = UI.t("cli.run.input_terminal_required")
 
 type InteractiveStdin = {
   stdin: NodeJS.ReadStream

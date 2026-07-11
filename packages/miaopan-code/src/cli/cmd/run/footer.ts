@@ -33,6 +33,7 @@ import { MiaopanCodeKeymapProvider } from "@miaopan-code/tui/keymap"
 import { RUN_COMMAND_PANEL_ROWS, RUN_SUBAGENT_PANEL_ROWS } from "./footer.command"
 import { SUBAGENT_INSPECTOR_ROWS } from "./footer.subagent"
 import { PROMPT_MAX_ROWS, TEXTAREA_MIN_ROWS } from "./footer.prompt"
+import { UI } from "../../ui"
 import { RunFooterView } from "./footer.view"
 import { RunScrollbackStream } from "./scrollback.surface"
 import { RUN_THEME_FALLBACK, resolveRunTheme, type RunTheme } from "./theme"
@@ -135,7 +136,7 @@ function eventPatch(next: FooterEvent): FooterPatch | undefined {
   if (next.type === "turn.send") {
     return {
       phase: "running",
-      status: "sending prompt",
+      status: UI.t("cli.run.sending_prompt"),
       queue: next.queue,
       interrupt: 0,
       exit: 0,
@@ -145,7 +146,7 @@ function eventPatch(next: FooterEvent): FooterPatch | undefined {
   if (next.type === "turn.wait") {
     return {
       phase: "running",
-      status: "waiting for assistant",
+      status: UI.t("cli.run.waiting_assistant"),
     }
   }
 
@@ -756,7 +757,7 @@ export class RunFooter implements FooterApi {
     }
 
     if (this.prompts.size === 0) {
-      this.setNotice("input queue unavailable")
+      this.setNotice(UI.t("cli.run.input_queue_unavailable"))
       return false
     }
 
@@ -794,7 +795,7 @@ export class RunFooter implements FooterApi {
   private handleCycle = (): void => {
     const result = this.options.onCycleVariant?.()
     if (!result) {
-      this.setNotice("no variants available")
+      this.setNotice(UI.t("cli.run.no_variants"))
       return
     }
 
@@ -813,7 +814,7 @@ export class RunFooter implements FooterApi {
     }
 
     this.patch(patch)
-    this.setNotice(result.status ?? "variant updated")
+    this.setNotice(result.status ?? UI.t("cli.run.variant_updated"))
   }
 
   private handleModelSelect = (model: NonNullable<RunInput["model"]>): void => {

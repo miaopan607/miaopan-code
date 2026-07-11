@@ -334,7 +334,7 @@ function patchDir(input: PatchInput) {
   if (input.global) return input.config ?? Global.Path.config
   const git = input.vcs === "git" && input.worktree !== "/"
   const root = git ? input.worktree : input.directory
-  return path.join(root, ".miaopanCode")
+  return path.join(root, ".miaopan-code")
 }
 
 function patchName(kind: Kind): "miaopan-code" | "tui" {

@@ -1,60 +1,62 @@
 <!--
-  Built-in skill. Name and description are registered in code at
+  内置技能。名称和描述在以下代码中注册：
   packages/core/src/plugin/skill.ts
-  and CUSTOMIZE_MIAOPAN_CODE_SKILL_DESCRIPTION). The body below becomes the
-  skill's content.
+  以及 CUSTOMIZE_MIAOPAN_CODE_SKILL_DESCRIPTION）。下方正文将成为
+  该技能的内容。
 -->
 
-# Customizing miaopan-code
+# 自定义 miaopan-code
 
-miaopan-code validates its own config strictly and refuses to start when a field
-is wrong. The shapes below cover the common surface area, but they are a
-**summary, not the source of truth**.
+语言：简体中文（应用界面默认使用简体中文；如需英文，请配置 `language: "en"`）
 
-## Full schema reference
+miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。下方结构
+覆盖常见范围，但它们只是
+**摘要，而非事实来源**。
 
-The authoritative list of every config option — with field types, enums,
-defaults, and descriptions — lives in the published JSON Schema:
+## 完整 Schema 参考
+
+每个配置选项的权威列表——包括字段类型、枚举、
+默认值和描述——位于已发布的 JSON Schema 中：
 
 **<https://github.com/miaopan607/miaopan-code/config.json>**
 
-If a field is not documented in this skill, or you need to confirm an exact
-shape before writing config, **fetch that URL and read the schema directly**
-rather than guessing. miaopan-code hard-fails on invalid config, so the cost of a
-wrong shape is a broken startup.
+如果本技能没有记录某个字段，或者你需要在写入配置前确认确切
+结构，**请获取该 URL 并直接阅读 Schema**，
+不要猜测。miaopan-code 会在配置无效时直接失败，因此错误结构的
+代价是启动失败。
 
-Independently, every `miaopan-code.json` should declare
-`"$schema": "https://github.com/miaopan607/miaopan-code/config.json"` so the user's editor catches
-mistakes as they type.
+此外，每个 `miaopan-code.json` 都应声明
+`"$schema": "https://github.com/miaopan607/miaopan-code/config.json"`，以便用户的编辑器在
+输入时捕获错误。
 
-## Applying changes
+## 应用更改
 
-Config is loaded once when miaopan-code starts and is not hot-reloaded. After
-saving changes to `miaopan-code.json`, an agent file, a skill, a plugin, or any
-other config-time file, **tell the user to quit and restart miaopan-code** for
-the changes to take effect. The running session will keep using the
-already-loaded config until then.
+配置在 miaopan-code 启动时加载一次，不会热重载。保存
+`miaopan-code.json`、代理文件、技能、插件或任何
+其他配置期文件的更改后，**告诉用户退出并重新启动 miaopan-code**，
+更改才会生效。在此之前，正在运行的会话会继续使用
+已经加载的配置。
 
-## Where files live
+## 文件位置
 
-| Scope                         | Path                                                                                                                      |
+| 范围                          | 路径                                                                                                                      |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Project config                | `./miaopan-code.json`, `./miaopan-code.jsonc`, or `.miaopan-code/miaopan-code.json` (miaopan-code walks up from the cwd to the worktree root) |
-| Global config                 | `~/.config/miaopan-code/miaopan-code.json` (NOT `~/.miaopan-code/`)                                                                   |
-| Project agents                | `.miaopan-code/agent/<name>.md` or `.miaopan-code/agents/<name>.md`                                                               |
-| Global agents                 | `~/.config/miaopan-code/agent(s)/<name>.md`                                                                                   |
-| Project commands              | `.miaopan-code/command/<name>.md` or `.miaopan-code/commands/<name>.md`                                                           |
-| Global commands               | `~/.config/miaopan-code/command(s)/<name>.md`                                                                                 |
-| Project skills                | `.miaopan-code/skill(s)/<name>/SKILL.md`                                                                                      |
-| Global skills                 | `~/.config/miaopan-code/skill(s)/<name>/SKILL.md`                                                                             |
-| External skills (auto-loaded) | `~/.claude/skills/<name>/SKILL.md`, `~/.agents/skills/<name>/SKILL.md`                                                    |
+| 项目配置                      | `./miaopan-code.json`、`./miaopan-code.jsonc` 或 `.miaopan-code/miaopan-code.json`（miaopan-code 从 cwd 向上查找到 worktree 根目录） |
+| 全局配置                      | `~/.config/miaopan-code/miaopan-code.json`（不是 `~/.miaopan-code/`）                                                                   |
+| 项目代理                      | `.miaopan-code/agent/<name>.md` 或 `.miaopan-code/agents/<name>.md`                                                               |
+| 全局代理                      | `~/.config/miaopan-code/agent(s)/<name>.md`                                                                                   |
+| 项目命令                      | `.miaopan-code/command/<name>.md` 或 `.miaopan-code/commands/<name>.md`                                                           |
+| 全局命令                      | `~/.config/miaopan-code/command(s)/<name>.md`                                                                                 |
+| 项目技能                      | `.miaopan-code/skill(s)/<name>/SKILL.md`                                                                                      |
+| 全局技能                      | `~/.config/miaopan-code/skill(s)/<name>/SKILL.md`                                                                             |
+| 外部技能（自动加载）          | `~/.claude/skills/<name>/SKILL.md`、`~/.agents/skills/<name>/SKILL.md`                                                    |
 
-Configs from each scope are deep-merged. Project overrides global. Unknown
-top-level keys in `miaopan-code.json` are rejected with `ConfigInvalidError`.
+各范围的配置会深度合并。项目配置覆盖全局配置。`miaopan-code.json`
+中未知的顶层 key 会被拒绝，并产生 `ConfigInvalidError`。
 
 ## miaopan-code.json
 
-Every field is optional.
+每个字段都是可选的。
 
 ```json
 {
@@ -78,12 +80,12 @@ Every field is optional.
   "references": {
     "docs": {
       "path": "../docs",
-      "description": "Use for product behavior and documentation conventions"
+      "description": "用于产品行为和文档约定"
     },
     "sdk": {
       "repository": "owner/sdk",
       "branch": "main",
-      "description": "Use for SDK implementation details",
+      "description": "用于 SDK 实现细节",
       "hidden": true
     }
   },
@@ -147,109 +149,109 @@ Every field is optional.
 }
 ```
 
-Shape notes worth being explicit about:
+需要明确说明的结构注意事项：
 
-- `model` always carries a provider prefix: `"anthropic/claude-sonnet-4-6"`.
-- `skills` is an object with `paths` and/or `urls`, not an array.
-- `references` is an object keyed by alias. Each value is a local path, Git repository, or string shorthand.
-- `agent` is an object keyed by agent name, not an array.
-- `command` is an object keyed by command name, not an array.
-- `plugin` is an array of strings or `[name, options]` tuples, not an object.
-- `mcp[name].command` is an array of strings, never a single string. `type` is required.
-- `permission` is either a string action or an object keyed by tool name.
+- `model` 始终包含提供商前缀：`"anthropic/claude-sonnet-4-6"`。
+- `skills` 是包含 `paths` 和/或 `urls` 的对象，而不是数组。
+- `references` 是以别名为 key 的对象。每个值是本地路径、Git 仓库或字符串简写。
+- `agent` 是以代理名称为 key 的对象，而不是数组。
+- `command` 是以命令名称为 key 的对象，而不是数组。
+- `plugin` 是字符串或 `[name, options]` 元组组成的数组，而不是对象。
+- `mcp[name].command` 是字符串数组，绝不是单个字符串。`type` 是必填项。
+- `permission` 可以是字符串操作，也可以是以工具名称为 key 的对象。
 
-## Skills
+## 技能
 
-miaopan-code's skill loader scans for `**/SKILL.md` inside skill directories. The
-file is named `SKILL.md` exactly, and lives in its own folder named after the
-skill:
+miaopan-code 的技能加载器会在技能目录中扫描 `**/SKILL.md`。该
+文件必须准确命名为 `SKILL.md`，并放在以技能命名的独立
+文件夹中：
 
 ```
 .miaopan-code/skills/my-skill/SKILL.md
 ```
 
-Frontmatter:
+Frontmatter：
 
 ```markdown
 ---
 name: my-skill
-description: One sentence covering what this skill does AND when to trigger it. Front-load the literal keywords or filenames the user is likely to say.
+description: 用一句话说明该技能做什么以及何时触发。将用户可能提到的字面关键词或文件名放在开头。
 ---
 
-# My Skill
+# 我的技能
 
-(skill body in markdown: instructions, examples, references)
+（Markdown 格式的技能正文：指令、示例、参考资料）
 ```
 
-- `name` is required, lowercase hyphen-separated, up to 64 chars, and matches the folder name.
-- `description` is effectively required: skills without one are filtered out and never surfaced to the model. Cover both _what_ the skill does and _when_ to use it. Write in third person ("Use when...", not "I help with..."). Front-load concrete trigger keywords and filenames; gate with "Use ONLY when..." if the skill should stay quiet on adjacent topics.
-- Optional: `license`, `compatibility`, `metadata` (string-string map).
+- `name` 是必填项，使用小写字母和连字符，最多 64 个字符，并与文件夹名称一致。
+- `description` 实际上是必填项：没有描述的技能会被过滤掉，永远不会提供给模型。同时涵盖技能做_什么_以及_何时_使用。使用第三人称（“Use when...”，而不是“I help with...”）。将具体触发关键词和文件名放在开头；如果该技能在相邻主题中应保持安静，则使用“Use ONLY when...”进行限制。
+- 可选字段：`license`、`compatibility`、`metadata`（字符串到字符串的映射）。
 
-Register skills from non-default locations via `skills.paths` (scanned
-recursively for `**/SKILL.md`) and `skills.urls` (each URL serves a list of
-skills).
+通过 `skills.paths` 注册非默认位置中的技能（递归扫描
+`**/SKILL.md`），也可通过 `skills.urls` 注册（每个 URL 提供一个
+技能列表）。
 
-## References
+## 引用
 
-References make local directories and Git repositories outside the active
-project available as supporting context. Configure them under `references`,
-keyed by the alias used in `@` autocomplete:
+引用让活动项目之外的本地目录和 Git 仓库可以作为
+辅助上下文使用。请在 `references` 下配置，并以
+`@` 自动补全中使用的别名作为 key：
 
 ```json
 {
   "references": {
     "docs": {
       "path": "../product-docs",
-      "description": "Use for product behavior and terminology"
+      "description": "用于产品行为和术语"
     },
     "effect": {
       "repository": "Effect-TS/effect",
       "branch": "main",
-      "description": "Use for Effect implementation details"
+      "description": "用于 Effect 实现细节"
     }
   }
 }
 ```
 
-Local `path` values may be relative to the declaring config, absolute, or use
-`~/`. Git `repository` values accept Git URLs, host/path references, and GitHub
-`owner/repo` shorthand; `branch` is optional. Both forms support optional
-`description` and `hidden` fields.
+本地 `path` 值可以相对于声明它的配置，也可以是绝对路径，或者使用
+`~/`。Git `repository` 值接受 Git URL、host/path 引用和 GitHub
+`owner/repo` 简写；`branch` 是可选的。两种形式都支持可选的
+`description` 和 `hidden` 字段。
 
-- Only references with a `description` are advertised to agents in system context.
-- `hidden: true` removes a reference from TUI `@` autocomplete only. It remains available to agents and by direct path.
-- Reference directories are automatically allowed through the external-directory boundary; normal read/edit/tool permissions still apply.
-- String shorthand is supported: use `"docs": "../docs"` for local paths or `"effect": "Effect-TS/effect"` for Git repositories.
+- 只有包含 `description` 的引用才会在系统上下文中向代理公布。
+- `hidden: true` 只会从 TUI 的 `@` 自动补全中移除引用。代理和直接路径仍可使用它。
+- 引用目录会自动通过外部目录边界；常规的读取、编辑和工具权限仍然适用。
+- 支持字符串简写：本地路径可使用 `"docs": "../docs"`，Git 仓库可使用 `"effect": "Effect-TS/effect"`。
 
-## Agents
+## 代理
 
-Two ways to define an agent. Use the file form for anything non-trivial.
+定义代理有两种方式。任何非简单配置都应使用文件形式。
 
-### Inline (in `miaopan-code.json`)
+### 内联（在 `miaopan-code.json` 中）
 
 ```json
 {
   "agent": {
     "my-reviewer": {
-      "description": "Reviews PRs for style violations.",
+      "description": "审查 PR 中的风格违规。",
       "mode": "subagent",
       "model": "anthropic/claude-sonnet-4-6",
       "permission": { "edit": "deny", "bash": "ask" },
-      "prompt": "You are a strict PR reviewer..."
+      "prompt": "你是一名严格的 PR 审查者……"
     }
   }
 }
 ```
 
-### File
+### 文件
 
 ```
-.miaopan-code/agent/my-reviewer.md      OR     .miaopan-code/agents/my-reviewer.md
+.miaopan-code/agent/my-reviewer.md      或     .miaopan-code/agents/my-reviewer.md
 ```
 
 ```markdown
 ---
-description: Reviews PRs for style violations.
+description: 审查 PR 中的风格违规。
 mode: subagent
 model: anthropic/claude-sonnet-4-6
 permission:
@@ -257,75 +259,75 @@ permission:
   bash: ask
 ---
 
-You are a strict PR reviewer. Focus on...
+你是一名严格的 PR 审查者。重点关注……
 ```
 
-The file body becomes the agent's `prompt`. Do not also put `prompt:` in the
-frontmatter.
+文件正文会成为代理的 `prompt`。不要同时在
+frontmatter 中加入 `prompt:`。
 
-`mode` is one of `"primary"`, `"subagent"`, `"all"`.
+`mode` 是 `"primary"`、`"subagent"`、`"all"` 之一。
 
-Allowed top-level frontmatter fields: `name, model, variant, description, mode,
-hidden, color, steps, options, permission, disable, temperature, top_p`. Any
-unknown field is silently routed into `options`.
+允许的顶层 frontmatter 字段：`name, model, variant, description, mode,
+hidden, color, steps, options, permission, disable, temperature, top_p`。所有
+未知字段都会被静默传入 `options`。
 
-To disable a built-in agent: `agent: { build: { disable: true } }`, or in a
-file, `disable: true` in frontmatter.
+要禁用内置代理：使用 `agent: { build: { disable: true } }`；或者在
+文件 frontmatter 中设置 `disable: true`。
 
-`default_agent` must point to a non-hidden, primary-mode agent.
+`default_agent` 必须指向非隐藏的 primary 模式代理。
 
-### Built-in agents
+### 内置代理
 
-miaopan-code ships with `build`, `plan`, `general`, `explore`. Hidden internal agents:
-`compaction`, `title`, `summary`. To override a built-in's fields, define the
-same key in `agent: { <name>: { ... } }`.
+miaopan-code 随附 `build`、`plan`、`general`、`explore`。隐藏的内部代理包括：
+`compaction`、`title`、`summary`。要覆盖内置代理的字段，请在
+`agent: { <name>: { ... } }` 中定义相同的 key。
 
-## Commands
+## 命令
 
-miaopan-code's command loader scans for `**/*.md` inside command directories. The
-file is named after the command, and lives directly inside the `command` folder:
+miaopan-code 的命令加载器会扫描命令目录中的 `**/*.md`。该
+文件以命令命名，直接位于 `command` 文件夹中：
 
 ```
 .miaopan-code/command/deploy.md
 ```
 
-Frontmatter:
+Frontmatter：
 
 ```markdown
 ---
-description: One sentence describing what the command does.
+description: 用一句话描述命令的作用。
 agent: build
 model: anthropic/claude-sonnet-4-6
 ---
 
-(command body in markdown: the prompt miaopan-code runs, with $ARGUMENTS for the user's input)
+（Markdown 格式的命令正文：miaopan-code 运行的提示词，使用 $ARGUMENTS 表示用户输入）
 ```
 
-- `template` is the command body — everything below the frontmatter — and is required: it is the prompt miaopan-code runs when the command is invoked. Do not also put a `template:` key in the frontmatter.
-- `$ARGUMENTS` is replaced with everything the user typed after the command; `$1`, `$2`, … pull individual positional arguments.
-- Optional: `description`, `agent`, `model`, `variant`, `subtask`.
+- `template` 是命令正文——即 frontmatter 下方的所有内容——而且是必填项：它是调用命令时 miaopan-code 运行的提示词。不要同时在 frontmatter 中放置 `template:` key。
+- `$ARGUMENTS` 会被替换为用户在命令后输入的全部内容；`$1`、`$2`……提取各个位置参数。
+- 可选字段：`description`、`agent`、`model`、`variant`、`subtask`。
 
-## Plugins
+## 插件
 
-`plugin:` is an array. Each entry is one of:
+`plugin:` 是一个数组。每个条目是以下形式之一：
 
 ```json
 "plugin": [
-  "miaopan-code-gemini-auth",            // npm spec, latest
-  "miaopan-code-foo@1.2.3",              // npm spec, pinned
-  "./local-plugin.ts",               // file path, relative to the declaring config
-  "file:///abs/path/plugin.js",      // file URL
-  ["miaopan-code-bar", { "key": "val" }] // tuple form with options
+  "miaopan-code-gemini-auth",            // npm spec，最新版
+  "miaopan-code-foo@1.2.3",              // npm spec，固定版本
+  "./local-plugin.ts",               // 文件路径，相对于声明它的配置
+  "file:///abs/path/plugin.js",      // 文件 URL
+  ["miaopan-code-bar", { "key": "val" }] // 带选项的元组形式
 ]
 ```
 
-Auto-discovered plugins (no config entry needed): any `*.ts` or `*.js` file in
-`.miaopan-code/plugin/` or `.miaopan-code/plugins/`.
+自动发现的插件（无需配置条目）：`.miaopan-code/plugin/` 或
+`.miaopan-code/plugins/` 中的任何 `*.ts` 或 `*.js` 文件。
 
-A plugin module exports `default` (or any named export) of type
-`Plugin = (input: PluginInput, options?) => Promise<Hooks>`. The export is a
-function, not a plain object literal, and the function returns an object
-(return `{}` if there is nothing to register).
+插件模块导出类型为
+`Plugin = (input: PluginInput, options?) => Promise<Hooks>` 的 `default`（或任意具名导出）。导出值是
+函数，而不是普通对象字面量，并且该函数返回一个对象
+（如果没有要注册的内容，则返回 `{}`）。
 
 ```ts
 import type { Plugin } from "@miaopan-code/plugin"
@@ -333,36 +335,36 @@ import type { Plugin } from "@miaopan-code/plugin"
 export default (async ({ client, project, directory, $ }) => {
   return {
     config: (cfg) => {
-      // cfg is the live merged config; mutate fields here.
+      // cfg 是实时合并后的配置；在这里修改字段。
     },
     "tool.execute.before": async (input, output) => {
-      // mutate output.args before the tool runs
+      // 在工具运行前修改 output.args
     },
   }
 }) satisfies Plugin
 ```
 
-Hook surface (mutate `output` in place; return `void`):
+Hook 范围（就地修改 `output`；返回 `void`）：
 
-- `event(input)`: every bus event
-- `config(cfg)`: once on init with the merged config
-- `chat.message`, `chat.params`, `chat.headers`
-- `tool.execute.before`, `tool.execute.after`
+- `event(input)`：每个总线事件
+- `config(cfg)`：初始化时使用合并后的配置调用一次
+- `chat.message`、`chat.params`、`chat.headers`
+- `tool.execute.before`、`tool.execute.after`
 - `tool.definition`
 - `command.execute.before`
 - `shell.env`
 - `permission.ask`
-- `experimental.chat.messages.transform`, `experimental.chat.system.transform`,
-  `experimental.session.compacting`, `experimental.compaction.autocontinue`,
+- `experimental.chat.messages.transform`、`experimental.chat.system.transform`、
+  `experimental.session.compacting`、`experimental.compaction.autocontinue`、
   `experimental.text.complete`
 
-Special object-shaped (not callbacks): `tool: { my_tool: { ... } }`,
-`auth: { ... }`, `provider: { ... }`.
+特殊的对象形式（不是回调）：`tool: { my_tool: { ... } }`、
+`auth: { ... }`、`provider: { ... }`。
 
-## MCP servers
+## MCP 服务器
 
-`mcp:` is an object keyed by server name. Each server is discriminated by
-`type`:
+`mcp:` 是以服务器名称为 key 的对象。每个服务器由
+`type` 区分：
 
 ```json
 {
@@ -384,12 +386,12 @@ Special object-shaped (not callbacks): `tool: { my_tool: { ... } }`,
 }
 ```
 
-`command` is an array of strings. `type` is required. Use `enabled: false` to
-disable a server inherited from a parent config. String values such as header
-tokens support `{env:VAR}` interpolation (and `{file:path}`); the shell-style
-`${VAR}` is not substituted.
+`command` 是字符串数组。`type` 是必填项。使用 `enabled: false`
+禁用从父配置继承的服务器。Header token 等字符串值
+支持 `{env:VAR}` 插值（以及 `{file:path}`）；Shell 风格的
+`${VAR}` 不会被替换。
 
-## Permissions
+## 权限
 
 ```json
 "permission": {
@@ -399,54 +401,54 @@ tokens support `{env:VAR}` interpolation (and `{file:path}`); the shell-style
 }
 ```
 
-Actions: `"allow"`, `"ask"`, `"deny"`.
+操作：`"allow"`、`"ask"`、`"deny"`。
 
-Per-tool value forms: `"allow"` shorthand (treated as `{"*": "allow"}`), or an
-object `{ pattern: action }`. Within an object, **insertion order matters**.
-miaopan-code evaluates the LAST matching rule, so put broad rules first and narrow
-rules last.
+每个工具的值有两种形式：`"allow"` 简写（视为 `{"*": "allow"}`），或者
+对象 `{ pattern: action }`。在对象中，**插入顺序很重要**。
+miaopan-code 会采用最后一条匹配规则，因此应先放宽泛规则，后放狭窄
+规则。
 
-`permission: "allow"` (a string at the top level) is shorthand for "allow
-everything" and is rarely what the user wants.
+`permission: "allow"`（顶层字符串）是“允许
+所有内容”的简写，通常不是用户想要的配置。
 
-Known permission keys: `read, edit, glob, grep, list, bash, task,
+已知权限 key：`read, edit, glob, grep, list, bash, task,
 external_directory, todowrite, question, webfetch, websearch, lsp, doom_loop,
-skill`. Some of these (`todowrite,
-question, webfetch, websearch, doom_loop`) only accept a flat
-action, not a per-pattern object.
+skill`。其中部分 key（`todowrite,
+question, webfetch, websearch, doom_loop`）只接受扁平
+操作，不接受按模式配置的对象。
 
-`external_directory` patterns are filesystem paths (use `~/`, absolute paths,
-or globs like `~/projects/**`).
+`external_directory` 模式是文件系统路径（使用 `~/`、绝对路径
+或 `~/projects/**` 等 glob）。
 
-Per-agent `permission:` overrides top-level `permission:`. Plan Mode lives on
-the `plan` agent's permission ruleset (`edit: deny *`).
+每个代理的 `permission:` 会覆盖顶层 `permission:`。Plan Mode 位于
+`plan` 代理的权限规则集上（`edit: deny *`）。
 
-## Escape hatches
+## 应急手段
 
-When a user's config is broken and miaopan-code won't start, these env vars help:
+当用户的配置损坏、miaopan-code 无法启动时，可以使用以下环境变量：
 
-- `MIAOPAN_CODE_DISABLE_PROJECT_CONFIG=1`: skip the project's local `miaopan-code.json`
-  and start from globals only. Run from the project directory, miaopan-code loads,
-  the user edits the broken file, then they restart without the flag.
-- `MIAOPAN_CODE_CONFIG=/path/to/file.json`: load an additional explicit config.
-- `MIAOPAN_CODE_CONFIG_CONTENT='{"$schema":"https://github.com/miaopan607/miaopan-code/config.json"}'`:
-  inject inline JSON as a final local-scope merge.
-- `MIAOPAN_CODE_DISABLE_DEFAULT_PLUGINS=1`: skip default plugins.
-- `MIAOPAN_CODE_PURE=1`: skip external plugins entirely.
-- `MIAOPAN_CODE_DISABLE_EXTERNAL_SKILLS=1`,
-  `MIAOPAN_CODE_DISABLE_CLAUDE_CODE_SKILLS=1`: skip the external skill scans under
-  `~/.claude/` and `~/.agents/`.
+- `MIAOPAN_CODE_DISABLE_PROJECT_CONFIG=1`：跳过项目的本地 `miaopan-code.json`，
+  只从全局配置启动。在项目目录中运行后，miaopan-code 会启动，
+  用户编辑损坏的文件，然后在不带该 flag 的情况下重新启动。
+- `MIAOPAN_CODE_CONFIG=/path/to/file.json`：加载一个额外的显式配置。
+- `MIAOPAN_CODE_CONFIG_CONTENT='{"$schema":"https://github.com/miaopan607/miaopan-code/config.json"}'`：
+  注入内联 JSON，作为本地范围的最终合并项。
+- `MIAOPAN_CODE_DISABLE_DEFAULT_PLUGINS=1`：跳过默认插件。
+- `MIAOPAN_CODE_PURE=1`：完全跳过外部插件。
+- `MIAOPAN_CODE_DISABLE_EXTERNAL_SKILLS=1`、
+  `MIAOPAN_CODE_DISABLE_CLAUDE_CODE_SKILLS=1`：跳过
+  `~/.claude/` 和 `~/.agents/` 下的外部技能扫描。
 
-## When proposing edits
+## 提议编辑时
 
-- Validate against the schema before writing. If you are unsure of a field's
-  exact shape, or the field is not covered in this skill, fetch
-  `https://github.com/miaopan607/miaopan-code/config.json` and read the schema rather than guessing.
-- Preserve `$schema` and any existing fields the user did not ask to change.
-- For agent, command, skill, and plugin definitions, prefer creating new files
-  in the correct location over inlining everything in `miaopan-code.json`.
-- If the user's existing config is malformed, point them at the env-var escape
-  hatches above so they can edit from inside miaopan-code without breaking their
-  session.
-- After saving any config change, remind the user to quit and restart miaopan-code
-  — running sessions keep using the already-loaded config.
+- 写入前根据 Schema 进行验证。如果不确定字段的
+  确切结构，或者本技能没有涵盖该字段，请获取
+  `https://github.com/miaopan607/miaopan-code/config.json` 并阅读 Schema，不要猜测。
+- 保留 `$schema` 以及用户没有要求更改的所有现有字段。
+- 对于代理、命令、技能和插件定义，优先在正确位置创建新文件，
+  而不是将所有内容内联到 `miaopan-code.json` 中。
+- 如果用户现有的配置格式错误，请向他们说明上述环境变量应急
+  手段，以便他们能从 miaopan-code 内部编辑，而不会中断
+  会话。
+- 保存任何配置更改后，提醒用户退出并重新启动 miaopan-code
+  ——正在运行的会话会继续使用已经加载的配置。

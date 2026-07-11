@@ -3,6 +3,7 @@ import { pathToFileURL } from "url"
 import { define } from "../internal"
 import { Npm } from "../../npm"
 import { ProviderV2 } from "../../provider"
+import { zh } from "../../i18n"
 
 export const SapAICorePlugin = define({
   id: "sap-ai-core",
@@ -19,7 +20,7 @@ export const SapAICorePlugin = define({
         const installedPath = evt.package.startsWith("file://")
           ? evt.package
           : (yield* npm.add(evt.package).pipe(Effect.orDie)).entrypoint
-        if (!installedPath) throw new Error(`Package ${evt.package} has no import entrypoint`)
+        if (!installedPath) throw new Error(zh("error.provider_package_entrypoint_missing", { package: evt.package }))
 
         const mod = yield* Effect.promise(async () => {
           return (await import(
@@ -27,7 +28,7 @@ export const SapAICorePlugin = define({
           )) as Record<string, (options: any) => any>
         }).pipe(Effect.orDie)
         const match = Object.keys(mod).find((name) => name.startsWith("create"))
-        if (!match) throw new Error(`Package ${evt.package} has no provider factory export`)
+        if (!match) throw new Error(zh("error.provider_factory_missing", { package: evt.package }))
 
         evt.sdk = mod[match](
           serviceKey

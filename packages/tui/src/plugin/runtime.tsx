@@ -8,6 +8,8 @@ import type { TuiConfig } from "../config"
 import { createContext, createSignal, useContext, type JSX, type ParentProps } from "solid-js"
 import { createPluginRoutes } from "./api"
 import { createSlots, type HostSlots } from "./slots"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../util/locale"
 
 export function createPluginRuntime() {
   const [commands, setCommands] = createSignal<PluginRuntimeCommands>(emptyCommands)
@@ -52,7 +54,7 @@ const emptyCommands: PluginRuntimeCommands = {
     return false
   },
   async install() {
-    return { ok: false, message: "Plugin runtime is not available." }
+    return { ok: false, message: t(Locale.language(), "plugin.runtime_unavailable") }
   },
 }
 
@@ -76,6 +78,6 @@ export function PluginRuntimeProvider(props: ParentProps<{ value: PluginRuntime 
 
 export function usePluginRuntime() {
   const runtime = useContext(Context)
-  if (!runtime) throw new Error("usePluginRuntime must be used within PluginRuntimeProvider")
+  if (!runtime) throw new Error(t(Locale.language(), "tui.error.plugin_runtime_missing"))
   return runtime
 }

@@ -174,7 +174,7 @@ describe("util.flock", () => {
 
       expect(err).toBeInstanceOf(Error)
       if (!(err instanceof Error)) throw err
-      expect(err.message).toContain("Timed out waiting for lock")
+      expect(err.message).toContain("等待锁超时")
       expect(seen.length).toBeGreaterThan(0)
       expect(seen.every((x) => x === key)).toBe(true)
     } finally {
@@ -295,7 +295,7 @@ describe("util.flock", () => {
 
     expect(err).toBeInstanceOf(Error)
     if (!(err instanceof Error)) throw err
-    expect(err.message).toContain("compromised")
+    expect(err.message).toContain("锁已损坏")
 
     let hit = false
     await Flock.withLock(
@@ -382,7 +382,7 @@ describe("util.flock", () => {
 
     expect(err).toBeInstanceOf(Error)
     if (!(err instanceof Error)) throw err
-    expect(err.message).toContain("token mismatch")
+    expect(err.message).toContain("锁令牌不匹配")
     expect(await exists(lockDir)).toBe(true)
 
     let hit = false
@@ -401,7 +401,7 @@ describe("util.flock", () => {
   })
 
   test("fails clearly on unwritable lock roots", async () => {
-    if (process.platform === "win32") return
+    if (process.platform === "win32" || process.getuid?.() === 0) return
 
     await using tmp = await tmpdir()
     const dir = path.join(tmp.path, "locks")

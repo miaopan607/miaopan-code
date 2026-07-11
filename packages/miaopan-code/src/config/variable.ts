@@ -2,6 +2,7 @@ export * as ConfigVariable from "./variable"
 
 import path from "path"
 import os from "os"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import { Filesystem } from "@/util/filesystem"
 import { InvalidError } from "@miaopan-code/core/v1/config/error"
 
@@ -20,6 +21,7 @@ type SubstituteInput = ParseSource & {
   text: string
   missing?: "error" | "empty"
   env?: Record<string, string>
+  language?: Language
 }
 
 function source(input: ParseSource) {
@@ -68,12 +70,12 @@ export async function substitute(input: SubstituteInput) {
       await Filesystem.readText(resolvedPath).catch((error: NodeJS.ErrnoException) => {
         if (missing === "empty") return ""
 
-        const errMsg = `bad file reference: "${token}"`
+        const errMsg = t(input.language, "error.file_reference", { token })
         if (error.code === "ENOENT") {
           throw new InvalidError(
             {
               path: configSource,
-              message: errMsg + ` ${resolvedPath} does not exist`,
+              message: t(input.language, "error.file_reference_missing", { message: errMsg, path: resolvedPath }),
             },
             { cause: error },
           )

@@ -14,9 +14,11 @@ import { Database } from "@miaopan-code/core/database/database"
 import { TodoWriteTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
 import * as Tool from "./tool"
+import { ToolI18n } from "./i18n"
 import { Config } from "@/config/config"
 import { type ToolContext as PluginToolContext, type ToolDefinition } from "@miaopan-code/plugin"
 import type { JSONSchema7, JSONSchema7Definition } from "@ai-sdk/provider"
@@ -56,7 +58,7 @@ import { PermissionV1 } from "@miaopan-code/core/v1/permission"
 import { McpCatalog } from "@/mcp/catalog"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
-  return flags.exa || flags.parallel
+  return providerID === ProviderV2.ID.miaopanCode || flags.exa || flags.parallel
 }
 
 type TaskDef = Tool.InferDef<typeof TaskTool>
@@ -116,6 +118,7 @@ const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(
       Effect.fn("ToolRegistry.state")(function* (ctx) {
         const custom: Tool.Def[] = []
+        const language = (yield* config.get()).language
 
         function fromPlugin(id: string, def: ToolDefinition): Tool.Def {
           // Plugin tools still expose Zod args publicly; keep that compatibility
@@ -126,7 +129,7 @@ const layer = Layer.effect(
           const entries = Object.entries(args)
           const allZod = entries.every((entry) => isZodType(entry[1]))
           const zodParams = allZod ? z.object(args) : undefined
-          const jsonSchema = zodParams ? zodJsonSchema(zodParams) : legacyJsonSchema(entries)
+          const jsonSchema = zodParams ? zodJsonSchema(zodParams, language) : legacyJsonSchema(entries)
           const parameters = zodParams
             ? Schema.declare<unknown>((u): u is unknown => zodParams.safeParse(u).success)
             : Schema.Unknown
@@ -264,12 +267,9 @@ const layer = Layer.effect(
       )
       const list = filtered.toSorted((a, b) => a.name.localeCompare(b.name))
       const description = list
-        .map(
-          (item) =>
-            `- ${item.name}: ${item.description ?? "This subagent should only be called manually by the user."}`,
-        )
+        .map((item) => `- ${item.name}: ${item.description ?? ToolI18n.text(undefined, "tool.task.manual_only")}`)
         .join("\n")
-      return ["Available agent types and the tools they have access to:", description].join("\n")
+      return [ToolI18n.text(undefined, "tool.task.available_types"), description].join("\n")
     })
 
     const describeCodeMode = Effect.fn("ToolRegistry.describeCodeMode")(function* (input: {
@@ -366,9 +366,9 @@ function legacyJsonSchema(entries: [string, unknown][]): JSONSchema7 {
   }
 }
 
-function zodJsonSchema(schema: z.ZodType): JSONSchema7 {
+function zodJsonSchema(schema: z.ZodType, language?: Language): JSONSchema7 {
   const result = normalizeZodJsonSchema(z.toJSONSchema(schema, { io: "input", metadata: zodMetadataRegistry(schema) }))
-  if (!isJsonSchemaObject(result)) throw new Error("plugin tool Zod schema produced a non-object JSON Schema")
+  if (!isJsonSchemaObject(result)) throw new Error(t(language, "tool.error.zod_schema_invalid"))
   const { $defs, ...rest } = result
   return (
     $defs && isJsonSchemaObject($defs) ? { ...rest, definitions: $defs as JSONSchema7["definitions"] } : rest

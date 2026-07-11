@@ -1,6 +1,7 @@
 import { EventStreamCodec } from "@smithy/eventstream-codec"
 import { fromUtf8, toUtf8 } from "@smithy/util-utf8"
 import { Effect, Stream } from "effect"
+import { t, type Language } from "../i18n"
 import type { Framing } from "../route/framing"
 import { ProviderShared } from "./shared"
 
@@ -32,7 +33,7 @@ const appendChunk = (state: FrameBufferState, chunk: Uint8Array): FrameBufferSta
   return { buffer: next, offset: 0 }
 }
 
-const consumeFrames = (route: string) => (state: FrameBufferState, chunk: Uint8Array) =>
+const consumeFrames = (route: string, language?: Language) => (state: FrameBufferState, chunk: Uint8Array) =>
   Effect.gen(function* () {
     let cursor = appendChunk(state, chunk)
     const out: object[] = []
@@ -46,9 +47,9 @@ const consumeFrames = (route: string) => (state: FrameBufferState, chunk: Uint8A
         catch: (error) =>
           ProviderShared.eventError(
             route,
-            `Failed to decode Bedrock Converse event-stream frame: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            t(language, "llm.bedrock.event_frame_decode_failed", {
+              error: error instanceof Error ? error.message : String(error),
+            }),
           ),
       })
       cursor = { buffer: cursor.buffer, offset: cursor.offset + totalLength }
@@ -65,7 +66,7 @@ const consumeFrames = (route: string) => (state: FrameBufferState, chunk: Uint8A
       const parsed = (yield* ProviderShared.parseJson(
         route,
         payload,
-        "Failed to parse Bedrock Converse event-stream payload",
+        t(language, "llm.bedrock.event_payload_parse_failed"),
       )) as Record<string, unknown>
       delete parsed.p
       out.push({ [eventType]: parsed })
@@ -81,7 +82,8 @@ const consumeFrames = (route: string) => (state: FrameBufferState, chunk: Uint8A
  */
 export const framing = (route: string): Framing<object> => ({
   id: "aws-event-stream",
-  frame: (bytes) => bytes.pipe(Stream.mapAccumEffect(() => initialFrameBuffer, consumeFrames(route))),
+  frame: (bytes, language) =>
+    bytes.pipe(Stream.mapAccumEffect(() => initialFrameBuffer, consumeFrames(route, language))),
 })
 
 export * as BedrockEventStream from "./bedrock-event-stream"

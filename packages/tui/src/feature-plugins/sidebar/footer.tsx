@@ -3,10 +3,13 @@ import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo, Show } from "solid-js"
 import { abbreviateHome } from "../../runtime"
 import { useTuiPaths } from "../../context/runtime"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../../util/locale"
 
 const id = "internal:sidebar-footer"
 
 function View(props: { api: TuiPluginApi; sessionID: string }) {
+  const tr = (key: Parameters<typeof t>[1]) => t(Locale.language(), key)
   const paths = useTuiPaths()
   const theme = () => props.api.theme.current
   const has = createMemo(() =>
@@ -47,18 +50,16 @@ function View(props: { api: TuiPluginApi; sessionID: string }) {
           <box flexGrow={1} gap={1}>
             <box flexDirection="row" justifyContent="space-between">
               <text fg={theme().text}>
-                <b>Getting started</b>
+                <b>{tr("sidebar.getting_started")}</b>
               </text>
               <text fg={theme().textMuted} onMouseDown={() => props.api.kv.set("dismissed_getting_started", true)}>
                 ✕
               </text>
             </box>
-            <text fg={theme().textMuted}>MiaopanCode includes free models so you can start immediately.</text>
-            <text fg={theme().textMuted}>
-              Connect from 75+ providers to use other models, including Claude, GPT, Gemini etc
-            </text>
+            <text fg={theme().textMuted}>{tr("sidebar.free_models")}</text>
+            <text fg={theme().textMuted}>{tr("sidebar.connect_more")}</text>
             <box flexDirection="row" gap={1} justifyContent="space-between">
-              <text fg={theme().text}>Connect provider</text>
+              <text fg={theme().text}>{tr("tui.connect_provider")}</text>
               <text fg={theme().textMuted}>/connect</text>
             </box>
           </box>
@@ -69,9 +70,9 @@ function View(props: { api: TuiPluginApi; sessionID: string }) {
         <span style={{ fg: theme().text }}>{path().name}</span>
       </text>
       <text fg={theme().textMuted}>
-        <span style={{ fg: theme().success }}>•</span> <b>Open</b>
+        <span style={{ fg: theme().success }}>•</span> <b>{tr("sidebar.open")}</b>
         <span style={{ fg: theme().text }}>
-          <b>Code</b>
+          <b>{tr("tui.code")}</b>
         </span>{" "}
         <span>{props.api.app.version}</span>
       </text>

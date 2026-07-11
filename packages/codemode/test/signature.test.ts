@@ -421,7 +421,7 @@ describe("non-identifier tool paths", () => {
     } as const,
     run: () => Effect.succeed("/reactjs/react.dev"),
   })
-  const runtime = CodeMode.make({ tools: { context7: { "resolve-library-id": resolveLibrary } } })
+  const runtime = CodeMode.make({ language: "en", tools: { context7: { "resolve-library-id": resolveLibrary } } })
 
   test("inline catalog uses bracket notation for dashed tool names", () => {
     const instructions = runtime.instructions()

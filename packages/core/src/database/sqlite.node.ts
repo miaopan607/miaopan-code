@@ -6,6 +6,7 @@ import * as Fiber from "effect/Fiber"
 import { identity } from "effect/Function"
 import * as Layer from "effect/Layer"
 import * as Scope from "effect/Scope"
+import { t, type Language } from "../i18n"
 import * as Semaphore from "effect/Semaphore"
 import * as Stream from "effect/Stream"
 import * as Reactivity from "effect/unstable/reactivity/Reactivity"
@@ -29,6 +30,7 @@ interface SqliteClient extends Client.SqlClient {
 
 interface Config {
   readonly filename: string
+  readonly language?: Language
   readonly readonly?: boolean
   readonly create?: boolean
   readonly readwrite?: boolean
@@ -62,7 +64,10 @@ const make = (options: Config) =>
         } catch (cause) {
           return Effect.fail(
             new SqlError({
-              reason: classifySqliteError(cause, { message: "Failed to execute statement", operation: "execute" }),
+              reason: classifySqliteError(cause, {
+                message: t(options.language, "error.sqlite_execute_failed"),
+                operation: "execute",
+              }),
             }),
           )
         }
@@ -80,7 +85,10 @@ const make = (options: Config) =>
         } catch (cause) {
           return Effect.fail(
             new SqlError({
-              reason: classifySqliteError(cause, { message: "Failed to execute statement", operation: "execute" }),
+              reason: classifySqliteError(cause, {
+                message: t(options.language, "error.sqlite_execute_failed"),
+                operation: "execute",
+              }),
             }),
           )
         }
@@ -100,14 +108,17 @@ const make = (options: Config) =>
         return this.execute(query, params, transformRows)
       },
       executeStream() {
-        return Stream.die("executeStream not implemented")
+        return Stream.die(t(options.language, "error.sqlite_stream_unimplemented"))
       },
       loadExtension: (path) =>
         Effect.try({
           try: () => native.loadExtension(path),
           catch: (cause) =>
             new SqlError({
-              reason: classifySqliteError(cause, { message: "Failed to load extension", operation: "loadExtension" }),
+              reason: classifySqliteError(cause, {
+                message: t(options.language, "error.sqlite_extension_failed"),
+                operation: "loadExtension",
+              }),
             }),
         }),
     })

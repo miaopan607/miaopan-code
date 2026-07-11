@@ -1,6 +1,7 @@
 import path from "path"
 import { fileURLToPath } from "url"
 import { Schema } from "effect"
+import { zh } from "./i18n"
 
 type BaseReference = {
   readonly host: string
@@ -90,13 +91,13 @@ export function parseRemote(input: string): RemoteReference {
   if (!reference) {
     throw new InvalidReferenceError({
       repository: input,
-      message: "Repository must be a git URL, host/path reference, or GitHub owner/repo shorthand",
+      message: zh("error.repository_invalid"),
     })
   }
   if (!isRemote(reference)) {
     throw new UnsupportedLocalRepositoryError({
       repository: input,
-      message: "Local file repositories are not supported",
+      message: zh("error.repository_local"),
     })
   }
   return reference
@@ -106,7 +107,7 @@ export function validateBranch(branch: string): void {
   if (/^[A-Za-z0-9/_.-]+$/.test(branch) && !branch.startsWith("-") && !branch.includes("..")) return
   throw new InvalidBranchError({
     branch,
-    message: "Branch must contain only alphanumeric characters, /, _, ., and -, and cannot start with - or contain ..",
+    message: zh("error.branch_invalid"),
   })
 }
 

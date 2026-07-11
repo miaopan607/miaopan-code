@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect"
+import { t, type Language } from "../../i18n"
 import type { MediaPart } from "../../schema"
 import { ProviderShared } from "../shared"
 
@@ -49,10 +50,10 @@ const DOCUMENT_FORMATS = {
   "text/markdown": "md",
 } as const satisfies Record<string, DocumentFormat>
 
-const documentBlock = (part: MediaPart, format: DocumentFormat, bytes: string): DocumentBlock => ({
+const documentBlock = (part: MediaPart, format: DocumentFormat, bytes: string, language?: Language): DocumentBlock => ({
   document: {
     format,
-    name: part.filename ?? `document.${format}`,
+    name: part.filename ?? t(language, "llm.bedrock.default_document_name", { format }),
     source: { bytes },
   },
 })
@@ -62,7 +63,7 @@ const documentBlock = (part: MediaPart, format: DocumentFormat, bytes: string): 
 // document block. Image MIME types not in `IMAGE_FORMATS` (e.g. `image/svg+xml`)
 // get an image-specific error so the caller knows it's a format-support issue,
 // not a kind-detection issue.
-export const lower = Effect.fn("BedrockMedia.lower")(function* (part: MediaPart) {
+export const lower = Effect.fn("BedrockMedia.lower")(function* (part: MediaPart, language?: Language) {
   const mime = part.mediaType.toLowerCase()
   const imageFormat = IMAGE_FORMATS[mime as keyof typeof IMAGE_FORMATS]
   if (imageFormat) {
@@ -70,21 +71,27 @@ export const lower = Effect.fn("BedrockMedia.lower")(function* (part: MediaPart)
       "Bedrock Converse",
       part,
       new Set<string>(Object.keys(IMAGE_FORMATS)),
+      language,
     )
     return { image: { format: imageFormat, source: { bytes: media.base64 } } } satisfies ImageBlock
   }
   if (mime.startsWith("image/"))
-    return yield* ProviderShared.invalidRequest(`Bedrock Converse does not support image media type ${part.mediaType}`)
+    return yield* ProviderShared.invalidRequest(
+      t(language, "llm.media.image_type_unsupported", { route: "Bedrock Converse", mediaType: part.mediaType }),
+    )
   const documentFormat = DOCUMENT_FORMATS[mime as keyof typeof DOCUMENT_FORMATS]
   if (documentFormat) {
     const media = yield* ProviderShared.validateMedia(
       "Bedrock Converse",
       part,
       new Set<string>(Object.keys(DOCUMENT_FORMATS)),
+      language,
     )
-    return documentBlock(part, documentFormat, media.base64)
+    return documentBlock(part, documentFormat, media.base64, language)
   }
-  return yield* ProviderShared.invalidRequest(`Bedrock Converse does not support media type ${part.mediaType}`)
+  return yield* ProviderShared.invalidRequest(
+    t(language, "llm.media.type_unsupported", { route: "Bedrock Converse", mediaType: part.mediaType }),
+  )
 })
 
 export * as BedrockMedia from "./bedrock-media"

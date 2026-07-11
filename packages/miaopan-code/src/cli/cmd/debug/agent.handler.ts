@@ -14,6 +14,7 @@ import { iife } from "../../../util/iife"
 import { fail } from "../../effect-cmd"
 import { InstanceRef } from "@/effect/instance-ref"
 import type { InstanceContext } from "@/project/instance-context"
+import { UI } from "../../ui"
 
 export const debugAgent = Effect.fn("Cli.debug.agent")(function* (args: {
   name: string
@@ -33,7 +34,7 @@ const run = Effect.fn("Cli.debug.agent.body")(function* (
   const agent = yield* Agent.Service.use((svc) => svc.get(agentName))
   if (!agent) {
     process.stderr.write(
-      `Agent ${agentName} not found, run '${basename(process.execPath)} agent list' to get an agent list` + EOL,
+      UI.t("cli.debug.agent_not_found", { agent: agentName, command: basename(process.execPath) }) + EOL,
     )
     return yield* fail("", 1)
   }
@@ -43,11 +44,11 @@ const run = Effect.fn("Cli.debug.agent.body")(function* (
   if (toolID) {
     const tool = availableTools.find((item) => item.id === toolID)
     if (!tool) {
-      process.stderr.write(`Tool ${toolID} not found for agent ${agentName}` + EOL)
+      process.stderr.write(UI.t("cli.debug.tool_not_found", { tool: toolID, agent: agentName }) + EOL)
       return yield* fail("", 1)
     }
     if (resolvedTools[toolID] === false) {
-      process.stderr.write(`Tool ${toolID} is disabled for agent ${agentName}` + EOL)
+      process.stderr.write(UI.t("cli.debug.tool_disabled", { tool: toolID, agent: agentName }) + EOL)
       return yield* fail("", 1)
     }
     const params = parseToolParams(args.params)
@@ -75,10 +76,11 @@ const getAvailableTools = Effect.fn("Cli.debug.agent.getAvailableTools")(functio
         onFailure: (cause) => {
           const error = Cause.squash(cause) as Provider.DefaultModelError
           if (error instanceof Provider.ModelNotFoundError) {
-            return fail(`Model not found: ${error.providerID}/${error.modelID}`)
+            return fail(UI.t("error.model_not_found", { model: `${error.providerID}/${error.modelID}` }))
           }
-          if (error instanceof Provider.NoModelsError) return fail(`No models found for provider ${error.providerID}`)
-          return fail("No providers found")
+          if (error instanceof Provider.NoModelsError)
+            return fail(UI.t("error.provider_no_models", { providerID: error.providerID }))
+          return fail(UI.t("error.provider_no_providers"))
         },
       }),
     ))
@@ -110,15 +112,17 @@ function parseToolParams(input?: string) {
         return new Function(`return (${trimmed})`)()
       } catch (evalError) {
         throw new Error(
-          `Failed to parse --params. Use JSON or a JS object literal. JSON error: ${jsonError}. Eval error: ${evalError}.`,
-          { cause: evalError },
+          UI.t("cli.debug.tool_params_parse_failed", { jsonError: String(jsonError), evalError: String(evalError) }),
+          {
+            cause: evalError,
+          },
         )
       }
     }
   })
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Tool params must be an object.")
+    throw new Error(UI.t("cli.debug.tool_params_object"))
   }
   return parsed as Record<string, unknown>
 }
@@ -128,7 +132,7 @@ const createToolContext = Effect.fn("Cli.debug.agent.createToolContext")(functio
   ctx: InstanceContext,
 ) {
   const sessionSvc = yield* Session.Service
-  const session = yield* sessionSvc.create({ title: `Debug tool run (${agent.name})` })
+  const session = yield* sessionSvc.create({ title: UI.t("cli.debug.tool_run_title", { agent: agent.name }) })
   const messageID = MessageID.ascending()
   const model = agent.model
     ? agent.model
@@ -140,11 +144,11 @@ const createToolContext = Effect.fn("Cli.debug.agent.createToolContext")(functio
             onFailure: (cause) => {
               const error = Cause.squash(cause) as Provider.DefaultModelError
               if (error instanceof Provider.ModelNotFoundError) {
-                return fail(`Model not found: ${error.providerID}/${error.modelID}`)
+                return fail(UI.t("error.model_not_found", { model: `${error.providerID}/${error.modelID}` }))
               }
               if (error instanceof Provider.NoModelsError)
-                return fail(`No models found for provider ${error.providerID}`)
-              return fail("No providers found")
+                return fail(UI.t("error.provider_no_models", { providerID: error.providerID }))
+              return fail(UI.t("error.provider_no_providers"))
             },
           }),
         )

@@ -4,6 +4,8 @@ import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
 import { QuestionNotFoundError } from "../errors"
+import { t } from "../i18n"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 
 export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question", (handlers) =>
   Effect.gen(function* () {
@@ -17,6 +19,7 @@ export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question"
       params: { requestID: QuestionID }
       payload: Question.Reply
     }) {
+      const language = yield* requestLanguage()
       yield* svc
         .reply({
           requestID: ctx.params.requestID,
@@ -27,7 +30,7 @@ export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question"
             Effect.fail(
               new QuestionNotFoundError({
                 requestID: String(error.requestID),
-                message: `Question request not found: ${error.requestID}`,
+                message: t(language, "error.question_not_found", { id: error.requestID }),
               }),
             ),
           ),
@@ -36,12 +39,13 @@ export const questionHandlers = HttpApiBuilder.group(InstanceHttpApi, "question"
     })
 
     const reject = Effect.fn("QuestionHttpApi.reject")(function* (ctx: { params: { requestID: QuestionID } }) {
+      const language = yield* requestLanguage()
       yield* svc.reject(ctx.params.requestID).pipe(
         Effect.catchTag("Question.NotFoundError", (error) =>
           Effect.fail(
             new QuestionNotFoundError({
               requestID: String(error.requestID),
-              message: `Question request not found: ${error.requestID}`,
+              message: t(language, "error.question_not_found", { id: error.requestID }),
             }),
           ),
         ),

@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
 import * as TestClock from "effect/testing/TestClock"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
+import { Config } from "@miaopan-code/core/config"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { Location } from "@miaopan-code/core/location"
 import { FSUtil } from "@miaopan-code/core/fs-util"
@@ -28,8 +29,19 @@ const locationLayer = Layer.succeed(
   ),
 )
 const builtInsNode = LayerNode.group([SystemContextBuiltIns.node, SystemContextRegistry.node])
+const configLayer = (language?: "zh-CN" | "en") =>
+  Layer.succeed(
+    Config.Service,
+    Config.Service.of({
+      entries: () =>
+        Effect.succeed(
+          language ? [new Config.Document({ type: "document", info: new Config.Info({ language }) })] : [],
+        ),
+    }),
+  )
 const it = testEffect(
   AppNodeBuilder.build(builtInsNode, [
+    [Config.node, configLayer()],
     [Location.node, locationLayer],
     [Global.node, Global.layerWith({ config: "/global" })],
   ]),
@@ -48,8 +60,16 @@ const instructionFS = Layer.effect(
 ).pipe(Layer.provide(LayerNode.compile(FSUtil.node)))
 const itWithInstructions = testEffect(
   AppNodeBuilder.build(builtInsNode, [
+    [Config.node, configLayer()],
     [Location.node, locationLayer],
     [FSUtil.node, instructionFS],
+    [Global.node, Global.layerWith({ config: "/global" })],
+  ]),
+)
+const itEnglish = testEffect(
+  AppNodeBuilder.build(builtInsNode, [
+    [Config.node, configLayer("en")],
+    [Location.node, locationLayer],
     [Global.node, Global.layerWith({ config: "/global" })],
   ]),
 )
@@ -63,15 +83,15 @@ describe("SystemContextBuiltIns", () => {
 
       expect(initialized.baseline).toBe(
         [
-          "Here is some useful information about the environment you are running in:",
+          "以下是关于当前运行环境的一些有用信息：",
           "<env>",
-          `  Working directory: ${directory}`,
-          `  Workspace root folder: ${projectDirectory}`,
-          "  Is directory a git repo: yes",
-          `  Platform: ${process.platform}`,
+          `  工作目录：${directory}`,
+          `  工作区根目录：${projectDirectory}`,
+          "  是否为 git 仓库：是",
+          `  平台：${process.platform}`,
           "</env>",
           "",
-          `Today's date: ${localDate(timestamp)}`,
+          `今天的日期：${localDate(timestamp)}`,
         ].join("\n"),
       )
     }),
@@ -88,7 +108,7 @@ describe("SystemContextBuiltIns", () => {
 
       expect(refreshed).toMatchObject({
         _tag: "Updated",
-        text: `Today's date is now: ${localDate(timestamp + 24 * 60 * 60 * 1000)}`,
+        text: `今天的日期现为：${localDate(timestamp + 24 * 60 * 60 * 1000)}`,
       })
     }),
   )
@@ -111,19 +131,34 @@ describe("SystemContextBuiltIns", () => {
 
       expect((yield* SystemContext.initialize(yield* context.load())).baseline).toBe(
         [
-          "Here is some useful information about the environment you are running in:",
+          "以下是关于当前运行环境的一些有用信息：",
           "<env>",
-          `  Working directory: ${directory}`,
-          `  Workspace root folder: ${projectDirectory}`,
-          "  Is directory a git repo: yes",
-          `  Platform: ${process.platform}`,
+          `  工作目录：${directory}`,
+          `  工作区根目录：${projectDirectory}`,
+          "  是否为 git 仓库：是",
+          `  平台：${process.platform}`,
           "</env>",
           "",
-          `Today's date: ${localDate(timestamp)}`,
+          `今天的日期：${localDate(timestamp)}`,
           "",
-          `Instructions from: ${instructionFile}\nBe precise.`,
+          `来自 ${instructionFile} 的指令：\nBe precise.`,
         ].join("\n"),
       )
+    }),
+  )
+
+  itEnglish.effect("renders English environment context when configured", () =>
+    Effect.gen(function* () {
+      yield* TestClock.setTime(timestamp)
+      const context = yield* SystemContextRegistry.Service
+      const initialized = yield* SystemContext.initialize(yield* context.load())
+
+      expect(initialized.baseline).toContain(
+        "Here is some useful information about the environment you are running in:",
+      )
+      expect(initialized.baseline).toContain(`Working directory: ${directory}`)
+      expect(initialized.baseline).toContain("Is directory a git repo: yes")
+      expect(initialized.baseline).toContain(`Today's date: ${localDate(timestamp)}`)
     }),
   )
 })

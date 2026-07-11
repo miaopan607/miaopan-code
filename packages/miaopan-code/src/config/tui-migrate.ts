@@ -87,6 +87,11 @@ function normalizeTui(data: Record<string, unknown>):
 }
 
 async function backupAndStripLegacy(file: string, source: string) {
+  // A privileged process can write through mode bits, but migration must not mutate a file
+  // the user explicitly marked read-only.
+  const mode = await Filesystem.statAsync(file).then((stat) => stat?.mode)
+  if (mode !== undefined && (Number(mode) & 0o222) === 0) return false
+
   const backup = file + ".tui-migration.bak"
   const hasBackup = await Filesystem.exists(backup)
   const backed = hasBackup

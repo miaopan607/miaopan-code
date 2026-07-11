@@ -1,5 +1,7 @@
 # Server Package Extraction
 
+Languages: [简体中文索引](../README.md) · English
+
 Practical reference for a future `packages/server` split after the miaopan-code
 server moved to the Effect HttpApi backend.
 

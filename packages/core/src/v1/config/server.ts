@@ -1,19 +1,20 @@
 export * as ConfigServerV1 from "./server"
 
 import { Schema } from "effect"
+import { zh } from "../../i18n"
 import { PositiveInt } from "../../schema"
 
 export const Server = Schema.Struct({
   port: Schema.optional(PositiveInt).annotate({
-    description: "Port to listen on",
+    description: zh("config.v1.port"),
   }),
-  hostname: Schema.optional(Schema.String).annotate({ description: "Hostname to listen on" }),
-  mdns: Schema.optional(Schema.Boolean).annotate({ description: "Enable mDNS service discovery" }),
+  hostname: Schema.optional(Schema.String).annotate({ description: zh("config.v1.hostname") }),
+  mdns: Schema.optional(Schema.Boolean).annotate({ description: zh("config.v1.mdns") }),
   mdnsDomain: Schema.optional(Schema.String).annotate({
-    description: "Custom domain name for mDNS service (default: miaopanCode.local)",
+    description: zh("config.v1.mdns_domain"),
   }),
   cors: Schema.optional(Schema.mutable(Schema.Array(Schema.String))).annotate({
-    description: "Additional domains to allow for CORS",
+    description: zh("config.v1.cors"),
   }),
 }).annotate({ identifier: "ServerConfig" })
 export type Server = Schema.Schema.Type<typeof Server>

@@ -1,10 +1,12 @@
 import type { Plugin } from "@miaopan-code/plugin"
 import { mkdir, rm } from "node:fs/promises"
+import { resolveLanguage, t } from "./i18n.js"
 
-export const FolderWorkspacePlugin: Plugin = async ({ experimental_workspace }) => {
+export const FolderWorkspacePlugin: Plugin = async ({ experimental_workspace }, options) => {
+  const language = resolveLanguage(options?.language)
   experimental_workspace.register("folder", {
-    name: "Folder",
-    description: "Create a blank folder",
+    name: t(language, "folder_workspace_name"),
+    description: t(language, "folder_workspace_description"),
     configure(config) {
       const rand = "" + Math.random()
 

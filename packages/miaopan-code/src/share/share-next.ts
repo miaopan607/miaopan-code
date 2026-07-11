@@ -17,10 +17,12 @@ import { eq } from "drizzle-orm"
 import { Config } from "@/config/config"
 import { SessionShareTable } from "@miaopan-code/core/share/sql"
 import { ProviderV2 } from "@miaopan-code/core/provider"
+import { t } from "@miaopan-code/core/i18n"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { EventV2 } from "@miaopan-code/core/event"
 
-const disabled = process.env["MIAOPAN_CODE_DISABLE_SHARE"] === "true" || process.env["MIAOPAN_CODE_DISABLE_SHARE"] === "1"
+const disabled =
+  process.env["MIAOPAN_CODE_DISABLE_SHARE"] === "true" || process.env["MIAOPAN_CODE_DISABLE_SHARE"] === "1"
 
 export type Api = {
   create: string
@@ -140,7 +142,14 @@ const layer = Layer.effect(
         s.queue.set(sessionID, next)
         yield* flush(sessionID).pipe(
           Effect.delay(1000),
-          Effect.catchCause((cause) => Effect.logError("share flush failed", { sessionID: sessionID, cause: cause })),
+          Effect.catchCause((cause) =>
+            Effect.gen(function* () {
+              yield* Effect.logError(t((yield* cfg.get()).language, "log.share_flush_failed"), {
+                sessionID,
+                cause,
+              })
+            }),
+          ),
           Effect.forkIn(s.scope),
         )
       })
@@ -171,7 +180,12 @@ const layer = Layer.effect(
             if (event.type !== def.type || event.location?.directory !== _ctx.directory) return Effect.void
             return fn(event.data as EventV2.Data<D>).pipe(
               Effect.catchCause((cause) =>
-                Effect.logError("share subscriber failed", { type: def.type, cause: cause }),
+                Effect.gen(function* () {
+                  yield* Effect.logError(t((yield* cfg.get()).language, "log.share_subscriber_failed"), {
+                    type: def.type,
+                    cause,
+                  })
+                }),
               ),
             )
           })
@@ -213,7 +227,7 @@ const layer = Layer.effect(
 
       const token = yield* account.token(active.value.id)
       if (Option.isNone(token)) {
-        throw new Error("No active account token available for sharing")
+        throw new Error(t((yield* cfg.get()).language, "error.share_token_missing"))
       }
 
       headers.authorization = `Bearer ${token.value}`
@@ -263,7 +277,7 @@ const layer = Layer.effect(
       )
 
       if (res.status >= 400) {
-        yield* Effect.logWarning("failed to sync share", {
+        yield* Effect.logWarning(t((yield* cfg.get()).language, "log.failed_sync_share"), {
           sessionID: sessionID,
           shareID: share.id,
           status: res.status,
@@ -272,7 +286,7 @@ const layer = Layer.effect(
     })
 
     const full = Effect.fn("ShareNext.full")(function* (sessionID: SessionID) {
-      yield* Effect.logInfo("full sync", { sessionID: sessionID })
+      yield* Effect.logInfo(t((yield* cfg.get()).language, "log.full_sync"), { sessionID })
       const info = yield* session.get(sessionID)
       const diffs = yield* session.diff(sessionID)
       const messages = yield* session.messages({ sessionID })
@@ -309,7 +323,7 @@ const layer = Layer.effect(
 
     const create = Effect.fn("ShareNext.create")(function* (sessionID: SessionID) {
       if (disabled) return { id: "", url: "", secret: "" }
-      yield* Effect.logInfo("creating share", { sessionID: sessionID })
+      yield* Effect.logInfo(t((yield* cfg.get()).language, "log.creating_share"), { sessionID })
       const req = yield* request()
       const result = yield* HttpClientRequest.post(`${req.baseUrl}${req.api.create}`).pipe(
         HttpClientRequest.setHeaders(req.headers),
@@ -329,7 +343,14 @@ const layer = Layer.effect(
       const s = yield* InstanceState.get(state)
       s.shared.set(sessionID, result)
       yield* full(sessionID).pipe(
-        Effect.catchCause((cause) => Effect.logError("share full sync failed", { sessionID: sessionID, cause: cause })),
+        Effect.catchCause((cause) =>
+          Effect.gen(function* () {
+            yield* Effect.logError(t((yield* cfg.get()).language, "log.share_full_sync_failed"), {
+              sessionID,
+              cause,
+            })
+          }),
+        ),
         Effect.forkIn(s.scope),
       )
       return result
@@ -337,7 +358,7 @@ const layer = Layer.effect(
 
     const remove = Effect.fn("ShareNext.remove")(function* (sessionID: SessionID) {
       if (disabled) return
-      yield* Effect.logInfo("removing share", { sessionID: sessionID })
+      yield* Effect.logInfo(t((yield* cfg.get()).language, "log.removing_share"), { sessionID })
       const s = yield* InstanceState.get(state)
       const share = yield* getCached(sessionID)
       if (!share) {

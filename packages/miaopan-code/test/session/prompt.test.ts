@@ -57,6 +57,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { LocationServiceMap, locationServiceMapLayer } from "@miaopan-code/core/location-services"
+import { t } from "@miaopan-code/core/i18n"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -477,7 +478,7 @@ it.instance("loop exits without an LLM request for interrupted orphan tool calls
       state: {
         status: "error",
         input: {},
-        error: "Tool execution aborted",
+        error: t("zh-CN", "error.tool_execution_aborted"),
         metadata: { interrupted: true },
         time: { start: 1, end: 2 },
       },
@@ -598,7 +599,7 @@ it.instance("loop surfaces content-filter finishes as session errors", () =>
     const errors: NonNullable<SessionV1.Assistant["error"]>[] = []
     const expected = {
       name: "ContentFilterError",
-      data: { message: "The response was blocked by the provider's content filter" },
+      data: { message: t("zh-CN", "error.content_filter") },
     } satisfies NonNullable<SessionV1.Assistant["error"]>
     const off = yield* events.listen((event) => {
       if (event.type !== Session.Event.Error.type) return Effect.void
@@ -706,7 +707,10 @@ noLLMServer.instance.skip(
       expect(typeof row?.data.time.created).toBe("number")
       expect(messages).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ type: "synthetic", text: expect.stringContaining("Called the Read tool") }),
+          expect.objectContaining({
+            type: "synthetic",
+            text: expect.stringContaining(t("zh-CN", "prompt.called_read_tool", { input: "" })),
+          }),
           expect.objectContaining({ type: "synthetic", text: "note content" }),
         ]),
       )
@@ -911,7 +915,7 @@ it.instance("failed subtask preserves metadata on error tool state", () =>
     const tool = errorTool(taskMsg.parts)
     if (!tool) return
 
-    expect(tool.state.error).toContain("Tool execution failed")
+    expect(tool.state.error).toContain(t("zh-CN", "error.tool_execution_failed"))
     expect(tool.state.metadata).toBeDefined()
     expect(tool.state.metadata?.sessionId).toBeDefined()
     expect(tool.state.metadata?.model).toEqual({
@@ -1065,7 +1069,7 @@ it.instance(
 
       yield* llm.hang
 
-      const chat = yield* sessions.create({})
+      const chat = yield* sessions.create({ title: "Pinned" })
       yield* user(chat.id, "hi")
 
       const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
@@ -1436,7 +1440,7 @@ it.instance("assertNotBusy fails with BusyError when loop running", () =>
     const sessions = yield* Session.Service
     yield* llm.hang
 
-    const chat = yield* sessions.create({})
+    const chat = yield* sessions.create({ title: "Pinned" })
     yield* user(chat.id, "hi")
 
     const fiber = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
@@ -1807,7 +1811,7 @@ unixNoLLMServer(
           expect(exit.value.info.role).toBe("assistant")
           const tool = completedTool(exit.value.parts)
           if (tool) {
-            expect(tool.state.output).toContain("User aborted the command")
+            expect(tool.state.output).toContain(t("zh-CN", "tool.shell.user_aborted"))
           }
         }
       }),
@@ -1851,7 +1855,7 @@ unixNoLLMServer(
           expect(exit.value.info.role).toBe("assistant")
           const tool = completedTool(exit.value.parts)
           if (tool) {
-            expect(tool.state.output).toContain("User aborted the command")
+            expect(tool.state.output).toContain(t("zh-CN", "tool.shell.user_aborted"))
           }
         }
       }),
@@ -1908,9 +1912,8 @@ unix(
 
       expect(tool.state.metadata.truncated).toBe(true)
       expect(typeof tool.state.metadata.outputPath).toBe("string")
-      expect(tool.state.output).toMatch(/\.\.\.output truncated\.\.\./)
-      expect(tool.state.output).toMatch(/Full output saved to:\s+\S+/)
-      expect(tool.state.output).not.toContain("Tool execution aborted")
+      expect(tool.state.output).toContain(t("zh-CN", "tool.shell.output_saved", { file: "__FILE__" }).split("__FILE__")[0])
+      expect(tool.state.output).not.toContain(t("zh-CN", "error.tool_execution_aborted"))
     }),
   { git: true },
   30_000,
@@ -1934,7 +1937,7 @@ unixNoLLMServer(
       expect(Exit.isSuccess(exit)).toBe(true)
       if (Exit.isSuccess(exit)) {
         const tool = completedTool(exit.value.parts)
-        expect(tool?.state.output).toContain("User aborted the command")
+        expect(tool?.state.output).toContain(t("zh-CN", "tool.shell.user_aborted"))
       }
 
       yield* Fiber.await(sh)
@@ -2089,7 +2092,10 @@ noLLMServer.instance(
 
       if (msg.info.role !== "user") throw new Error("expected user message")
       const hasFailure = msg.parts.some(
-        (part) => part.type === "text" && part.synthetic && part.text.includes("Read tool failed to read"),
+        (part) =>
+          part.type === "text" &&
+          part.synthetic &&
+          part.text.includes(t("zh-CN", "error.read_tool_failed", { path: "__PATH__", error: "" }).split("__PATH__")[0]),
       )
       expect(hasFailure).toBe(true)
 
@@ -2131,8 +2137,8 @@ noLLMServer.instance(
       })
       const text = stored.parts.filter((part) => part.type === "text").map((part) => part.text)
 
-      expect(text[0]?.startsWith("Called the Read tool with the following input:")).toBe(true)
-      expect(text[1]?.includes("Read tool failed to read")).toBe(true)
+      expect(text[0]?.startsWith(t("zh-CN", "prompt.called_read_tool", { input: "" }).split("失败")[0])).toBe(true)
+      expect(text[1]?.includes(t("zh-CN", "error.read_tool_failed", { path: "__PATH__", error: "" }).split("__PATH__")[0])).toBe(true)
       expect(text[2]).toBe("after-file")
 
       yield* sessions.remove(session.id)
@@ -2337,7 +2343,7 @@ noLLMServer.instance(
         expect(err).not.toBeInstanceOf(TypeError)
         expect(NamedError.Unknown.isInstance(err)).toBe(true)
         if (NamedError.Unknown.isInstance(err)) {
-          expect(err.data.message).toContain('Agent not found: "nonexistent-agent-xyz"')
+          expect(err.data.message).toContain(t("zh-CN", "error.agent_not_found", { agent: "nonexistent-agent-xyz" }))
         }
       }
     }),
@@ -2393,7 +2399,9 @@ noLLMServer.instance(
         expect(err).not.toBeInstanceOf(TypeError)
         expect(NamedError.Unknown.isInstance(err)).toBe(true)
         if (NamedError.Unknown.isInstance(err)) {
-          expect(err.data.message).toContain('Command not found: "nonexistent-command-xyz"')
+          expect(err.data.message).toContain(
+            t("zh-CN", "error.command_not_found", { command: "nonexistent-command-xyz" }),
+          )
           expect(err.data.message).toContain("init")
         }
       }

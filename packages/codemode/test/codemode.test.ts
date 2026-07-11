@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { Cause, Effect, Schema } from "effect"
+import { t } from "../src/i18n.js"
 import { CodeMode, Tool, toolError } from "../src/index.js"
 
 const run = (tool: Tool.Definition<never>) =>
-  Effect.runPromise(CodeMode.make({ tools: { host: { call: tool } } }).execute("return await tools.host.call({})"))
+  Effect.runPromise(
+    CodeMode.make({ language: "en", tools: { host: { call: tool } } }).execute("return await tools.host.call({})"),
+  )
 
 class UnsafeHostError extends Schema.TaggedErrorClass<UnsafeHostError>()("UnsafeHostError", {
   reason: Schema.String,
@@ -241,7 +244,7 @@ describe("CodeMode console capture", () => {
     )
 
     expect(result.ok ? undefined : result.logs).toStrictEqual(["before failure"])
-    expect(result.ok ? undefined : result.error.message).toBe("Uncaught: boom")
+    expect(result.ok ? undefined : result.error.message).toBe("未捕获：boom")
   })
 
   test("prints NaN and Infinity literally instead of the JSON null", async () => {
@@ -292,7 +295,10 @@ describe("CodeMode console capture", () => {
     )
 
     expect(result.ok).toBe(true)
-    expect(result.logs).toStrictEqual(['{"box":Map(1) [["self",[Circular]]]}', '{"fn":[CodeMode reference],"ok":1}'])
+    expect(result.logs).toStrictEqual([
+      `{"box":Map(1) [["self",${t("zh-CN", "codemode.console.circular")}]]}`,
+      `{"fn":${t("zh-CN", "codemode.console.reference")},"ok":1}`,
+    ])
   })
 
   test("console.table renders sandbox value cells", async () => {
@@ -306,7 +312,9 @@ describe("CodeMode console capture", () => {
     )
 
     expect(result.ok).toBe(true)
-    expect(result.logs).toStrictEqual(["(index)\twhen\tn\n0\t1970-01-01T00:00:00.000Z\tNaN"])
+    expect(result.logs).toStrictEqual([
+      t("zh-CN", "codemode.console.index") + "\twhen\tn\n0\t1970-01-01T00:00:00.000Z\tNaN",
+    ])
   })
 
   test("captures console.dir and console.table output", async () => {
@@ -326,7 +334,10 @@ describe("CodeMode console capture", () => {
     expect(result).toStrictEqual({
       ok: true,
       value: "done",
-      logs: ['{"nested":{"ok":true}}', "(index)\tname\tcount\n0\tKit\t1\n1\tOlive\t2"],
+      logs: [
+        '{"nested":{"ok":true}}',
+        t("zh-CN", "codemode.console.index") + "\tname\tcount\n0\tKit\t1\n1\tOlive\t2",
+      ],
       toolCalls: [],
     })
   })
@@ -507,7 +518,7 @@ describe("CodeMode public contract", () => {
   })
 
   test("inlines a COMPLETE small catalog and keeps search registered but unadvertised", async () => {
-    const runtime = CodeMode.make({ tools })
+    const runtime = CodeMode.make({ language: "en", tools })
     expect(runtime.catalog()).toStrictEqual([
       {
         path: "orders.lookup",
@@ -550,7 +561,7 @@ describe("CodeMode public contract", () => {
       output: Schema.String,
       run: ({ libraryName }) => Effect.succeed(`/resolved/${libraryName}`),
     })
-    const runtime = CodeMode.make({ tools: { context7: { "resolve-library-id": resolveLibrary } } })
+    const runtime = CodeMode.make({ language: "en", tools: { context7: { "resolve-library-id": resolveLibrary } } })
 
     expect(runtime.catalog()).toStrictEqual([
       {
@@ -595,7 +606,7 @@ describe("CodeMode public contract", () => {
   })
 
   test("instructions use markdown sections with placeholder-only call forms", () => {
-    const runtime = CodeMode.make({ tools })
+    const runtime = CodeMode.make({ language: "en", tools })
     const instructions = runtime.instructions()
     // Sections in order: workflow at the top, catalog at the bottom.
     expect(instructions).toContain("## Workflow")
@@ -627,7 +638,7 @@ describe("CodeMode public contract", () => {
     expect(instructions).toContain("1. Pick a tool from the list under `## Available tools`")
     expect(instructions).not.toContain("Browse one namespace")
 
-    const partial = CodeMode.make({ tools, discovery: { catalogBudget: 0 } }).instructions()
+    const partial = CodeMode.make({ language: "en", tools, discovery: { catalogBudget: 0 } }).instructions()
     // PARTIAL: the workflow starts with search (with query-style guidance that is clearly
     // a query string, never a tool name) and the browse-namespace rule appears.
     expect(partial).toContain(
@@ -647,7 +658,7 @@ describe("CodeMode public contract", () => {
   })
 
   test("the language section describes the restricted runtime without overclaiming", () => {
-    const instructions = CodeMode.make({ tools }).instructions()
+    const instructions = CodeMode.make({ language: "en", tools }).instructions()
     expect(instructions).toContain("restricted JavaScript language for calling tools")
     expect(instructions).toContain("not a general-purpose runtime")
     expect(instructions).not.toContain("Standard modern JavaScript works")
@@ -664,7 +675,7 @@ describe("CodeMode public contract", () => {
   })
 
   test("zero tools keep minimal sections and the no-tools notice", () => {
-    const runtime = CodeMode.make({})
+    const runtime = CodeMode.make({ language: "en" })
     const instructions = runtime.instructions()
     expect(instructions).toContain("No tools are currently available.")
     expect(instructions).toContain("## Language")
@@ -688,6 +699,7 @@ describe("CodeMode public contract", () => {
       run: () => Effect.succeed({ sent: true }),
     })
     const runtime = CodeMode.make({
+      language: "en",
       tools: { thread: { uploadFile: upload, generateImage: generate }, orders: { lookup } },
       discovery: { catalogBudget: 0 },
     })
@@ -998,6 +1010,7 @@ describe("CodeMode public contract", () => {
     // alpha.expensive does not fit, which marks only alpha done - it must NOT prevent
     // other namespaces from inlining (beta already got its line in the same round).
     const runtime = CodeMode.make({
+      language: "en",
       tools: { alpha: { cheap, expensive }, beta: { cheap } },
       discovery: { catalogBudget: 40 },
     })
@@ -1028,6 +1041,7 @@ describe("CodeMode public contract", () => {
       run: () => Effect.succeed("ok"),
     })
     const runtime = CodeMode.make({
+      language: "en",
       tools: { records: { lookup: documented } },
       discovery: { catalogBudget: 40 },
     })
@@ -1146,7 +1160,9 @@ describe("CodeMode public contract", () => {
     // The Effect fiber runtime auto-yields between interpreter steps, so a pure `while
     // (true) {}` loop is interrupted by `timeoutMs` alone.
     const startedAt = Date.now()
-    const result = await Effect.runPromise(CodeMode.execute({ code: "while (true) {}", limits: { timeoutMs: 200 } }))
+    const result = await Effect.runPromise(
+      CodeMode.execute({ language: "en", code: "while (true) {}", limits: { timeoutMs: 200 } }),
+    )
     const elapsedMs = Date.now() - startedAt
 
     expect(result.ok).toBe(false)
@@ -1158,6 +1174,8 @@ describe("CodeMode public contract", () => {
   })
 
   test("reserves the discovery namespace", () => {
-    expect(() => CodeMode.make({ tools: { $codemode: { lookup } } })).toThrow(/reserved for CodeMode discovery tools/)
+    expect(() => CodeMode.make({ language: "en", tools: { $codemode: { lookup } } })).toThrow(
+      /reserved for CodeMode discovery tools/,
+    )
   })
 })

@@ -2,8 +2,10 @@ export * as ReferenceGuidance from "./guidance"
 
 import { makeLocationNode } from "../effect/app-node"
 import { Context, Effect, Layer, Schema } from "effect"
+import { Config } from "../config"
 import { Reference } from "../reference"
 import { SystemContext } from "../system-context/index"
+import { t, type Language } from "../i18n"
 
 const Summary = Schema.Struct({
   name: Schema.String,
@@ -11,9 +13,9 @@ const Summary = Schema.Struct({
   description: Schema.String.pipe(Schema.optional),
 })
 
-const render = (references: ReadonlyArray<typeof Summary.Type>) =>
+const render = (references: ReadonlyArray<typeof Summary.Type>, language: Language | undefined) =>
   [
-    "Project references provide additional directories that can be accessed when relevant.",
+    t(language, "prompt.reference_guidance_intro"),
     "<available_references>",
     ...references.flatMap((reference) => [
       "  <reference>",
@@ -34,7 +36,9 @@ export class Service extends Context.Service<Service, Interface>()("@miaopan-cod
 const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
+    const config = yield* Config.Service
     const references = yield* Reference.Service
+    const language = Config.latest(yield* config.entries(), "language")
 
     return Service.of({
       load: Effect.fn("ReferenceGuidance.load")(function* () {
@@ -51,13 +55,10 @@ const layer = Layer.effect(
           key: SystemContext.Key.make("core/reference-guidance"),
           codec: Schema.toCodecJson(Schema.Array(Summary)),
           load: Effect.succeed(available),
-          baseline: render,
+          baseline: (current) => render(current, language),
           update: (_previous, current) =>
-            [
-              "The available project references have changed. This list supersedes the previous reference list.",
-              render(current),
-            ].join("\n"),
-          removed: () => "Project reference guidance is no longer available. Do not use previously listed references.",
+            [t(language, "prompt.reference_guidance_changed"), render(current, language)].join("\n"),
+          removed: () => t(language, "prompt.reference_guidance_removed"),
         })
       }),
     })
@@ -66,4 +67,4 @@ const layer = Layer.effect(
 
 export const locationLayer = layer
 
-export const node = makeLocationNode({ service: Service, layer, deps: [Reference.node] })
+export const node = makeLocationNode({ service: Service, layer, deps: [Config.node, Reference.node] })

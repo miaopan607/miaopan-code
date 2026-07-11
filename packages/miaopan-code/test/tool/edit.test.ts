@@ -15,6 +15,7 @@ import { SessionID, MessageID } from "../../src/session/schema"
 import * as Tool from "../../src/tool/tool"
 import { testEffect } from "../lib/effect"
 import { Watcher } from "@miaopan-code/core/filesystem/watcher"
+import { t } from "@miaopan-code/core/i18n"
 
 const ctx = {
   sessionID: SessionID.make("ses_test-edit-session"),
@@ -111,7 +112,7 @@ describe("tool.edit", () => {
         yield* put(filepath, original)
 
         expect((yield* fail({ filePath: filepath, oldString: "", newString: "using Up;\n" })).message).toContain(
-          "oldString cannot be empty",
+          t("zh-CN", "tool.error.edit_empty"),
         )
 
         const content = yield* loadRaw(filepath)
@@ -150,7 +151,7 @@ describe("tool.edit", () => {
 
         const result = yield* run({ filePath: filepath, oldString: "old content", newString: "new content" })
 
-        expect(result.output).toContain("Edit applied successfully")
+        expect(result.output).toContain(t("zh-CN", "tool.output.edit_applied"))
         expect(yield* load(filepath)).toBe("new content here")
       }),
     )
@@ -180,7 +181,7 @@ describe("tool.edit", () => {
         expect(
           (yield* fail({ filePath: path.join(test.directory, "nonexistent.txt"), oldString: "old", newString: "new" }))
             .message,
-        ).toContain("not found")
+        ).toContain(t("zh-CN", "tool.file_not_found", { path: path.join(test.directory, "nonexistent.txt") }))
       }),
     )
 
@@ -191,7 +192,7 @@ describe("tool.edit", () => {
         yield* put(filepath, "content")
 
         expect((yield* fail({ filePath: filepath, oldString: "same", newString: "same" })).message).toContain(
-          "identical",
+          t("zh-CN", "tool.no_changes"),
         )
       }),
     )
@@ -228,7 +229,7 @@ describe("tool.edit", () => {
             oldString: ["function configure() {", "  const enabled = true", "}"].join("\n"),
             newString: ["function configure() {", "  const enabled = false", "}"].join("\n"),
           })).message,
-        ).toContain("Could not find oldString")
+        ).toContain(t("zh-CN", "tool.error.edit_missing"))
         expect(yield* load(filepath)).toBe(original)
       }),
     )
@@ -246,7 +247,7 @@ describe("tool.edit", () => {
             oldString: ["function configure() {", "  const enabled = true", "}"].join("\n"),
             newString: ["function configure() {", "  const enabled = false", "}"].join("\n"),
           })).message,
-        ).toContain("Could not find oldString")
+        ).toContain(t("zh-CN", "tool.error.edit_missing"))
         expect(yield* load(filepath)).toBe(original)
       }),
     )
@@ -307,7 +308,9 @@ describe("tool.edit", () => {
         const filepath = path.join(test.directory, "file.txt")
         yield* put(filepath, "content")
 
-        expect((yield* fail({ filePath: filepath, oldString: "", newString: "" })).message).toContain("identical")
+        expect((yield* fail({ filePath: filepath, oldString: "", newString: "" })).message).toContain(
+          t("zh-CN", "tool.no_changes"),
+        )
       }),
     )
 
@@ -317,7 +320,9 @@ describe("tool.edit", () => {
         const dirpath = path.join(test.directory, "adir")
         yield* makeDirectory(dirpath)
 
-        expect((yield* fail({ filePath: dirpath, oldString: "old", newString: "new" })).message).toContain("directory")
+        expect((yield* fail({ filePath: dirpath, oldString: "old", newString: "new" })).message).toContain(
+          t("zh-CN", "tool.directory_not_file", { path: dirpath }),
+        )
       }),
     )
 

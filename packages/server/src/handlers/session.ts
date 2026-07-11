@@ -12,6 +12,8 @@ import {
   UnknownError,
 } from "@miaopan-code/protocol/errors"
 import { AbsolutePath } from "@miaopan-code/core/schema"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
 const DefaultSessionsLimit = 50
 const DefaultSessionHistoryLimit = 50
@@ -24,10 +26,11 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.list",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           const query =
             ctx.query.cursor !== undefined
               ? yield* SessionsCursor.parse(ctx.query.cursor).pipe(
-                  Effect.mapError(() => new InvalidCursorError({ message: "Invalid cursor" })),
+                  Effect.mapError(() => new InvalidCursorError({ message: t(language, "error.invalid_cursor") })),
                 )
               : ctx.query
           const sessions = yield* session.list({
@@ -90,6 +93,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.get",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           return {
             data: yield* session.get(ctx.params.sessionID).pipe(
               Effect.catchTag(
@@ -97,7 +101,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
                 (error) =>
                   new SessionNotFoundError({
                     sessionID: error.sessionID,
-                    message: `Session not found: ${error.sessionID}`,
+                    message: t(language, "error.session_not_found", { id: error.sessionID }),
                   }),
               ),
             ),
@@ -107,12 +111,13 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.switchAgent",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           yield* session.switchAgent({ sessionID: ctx.params.sessionID, agent: ctx.payload.agent }).pipe(
             Effect.catchTag("Session.NotFoundError", (error) =>
               Effect.fail(
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
               ),
             ),
@@ -123,12 +128,13 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.switchModel",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           yield* session.switchModel({ sessionID: ctx.params.sessionID, model: ctx.payload.model }).pipe(
             Effect.catchTag("Session.NotFoundError", (error) =>
               Effect.fail(
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
               ),
             ),
@@ -139,6 +145,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.prompt",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           return {
             data: yield* session
               .prompt({
@@ -153,14 +160,14 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
                   Effect.fail(
                     new SessionNotFoundError({
                       sessionID: error.sessionID,
-                      message: `Session not found: ${error.sessionID}`,
+                      message: t(language, "error.session_not_found", { id: error.sessionID }),
                     }),
                   ),
                 ),
                 Effect.catchTag("Session.PromptConflictError", (error) =>
                   Effect.fail(
                     new ConflictError({
-                      message: `Prompt message ID conflicts with an existing durable record: ${error.messageID}`,
+                      message: t(language, "error.prompt_conflict", { id: error.messageID }),
                       resource: error.messageID,
                     }),
                   ),
@@ -172,19 +179,20 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.compact",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           yield* session.compact({ sessionID: ctx.params.sessionID }).pipe(
             Effect.catchTag("Session.NotFoundError", (error) =>
               Effect.fail(
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
               ),
             ),
             Effect.catchTag("Session.OperationUnavailableError", (error) =>
               Effect.fail(
                 new ServiceUnavailableError({
-                  message: `Session ${error.operation} is not available yet`,
+                  message: t(language, "error.session_unavailable", { operation: error.operation }),
                   service: `session.${error.operation}`,
                 }),
               ),
@@ -196,19 +204,20 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.wait",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           yield* session.wait(ctx.params.sessionID).pipe(
             Effect.catchTag("Session.NotFoundError", (error) =>
               Effect.fail(
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
               ),
             ),
             Effect.catchTag("Session.OperationUnavailableError", (error) =>
               Effect.fail(
                 new ServiceUnavailableError({
-                  message: `Session ${error.operation} is not available yet`,
+                  message: t(language, "error.session_unavailable", { operation: error.operation }),
                   service: `session.${error.operation}`,
                 }),
               ),
@@ -220,6 +229,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.revert.stage",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           return {
             data: yield* session.revert.stage({ ...ctx.params, ...ctx.payload }).pipe(
               Effect.catchTag(
@@ -227,7 +237,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
                 (error) =>
                   new SessionNotFoundError({
                     sessionID: error.sessionID,
-                    message: `Session not found: ${error.sessionID}`,
+                    message: t(language, "error.session_not_found", { id: error.sessionID }),
                   }),
               ),
               Effect.catchTag(
@@ -236,16 +246,16 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
                   new MessageNotFoundError({
                     sessionID: error.sessionID,
                     messageID: error.messageID,
-                    message: `Message not found: ${error.messageID}`,
+                    message: t(language, "error.message_not_found", { id: error.messageID }),
                   }),
               ),
               Effect.catchTag("Snapshot.Error", (error) => {
                 const ref = `err_${crypto.randomUUID().slice(0, 8)}`
-                return Effect.logError("failed to stage session revert", { cause: error }).pipe(
+                return Effect.logError(t(language, "log.server_revert_stage_failed"), { cause: error }).pipe(
                   Effect.andThen(
                     Effect.fail(
                       new UnknownError({
-                        message: "Unexpected server error. Check server logs for details.",
+                        message: t(language, "error.server_unexpected"),
                         ref,
                       }),
                     ),
@@ -259,22 +269,23 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.revert.clear",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           yield* session.revert.clear(ctx.params.sessionID).pipe(
             Effect.catchTag(
               "Session.NotFoundError",
               (error) =>
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
             ),
             Effect.catchTag("Snapshot.Error", (error) => {
               const ref = `err_${crypto.randomUUID().slice(0, 8)}`
-              return Effect.logError("failed to clear session revert", { cause: error }).pipe(
+              return Effect.logError(t(language, "log.server_revert_clear_failed"), { cause: error }).pipe(
                 Effect.andThen(
                   Effect.fail(
                     new UnknownError({
-                      message: "Unexpected server error. Check server logs for details.",
+                      message: t(language, "error.server_unexpected"),
                       ref,
                     }),
                   ),
@@ -288,13 +299,14 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.revert.commit",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           yield* session.revert.commit(ctx.params.sessionID).pipe(
             Effect.catchTag(
               "Session.NotFoundError",
               (error) =>
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
             ),
           )
@@ -304,24 +316,28 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.context",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           return {
             data: yield* session.context(ctx.params.sessionID).pipe(
               Effect.catchTag("Session.NotFoundError", (error) =>
                 Effect.fail(
                   new SessionNotFoundError({
                     sessionID: error.sessionID,
-                    message: `Session not found: ${error.sessionID}`,
+                    message: t(language, "error.session_not_found", { id: error.sessionID }),
                   }),
                 ),
               ),
               Effect.catchTag("Session.MessageDecodeError", (error) => {
                 const ref = `err_${crypto.randomUUID().slice(0, 8)}`
-                return Effect.logError("failed to decode session message").pipe(
+                return Effect.logError(
+                  t(language, "error.session_message_decode", {
+                    sessionID: error.sessionID,
+                    messageID: error.messageID,
+                  }),
+                ).pipe(
                   Effect.annotateLogs({ ref, sessionID: error.sessionID, messageID: error.messageID }),
                   Effect.andThen(
-                    Effect.fail(
-                      new UnknownError({ message: "Unexpected server error. Check server logs for details.", ref }),
-                    ),
+                    Effect.fail(new UnknownError({ message: t(language, "error.server_unexpected"), ref })),
                   ),
                 )
               }),
@@ -332,6 +348,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.history",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           return yield* session
             .history({
               sessionID: ctx.params.sessionID,
@@ -348,7 +365,7 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
                 (error) =>
                   new SessionNotFoundError({
                     sessionID: error.sessionID,
-                    message: `Session not found: ${error.sessionID}`,
+                    message: t(language, "error.session_not_found", { id: error.sessionID }),
                   }),
               ),
             )
@@ -372,12 +389,13 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
       .handle(
         "session.message",
         Effect.fn(function* (ctx) {
+          const language = yield* requestLanguage()
           const message = yield* session.message(ctx.params)
           if (message) return { data: message }
           return yield* new MessageNotFoundError({
             sessionID: ctx.params.sessionID,
             messageID: ctx.params.messageID,
-            message: `Message not found: ${ctx.params.messageID}`,
+            message: t(language, "error.message_not_found", { id: ctx.params.messageID }),
           })
         }),
       )

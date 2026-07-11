@@ -8,6 +8,7 @@ import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
 import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { t, type Language } from "../i18n"
 
 const root = "/experimental/workspace"
 export const CreatePayload = Schema.Struct(Struct.omit(Workspace.CreateInput.fields, ["projectID"]))
@@ -46,96 +47,99 @@ export const WorkspacePaths = {
   warp: `${root}/warp`,
 } as const
 
-export const WorkspaceApi = HttpApi.make("workspace")
-  .add(
-    HttpApiGroup.make("workspace")
-      .add(
-        HttpApiEndpoint.get("adapters", WorkspacePaths.adapters, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(WorkspaceAdapterEntry), "Workspace adapters"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.adapter.list",
-            summary: "List workspace adapters",
-            description: "List all available workspace adapters for the current project.",
-          }),
-        ),
-        HttpApiEndpoint.get("list", WorkspacePaths.list, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Workspace.Info), "Workspaces"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.list",
-            summary: "List workspaces",
-            description: "List all workspaces.",
-          }),
-        ),
-        HttpApiEndpoint.post("create", WorkspacePaths.list, {
-          query: WorkspaceRoutingQuery,
-          payload: CreatePayload,
-          success: described(Workspace.Info, "Workspace created"),
-          error: [ApiWorkspaceCreateError, HttpApiError.BadRequest],
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.create",
-            summary: "Create workspace",
-            description: "Create a workspace for the current project.",
-          }),
-        ),
-        HttpApiEndpoint.post("syncList", WorkspacePaths.syncList, {
-          query: WorkspaceRoutingQuery,
-          success: described(HttpApiSchema.NoContent, "Workspace list synced"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.syncList",
-            summary: "Sync workspace list",
-            description: "Register missing workspaces returned by workspace adapters.",
-          }),
-        ),
-        HttpApiEndpoint.get("status", WorkspacePaths.status, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Workspace.ConnectionStatus), "Workspace status"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.status",
-            summary: "Workspace status",
-            description: "Get connection status for workspaces in the current project.",
-          }),
-        ),
-        HttpApiEndpoint.delete("remove", WorkspacePaths.remove, {
-          params: { id: Workspace.Info.fields.id },
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.UndefinedOr(Workspace.Info), "Workspace removed"),
-          error: HttpApiError.BadRequest,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.remove",
-            summary: "Remove workspace",
-            description: "Remove an existing workspace.",
-          }),
-        ),
-        HttpApiEndpoint.post("warp", WorkspacePaths.warp, {
-          query: WorkspaceRoutingQuery,
-          payload: WarpPayload,
-          success: described(HttpApiSchema.NoContent, "Session warped"),
-          error: [ApiWorkspaceWarpError, ApiVcsApplyError, ApiNotFoundError],
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "experimental.workspace.warp",
-            summary: "Warp session into workspace",
-            description: "Move a session's sync history into the target workspace, or detach it to the local project.",
-          }),
-        ),
-      )
-      .annotateMerge(OpenApi.annotations({ title: "workspace", description: "Experimental HttpApi workspace routes." }))
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode experimental HttpApi",
-      version: "0.0.1",
-      description: "Experimental HttpApi surface for selected instance routes.",
-    }),
-  )
+export const makeWorkspaceApi = (language?: Language) =>
+  HttpApi.make("workspace")
+    .add(
+      HttpApiGroup.make("workspace")
+        .add(
+          HttpApiEndpoint.get("adapters", WorkspacePaths.adapters, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(WorkspaceAdapterEntry), t(language, "response_workspace_adapters")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.adapter.list",
+              summary: t(language, "workspace_adapters"),
+              description: t(language, "workspace_adapters_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("list", WorkspacePaths.list, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Workspace.Info), t(language, "response_workspaces")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.list",
+              summary: t(language, "workspace_list"),
+              description: t(language, "workspace_list_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("create", WorkspacePaths.list, {
+            query: WorkspaceRoutingQuery,
+            payload: CreatePayload,
+            success: described(Workspace.Info, t(language, "response_workspace_created")),
+            error: [ApiWorkspaceCreateError, HttpApiError.BadRequest],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.create",
+              summary: t(language, "workspace_create"),
+              description: t(language, "workspace_create_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("syncList", WorkspacePaths.syncList, {
+            query: WorkspaceRoutingQuery,
+            success: described(HttpApiSchema.NoContent, t(language, "response_workspace_list_synced")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.syncList",
+              summary: t(language, "workspace_sync"),
+              description: t(language, "workspace_sync_description"),
+            }),
+          ),
+          HttpApiEndpoint.get("status", WorkspacePaths.status, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Workspace.ConnectionStatus), t(language, "response_workspace_status")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.status",
+              summary: t(language, "workspace_status"),
+              description: t(language, "workspace_status_description"),
+            }),
+          ),
+          HttpApiEndpoint.delete("remove", WorkspacePaths.remove, {
+            params: { id: Workspace.Info.fields.id },
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.UndefinedOr(Workspace.Info), t(language, "response_workspace_removed")),
+            error: HttpApiError.BadRequest,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.remove",
+              summary: t(language, "workspace_remove"),
+              description: t(language, "workspace_remove_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("warp", WorkspacePaths.warp, {
+            query: WorkspaceRoutingQuery,
+            payload: WarpPayload,
+            success: described(HttpApiSchema.NoContent, t(language, "response_session_warped")),
+            error: [ApiWorkspaceWarpError, ApiVcsApplyError, ApiNotFoundError],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "experimental.workspace.warp",
+              summary: t(language, "workspace_warp"),
+              description: t(language, "workspace_warp_description"),
+            }),
+          ),
+        )
+        .annotateMerge(OpenApi.annotations({ title: "workspace", description: t(language, "workspace_routes") }))
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "httpapi_title"),
+        version: "0.0.1",
+        description: t(language, "httpapi_title"),
+      }),
+    )
+
+export const WorkspaceApi = makeWorkspaceApi()

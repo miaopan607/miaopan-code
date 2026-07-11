@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as FileSystem from "effect/FileSystem"
 import * as Layer from "effect/Layer"
+import { zh } from "./i18n"
 import * as Path from "effect/Path"
 import * as PlatformError from "effect/PlatformError"
 import * as Predicate from "effect/Predicate"
@@ -68,7 +69,7 @@ const flatten = (command: ChildProcess.Command) => {
   }
 
   walk(command)
-  if (commands.length === 0) throw new Error("flatten produced empty commands array")
+  if (commands.length === 0) throw new Error(zh("error.process_empty_commands"))
   const [head, ...tail] = commands
   return {
     commands: [head, ...tail] as Arr.NonEmptyReadonlyArray<ChildProcess.StandardCommand>,
@@ -318,7 +319,7 @@ export const make = Effect.gen(function* () {
   ) =>
     Effect.suspend(() => {
       if (proc.kill(signal)) return Effect.void
-      return Effect.fail(toPlatformError("kill", new Error("Failed to kill child process"), command))
+      return Effect.fail(toPlatformError("kill", new Error(zh("error.process_kill_failed")), command))
     })
 
   const timeout =
@@ -419,7 +420,7 @@ export const make = Effect.gen(function* () {
               return Effect.fail(
                 toPlatformError(
                   "exitCode",
-                  new Error(`Process interrupted due to receipt of signal: '${signal}'`),
+                  new Error(zh("error.process_interrupted_signal", { signal: signal ?? "" })),
                   command,
                 ),
               )

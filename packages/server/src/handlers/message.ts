@@ -4,6 +4,8 @@ import { Effect, Schema } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { InvalidCursorError, SessionNotFoundError, UnknownError } from "@miaopan-code/protocol/errors"
+import { t } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
 const DefaultMessagesLimit = 50
 
@@ -31,11 +33,12 @@ export const MessageHandler = HttpApiBuilder.group(Api, "server.message", (handl
     return handlers.handle(
       "session.messages",
       Effect.fn(function* (ctx) {
+        const language = yield* requestLanguage()
         if (ctx.query.cursor && ctx.query.order !== undefined)
-          return yield* new InvalidCursorError({ message: "Cursor cannot be combined with order" })
+          return yield* new InvalidCursorError({ message: t(language, "error.cursor_order") })
         const decoded = yield* Effect.try({
           try: () => (ctx.query.cursor ? cursor.decode(ctx.query.cursor) : undefined),
-          catch: () => new InvalidCursorError({ message: "Invalid cursor" }),
+          catch: () => new InvalidCursorError({ message: t(language, "error.invalid_cursor") }),
         })
         const order = decoded?.order ?? ctx.query.order ?? "desc"
         const messages = yield* session
@@ -50,19 +53,20 @@ export const MessageHandler = HttpApiBuilder.group(Api, "server.message", (handl
               Effect.fail(
                 new SessionNotFoundError({
                   sessionID: error.sessionID,
-                  message: `Session not found: ${error.sessionID}`,
+                  message: t(language, "error.session_not_found", { id: error.sessionID }),
                 }),
               ),
             ),
             Effect.catchTag("Session.MessageDecodeError", (error) => {
               const ref = `err_${crypto.randomUUID().slice(0, 8)}`
-              return Effect.logError("failed to decode session message").pipe(
+              return Effect.logError(
+                t(language, "error.session_message_decode", {
+                  sessionID: error.sessionID,
+                  messageID: error.messageID,
+                }),
+              ).pipe(
                 Effect.annotateLogs({ ref, sessionID: error.sessionID, messageID: error.messageID }),
-                Effect.andThen(
-                  Effect.fail(
-                    new UnknownError({ message: "Unexpected server error. Check server logs for details.", ref }),
-                  ),
-                ),
+                Effect.andThen(Effect.fail(new UnknownError({ message: t(language, "error.server_unexpected"), ref }))),
               )
             }),
           )

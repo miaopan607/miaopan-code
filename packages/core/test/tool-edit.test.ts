@@ -133,7 +133,7 @@ describe("EditTool", () => {
                 )
                 expect(settled.result).toEqual({
                   type: "text",
-                  value: "Edited file successfully: hello.txt\nReplacements: 1\n```diff\n-before\n+after\n```",
+                  value: "文件编辑成功：hello.txt\n替换次数：1\n```diff\n-before\n+after\n```",
                 })
                 expect(settled.output?.structured).toEqual({
                   replacements: 1,
@@ -228,7 +228,7 @@ describe("EditTool", () => {
             ),
           ).toEqual({
             type: "error",
-            value: `Unable to edit ${external}`,
+            value: `无法编辑 ${external}`,
           })
           expect(assertions.map((input) => input.action)).toEqual(["external_directory"])
           expect(reads).toBe(0)
@@ -242,7 +242,7 @@ describe("EditTool", () => {
             ),
           ).toEqual({
             type: "error",
-            value: `Unable to edit ${external}`,
+            value: `无法编辑 ${external}`,
           })
           expect(assertions.map((input) => input.action)).toEqual(["external_directory", "edit"])
           expect(reads).toBe(0)
@@ -276,7 +276,7 @@ describe("EditTool", () => {
                   call({ path: "secret.txt", oldString: "not present", newString: "replacement" }),
                 )
 
-                expect(matching).toEqual({ type: "error", value: "Unable to edit secret.txt" })
+                expect(matching).toEqual({ type: "error", value: "无法编辑 secret.txt" })
                 expect(missing).toEqual(matching)
                 expect(assertions.map((input) => input.action)).toEqual(["edit", "edit"])
                 expect(reads).toBe(0)
@@ -301,7 +301,11 @@ describe("EditTool", () => {
             withTool(tmp.path, (registry) =>
               Effect.gen(function* () {
                 expect(
-                  yield* executeTool(registry, call({ path: "matches.txt", oldString: "same", newString: "same" })),
+                  yield* executeTool(
+                    registry,
+                    call({ path: "matches.txt", oldString: "same", newString: "same" }),
+                    "en",
+                  ),
                 ).toEqual({
                   type: "error",
                   value: "No changes to apply: oldString and newString are identical.",
@@ -310,21 +314,19 @@ describe("EditTool", () => {
                   yield* executeTool(registry, call({ path: "matches.txt", oldString: "", newString: "after" })),
                 ).toEqual({
                   type: "error",
-                  value: "oldString must not be empty. Use write to create or overwrite a file.",
+                  value: "oldString 不能为空。请使用 write 创建或覆盖文件。",
                 })
                 expect(
                   yield* executeTool(registry, call({ path: "matches.txt", oldString: "missing", newString: "after" })),
                 ).toEqual({
                   type: "error",
-                  value:
-                    "Could not find oldString in the file. It must match exactly, including whitespace and indentation.",
+                  value: "无法在文件中找到 oldString。它必须完全匹配，包括空格和缩进。",
                 })
                 expect(
                   yield* executeTool(registry, call({ path: "matches.txt", oldString: "same", newString: "after" })),
                 ).toEqual({
                   type: "error",
-                  value:
-                    "Found multiple exact matches for oldString. Provide more surrounding context or set replaceAll to true.",
+                  value: "找到多个与 oldString 完全匹配的位置。请提供更多上下文，或将 replaceAll 设置为 true。",
                 })
                 expect(writes).toEqual([])
               }),
@@ -398,7 +400,7 @@ describe("EditTool", () => {
             Effect.gen(function* () {
               expect(result).toEqual({
                 type: "error",
-                value: "File changed after permission approval. Read it again before editing.",
+                value: "权限批准后文件已更改。请重新读取后再编辑。",
               })
               expect(yield* Effect.promise(() => fs.readFile(target, "utf8"))).toBe("newer\n")
               expect(writes).toEqual([])

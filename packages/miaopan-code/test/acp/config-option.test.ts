@@ -56,7 +56,7 @@ describe("acp config options", () => {
       }),
     ).toEqual({
       id: "model",
-      name: "Model",
+      name: "模型",
       category: "model",
       type: "select",
       currentValue: "anthropic/claude/sonnet-4",
@@ -91,8 +91,8 @@ describe("acp config options", () => {
   test("builds effort option from variants and falls back to default when current variant is invalid", () => {
     expect(buildEffortSelectOption({ variants: ["low", "default", "high"], currentVariant: "missing" })).toEqual({
       id: "effort",
-      name: "Effort",
-      description: "Available effort levels for this model",
+      name: "工作强度",
+      description: "此模型可用的工作强度级别",
       category: "thought_level",
       type: "select",
       currentValue: "default",
@@ -125,7 +125,7 @@ describe("acp config options", () => {
       }),
     ).toEqual({
       id: "mode",
-      name: "Session Mode",
+      name: "会话模式",
       category: "mode",
       type: "select",
       currentValue: "build",
@@ -151,6 +151,23 @@ describe("acp config options", () => {
     expect(options.map((option) => option.id)).toEqual(["model", "effort", "mode"])
     expect(options.map((option) => option.category)).toEqual(["model", "thought_level", "mode"])
     expect(options[1]?.currentValue).toBe("very-high")
+  })
+
+  test("uses English labels when requested", () => {
+    expect(
+      buildConfigOptions({
+        providers,
+        currentModel: { providerID: "anthropic", modelID: "claude/sonnet-4" },
+        currentVariant: "high",
+        modes: [{ id: "build", name: "Build" }],
+        currentModeId: "build",
+        language: "en",
+      }).map((option) => [option.name, option.description]),
+    ).toEqual([
+      ["Model", undefined],
+      ["Effort", "Available effort levels for this model"],
+      ["Session Mode", undefined],
+    ])
   })
 
   test("full config options omit effort for models without variants", () => {

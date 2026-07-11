@@ -3,16 +3,20 @@ export * as SessionTodo from "./session-todo"
 import { Schema } from "effect"
 import { define, inventory } from "./event"
 import { SessionID } from "./session-id"
+import { t, type Language } from "./i18n"
 
-export const Info = Schema.Struct({
-  content: Schema.String.annotate({ description: "Brief description of the task" }),
-  status: Schema.String.annotate({
-    description: "Current status of the task: pending, in_progress, completed, cancelled",
-  }),
-  priority: Schema.String.annotate({
-    description: "Priority level of the task: high, medium, low",
-  }),
-}).annotate({ identifier: "Todo" })
+export const make = (language?: Language) =>
+  Schema.Struct({
+    content: Schema.String.annotate({ description: t(language, "todo_content") }),
+    status: Schema.String.annotate({
+      description: t(language, "todo_status"),
+    }),
+    priority: Schema.String.annotate({
+      description: t(language, "todo_priority"),
+    }),
+  }).annotate({ identifier: "Todo" })
+
+export const Info = make()
 export interface Info extends Schema.Schema.Type<typeof Info> {}
 
 const Updated = define({

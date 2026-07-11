@@ -8,7 +8,8 @@ import { MessageV2 } from "../session/message-v2"
 import { Provider } from "@/provider/provider"
 import { InstanceState } from "@/effect/instance-state"
 import { MessageID, PartID } from "../session/schema"
-import EXIT_DESCRIPTION from "./plan-exit.txt"
+import { ToolI18n } from "./i18n"
+import { t } from "@miaopan-code/core/i18n"
 
 export const Parameters = Schema.Struct({})
 
@@ -20,7 +21,7 @@ export const PlanExitTool = Tool.define(
     const provider = yield* Provider.Service
 
     return {
-      description: EXIT_DESCRIPTION,
+      description: yield* ToolI18n.description("tool.plan_exit"),
       parameters: Parameters,
       execute: (_params: {}, ctx: Tool.Context) =>
         Effect.gen(function* () {
@@ -31,19 +32,19 @@ export const PlanExitTool = Tool.define(
             sessionID: ctx.sessionID,
             questions: [
               {
-                question: `Plan at ${plan} is complete. Would you like to switch to the build agent and start implementing?`,
-                header: "Build Agent",
+                question: ToolI18n.text(ctx, "tool.plan_question", { plan }),
+                header: ToolI18n.text(ctx, "tool.switch_build"),
                 custom: false,
                 options: [
-                  { label: "Yes", description: "Switch to build agent and start implementing the plan" },
-                  { label: "No", description: "Stay with plan agent to continue refining the plan" },
+                  { label: ToolI18n.text(ctx, "permission.confirm"), description: ToolI18n.text(ctx, "tool.plan_yes") },
+                  { label: ToolI18n.text(ctx, "permission.cancel"), description: ToolI18n.text(ctx, "tool.plan_no") },
                 ],
               },
             ],
             tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
           })
 
-          if (answers[0]?.[0] === "No") yield* new Question.RejectedError()
+          if (answers[0]?.[0] === ToolI18n.text(ctx, "permission.cancel")) yield* new Question.RejectedError()
 
           const messages = yield* session.messages({ sessionID: ctx.sessionID }).pipe(Effect.orDie)
           const lastUser = messages.findLast((item) => item.info.role === "user" && item.info.model)
@@ -64,13 +65,13 @@ export const PlanExitTool = Tool.define(
             messageID: msg.id,
             sessionID: ctx.sessionID,
             type: "text",
-            text: `The plan at ${plan} has been approved, you can now edit files. Execute the plan`,
+            text: ToolI18n.text(ctx, "tool.plan_approved", { plan }),
             synthetic: true,
           } satisfies SessionV1.TextPart)
 
           return {
-            title: "Switching to build agent",
-            output: "User approved switching to build agent. Wait for further instructions.",
+            title: ToolI18n.text(ctx, "tool.switch_build"),
+            output: ToolI18n.text(ctx, "tool.build_wait"),
             metadata: {},
           }
         }).pipe(Effect.orDie),

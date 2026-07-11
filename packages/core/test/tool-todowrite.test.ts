@@ -113,7 +113,7 @@ describe("TodoWriteTool", () => {
       deny = true
 
       expect(
-        yield* executeTool(registry, call([{ content: "blocked", status: "completed", priority: "high" }])),
+        yield* executeTool(registry, call([{ content: "blocked", status: "completed", priority: "high" }]), "en"),
       ).toEqual({
         type: "error",
         value: "Unable to update todos",

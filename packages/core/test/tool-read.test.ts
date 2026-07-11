@@ -19,6 +19,7 @@ import { ToolRegistry } from "@miaopan-code/core/tool/registry"
 import { ToolOutputStore } from "@miaopan-code/core/tool-output-store"
 import { ReadTool } from "@miaopan-code/core/tool/read"
 import { ReadToolFileSystem } from "@miaopan-code/core/tool/read-filesystem"
+import { zh } from "@miaopan-code/core/i18n"
 import { testEffect } from "./lib/effect"
 import { toolIdentity, executeTool, settleTool, toolDefinitions } from "./lib/tool"
 
@@ -241,7 +242,7 @@ describe("ReadTool", () => {
       ).toEqual({
         type: "content",
         value: [
-          { type: "text", text: "Image read successfully" },
+          { type: "text", text: zh("tool.output.image_read_success") },
           { type: "file", uri: `data:image/png;base64,${png}`, mime: "image/png", name: "pixel.png" },
         ],
       })
@@ -252,11 +253,15 @@ describe("ReadTool", () => {
         },
       ])
 
-      const settled = yield* settleTool(registry, {
-        sessionID,
-        ...toolIdentity,
-        call: { type: "tool-call", id: "call-image-settle", name: "read", input: { path: "pixel.png" } },
-      })
+      const settled = yield* settleTool(
+        registry,
+        {
+          sessionID,
+          ...toolIdentity,
+          call: { type: "tool-call", id: "call-image-settle", name: "read", input: { path: "pixel.png" } },
+        },
+        "en",
+      )
       expect(settled.output?.structured).toMatchObject({
         uri: "file:///pixel.png",
         name: "pixel.png",
@@ -303,7 +308,7 @@ describe("ReadTool", () => {
       expect(settled.result).toEqual({
         type: "content",
         value: [
-          { type: "text", text: "Image read successfully" },
+          { type: "text", text: zh("tool.output.image_read_success") },
           { type: "file", uri: `data:image/png;base64,${png}`, mime: "image/png", name: "large.png" },
         ],
       })
@@ -352,7 +357,7 @@ describe("ReadTool", () => {
           ...toolIdentity,
           call: { type: "tool-call", id: "call-truncated-image", name: "read", input: { path: "truncated.png" } },
         }),
-      ).toEqual({ type: "error", value: "Image could not be decoded: truncated.png" })
+      ).toEqual({ type: "error", value: zh("error.image_decode_resource", { resource: "truncated.png" }) })
     }),
   )
 
@@ -387,7 +392,7 @@ describe("ReadTool", () => {
       })
 
       expect(result.type).toBe("error")
-      if (result.type === "error") expect(result.value).toContain("exceeding configured limits 4x2000")
+      if (result.type === "error") expect(result.value).toContain("超过配置限制 4x2000")
     }),
   )
 
@@ -459,7 +464,7 @@ describe("ReadTool", () => {
       })
 
       expect(result.type).toBe("error")
-      if (result.type === "error") expect(result.value).toContain("/1 bytes")
+      if (result.type === "error") expect(result.value).toContain("/1 字节")
     }),
   )
 
@@ -504,7 +509,7 @@ describe("ReadTool", () => {
             input: { path: "archive.dat", offset: 2, limit: 1 },
           },
         }),
-      ).toEqual({ type: "error", value: "Cannot read binary file: archive.dat" })
+      ).toEqual({ type: "error", value: zh("tool.error.binary_file", { resource: "archive.dat" }) })
       expect(readCalls).toEqual([
         { input: AbsolutePath.make(path.join(process.cwd(), "archive.dat")), page: { offset: 2, limit: 1 } },
       ])
@@ -539,7 +544,7 @@ describe("ReadTool", () => {
           ...toolIdentity,
           call: { type: "tool-call", id: "call-read", name: "read", input: { path: "README.md" } },
         }),
-      ).toEqual({ type: "error", value: "Unable to read README.md" })
+      ).toEqual({ type: "error", value: zh("tool.error.read", { path: "README.md" }) })
       expect(readCalls).toEqual([])
     }),
   )
@@ -554,7 +559,7 @@ describe("ReadTool", () => {
           ...toolIdentity,
           call: { type: "tool-call", id: "call-missing-path", name: "read", input: { path: missingPath } },
         }),
-      ).toEqual({ type: "error", value: `Unable to read ${missingPath}` })
+      ).toEqual({ type: "error", value: zh("tool.error.read", { path: missingPath }) })
       expect(assertions).toEqual([])
       expect(readCalls).toEqual([])
     }),
@@ -594,7 +599,7 @@ describe("ReadTool", () => {
           ...toolIdentity,
           call: { type: "tool-call", id: "call-read-directory-denied", name: "read", input: { path: "src" } },
         }),
-      ).toEqual({ type: "error", value: "Unable to read src" })
+      ).toEqual({ type: "error", value: zh("tool.error.read", { path: "src" }) })
       expect(listCalls).toEqual([])
     }),
   )
@@ -668,7 +673,7 @@ describe("ReadTool", () => {
           ...toolIdentity,
           call: { type: "tool-call", id: "call-direct-binary", name: "read", input: { path: "late-binary" } },
         }),
-      ).toEqual({ type: "error", value: "Cannot read binary file: late-binary" })
+      ).toEqual({ type: "error", value: zh("tool.error.binary_file", { resource: "late-binary" }) })
     }),
   )
 })

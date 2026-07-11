@@ -27,7 +27,7 @@ describe("ServerAuth", () => {
     Flag.MIAOPAN_CODE_SERVER_USERNAME = undefined
 
     expect(ServerAuth.headers()).toEqual({
-      Authorization: `Basic ${Buffer.from("miaopanCode:secret").toString("base64")}`,
+      Authorization: `Basic ${Buffer.from("miaopan-code:secret").toString("base64")}`,
     })
   })
 

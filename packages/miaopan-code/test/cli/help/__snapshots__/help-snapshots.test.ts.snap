@@ -3,195 +3,189 @@
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode acp --help 1`] = `
 "miaopan-code acp
 
-start ACP (Agent Client Protocol) server
+启动 ACP（Agent Client Protocol）服务器
 
 Options:
-  -h, --help         show help                                                             [boolean]
-  -v, --version      show version number                                                   [boolean]
-      --print-logs   print logs to stderr                                                  [boolean]
-      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure         run without external plugins                                          [boolean]
-      --port         port to listen on                                         [number] [default: 0]
-      --hostname     hostname to listen on                           [string] [default: "127.0.0.1"]
-      --mdns         enable mDNS service discovery (defaults hostname to 0.0.0.0)
-                                                                          [boolean] [default: false]
-      --mdns-domain  custom domain name for mDNS service (default: miaopanCode.local)
+  -h, --help         显示帮助                                                              [boolean]
+  -v, --version      显示版本号                                                            [boolean]
+      --print-logs   将日志输出到标准错误                                                  [boolean]
+      --log-level    日志级别                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         不加载外部插件运行                                                    [boolean]
+      --port         监听端口                                                  [number] [default: 0]
+      --hostname     监听主机名                                      [string] [default: "127.0.0.1"]
+      --mdns         启用 mDNS 服务发现                                   [boolean] [default: false]
+      --mdns-domain  mDNS 自定义域名（默认：miaopanCode.local）
                                                              [string] [default: "miaopanCode.local"]
-      --cors         additional domains to allow for CORS                      [array] [default: []]
-      --cwd          working directory [string] [default: "<HOME>"]
+      --cors         允许用于 CORS 的附加域名                                  [array] [default: []]
+      --cwd          工作目录 [string] [default: "<HOME>"]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp --help 1`] = `
 "miaopan-code mcp
 
-manage MCP (Model Context Protocol) servers
+管理 MCP（Model Context Protocol）服务器
 
 Commands:
-  miaopan-code mcp add [name]     add an MCP server
-  miaopan-code mcp list           list MCP servers and their status                    [aliases: ls]
-  miaopan-code mcp auth [name]    authenticate with an OAuth-enabled MCP server
-  miaopan-code mcp logout [name]  remove OAuth credentials for an MCP server
-  miaopan-code mcp debug <name>   debug OAuth connection for an MCP server
+  miaopan-code mcp add [name]     添加 MCP 服务器
+  miaopan-code mcp list           列出 MCP 服务器及其状态                              [aliases: ls]
+  miaopan-code mcp auth [name]    向启用 OAuth 的 MCP 服务器进行身份验证
+  miaopan-code mcp logout [name]  移除 MCP 服务器的 OAuth 凭据
+  miaopan-code mcp debug <name>   调试 MCP 服务器的 OAuth 连接
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode attach --help 1`] = `
 "miaopan-code attach <url>
 
-attach to a running miaopanCode server
+连接正在运行的 miaopanCode 服务器（例如 http://localhost:4096）
 
 Positionals:
   url  http://localhost:4096                                                     [string] [required]
 
 Options:
-  -h, --help          show help                                                            [boolean]
-  -v, --version       show version number                                                  [boolean]
-      --print-logs    print logs to stderr                                                 [boolean]
-      --log-level     log level                 [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure          run without external plugins                                         [boolean]
-      --dir           directory to run in                                                   [string]
-  -c, --continue      continue the last session                                            [boolean]
-  -s, --session       session id to continue                                                [string]
-      --fork          fork the session when continuing (use with --continue or --session)  [boolean]
-  -p, --password      basic auth password (defaults to MIAOPAN_CODE_SERVER_PASSWORD)        [string]
-  -u, --username      basic auth username (defaults to MIAOPAN_CODE_SERVER_USERNAME or
-                      'miaopan-code')                                                       [string]
-      --mini          start the minimal interactive interface             [boolean] [default: false]
-      --no-replay     disable mini session history replay on resume and after resize       [boolean]
-      --replay-limit  cap visible mini replay to the newest N messages                      [number]
+  -h, --help          显示帮助                                                             [boolean]
+  -v, --version       显示版本号                                                           [boolean]
+      --print-logs    将日志输出到标准错误                                                 [boolean]
+      --log-level     日志级别                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure          不加载外部插件运行                                                   [boolean]
+      --dir           运行目录                                                              [string]
+  -c, --continue      继续上一个会话                                                       [boolean]
+  -s, --session       要继续的会话 ID                                                       [string]
+      --fork          继续时分叉会话                                                       [boolean]
+  -p, --password      基本身份验证密码                                                      [string]
+  -u, --username      基本身份验证用户名                                                    [string]
+      --mini          以直接交互式分栏底栏模式运行                        [boolean] [default: false]
+      --no-replay     恢复和调整大小后重放交互式会话历史（使用 --no-replay 禁用）          [boolean]
+      --replay-limit  将可见交互式重放限制为最新 N 条消息                                   [number]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode run --help 1`] = `
 "miaopan-code run [message..]
 
-run miaopanCode with a message
+使用消息运行 miaopanCode
 
 Positionals:
-  message  message to send                                                     [array] [default: []]
+  message  要发送的消息                                                        [array] [default: []]
 
 Options:
-  -h, --help         show help                                                             [boolean]
-  -v, --version      show version number                                                   [boolean]
-      --print-logs   print logs to stderr                                                  [boolean]
-      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure         run without external plugins                                          [boolean]
-      --command      the command to run, use message for args                               [string]
-  -c, --continue     continue the last session                                             [boolean]
-  -s, --session      session id to continue                                                 [string]
-      --fork         fork the session before continuing (requires --continue or --session) [boolean]
-      --share        share the session                                                     [boolean]
-  -m, --model        model to use in the format of provider/model                           [string]
-      --agent        agent to use                                                           [string]
-      --format       format: default (formatted) or json (raw JSON events)
+  -h, --help         显示帮助                                                              [boolean]
+  -v, --version      显示版本号                                                            [boolean]
+      --print-logs   将日志输出到标准错误                                                  [boolean]
+      --log-level    日志级别                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         不加载外部插件运行                                                    [boolean]
+      --command      要运行的命令，将 message 用作参数                                      [string]
+  -c, --continue     继续上一个会话                                                        [boolean]
+  -s, --session      要继续的会话 ID                                                        [string]
+      --fork         继续时分叉会话                                                        [boolean]
+      --share        分享会话                                                              [boolean]
+  -m, --model        要使用的模型，格式为 provider/model                                    [string]
+      --agent        要使用的代理                                                           [string]
+      --format       格式：default（格式化）或 json（原始 JSON 事件）
                                           [string] [choices: "default", "json"] [default: "default"]
-  -f, --file         file(s) to attach to message                                            [array]
-      --title        title for the session (uses truncated prompt if no value provided)     [string]
-      --attach       attach to a running miaopanCode server (e.g., http://localhost:4096)   [string]
-  -p, --password     basic auth password (defaults to MIAOPAN_CODE_SERVER_PASSWORD)         [string]
-  -u, --username     basic auth username (defaults to MIAOPAN_CODE_SERVER_USERNAME or
-                     'miaopan-code')                                                        [string]
-      --dir          directory to run in, path on remote server if attaching                [string]
-      --port         port for the local server (defaults to random port if no value provided)
-                                                                                            [number]
-      --variant      model variant (provider-specific reasoning effort, e.g., high, max, minimal)
-                                                                                            [string]
-      --thinking     show thinking blocks                                                  [boolean]
-  -i, --interactive  run in direct interactive split-footer mode          [boolean] [default: false]
-      --auto         auto-approve permissions that are not explicitly denied (dangerous!)
-                                                                          [boolean] [default: false]
+  -f, --file         要附加到消息的文件                                                      [array]
+      --title        会话标题（未提供时使用截断后的提示）                                   [string]
+      --attach       连接正在运行的 miaopanCode 服务器（例如 http://localhost:4096）        [string]
+  -p, --password     基本身份验证密码                                                       [string]
+  -u, --username     基本身份验证用户名                                                     [string]
+      --dir          运行目录；连接远程服务器时为远程路径                                   [string]
+      --port         本地服务器端口（未提供时使用随机端口）                                 [number]
+      --variant      模型变体（提供商特定的推理强度，例如 high、max、minimal）              [string]
+      --thinking     显示思考块                                                            [boolean]
+  -i, --interactive  以直接交互式分栏底栏模式运行                         [boolean] [default: false]
+      --auto         自动批准未明确拒绝的权限（危险！）                   [boolean] [default: false]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode debug --help 1`] = `
 "miaopan-code debug
 
-debugging and troubleshooting tools
+调试工具
 
 Commands:
-  miaopan-code debug config        show resolved configuration
-  miaopan-code debug lsp           LSP debugging utilities
-  miaopan-code debug rg            ripgrep debugging utilities
-  miaopan-code debug file          file system debugging utilities
-  miaopan-code debug scrap         list all known projects
-  miaopan-code debug skill         list all available skills
-  miaopan-code debug snapshot      snapshot debugging utilities
-  miaopan-code debug startup       print startup timing
-  miaopan-code debug agent <name>  show agent configuration details
-  miaopan-code debug v2            debug v2 catalog and built-in plugins
-  miaopan-code debug info          show debug information
-  miaopan-code debug paths         show global paths (data, config, cache, state)
-  miaopan-code debug wait          wait indefinitely (for debugging)
+  miaopan-code debug config        显示解析后的配置
+  miaopan-code debug lsp           LSP 调试工具
+  miaopan-code debug rg            调试工具
+  miaopan-code debug file          调试工具
+  miaopan-code debug scrap         列出文件
+  miaopan-code debug skill         列出文件
+  miaopan-code debug snapshot      快照调试工具
+  miaopan-code debug startup       显示调试信息
+  miaopan-code debug agent <name>  显示调试信息
+  miaopan-code debug v2            调试工具
+  miaopan-code debug info          显示调试信息
+  miaopan-code debug paths         显示全局路径（数据、配置、缓存、状态）
+  miaopan-code debug wait          无限等待（用于调试）
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers --help 1`] = `
 "miaopan-code providers
 
-manage AI providers and credentials
+管理 AI 提供商和凭据
 
 Commands:
-  miaopan-code providers list               list providers and credentials             [aliases: ls]
-  miaopan-code providers login [url]        log in to a provider
-  miaopan-code providers logout [provider]  log out from a configured provider
+  miaopan-code providers list               列出提供商和凭据                           [aliases: ls]
+  miaopan-code providers login [url]        登录提供商
+  miaopan-code providers logout [provider]  退出已配置的提供商
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode agent --help 1`] = `
 "miaopan-code agent
 
-manage agents
+管理代理
 
 Commands:
-  miaopan-code agent create  create a new agent
-  miaopan-code agent list    list all available agents
+  miaopan-code agent create  创建新代理
+  miaopan-code agent list    列出所有可用代理
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode upgrade --help 1`] = `
 "miaopan-code upgrade [target]
 
-upgrade miaopanCode to the latest or a specific version
+将 miaopanCode 升级到最新版本或指定版本
 
 Positionals:
-  target  version to upgrade to, for ex '0.1.48' or 'v0.1.48'                               [string]
+  target  要升级到的版本，例如“0.1.48”或“v0.1.48”                                           [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-  -m, --method      installation method to use
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+  -m, --method      要使用的安装方式
                                   [string] [choices: "curl", "npm", "pnpm", "bun", "choco", "scoop"]
 "
 `;
@@ -199,438 +193,436 @@ Options:
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode uninstall --help 1`] = `
 "miaopan-code uninstall
 
-uninstall miaopanCode and remove all related files
+卸载 miaopanCode 并移除所有相关文件
 
 Options:
-  -h, --help         show help                                                             [boolean]
-  -v, --version      show version number                                                   [boolean]
-      --print-logs   print logs to stderr                                                  [boolean]
-      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure         run without external plugins                                          [boolean]
-  -c, --keep-config  keep configuration files                             [boolean] [default: false]
-  -d, --keep-data    keep session data and snapshots                      [boolean] [default: false]
-      --dry-run      show what would be removed without removing          [boolean] [default: false]
-  -f, --force        skip confirmation prompts                            [boolean] [default: false]
+  -h, --help         显示帮助                                                              [boolean]
+  -v, --version      显示版本号                                                            [boolean]
+      --print-logs   将日志输出到标准错误                                                  [boolean]
+      --log-level    日志级别                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         不加载外部插件运行                                                    [boolean]
+  -c, --keep-config  保留配置文件                                         [boolean] [default: false]
+  -d, --keep-data    保留会话数据和快照                                   [boolean] [default: false]
+      --dry-run      仅显示将要移除的内容，不实际移除                     [boolean] [default: false]
+  -f, --force        跳过确认提示                                         [boolean] [default: false]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode serve --help 1`] = `
 "miaopan-code serve
 
-starts a headless miaopanCode server
+启动无头 miaopanCode 服务器
 
 Options:
-  -h, --help         show help                                                             [boolean]
-  -v, --version      show version number                                                   [boolean]
-      --print-logs   print logs to stderr                                                  [boolean]
-      --log-level    log level                  [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure         run without external plugins                                          [boolean]
-      --port         port to listen on                                         [number] [default: 0]
-      --hostname     hostname to listen on                           [string] [default: "127.0.0.1"]
-      --mdns         enable mDNS service discovery (defaults hostname to 0.0.0.0)
-                                                                          [boolean] [default: false]
-      --mdns-domain  custom domain name for mDNS service (default: miaopanCode.local)
+  -h, --help         显示帮助                                                              [boolean]
+  -v, --version      显示版本号                                                            [boolean]
+      --print-logs   将日志输出到标准错误                                                  [boolean]
+      --log-level    日志级别                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure         不加载外部插件运行                                                    [boolean]
+      --port         监听端口                                                  [number] [default: 0]
+      --hostname     监听主机名                                      [string] [default: "127.0.0.1"]
+      --mdns         启用 mDNS 服务发现                                   [boolean] [default: false]
+      --mdns-domain  mDNS 自定义域名（默认：miaopanCode.local）
                                                              [string] [default: "miaopanCode.local"]
-      --cors         additional domains to allow for CORS                      [array] [default: []]
+      --cors         允许用于 CORS 的附加域名                                  [array] [default: []]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode models --help 1`] = `
 "miaopan-code models [provider]
 
-list all available models
+列出所有可用模型
 
 Positionals:
-  provider  provider ID to filter models by                                                 [string]
+  provider  按提供商 ID 筛选模型                                                            [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-      --verbose     use more verbose model output (includes metadata like costs)           [boolean]
-      --refresh     refresh the models cache from models.dev                               [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+      --verbose     使用更详细的模型输出（包含费用等元数据）                               [boolean]
+      --refresh     从 models.dev 刷新模型缓存                                             [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode stats --help 1`] = `
 "miaopan-code stats
 
-show token usage and cost statistics
+显示令牌使用量和费用统计
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-      --days        show stats for the last N days (default: all time)                      [number]
-      --tools       number of tools to show (default: all)                                  [number]
-      --models      show model statistics (default: hidden). Pass a number to show top N, otherwise
-                    shows all
-      --project     filter by project (default: all projects, empty string: current project)[string]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+      --days        显示最近 N 天的统计（默认：全部时间）                                   [number]
+      --tools       要显示的工具数量（默认：全部）                                          [number]
+      --models      显示模型统计（默认隐藏）。传入数字显示前 N 个，否则显示全部
+      --project     按项目筛选（默认：所有项目；空字符串：当前项目）                        [string]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode export --help 1`] = `
 "miaopan-code export [sessionID]
 
-export session data as JSON
+将会话数据导出为 JSON
 
 Positionals:
-  sessionID  session id to export                                                           [string]
+  sessionID  要导出的会话 ID                                                                [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-      --sanitize    redact sensitive transcript and file data                              [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+      --sanitize    隐藏敏感的会话记录和文件数据                                           [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode import --help 1`] = `
 "miaopan-code import <file>
 
-import session data from JSON file or URL
+从 JSON 文件或 URL 导入会话数据
 
 Positionals:
-  file  path to JSON file or share URL                                           [string] [required]
+  file  JSON 文件路径或分享 URL                                                  [string] [required]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode github --help 1`] = `
 "miaopan-code github
 
-manage GitHub agent
+管理 GitHub 代理
 
 Commands:
-  miaopan-code github install  install the GitHub agent
-  miaopan-code github run      run the GitHub agent
+  miaopan-code github install  安装 GitHub 代理
+  miaopan-code github run      运行 GitHub 代理
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode pr --help 1`] = `
 "miaopan-code pr <number>
 
-fetch and checkout a GitHub PR branch, then run miaopanCode
+获取并检出 GitHub PR 分支，然后运行 miaopanCode
 
 Positionals:
-  number  PR number to checkout                                                  [number] [required]
+  number  要检出的 PR 编号                                                       [number] [required]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode session --help 1`] = `
 "miaopan-code session
 
-manage sessions
+管理会话
 
 Commands:
-  miaopan-code session list                list sessions
-  miaopan-code session delete <sessionID>  delete a session
+  miaopan-code session list                列出会话
+  miaopan-code session delete <sessionID>  删除会话
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode plugin --help 1`] = `
 "miaopan-code plugin <module>
 
-install plugin and update config
+安装插件并更新配置
 
 Positionals:
-  module  npm module name                                                        [string] [required]
+  module  npm 模块名称                                                           [string] [required]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-  -g, --global      install in global config                              [boolean] [default: false]
-  -f, --force       replace existing plugin version                       [boolean] [default: false]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+  -g, --global      安装到全局配置                                        [boolean] [default: false]
+  -f, --force       替换现有插件版本                                      [boolean] [default: false]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode db --help 1`] = `
 "miaopan-code db
 
-database tools
+数据库工具
 
 Commands:
-  miaopan-code db [query]     open an interactive sqlite3 shell or run a query             [default]
-  miaopan-code db path        print the database path
+  miaopan-code db [query]     打开交互式 sqlite3 shell 或运行查询                          [default]
+  miaopan-code db path        打印数据库路径
 
 Positionals:
-  query  SQL query to execute                                                               [string]
+  query  要执行的 SQL 查询                                                                  [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-      --format      Output format                 [string] [choices: "json", "tsv"] [default: "tsv"]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+      --format      输出格式                      [string] [choices: "json", "tsv"] [default: "tsv"]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp list --help 1`] = `
 "miaopan-code mcp list
 
-list MCP servers and their status
+列出 MCP 服务器及其状态
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp add --help 1`] = `
 "miaopan-code mcp add [name]
 
-add an MCP server
+添加 MCP 服务器
 
 Positionals:
-  name  name of the MCP server                                                              [string]
+  name  MCP 服务器名称                                                                      [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-      --url         URL for a remote MCP server                                             [string]
-      --env         environment variable for a local MCP server (KEY=VALUE)                  [array]
-      --header      HTTP header for a remote MCP server (KEY=VALUE)                          [array]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+      --url         远程 MCP 服务器 URL                                                     [string]
+      --env         本地 MCP 服务器的环境变量（KEY=VALUE）                                   [array]
+      --header      远程 MCP 服务器的 HTTP 标头（KEY=VALUE）                                 [array]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp auth --help 1`] = `
 "miaopan-code mcp auth [name]
 
-authenticate with an OAuth-enabled MCP server
+向启用 OAuth 的 MCP 服务器进行身份验证
 
 Commands:
-  miaopan-code mcp auth list  list OAuth-capable MCP servers and their auth status     [aliases: ls]
+  miaopan-code mcp auth list  列出支持 OAuth 的 MCP 服务器及其授权状态                 [aliases: ls]
 
 Positionals:
-  name  name of the MCP server                                                              [string]
+  name  MCP 服务器名称                                                                      [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode mcp logout --help 1`] = `
 "miaopan-code mcp logout [name]
 
-remove OAuth credentials for an MCP server
+移除 MCP 服务器的 OAuth 凭据
 
 Positionals:
-  name  name of the MCP server                                                              [string]
+  name  MCP 服务器名称                                                                      [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers list --help 1`] = `
 "miaopan-code providers list
 
-list providers and credentials
+列出提供商和凭据
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers login --help 1`] = `
 "miaopan-code providers login [url]
 
-log in to a provider
+登录提供商
 
 Positionals:
-  url  miaopanCode auth provider                                                            [string]
+  url  miaopanCode 授权提供商                                                               [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-  -p, --provider    provider id or name to log in to (skips provider selection)             [string]
-  -m, --method      login method label (skips method selection)                             [string]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+  -p, --provider    要登录的提供商 ID 或名称（跳过提供商选择）                              [string]
+  -m, --method      登录方式标签（跳过方式选择）                                            [string]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode providers logout --help 1`] = `
 "miaopan-code providers logout [provider]
 
-log out from a configured provider
+退出已配置的提供商
 
 Positionals:
-  provider  provider id or name to log out from                                             [string]
+  provider  要退出的提供商 ID 或名称                                                        [string]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode agent create --help 1`] = `
 "miaopan-code agent create
 
-create a new agent
+创建新代理
 
 Options:
-  -h, --help                  show help                                                    [boolean]
-  -v, --version               show version number                                          [boolean]
-      --print-logs            print logs to stderr                                         [boolean]
-      --log-level             log level         [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure                  run without external plugins                                 [boolean]
-      --path                  directory path to generate the agent file                     [string]
-      --description           what the agent should do                                      [string]
-      --mode                  agent mode            [string] [choices: "all", "primary", "subagent"]
-      --permissions, --tools  comma-separated list of permissions to allow (default: all).
-                              Available: "bash, read, edit, glob, grep, webfetch, task, todowrite,
-                              websearch, lsp, skill"                                        [string]
-  -m, --model                 model to use in the format of provider/model                  [string]
+  -h, --help                  显示帮助                                                     [boolean]
+  -v, --version               显示版本号                                                   [boolean]
+      --print-logs            将日志输出到标准错误                                         [boolean]
+      --log-level             日志级别          [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure                  不加载外部插件运行                                           [boolean]
+      --path                  生成代理文件的目录路径                                        [string]
+      --description           代理应执行的任务                                              [string]
+      --mode                  代理模式              [string] [choices: "all", "primary", "subagent"]
+      --permissions, --tools  要允许的权限列表，以逗号分隔（默认：全部）。可用权限：“bash, read,
+                              edit, glob, grep, webfetch, task, todowrite, websearch, lsp, skill”
+                                                                                            [string]
+  -m, --model                 要使用的模型，格式为 provider/model                           [string]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode agent list --help 1`] = `
 "miaopan-code agent list
 
-list all available agents
+列出所有可用代理
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode session list --help 1`] = `
 "miaopan-code session list
 
-list sessions
+列出会话
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-  -n, --max-count   limit to N most recent sessions                                         [number]
-      --format      output format             [string] [choices: "table", "json"] [default: "table"]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+  -n, --max-count   最多显示最近 N 个会话                                                   [number]
+      --format      输出格式                  [string] [choices: "table", "json"] [default: "table"]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode session delete --help 1`] = `
 "miaopan-code session delete <sessionID>
 
-delete a session
+删除会话
 
 Positionals:
-  sessionID  session ID to delete                                                [string] [required]
+  sessionID  要删除的会话 ID                                                     [string] [required]
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode github install --help 1`] = `
 "miaopan-code github install
 
-install the GitHub agent
+安装 GitHub 代理
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode github run --help 1`] = `
 "miaopan-code github run
 
-run the GitHub agent
+运行 GitHub 代理
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
-      --event       GitHub mock event to run the agent for                                  [string]
-      --token       GitHub personal access token (github_pat_********)                      [string]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
+      --event       用于运行代理的 GitHub 模拟事件                                          [string]
+      --token       GitHub 个人访问令牌（github_pat_********）                              [string]
 "
 `;
 
 exports[`miaopanCode CLI help-text snapshots every documented command emits stable help text: miaopanCode db path --help 1`] = `
 "miaopan-code db path
 
-print the database path
+打印数据库路径
 
 Options:
-  -h, --help        show help                                                              [boolean]
-  -v, --version     show version number                                                    [boolean]
-      --print-logs  print logs to stderr                                                   [boolean]
-      --log-level   log level                   [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
-      --pure        run without external plugins                                           [boolean]
+  -h, --help        显示帮助                                                               [boolean]
+  -v, --version     显示版本号                                                             [boolean]
+      --print-logs  将日志输出到标准错误                                                   [boolean]
+      --log-level   日志级别                    [string] [choices: "DEBUG", "INFO", "WARN", "ERROR"]
+      --pure        不加载外部插件运行                                                     [boolean]
 "
 `;

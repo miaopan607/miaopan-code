@@ -4,6 +4,7 @@ import { useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createSignal, type Accessor } from "solid-js"
 import { transparent, type RunFooterTheme } from "./theme"
 import * as Locale from "@/util/locale"
+import { UI } from "../../ui"
 
 export const FOOTER_MENU_ROWS = 8
 
@@ -249,7 +250,7 @@ export function RunFooterMenu(props: {
             backgroundColor={props.background ? props.theme().shade : transparent}
           >
             <text fg={props.theme().muted} wrapMode="none" truncate>
-              {props.empty ?? "No matching items"}
+              {props.empty ?? UI.t("cli.run.no_matching_items")}
             </text>
           </box>
         </box>

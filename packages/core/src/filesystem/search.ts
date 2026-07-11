@@ -6,6 +6,7 @@ import { Context, Effect, Layer, Scope } from "effect"
 import { Fff } from "#fff"
 import fuzzysort from "fuzzysort"
 import { FileSystem } from "../filesystem"
+import { zh } from "../i18n"
 import { FSUtil } from "../fs-util"
 import { Location } from "../location"
 import { Ripgrep } from "../ripgrep"
@@ -131,10 +132,12 @@ export const fffLayer = Layer.effect(
         }),
       catch: (cause) => cause,
     }).pipe(
-      Effect.catch((error) => Effect.logWarning("failed to initialize fff", { error }).pipe(Effect.as(undefined))),
+      Effect.catch((error) =>
+        Effect.logWarning(zh("log.filesystem_search_init_failed"), { error }).pipe(Effect.as(undefined)),
+      ),
     )
     if (!result?.ok) {
-      if (result) yield* Effect.logWarning("failed to initialize fff", { error: result.error })
+      if (result) yield* Effect.logWarning(zh("log.filesystem_search_init_failed"), { error: result.error })
       return Service.of({
         find: () => Effect.succeed([]),
         glob: () => Effect.succeed([]),
@@ -230,7 +233,9 @@ export const fffLayer = Layer.effect(
   }),
 )
 
-const layer = Layer.unwrap(Effect.sync(() => (Flag.MIAOPAN_CODE_DISABLE_FFF || !Fff.available() ? ripgrepLayer : fffLayer)))
+const layer = Layer.unwrap(
+  Effect.sync(() => (Flag.MIAOPAN_CODE_DISABLE_FFF || !Fff.available() ? ripgrepLayer : fffLayer)),
+)
 
 export const locationLayer = layer
 

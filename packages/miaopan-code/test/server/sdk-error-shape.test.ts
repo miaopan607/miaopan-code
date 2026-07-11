@@ -12,6 +12,7 @@ import { createMiaopanCodeClient } from "@miaopan-code/sdk/v2"
 import { Server } from "../../src/server/server"
 import { disposeAllInstances, tmpdir } from "../fixture/fixture"
 import { resetDatabase } from "../fixture/db"
+import { I18n } from "@miaopan-code/core/i18n"
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -41,11 +42,11 @@ describe("v2 SDK error shape", () => {
     expect(caught).toBeInstanceOf(Error)
     const err = caught as Error
     const cause = err.cause as { body?: any; status?: number }
-    expect(err.message).toContain("Session not found")
+    expect(err.message).toContain(I18n.t(undefined, "session.not_found", { sessionID: "ses_no_such" }))
     expect(cause.status).toBe(404)
     expect(cause.body).toMatchObject({
       name: "NotFoundError",
-      data: { message: expect.stringContaining("Session not found") },
+      data: { message: I18n.t(undefined, "session.not_found", { sessionID: "ses_no_such" }) },
     })
   })
 

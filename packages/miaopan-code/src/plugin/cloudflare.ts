@@ -1,13 +1,19 @@
 import type { Hooks, PluginInput } from "@miaopan-code/plugin"
+import { t } from "@miaopan-code/core/i18n"
+import { pluginLanguage } from "./language"
 
-export async function CloudflareWorkersAuthPlugin(_input: PluginInput): Promise<Hooks> {
+export async function CloudflareWorkersAuthPlugin(
+  _input: PluginInput,
+  options?: Record<string, unknown>,
+): Promise<Hooks> {
+  const language = pluginLanguage(options)
   const prompts = !process.env.CLOUDFLARE_ACCOUNT_ID
     ? [
         {
           type: "text" as const,
           key: "accountId",
-          message: "Enter your Cloudflare Account ID",
-          placeholder: "e.g. 1234567890abcdef1234567890abcdef",
+          message: t(language, "plugin.cloudflare.account_id"),
+          placeholder: t(language, "plugin.example.cloudflare_account"),
         },
       ]
     : []
@@ -18,7 +24,7 @@ export async function CloudflareWorkersAuthPlugin(_input: PluginInput): Promise<
       methods: [
         {
           type: "api",
-          label: "API key",
+          label: t(language, "plugin.api_key"),
           prompts,
         },
       ],
@@ -26,15 +32,19 @@ export async function CloudflareWorkersAuthPlugin(_input: PluginInput): Promise<
   }
 }
 
-export async function CloudflareAIGatewayAuthPlugin(_input: PluginInput): Promise<Hooks> {
+export async function CloudflareAIGatewayAuthPlugin(
+  _input: PluginInput,
+  options?: Record<string, unknown>,
+): Promise<Hooks> {
+  const language = pluginLanguage(options)
   const prompts = [
     ...(!process.env.CLOUDFLARE_ACCOUNT_ID
       ? [
           {
             type: "text" as const,
             key: "accountId",
-            message: "Enter your Cloudflare Account ID",
-            placeholder: "e.g. 1234567890abcdef1234567890abcdef",
+            message: t(language, "plugin.cloudflare.account_id"),
+            placeholder: t(language, "plugin.example.cloudflare_account"),
           },
         ]
       : []),
@@ -43,8 +53,8 @@ export async function CloudflareAIGatewayAuthPlugin(_input: PluginInput): Promis
           {
             type: "text" as const,
             key: "gatewayId",
-            message: "Enter your Cloudflare AI Gateway ID",
-            placeholder: "e.g. my-gateway",
+            message: t(language, "plugin.cloudflare.gateway_id"),
+            placeholder: t(language, "plugin.example.cloudflare_gateway"),
           },
         ]
       : []),
@@ -56,7 +66,7 @@ export async function CloudflareAIGatewayAuthPlugin(_input: PluginInput): Promis
       methods: [
         {
           type: "api",
-          label: "Gateway API token",
+          label: t(language, "plugin.cloudflare.gateway_token"),
           prompts,
         },
       ],

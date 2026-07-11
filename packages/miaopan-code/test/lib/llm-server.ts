@@ -606,7 +606,8 @@ function hit(url: string, body: unknown) {
 
 function isTitleRequest(body: unknown): boolean {
   if (!body || typeof body !== "object") return false
-  return JSON.stringify(body).includes("Generate a title for this conversation")
+  const serialized = JSON.stringify(body)
+  return serialized.includes("Generate a title for this conversation") || serialized.includes("为此对话生成标题")
 }
 
 namespace TestLLMServer {

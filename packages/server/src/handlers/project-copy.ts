@@ -5,6 +5,8 @@ import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { ProjectCopyError } from "@miaopan-code/protocol/groups/project-copy"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { requestLanguage } from "../i18n"
 
 export const ProjectCopyHandler = HttpApiBuilder.group(Api, "server.projectCopy", (handlers) =>
   Effect.succeed(
@@ -40,29 +42,33 @@ export const ProjectCopyHandler = HttpApiBuilder.group(Api, "server.projectCopy"
 )
 
 function badRequest<A, R>(effect: Effect.Effect<A, ProjectCopy.Error, R>) {
-  return effect.pipe(
-    Effect.mapError(
-      (error) =>
-        new ProjectCopyError({
-          name: "ProjectCopyError",
-          data: {
-            message: message(error),
-            forceRequired: error instanceof Git.WorktreeError ? error.forceRequired : undefined,
-          },
-        }),
-    ),
-  )
+  return Effect.gen(function* () {
+    const language = yield* requestLanguage()
+    return yield* effect.pipe(
+      Effect.mapError(
+        (error) =>
+          new ProjectCopyError({
+            name: "ProjectCopyError",
+            data: {
+              message: message(error, language),
+              forceRequired: error instanceof Git.WorktreeError ? error.forceRequired : undefined,
+            },
+          }),
+      ),
+    )
+  })
 }
 
-function message(error: ProjectCopy.Error) {
+function message(error: ProjectCopy.Error, language: Language) {
   if (error instanceof ProjectCopy.SourceDirectoryNotFoundError)
-    return `Project copy source not found: ${error.directory}`
+    return t(language, "error.project_copy_source_not_found", { directory: error.directory })
   if (error instanceof ProjectCopy.DestinationExistsError)
-    return `Project copy destination already exists: ${error.directory}`
+    return t(language, "error.project_copy_destination_exists", { directory: error.directory })
   if (error instanceof ProjectCopy.DirectoryUnavailableError)
-    return `Project copy directory unavailable: ${error.directory}`
-  if (error instanceof ProjectCopy.InvalidDirectoryError) return `Invalid project copy directory: ${error.directory}`
+    return t(language, "error.project_copy_directory_unavailable", { directory: error.directory })
+  if (error instanceof ProjectCopy.InvalidDirectoryError)
+    return t(language, "error.project_copy_invalid_directory", { directory: error.directory })
   if (error instanceof ProjectCopy.StrategyUnavailableError)
-    return `Project copy strategy unavailable: ${error.strategy}`
+    return t(language, "error.project_copy_strategy_unavailable", { strategy: error.strategy })
   return error.message
 }

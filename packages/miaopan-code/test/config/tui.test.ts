@@ -3,6 +3,7 @@ import path from "path"
 import { pathToFileURL } from "url"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import { t } from "@miaopan-code/core/i18n"
 import { Effect, Layer } from "effect"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { Global } from "@miaopan-code/core/global"
@@ -88,7 +89,7 @@ it.instance("keeps server and tui plugin merge semantics aligned", () =>
     Effect.gen(function* () {
       const fs = yield* FSUtil.Service
       const test = yield* TestInstance
-      const local = path.join(test.directory, ".miaopanCode")
+      const local = path.join(test.directory, ".miaopan-code")
       yield* fs.makeDirectory(local, { recursive: true })
 
       yield* fs.writeJson(path.join(Global.Path.config, "miaopan-code.json"), {
@@ -130,7 +131,7 @@ it.instance("loads tui config with the same precedence order as server config pa
       yield* fs.writeJson(path.join(Global.Path.config, "tui.json"), { theme: "global" })
       yield* fs.writeJson(path.join(test.directory, "tui.json"), { theme: "project" })
       yield* fs.writeWithDirs(
-        path.join(test.directory, ".miaopanCode", "tui.json"),
+        path.join(test.directory, ".miaopan-code", "tui.json"),
         JSON.stringify({ theme: "local", diff_style: "stacked" }, null, 2),
       )
 
@@ -501,7 +502,7 @@ it.instance("resolves keybind lookup from canonical keybinds", () =>
       expect(config.keybinds.get("which-key.pending.toggle")?.[0]?.key).toBe("ctrl+alt+shift+p")
       expect(config.keybinds.get("which-key.group.next")?.[0]?.key).toBe("ctrl+alt+right,ctrl+alt+]")
       expect((config.keybinds.get("which-key.toggle")?.[0] as { desc?: unknown } | undefined)?.desc).toBe(
-        "Toggle which-key panel",
+        t("zh-CN", "keybind.which_key_toggle"),
       )
       expect(config.keybinds.get("prompt.editor")?.[0]?.key).toBe("ctrl+e")
       expect(config.keybinds.get("prompt.autocomplete.next")?.[0]?.key).toBe("ctrl+j")
@@ -532,7 +533,12 @@ it.instance("keybinds accept OpenTUI binding specs", () =>
 
       const config = yield* getTuiConfig(test.directory)
       expect(config.keybinds.get("command.palette.show")).toEqual([
-        { key: "alt+p", cmd: "command.palette.show", preventDefault: false, desc: "List available commands" },
+        {
+          key: "alt+p",
+          cmd: "command.palette.show",
+          preventDefault: false,
+          desc: t("zh-CN", "keybind.command_list"),
+        },
       ])
       expect(config.keybinds.get("prompt.editor")?.[0]).toMatchObject({
         key: { name: "e", ctrl: true },
@@ -723,13 +729,13 @@ it.instance("applies file substitutions when first identical token is in a comme
   ),
 )
 
-it.instance("loads .miaopanCode/tui.json", () =>
+it.instance("loads .miaopan-code/tui.json", () =>
   withCleanState(
     Effect.gen(function* () {
       const fs = yield* FSUtil.Service
       const test = yield* TestInstance
       yield* fs.writeWithDirs(
-        path.join(test.directory, ".miaopanCode", "tui.json"),
+        path.join(test.directory, ".miaopan-code", "tui.json"),
         JSON.stringify({ diff_style: "stacked" }, null, 2),
       )
 
@@ -860,7 +866,7 @@ it.instance("silently skips malformed tui.json - load failures degrade to {}", (
       const fs = yield* FSUtil.Service
       const test = yield* TestInstance
       yield* fs.writeFileString(path.join(test.directory, "tui.json"), '{ "theme": "broken",')
-      yield* fs.writeWithDirs(path.join(test.directory, ".miaopanCode", "tui.json"), JSON.stringify({ theme: "fallback" }))
+      yield* fs.writeWithDirs(path.join(test.directory, ".miaopan-code", "tui.json"), JSON.stringify({ theme: "fallback" }))
 
       const config = yield* getTuiConfig(test.directory)
       expect(config.theme).toBe("fallback")
@@ -874,7 +880,7 @@ it.instance("silently skips non-ENOENT read failures (e.g. tui.json is a directo
       const fs = yield* FSUtil.Service
       const test = yield* TestInstance
       yield* fs.makeDirectory(path.join(test.directory, "tui.json"), { recursive: true })
-      yield* fs.writeWithDirs(path.join(test.directory, ".miaopanCode", "tui.json"), JSON.stringify({ theme: "fallback" }))
+      yield* fs.writeWithDirs(path.join(test.directory, ".miaopan-code", "tui.json"), JSON.stringify({ theme: "fallback" }))
 
       const config = yield* getTuiConfig(test.directory)
       expect(config.theme).toBe("fallback")

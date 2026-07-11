@@ -1,4 +1,5 @@
 import type { SessionConfigOption } from "@agentclientprotocol/sdk"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export const DEFAULT_VARIANT_VALUE = "default"
 
@@ -33,10 +34,11 @@ export function buildModelSelectOption(input: {
   currentModel: ModelSelection["model"]
   currentVariant?: string
   includeVariants?: boolean
+  language?: Language
 }): SessionConfigOption {
   return {
     id: "model",
-    name: "Model",
+    name: t(input.language, "acp.config_model_name"),
     category: "model",
     type: "select",
     currentValue: formatCurrentModelId({
@@ -52,13 +54,14 @@ export function buildModelSelectOption(input: {
 export function buildEffortSelectOption(input: {
   variants: readonly string[]
   currentVariant?: string
+  language?: Language
 }): SessionConfigOption | undefined {
   if (input.variants.length === 0) return undefined
 
   return {
     id: "effort",
-    name: "Effort",
-    description: "Available effort levels for this model",
+    name: t(input.language, "acp.config_effort_name"),
+    description: t(input.language, "config.model_effort"),
     category: "thought_level",
     type: "select",
     currentValue: selectVariant(input.currentVariant, input.variants),
@@ -72,10 +75,11 @@ export function buildEffortSelectOption(input: {
 export function buildModeSelectOption(input: {
   modes: readonly ConfigOptionMode[]
   currentModeId: string
+  language?: Language
 }): SessionConfigOption {
   return {
     id: "mode",
-    name: "Session Mode",
+    name: t(input.language, "acp.config_mode_name"),
     category: "mode",
     type: "select",
     currentValue: input.currentModeId,
@@ -94,9 +98,10 @@ export function buildConfigOptions(input: {
   includeModelVariants?: boolean
   modes?: readonly ConfigOptionMode[]
   currentModeId?: string
+  language?: Language
 }): SessionConfigOption[] {
   const variants = variantsForModel(input.providers, input.currentModel)
-  const effort = buildEffortSelectOption({ variants, currentVariant: input.currentVariant })
+  const effort = buildEffortSelectOption({ variants, currentVariant: input.currentVariant, language: input.language })
 
   return [
     buildModelSelectOption({
@@ -104,10 +109,11 @@ export function buildConfigOptions(input: {
       currentModel: input.currentModel,
       currentVariant: input.currentVariant,
       includeVariants: input.includeModelVariants ?? false,
+      language: input.language,
     }),
     ...(effort ? [effort] : []),
     ...(input.modes && input.currentModeId
-      ? [buildModeSelectOption({ modes: input.modes, currentModeId: input.currentModeId })]
+      ? [buildModeSelectOption({ modes: input.modes, currentModeId: input.currentModeId, language: input.language })]
       : []),
   ]
 }

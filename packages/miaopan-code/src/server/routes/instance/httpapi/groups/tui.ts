@@ -7,6 +7,7 @@ import { InstanceContextMiddleware } from "../middleware/instance-context"
 import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
 import { ApiNotFoundError } from "../errors"
 import { described } from "./metadata"
+import { t, type Language } from "../i18n"
 
 const root = "/tui"
 export const CommandPayload = Schema.Struct({ command: Schema.String })
@@ -49,160 +50,163 @@ export const TuiPaths = {
   controlResponse: `${root}/control/response`,
 } as const
 
-export const TuiApi = HttpApi.make("tui")
-  .add(
-    HttpApiGroup.make("tui")
-      .add(
-        HttpApiEndpoint.post("appendPrompt", TuiPaths.appendPrompt, {
-          query: WorkspaceRoutingQuery,
-          payload: TuiEvent.PromptAppend.data,
-          success: described(Schema.Boolean, "Prompt processed successfully"),
-          error: HttpApiError.BadRequest,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.appendPrompt",
-            summary: "Append TUI prompt",
-            description: "Append prompt to the TUI.",
-          }),
-        ),
-        HttpApiEndpoint.post("openHelp", TuiPaths.openHelp, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Help dialog opened successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.openHelp",
-            summary: "Open help dialog",
-            description: "Open the help dialog in the TUI to display user assistance information.",
-          }),
-        ),
-        HttpApiEndpoint.post("openSessions", TuiPaths.openSessions, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Session dialog opened successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.openSessions",
-            summary: "Open sessions dialog",
-            description: "Open the session dialog.",
-          }),
-        ),
-        HttpApiEndpoint.post("openThemes", TuiPaths.openThemes, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Theme dialog opened successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.openThemes",
-            summary: "Open themes dialog",
-            description: "Open the theme dialog.",
-          }),
-        ),
-        HttpApiEndpoint.post("openModels", TuiPaths.openModels, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Model dialog opened successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.openModels",
-            summary: "Open models dialog",
-            description: "Open the model dialog.",
-          }),
-        ),
-        HttpApiEndpoint.post("submitPrompt", TuiPaths.submitPrompt, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Prompt submitted successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.submitPrompt",
-            summary: "Submit TUI prompt",
-            description: "Submit the prompt.",
-          }),
-        ),
-        HttpApiEndpoint.post("clearPrompt", TuiPaths.clearPrompt, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Prompt cleared successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.clearPrompt",
-            summary: "Clear TUI prompt",
-            description: "Clear the prompt.",
-          }),
-        ),
-        HttpApiEndpoint.post("executeCommand", TuiPaths.executeCommand, {
-          query: WorkspaceRoutingQuery,
-          payload: CommandPayload,
-          success: described(Schema.Boolean, "Command executed successfully"),
-          error: HttpApiError.BadRequest,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.executeCommand",
-            summary: "Execute TUI command",
-            description: "Execute a TUI command.",
-          }),
-        ),
-        HttpApiEndpoint.post("showToast", TuiPaths.showToast, {
-          query: WorkspaceRoutingQuery,
-          payload: TuiEvent.ToastShow.data,
-          success: described(Schema.Boolean, "Toast notification shown successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.showToast",
-            summary: "Show TUI toast",
-            description: "Show a toast notification in the TUI.",
-          }),
-        ),
-        HttpApiEndpoint.post("publish", TuiPaths.publish, {
-          query: WorkspaceRoutingQuery,
-          payload: TuiPublishPayload,
-          success: described(Schema.Boolean, "Event published successfully"),
-          error: HttpApiError.BadRequest,
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.publish",
-            summary: "Publish TUI event",
-            description: "Publish a TUI event.",
-          }),
-        ),
-        HttpApiEndpoint.post("selectSession", TuiPaths.selectSession, {
-          query: WorkspaceRoutingQuery,
-          payload: TuiEvent.SessionSelect.data,
-          success: described(Schema.Boolean, "Session selected successfully"),
-          error: [HttpApiError.BadRequest, ApiNotFoundError],
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.selectSession",
-            summary: "Select session",
-            description: "Navigate the TUI to display the specified session.",
-          }),
-        ),
-        HttpApiEndpoint.get("controlNext", TuiPaths.controlNext, {
-          query: WorkspaceRoutingQuery,
-          success: described(TuiRequestPayload, "Next TUI request"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.control.next",
-            summary: "Get next TUI request",
-            description: "Retrieve the next TUI request from the queue for processing.",
-          }),
-        ),
-        HttpApiEndpoint.post("controlResponse", TuiPaths.controlResponse, {
-          query: WorkspaceRoutingQuery,
-          payload: Schema.Unknown,
-          success: described(Schema.Boolean, "Response submitted successfully"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "tui.control.response",
-            summary: "Submit TUI response",
-            description: "Submit a response to the TUI request queue to complete a pending request.",
-          }),
-        ),
-      )
-      .annotateMerge(OpenApi.annotations({ title: "tui", description: "Experimental HttpApi TUI routes." }))
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode experimental HttpApi",
-      version: "0.0.1",
-      description: "Experimental HttpApi surface for selected instance routes.",
-    }),
-  )
+export const makeTuiApi = (language?: Language) =>
+  HttpApi.make("tui")
+    .add(
+      HttpApiGroup.make("tui")
+        .add(
+          HttpApiEndpoint.post("appendPrompt", TuiPaths.appendPrompt, {
+            query: WorkspaceRoutingQuery,
+            payload: TuiEvent.PromptAppend.data,
+            success: described(Schema.Boolean, t(language, "response_prompt_processed")),
+            error: HttpApiError.BadRequest,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.appendPrompt",
+              summary: t(language, "tui_append"),
+              description: t(language, "tui_append_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("openHelp", TuiPaths.openHelp, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_help_dialog_opened")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.openHelp",
+              summary: t(language, "tui_help"),
+              description: t(language, "tui_help"),
+            }),
+          ),
+          HttpApiEndpoint.post("openSessions", TuiPaths.openSessions, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_session_dialog_opened")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.openSessions",
+              summary: t(language, "tui_sessions"),
+              description: t(language, "tui_sessions"),
+            }),
+          ),
+          HttpApiEndpoint.post("openThemes", TuiPaths.openThemes, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_theme_dialog_opened")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.openThemes",
+              summary: t(language, "tui_themes"),
+              description: t(language, "tui_themes"),
+            }),
+          ),
+          HttpApiEndpoint.post("openModels", TuiPaths.openModels, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_model_dialog_opened")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.openModels",
+              summary: t(language, "tui_models"),
+              description: t(language, "tui_models"),
+            }),
+          ),
+          HttpApiEndpoint.post("submitPrompt", TuiPaths.submitPrompt, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_prompt_submitted")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.submitPrompt",
+              summary: t(language, "tui_submit"),
+              description: t(language, "tui_submit"),
+            }),
+          ),
+          HttpApiEndpoint.post("clearPrompt", TuiPaths.clearPrompt, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "response_prompt_cleared")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.clearPrompt",
+              summary: t(language, "tui_clear"),
+              description: t(language, "tui_clear"),
+            }),
+          ),
+          HttpApiEndpoint.post("executeCommand", TuiPaths.executeCommand, {
+            query: WorkspaceRoutingQuery,
+            payload: CommandPayload,
+            success: described(Schema.Boolean, t(language, "response_command_executed")),
+            error: HttpApiError.BadRequest,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.executeCommand",
+              summary: t(language, "tui_execute"),
+              description: t(language, "tui_execute"),
+            }),
+          ),
+          HttpApiEndpoint.post("showToast", TuiPaths.showToast, {
+            query: WorkspaceRoutingQuery,
+            payload: TuiEvent.ToastShow.data,
+            success: described(Schema.Boolean, t(language, "response_toast_shown")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.showToast",
+              summary: t(language, "tui_toast"),
+              description: t(language, "tui_toast"),
+            }),
+          ),
+          HttpApiEndpoint.post("publish", TuiPaths.publish, {
+            query: WorkspaceRoutingQuery,
+            payload: TuiPublishPayload,
+            success: described(Schema.Boolean, t(language, "response_event_published")),
+            error: HttpApiError.BadRequest,
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.publish",
+              summary: t(language, "tui_event"),
+              description: t(language, "tui_event"),
+            }),
+          ),
+          HttpApiEndpoint.post("selectSession", TuiPaths.selectSession, {
+            query: WorkspaceRoutingQuery,
+            payload: TuiEvent.SessionSelect.data,
+            success: described(Schema.Boolean, t(language, "response_session_selected")),
+            error: [HttpApiError.BadRequest, ApiNotFoundError],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.selectSession",
+              summary: t(language, "tui_select_session"),
+              description: t(language, "tui_select_session"),
+            }),
+          ),
+          HttpApiEndpoint.get("controlNext", TuiPaths.controlNext, {
+            query: WorkspaceRoutingQuery,
+            success: described(TuiRequestPayload, t(language, "response_next_tui_request")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.control.next",
+              summary: t(language, "tui_request_next"),
+              description: t(language, "tui_request_next"),
+            }),
+          ),
+          HttpApiEndpoint.post("controlResponse", TuiPaths.controlResponse, {
+            query: WorkspaceRoutingQuery,
+            payload: Schema.Unknown,
+            success: described(Schema.Boolean, t(language, "response_tui_response_submitted")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "tui.control.response",
+              summary: t(language, "tui_response"),
+              description: t(language, "tui_response"),
+            }),
+          ),
+        )
+        .annotateMerge(OpenApi.annotations({ title: "tui", description: t(language, "tui_routes") }))
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "httpapi_title"),
+        version: "0.0.1",
+        description: t(language, "httpapi_title"),
+      }),
+    )
+
+export const TuiApi = makeTuiApi()

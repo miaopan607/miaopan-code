@@ -7,6 +7,7 @@ import { makeGlobalNode } from "./effect/app-node"
 import { AppProcess, collectStream, waitForAbort } from "./process"
 import { NonNegativeInt, PositiveInt, RelativePath } from "./schema"
 import { RipgrepBinary } from "./ripgrep/binary"
+import { t, type Language } from "./i18n"
 
 /**
  * Small core-owned ripgrep execution adapter. It deliberately exposes raw
@@ -49,6 +50,7 @@ export class InvalidPatternError extends Schema.TaggedErrorClass<InvalidPatternE
 }) {}
 
 export interface FindInput {
+  readonly language?: Language
   readonly cwd: string
   readonly pattern: string
   readonly limit: number
@@ -59,6 +61,7 @@ export interface FindInput {
 }
 
 export interface GlobInput {
+  readonly language?: Language
   readonly cwd: string
   readonly pattern: string
   readonly limit: number
@@ -68,6 +71,7 @@ export interface GlobInput {
 }
 
 export interface GrepInput {
+  readonly language?: Language
   readonly cwd: string
   readonly pattern: string
   readonly file?: string
@@ -99,6 +103,7 @@ const layer = Layer.effect(
       readonly cwd: string
       readonly args: string[]
       readonly limit: number
+      readonly language?: Language
       readonly signal?: AbortSignal
       readonly parse: (line: string) => Effect.Effect<A | undefined, Error>
       readonly pattern?: string
@@ -136,17 +141,19 @@ const layer = Layer.effect(
             return yield* new InvalidPatternError({ pattern: input.pattern, message: stderr.trim() })
           }
           if (code !== 0 && code !== 1 && code !== 2) {
-            return yield* failure(stderr.trim() || `ripgrep failed with code ${code}`)
+            return yield* failure(stderr.trim() || t(input.language, "error.ripgrep_failed_code", { code }))
           }
           return { items: code === 1 ? [] : rows, truncated: false, partial: code === 2 }
         }),
       )
-      const abortable = input.signal ? program.pipe(Effect.raceFirst(waitForAbort(input.signal))) : program
+      const abortable = input.signal
+        ? program.pipe(Effect.raceFirst(waitForAbort(input.signal, input.language)))
+        : program
       return abortable.pipe(
         Effect.mapError((cause) =>
           cause instanceof Error || cause instanceof InvalidPatternError
             ? cause
-            : failure("ripgrep execution failed", cause),
+            : failure(t(input.language, "error.ripgrep_execution_failed"), cause),
         ),
       )
     }
@@ -156,6 +163,7 @@ const layer = Layer.effect(
         run<string>({
           cwd: input.cwd,
           limit: input.limit,
+          language: input.language,
           signal: input.signal,
           args: [
             "--no-config",
@@ -188,6 +196,7 @@ const layer = Layer.effect(
         run<Entry>({
           cwd: input.cwd,
           limit: input.limit,
+          language: input.language,
           signal: input.signal,
           args: [
             "--no-config",
@@ -231,10 +240,10 @@ const layer = Layer.effect(
           ],
           parse: (line) =>
             (Buffer.byteLength(line, "utf8") > MAX_RECORD_BYTES
-              ? Effect.fail(failure(`Ripgrep JSON record exceeded ${MAX_RECORD_BYTES} bytes`))
+              ? Effect.fail(failure(t(input.language, "error.ripgrep_record_too_large", { max: MAX_RECORD_BYTES })))
               : Effect.try({
                   try: () => JSON.parse(line) as unknown,
-                  catch: (cause) => failure("Invalid ripgrep JSON output", cause),
+                  catch: (cause) => failure(t(input.language, "error.ripgrep_json_invalid"), cause),
                 })
             ).pipe(
               Effect.flatMap((json) => {
@@ -246,7 +255,7 @@ const layer = Layer.effect(
                     path: { text: match.data.path.text.replace(/^\.[\\/]/, "") },
                     submatches: match.data.submatches.slice(0, MAX_SUBMATCHES),
                   })),
-                  Effect.mapError((cause) => failure("Invalid ripgrep match output", cause)),
+                  Effect.mapError((cause) => failure(t(input.language, "error.ripgrep_match_output_invalid"), cause)),
                 )
               }),
             ),

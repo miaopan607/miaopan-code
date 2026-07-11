@@ -1,5 +1,7 @@
 # Message Shape
 
+Languages: [简体中文索引](../README.md) · English
+
 Problem:
 
 - stored messages need enough data to replay and resume a session later

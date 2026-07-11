@@ -8,6 +8,7 @@ import { Agent } from "../../src/agent/agent"
 import { Truncate } from "@/tool/truncate"
 import { testEffect } from "../lib/effect"
 import { EventV2Bridge } from "../../src/event-v2-bridge"
+import { t } from "@miaopan-code/core/i18n"
 
 const ctx = {
   sessionID: SessionID.make("ses_test-session"),
@@ -64,7 +65,7 @@ describe("tool.question", () => {
       yield* question.reply({ requestID: item.id, answers: [["Red"]] })
 
       const result = yield* Fiber.join(fiber)
-      expect(result.title).toBe("Asked 1 question")
+      expect(result.title).toBe(t("zh-CN", "tool.title.questions", { count: 1 }))
     }),
   )
 

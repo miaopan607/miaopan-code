@@ -4,30 +4,31 @@ import { Ripgrep } from "@miaopan-code/core/ripgrep"
 import { effectCmd } from "../../effect-cmd"
 import { cmd } from "../cmd"
 import { InstanceRef } from "@/effect/instance-ref"
+import { UI } from "@/cli/ui"
 
 export const RipgrepCommand = cmd({
   command: "rg",
-  describe: "ripgrep debugging utilities",
+  describe: UI.t("cli.debug_tools"),
   builder: (yargs) => yargs.command(FilesCommand).command(SearchCommand).demandCommand(),
   async handler() {},
 })
 
 const FilesCommand = effectCmd({
   command: "files",
-  describe: "list files using ripgrep",
+  describe: UI.t("cli.ripgrep_files"),
   builder: (yargs) =>
     yargs
       .option("query", {
         type: "string",
-        description: "Filter files by query",
+        description: UI.t("cli.filter_query"),
       })
       .option("glob", {
         type: "string",
-        description: "Glob pattern to match files",
+        description: UI.t("cli.glob_pattern"),
       })
       .option("limit", {
         type: "number",
-        description: "Limit number of results",
+        description: UI.t("cli.limit_results"),
       }),
   handler: Effect.fn("Cli.debug.rg.files")(function* (args) {
     const ctx = yield* InstanceRef
@@ -46,21 +47,21 @@ const FilesCommand = effectCmd({
 
 const SearchCommand = effectCmd({
   command: "search <pattern>",
-  describe: "search file contents using ripgrep",
+  describe: UI.t("cli.ripgrep_search"),
   builder: (yargs) =>
     yargs
       .positional("pattern", {
         type: "string",
         demandOption: true,
-        description: "Search pattern",
+        description: UI.t("cli.search_pattern"),
       })
       .option("glob", {
         type: "array",
-        description: "File glob patterns",
+        description: UI.t("cli.file_glob_patterns"),
       })
       .option("limit", {
         type: "number",
-        description: "Limit number of results",
+        description: UI.t("cli.limit_results"),
       }),
   handler: Effect.fn("Cli.debug.rg.search")(function* (args) {
     const ctx = yield* InstanceRef

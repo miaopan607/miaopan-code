@@ -1,5 +1,6 @@
 import { toolEntryBody } from "./tool"
 import type { RunEntryBody, StreamCommit } from "./types"
+import { UI } from "../../ui"
 
 export type EntryFlags = {
   startOnNewLine: boolean
@@ -183,7 +184,7 @@ export function entryBody(commit: StreamCommit): RunEntryBody {
     }
 
     if (commit.phase === "final") {
-      return commit.interrupted ? textBody("assistant interrupted") : RUN_ENTRY_NONE
+      return commit.interrupted ? textBody(UI.t("cli.run.assistant_interrupted")) : RUN_ENTRY_NONE
     }
 
     return markdownBody(raw)
@@ -195,7 +196,7 @@ export function entryBody(commit: StreamCommit): RunEntryBody {
     }
 
     if (commit.phase === "final") {
-      return commit.interrupted ? textBody("reasoning interrupted") : RUN_ENTRY_NONE
+      return commit.interrupted ? textBody(UI.t("cli.run.reasoning_interrupted")) : RUN_ENTRY_NONE
     }
 
     return reasoningBody(raw)

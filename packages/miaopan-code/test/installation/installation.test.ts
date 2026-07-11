@@ -143,7 +143,6 @@ describe("installation", () => {
           expect(result).toBe("3.4.5")
         }),
     )
-
   })
 
   describe("upgrade", () => {
@@ -157,7 +156,7 @@ describe("installation", () => {
       ),
     ).effect("returns sanitized typed errors for failed package upgrades", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Installation.use.upgrade("npm", "9.9.9"))
+        const error = yield* Effect.flip(Installation.use.upgrade("npm", "9.9.9", "en"))
         expect(error).toBeInstanceOf(Installation.UpgradeFailedError)
         expect(error.stderr).toBe("Upgrade failed for npm (exit code 1).")
         expect(error.message).toBe(error.stderr)
@@ -177,7 +176,7 @@ describe("installation", () => {
       ),
     ).effect("returns sanitized typed errors when the curl install script fails", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9"))
+        const error = yield* Effect.flip(Installation.use.upgrade("curl", "9.9.9", "en"))
         expect(error).toBeInstanceOf(Installation.UpgradeFailedError)
         expect(error.stderr).toBe("Upgrade failed for curl (exit code 1).")
         expect(error.message).toBe(error.stderr)

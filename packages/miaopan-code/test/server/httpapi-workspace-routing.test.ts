@@ -35,6 +35,7 @@ import { resetDatabase } from "../fixture/db"
 import { workspaceLayerWithRuntimeFlags } from "../fixture/workspace"
 import { tmpdirScoped } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const testStateLayer = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -405,7 +406,7 @@ describe("HttpApi workspace routing middleware", () => {
       const response = yield* HttpClient.get(`/probe?workspace=${workspaceID}`)
 
       expect(response.status).toBe(503)
-      expect(yield* response.text).toBe(`broken sync connection for workspace: ${workspaceID}`)
+      expect(yield* response.text).toBe(t(undefined, "error.workspace_sync_broken", { id: workspaceID }))
     }),
   )
 
@@ -452,7 +453,7 @@ describe("HttpApi workspace routing middleware", () => {
       const response = yield* HttpClient.get(`/probe?workspace=${workspaceID}`)
 
       expect(response.status).toBe(500)
-      expect(yield* response.text).toBe(`Workspace not found: ${workspaceID}`)
+      expect(yield* response.text).toBe(t(undefined, "error.workspace_not_found", { id: workspaceID }))
     }),
   )
 

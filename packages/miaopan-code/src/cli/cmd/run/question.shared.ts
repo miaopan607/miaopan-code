@@ -15,6 +15,7 @@
 // answer" option appears. Selecting it enters editing mode with a text field.
 import type { QuestionInfo, QuestionRequest } from "@miaopan-code/sdk/v2"
 import type { QuestionReject, QuestionReply } from "./types"
+import { UI } from "../../ui"
 
 export type QuestionBodyState = {
   requestID: string
@@ -320,21 +321,21 @@ export function questionReject(request: QuestionRequest): QuestionReject {
 
 export function questionHint(request: QuestionRequest, state: QuestionBodyState): string {
   if (state.submitting) {
-    return "Waiting for question event..."
+    return UI.t("question.waiting_event")
   }
 
   if (questionConfirm(request, state)) {
-    return "enter submit   esc dismiss"
+    return UI.t("question.hint_submit_dismiss")
   }
 
   if (state.editing) {
-    return "enter save   esc cancel"
+    return UI.t("question.hint_save_cancel")
   }
 
   const info = questionInfo(request, state)
   if (questionSingle(request)) {
-    return `↑↓ select   enter ${info?.multiple ? "toggle" : "submit"}   esc dismiss`
+    return UI.t("question.hint_select_submit", { action: info?.multiple ? "toggle" : "submit" })
   }
 
-  return `⇆ tab   ↑↓ select   enter ${info?.multiple ? "toggle" : "confirm"}   esc dismiss`
+  return UI.t("question.hint_tabs", { action: info?.multiple ? "toggle" : "confirm" })
 }

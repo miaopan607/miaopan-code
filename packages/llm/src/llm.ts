@@ -17,6 +17,7 @@ import {
   ToolResultPart,
 } from "./schema"
 import { make as makeTool, toDefinitions, type ToolSchema } from "./tool"
+import { t, type Language } from "./i18n"
 
 export type ModelInput = SchemaModelInput
 
@@ -79,9 +80,10 @@ export const updateRequest = (input: LLMRequest, patch: Partial<RequestInput>) =
 
 const GENERATE_OBJECT_TOOL_NAME = "generate_object"
 
-const GENERATE_OBJECT_TOOL_DESCRIPTION = "Return the structured result by calling this tool."
-
-type GenerateObjectBase = Omit<RequestInput, "tools" | "toolChoice" | "responseFormat">
+type GenerateObjectBase = Omit<RequestInput, "tools" | "toolChoice" | "responseFormat"> & {
+  /** Language used for the synthetic tool description and model-facing errors. Defaults to Simplified Chinese. */
+  readonly language?: Language
+}
 
 export class GenerateObjectResponse<T> {
   constructor(
@@ -111,6 +113,7 @@ const runGenerateObject = Effect.fn("LLM.generateObject")(function* (
   options: GenerateObjectBase,
   tool: ReturnType<typeof makeTool>,
 ) {
+  const { language } = options
   const baseRequest = request(options)
   const generateRequest = LLMRequest.update(baseRequest, {
     tools: toDefinitions({ [GENERATE_OBJECT_TOOL_NAME]: tool }),
@@ -125,7 +128,7 @@ const runGenerateObject = Effect.fn("LLM.generateObject")(function* (
       module: "LLM",
       method: "generateObject",
       reason: new InvalidProviderOutputReason({
-        message: `generateObject: model did not call the forced \`${GENERATE_OBJECT_TOOL_NAME}\` tool`,
+        message: t(language, "llm.generate_object.tool_not_called", { name: GENERATE_OBJECT_TOOL_NAME }),
       }),
     })
   const object = yield* tool._decode(call.input).pipe(
@@ -135,7 +138,7 @@ const runGenerateObject = Effect.fn("LLM.generateObject")(function* (
           module: "LLM",
           method: "generateObject",
           reason: new InvalidProviderOutputReason({
-            message: `generateObject: tool input failed schema decode: ${error.message}`,
+            message: t(language, "llm.generate_object.decode_failed", { error: error.message }),
           }),
         }),
     ),
@@ -167,7 +170,7 @@ export function generateObject(options: GenerateObjectOptions<ToolSchema<any>> |
     return runGenerateObject(
       rest,
       makeTool({
-        description: GENERATE_OBJECT_TOOL_DESCRIPTION,
+        description: t(rest.language, "llm.generate_object.tool_description"),
         parameters: schema,
         success: Schema.Unknown as ToolSchema<unknown>,
         execute: () => Effect.void,
@@ -178,7 +181,7 @@ export function generateObject(options: GenerateObjectOptions<ToolSchema<any>> |
   return runGenerateObject(
     rest,
     makeTool({
-      description: GENERATE_OBJECT_TOOL_DESCRIPTION,
+      description: t(rest.language, "llm.generate_object.tool_description"),
       jsonSchema,
       execute: () => Effect.void,
     }),

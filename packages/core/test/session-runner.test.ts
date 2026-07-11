@@ -53,6 +53,7 @@ import { SystemContextRegistry } from "@miaopan-code/core/system-context/registr
 import { SkillGuidance } from "@miaopan-code/core/skill/guidance"
 import { ReferenceGuidance } from "@miaopan-code/core/reference/guidance"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { t } from "@miaopan-code/core/i18n"
 import { Location } from "@miaopan-code/core/location"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { Cause, DateTime, Deferred, Effect, Exit, Fiber, Layer, Schema, Stream } from "effect"
@@ -544,7 +545,7 @@ const verifyPartialFlushOnInterruption = (kind: FragmentKind) =>
       {
         type: "assistant",
         finish: "error",
-        error: { type: "unknown", message: "Provider turn interrupted" },
+        error: { type: "unknown", message: t(undefined, "error.provider_turn_interrupted") },
         content: [
           kind === "tool input"
             ? { type: "tool", id: fragmentID(kind, "interrupted"), state: { status: "error" } }
@@ -593,6 +594,7 @@ describe("SessionRunnerLLM", () => {
           agent: AgentV2.ID.make("build"),
           assistantMessageID: expect.stringMatching(/^msg_/),
           toolCallID: "call-application",
+          language: "zh-CN",
         },
       ])
       expect(yield* session.context(sessionID)).toMatchObject([
@@ -1108,10 +1110,10 @@ describe("SessionRunnerLLM", () => {
       yield* session.resume(sessionID)
 
       expect(requests).toHaveLength(2)
-      expect(userTexts(requests[0])[0]).toContain("## Objective")
+      expect(userTexts(requests[0])[0]).toContain("## 目标")
       expect(userTexts(requests[1])).toHaveLength(1)
       expect(userTexts(requests[1])[0]).toContain("<summary>\n## Objective\n- Preserve the task\n</summary>")
-      expect(userTexts(requests[1])[0]).toContain(`[User]: ${"Recent exact request ".repeat(180)}`)
+      expect(userTexts(requests[1])[0]).toContain(`[用户]：${"Recent exact request ".repeat(180)}`)
 
       const context = yield* (yield* SessionStore.Service).context(sessionID)
       expect(context.map((message) => message.type)).toEqual(["compaction", "assistant"])
@@ -1160,7 +1162,7 @@ describe("SessionRunnerLLM", () => {
       yield* session.resume(sessionID)
 
       expect(requests).toHaveLength(3)
-      expect(userTexts(requests[1])[0]).toContain("## Objective")
+      expect(userTexts(requests[1])[0]).toContain("## 目标")
       expect(userTexts(requests[2])[0]).toContain("<summary>\n## Objective\n- Recover overflow\n</summary>")
       expect(yield* session.context(sessionID)).toMatchObject([
         { type: "compaction", summary: "## Objective\n- Recover overflow" },
@@ -2247,7 +2249,7 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-interrupted",
-              state: { status: "error", error: { type: "unknown", message: "Tool execution interrupted" } },
+              state: { status: "error", error: { type: "unknown", message: "工具执行已中断" } },
             },
           ],
         },
@@ -2552,7 +2554,7 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-missing",
-              state: { status: "error", error: { message: "Unknown tool: missing" } },
+              state: { status: "error", error: { message: "未知工具：missing" } },
             },
           ],
         },
@@ -2599,7 +2601,12 @@ describe("SessionRunnerLLM", () => {
               id: "call-defect",
               state: {
                 status: "error",
-                error: { type: "unknown", message: "Tool execution failed: unexpected tool defect" },
+                error: {
+                  type: "unknown",
+                  message: t(undefined, "error.tool_execution_failed_with_detail", {
+                    detail: "unexpected tool defect",
+                  }),
+                },
               },
             },
           ],
@@ -2694,7 +2701,7 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-declined",
-              state: { status: "error", error: { message: "Tool execution interrupted" } },
+              state: { status: "error", error: { message: t(undefined, "error.tool_execution_interrupted") } },
             },
           ],
         },
@@ -2799,7 +2806,10 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-question",
-              state: { status: "error", error: { type: "unknown", message: "Tool execution interrupted" } },
+              state: {
+                status: "error",
+                error: { type: "unknown", message: t(undefined, "error.tool_execution_interrupted") },
+              },
             },
           ],
         },
@@ -2871,7 +2881,10 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-before-interrupt",
-              state: { status: "error", error: { type: "unknown", message: "Tool execution interrupted" } },
+              state: {
+                status: "error",
+                error: { type: "unknown", message: t(undefined, "error.tool_execution_interrupted") },
+              },
             },
           ],
         },
@@ -2943,7 +2956,10 @@ describe("SessionRunnerLLM", () => {
             {
               type: "tool",
               id: "call-await-interrupt",
-              state: { status: "error", error: { type: "unknown", message: "Tool execution interrupted" } },
+              state: {
+                status: "error",
+                error: { type: "unknown", message: t(undefined, "error.tool_execution_interrupted") },
+              },
             },
           ],
         },
@@ -2988,7 +3004,7 @@ describe("SessionRunnerLLM", () => {
       expect(requests[1]?.tools).toEqual([])
       expect(requests[1]?.messages.at(-1)).toMatchObject({
         role: "assistant",
-        content: [{ type: "text", text: expect.stringContaining("MAXIMUM STEPS REACHED") }],
+        content: [{ type: "text", text: expect.stringContaining("已达到最大步骤数") }],
       })
       expect(executions).toEqual(["done"])
       expect(yield* session.context(sessionID)).toMatchObject([
@@ -3314,7 +3330,7 @@ describe("SessionRunnerLLM", () => {
       response = [LLMEvent.textStart({ id: "text-1" }), LLMEvent.textStart({ id: "text-1" })]
 
       expect(yield* session.resume(sessionID).pipe(Effect.catchDefect(Effect.succeed))).toBe(
-        "Duplicate text start: text-1",
+        "重复的 text 开始事件：text-1",
       )
     }),
   )
@@ -3358,7 +3374,7 @@ describe("SessionRunnerLLM", () => {
       response = [LLMEvent.toolInputDelta({ id: "call-1", name: "read", text: "{}" })]
 
       expect(yield* session.resume(sessionID).pipe(Effect.catchDefect(Effect.succeed))).toBe(
-        "Tool input delta before start: call-1",
+        "工具输入增量出现在开始事件之前：call-1",
       )
     }),
   )

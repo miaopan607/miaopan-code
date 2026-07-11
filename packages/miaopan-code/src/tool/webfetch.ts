@@ -3,37 +3,41 @@ import { HttpClient, HttpClientRequest } from "effect/unstable/http"
 import { Parser } from "htmlparser2"
 import * as Tool from "./tool"
 import TurndownService from "turndown"
-import DESCRIPTION from "./webfetch.txt"
 import { isImageAttachment } from "@/util/media"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { ToolI18n } from "./i18n"
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_TIMEOUT = 30 * 1000 // 30 seconds
 const MAX_TIMEOUT = 120 * 1000 // 2 minutes
 
-export const Parameters = Schema.Struct({
-  url: Schema.String.annotate({ description: "The URL to fetch content from" }),
-  format: Schema.Literals(["text", "markdown", "html"])
-    .annotate({
-      description: "The format to return the content in (text, markdown, or html). Defaults to markdown.",
-      default: "markdown",
-    })
-    .pipe(Schema.withDecodingDefault(Effect.succeed("markdown" as const))),
-  timeout: Schema.optional(Schema.Number).annotate({ description: "Optional timeout in seconds (max 120)" }),
-})
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    url: Schema.String.annotate({ description: t(language, "tool.param.webfetch_url") }),
+    format: Schema.Literals(["text", "markdown", "html"])
+      .annotate({
+        description: t(language, "tool.param.webfetch_format"),
+        default: "markdown",
+      })
+      .pipe(Schema.withDecodingDefault(Effect.succeed("markdown" as const))),
+    timeout: Schema.optional(Schema.Number).annotate({ description: t(language, "tool.param.webfetch_timeout") }),
+  })
+export const Parameters = makeParameters()
 
 export const WebFetchTool = Tool.define(
   "webfetch",
   Effect.gen(function* () {
     const http = yield* HttpClient.HttpClient
     const httpOk = HttpClient.filterStatusOk(http)
+    const language = yield* ToolI18n.language()
 
     return {
-      description: DESCRIPTION,
-      parameters: Parameters,
+      description: yield* ToolI18n.description("tool.webfetch"),
+      parameters: makeParameters(language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         Effect.gen(function* () {
           if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {
-            throw new Error("URL must start with http:// or https://")
+            throw new Error(ToolI18n.text(ctx, "tool.url_http_required"))
           }
 
           yield* ctx.ask({
@@ -89,18 +93,21 @@ export const WebFetchTool = Tool.define(
                   ),
                 ),
             ),
-            Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.die(new Error("Request timed out")) }),
+            Effect.timeoutOrElse({
+              duration: timeout,
+              orElse: () => Effect.die(new Error(ToolI18n.text(ctx, "tool.request_timeout"))),
+            }),
           )
 
           // Check content length
           const contentLength = response.headers["content-length"]
           if (contentLength && parseInt(contentLength) > MAX_RESPONSE_SIZE) {
-            throw new Error("Response too large (exceeds 5MB limit)")
+            throw new Error(ToolI18n.text(ctx, "tool.response_too_large"))
           }
 
           const arrayBuffer = yield* response.arrayBuffer
           if (arrayBuffer.byteLength > MAX_RESPONSE_SIZE) {
-            throw new Error("Response too large (exceeds 5MB limit)")
+            throw new Error(ToolI18n.text(ctx, "tool.response_too_large"))
           }
 
           const contentType = response.headers["content-type"] || ""
@@ -111,7 +118,7 @@ export const WebFetchTool = Tool.define(
             const base64Content = Buffer.from(arrayBuffer).toString("base64")
             return {
               title,
-              output: "Image fetched successfully",
+              output: ToolI18n.text(ctx, "tool.image_fetched"),
               metadata: {},
               attachments: [
                 {

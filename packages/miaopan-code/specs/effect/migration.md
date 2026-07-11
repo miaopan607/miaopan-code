@@ -1,5 +1,7 @@
 # Effect Migration Patterns
 
+Languages: [简体中文索引](../README.md) · English
+
 This is the compact reference for moving code toward the current Effect
 shape. The high-level roadmap is [`todo.md`](./todo.md); examples and
 rules are in [`guide.md`](./guide.md).

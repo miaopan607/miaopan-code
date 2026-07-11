@@ -1,12 +1,19 @@
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import { t, type Language } from "@miaopan-code/core/i18n"
 import path from "path"
 import { Global } from "@miaopan-code/core/global"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { Effect, Exit, Layer, Option, RcMap, Schema, Context, TxReentrantLock } from "effect"
 import { NonNegativeInt } from "@miaopan-code/core/schema"
 import { Git } from "@/git"
+import { Config } from "@/config/config"
 
-type Migration = (dir: string, fs: FSUtil.Interface, git: Git.Interface) => Effect.Effect<void, FSUtil.Error>
+type Migration = (
+  dir: string,
+  fs: FSUtil.Interface,
+  git: Git.Interface,
+  language?: Language,
+) => Effect.Effect<void, FSUtil.Error>
 
 export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("NotFoundError", {
   message: Schema.String,
@@ -79,7 +86,12 @@ function parseMigration(text: string) {
 }
 
 const MIGRATIONS: Migration[] = [
-  Effect.fn("Storage.migration.1")(function* (dir: string, fs: FSUtil.Interface, git: Git.Interface) {
+  Effect.fn("Storage.migration.1")(function* (
+    dir: string,
+    fs: FSUtil.Interface,
+    git: Git.Interface,
+    language?: Language,
+  ) {
     const project = path.resolve(dir, "../project")
     if (!(yield* fs.isDir(project))) return
     const projectDirs = yield* fs.glob("*", {
@@ -89,7 +101,7 @@ const MIGRATIONS: Migration[] = [
     for (const projectDir of projectDirs) {
       const full = path.join(project, projectDir)
       if (!(yield* fs.isDir(full))) continue
-      yield* Effect.logInfo(`migrating project ${projectDir}`)
+      yield* Effect.logInfo(t(language, "log.storage_migrating_project", { project: projectDir }))
       let projectID = projectDir
       let worktree = "/"
 
@@ -135,24 +147,24 @@ const MIGRATIONS: Migration[] = [
           ),
         )
 
-        yield* Effect.logInfo(`migrating sessions for project ${projectID}`)
+        yield* Effect.logInfo(t(language, "log.storage_migrating_sessions", { project: projectID }))
         for (const sessionFile of yield* fs.glob("storage/session/info/*.json", {
           cwd: full,
           absolute: true,
         })) {
           const dest = path.join(dir, "session", projectID, path.basename(sessionFile))
-          yield* Effect.logInfo("copying", { sessionFile, dest })
+          yield* Effect.logInfo(t(language, "log.copying"), { sessionFile, dest })
           const session = yield* fs.readJson(sessionFile)
           const info = decodeSession(session, { onExcessProperty: "preserve" })
           yield* fs.writeWithDirs(dest, JSON.stringify(session, null, 2))
           if (Option.isNone(info)) continue
-          yield* Effect.logInfo(`migrating messages for session ${info.value.id}`)
+          yield* Effect.logInfo(t(language, "log.storage_migrating_messages", { session: info.value.id }))
           for (const msgFile of yield* fs.glob(`storage/session/message/${info.value.id}/*.json`, {
             cwd: full,
             absolute: true,
           })) {
             const next = path.join(dir, "message", info.value.id, path.basename(msgFile))
-            yield* Effect.logInfo("copying", {
+            yield* Effect.logInfo(t(language, "log.copying"), {
               msgFile,
               dest: next,
             })
@@ -161,14 +173,14 @@ const MIGRATIONS: Migration[] = [
             yield* fs.writeWithDirs(next, JSON.stringify(message, null, 2))
             if (Option.isNone(item)) continue
 
-            yield* Effect.logInfo(`migrating parts for message ${item.value.id}`)
+            yield* Effect.logInfo(t(language, "log.storage_migrating_parts", { message: item.value.id }))
             for (const partFile of yield* fs.glob(`storage/session/part/${info.value.id}/${item.value.id}/*.json`, {
               cwd: full,
               absolute: true,
             })) {
               const out = path.join(dir, "part", item.value.id, path.basename(partFile))
               const part = yield* fs.readJson(partFile)
-              yield* Effect.logInfo("copying", {
+              yield* Effect.logInfo(t(language, "log.copying"), {
                 partFile,
                 dest: out,
               })
@@ -179,7 +191,12 @@ const MIGRATIONS: Migration[] = [
       }
     }
   }),
-  Effect.fn("Storage.migration.2")(function* (dir: string, fs: FSUtil.Interface) {
+  Effect.fn("Storage.migration.2")(function* (
+    dir: string,
+    fs: FSUtil.Interface,
+    _git: Git.Interface,
+    _language?: Language,
+  ) {
     for (const item of yield* fs.glob("session/*/*.json", {
       cwd: dir,
       absolute: true,
@@ -215,6 +232,11 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FSUtil.Service
     const git = yield* Git.Service
+    const config = yield* Effect.serviceOption(Config.Service)
+    const getLanguage = Effect.fn("Storage.language")(function* () {
+      if (Option.isNone(config)) return undefined
+      return (yield* config.value.get().pipe(Effect.catch(() => Effect.succeed(undefined))))?.language
+    })
     const locks = yield* RcMap.make({
       lookup: () => TxReentrantLock.make(),
       idleTimeToLive: 0,
@@ -229,11 +251,12 @@ const layer = Layer.effect(
           Effect.orElseSucceed(() => 0),
         )
         for (let i = migration; i < MIGRATIONS.length; i++) {
-          yield* Effect.logInfo("running migration", { index: i })
+          const language = yield* getLanguage()
+          yield* Effect.logInfo(t(language, "log.running_migration"), { index: i })
           const step = MIGRATIONS[i]!
-          const exit = yield* Effect.exit(step(dir, fs, git))
+          const exit = yield* Effect.exit(step(dir, fs, git, language))
           if (Exit.isFailure(exit)) {
-            yield* Effect.logError("failed to run migration", { index: i, cause: exit.cause })
+            yield* Effect.logError(t(language, "log.failed_run_migration"), { index: i, cause: exit.cause })
             break
           }
           yield* fs.writeWithDirs(marker, String(i + 1))
@@ -243,7 +266,9 @@ const layer = Layer.effect(
     )
 
     const fail = (target: string): Effect.Effect<never, NotFoundError> =>
-      Effect.fail(new NotFoundError({ message: `Resource not found: ${target}` }))
+      Effect.flatMap(getLanguage(), (language) =>
+        Effect.fail(new NotFoundError({ message: t(language, "error.resource_not_found", { target }) })),
+      )
 
     const wrap = <A>(target: string, body: Effect.Effect<A, FSUtil.Error>) =>
       body.pipe(Effect.catchIf(missing, () => fail(target)))

@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type Server as HttpServer } from "n
 import net, { type AddressInfo, type Socket } from "node:net"
 import WebSocket, { WebSocketServer } from "ws"
 import { APICallError } from "ai"
+import { t } from "@miaopan-code/core/i18n"
 import { ProviderError } from "../../src/provider/error"
 import { OpenAIWebSocket } from "../../src/plugin/openai/ws"
 import { OpenAIWebSocketPool, TITLE_HEADER } from "../../src/plugin/openai/ws-pool"
@@ -37,7 +38,7 @@ describe("plugin.openai.ws", () => {
         headers: {},
         timeout: 20,
       }),
-    ).rejects.toThrow("WebSocket connect timed out")
+    ).rejects.toThrow(t("zh-CN", "error.websocket_timeout"))
   })
 
   test("surfaces websocket upgrade rejection messages", async () => {
@@ -63,8 +64,8 @@ describe("plugin.openai.ws", () => {
       onConnectionInvalid: (error) => invalid.push(error.message),
     })
 
-    expect((await readTextError(response.text())).message).toContain("idle timeout sending websocket request")
-    expect(invalid).toEqual(["idle timeout sending websocket request"])
+    expect((await readTextError(response.text())).message).toContain(t("zh-CN", "error.websocket_idle_sending"))
+    expect(invalid).toEqual([t("zh-CN", "error.websocket_idle_sending")])
   })
 
   test("streams websocket events as SSE and handles response.done", async () => {
@@ -113,12 +114,13 @@ describe("plugin.openai.ws", () => {
     })
 
     expect((await readTextError(response.text())).message).toContain(
-      "WebSocket closed before response.completed (code 1009: message too big: payload too large)",
+      t("zh-CN", "error.websocket_closed_before_completed"),
     )
     expect(invalid[0]).toBeInstanceOf(ProviderError.ResponseStreamError)
-    expect(invalid.map((error) => error.message)).toEqual([
-      "WebSocket closed before response.completed (code 1009: message too big: payload too large)",
-    ])
+    expect(invalid).toHaveLength(1)
+    expect(invalid[0]?.message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
+    expect(invalid[0]?.message).toContain(t("zh-CN", "error.websocket_close_code", { code: 1009 }))
+    expect(invalid[0]?.message).toContain(t("zh-CN", "error.websocket_message_too_big"))
   })
 
   test("rejects unexpected binary websocket frames", async () => {
@@ -136,8 +138,8 @@ describe("plugin.openai.ws", () => {
       onConnectionInvalid: (error) => invalid.push(error.message),
     })
 
-    expect((await readTextError(response.text())).message).toContain("Unexpected binary WebSocket frame")
-    expect(invalid).toEqual(["Unexpected binary WebSocket frame"])
+    expect((await readTextError(response.text())).message).toContain(t("zh-CN", "error.websocket_binary_frame"))
+    expect(invalid).toEqual([t("zh-CN", "error.websocket_binary_frame")])
   })
 })
 
@@ -271,7 +273,7 @@ describe("plugin.openai.ws-pool", () => {
     const first = await fetch(server.url, streamRequest())
     const firstText = first.text()
     fetch.remove("session-1")
-    expect((await readTextError(firstText)).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(firstText)).message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
 
     const second = await fetch(server.url, streamRequest())
 
@@ -500,7 +502,7 @@ describe("plugin.openai.ws-pool", () => {
     })
 
     const first = await fetch(server.url, streamRequest())
-    expect((await readTextError(first.text())).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(first.text())).message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
     const second = await fetch(server.url, streamRequest())
 
     expect(await second.text()).toBe("http")
@@ -522,7 +524,7 @@ describe("plugin.openai.ws-pool", () => {
     })
 
     const first = await fetch(server.url, streamRequest())
-    expect((await readTextError(first.text())).message).toContain("idle timeout waiting for websocket")
+    expect((await readTextError(first.text())).message).toContain(t("zh-CN", "error.websocket_idle_waiting"))
     const second = await fetch(server.url, streamRequest())
     const third = await fetch(server.url, streamRequest())
 
@@ -547,7 +549,7 @@ describe("plugin.openai.ws-pool", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 250))
     const first = await fetch(server.url, streamRequest())
-    expect((await readTextError(first.text())).message).toContain("idle timeout waiting for websocket")
+    expect((await readTextError(first.text())).message).toContain(t("zh-CN", "error.websocket_idle_waiting"))
     await new Promise((resolve) => setTimeout(resolve, 300))
 
     const second = await fetch(server.url, streamRequest())
@@ -575,12 +577,14 @@ describe("plugin.openai.ws-pool", () => {
     const first = await fetch(server.url, streamRequest())
     const firstSocket = await firstAttempt
     firstSocket.terminate()
-    expect((await readTextError(first.text())).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(first.text())).message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
     const secondAttempt = new Promise<WebSocket>((resolve) => attempts.push(resolve))
     const second = await fetch(server.url, streamRequest())
     const secondSocket = await secondAttempt
     secondSocket.terminate()
-    expect((await readTextError(second.text())).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(second.text())).message).toContain(
+      t("zh-CN", "error.websocket_closed_before_completed"),
+    )
     const third = await fetch(server.url, streamRequest())
 
     expect(await third.text()).toBe("http")
@@ -609,11 +613,11 @@ describe("plugin.openai.ws-pool", () => {
     })
 
     const first = await fetch(server.url, streamRequest())
-    expect((await readTextError(first.text())).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(first.text())).message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
     const second = await fetch(server.url, streamRequest())
     expect(await second.text()).toContain("data: [DONE]")
     const third = await fetch(server.url, streamRequest())
-    expect((await readTextError(third.text())).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(third.text())).message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
     const fourth = await fetch(server.url, streamRequest())
 
     expect(await fourth.text()).toContain("data: [DONE]")
@@ -702,7 +706,7 @@ describe("plugin.openai.ws-pool", () => {
     })
 
     const first = await fetch(server.url, streamRequest())
-    expect((await readTextError(first.text())).message).toContain("WebSocket closed before response.completed")
+    expect((await readTextError(first.text())).message).toContain(t("zh-CN", "error.websocket_closed_before_completed"))
     const second = await fetch(server.url, streamRequest())
     const third = await fetch(server.url, streamRequest())
 

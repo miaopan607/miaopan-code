@@ -4,22 +4,29 @@ import { ChildProcess } from "effect/unstable/process"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
 import { CrossSpawnSpawner } from "./cross-spawn-spawner"
 import { makeGlobalNode } from "./effect/app-node"
+import { t, type Language } from "./i18n"
 
 export class AppProcessError extends Schema.TaggedErrorClass<AppProcessError>()("AppProcessError", {
   command: Schema.String,
   exitCode: Schema.optional(Schema.Number),
   stderr: Schema.optional(Schema.String),
   cause: Schema.optional(Schema.Defect()),
+  language: Schema.optional(Schema.Literals(["zh-CN", "en"])),
 }) {
   override get message() {
     const detail =
       this.stderr?.trim() || (this.cause instanceof Error ? this.cause.message : this.cause && String(this.cause))
-    const status = this.exitCode === undefined ? "" : ` (exit ${this.exitCode})`
-    return `Command failed${status}: ${this.command}${detail ? `: ${detail}` : ""}`
+    const status = this.exitCode === undefined ? "" : t(this.language, "process.exit_status", { code: this.exitCode })
+    return t(this.language, "error.process_command_failed", {
+      status,
+      command: this.command,
+      detail: detail ? `: ${detail}` : "",
+    })
   }
 }
 
 export interface RunOptions {
+  readonly language?: Language
   readonly combineOutput?: boolean
   readonly maxOutputBytes?: number
   readonly maxErrorBytes?: number
@@ -29,6 +36,7 @@ export interface RunOptions {
 }
 
 export interface RunStreamOptions {
+  readonly language?: Language
   readonly signal?: AbortSignal
   readonly includeStderr?: boolean
   readonly okExitCodes?: ReadonlyArray<number>
@@ -44,6 +52,7 @@ export interface RunResult {
   readonly outputTruncated?: boolean
   readonly stdoutTruncated: boolean
   readonly stderrTruncated: boolean
+  readonly language?: Language
 }
 
 export type Interface = ChildProcessSpawner["Service"] & {
@@ -64,6 +73,7 @@ export const requireSuccess = (result: RunResult): Effect.Effect<RunResult, AppP
           command: result.command,
           exitCode: result.exitCode,
           stderr: result.stderr.toString("utf8"),
+          language: result.language,
         }),
       )
 
@@ -77,6 +87,7 @@ export const requireExitIn =
             command: result.command,
             exitCode: result.exitCode,
             stderr: result.stderr.toString("utf8"),
+            language: result.language,
           }),
         )
 
@@ -87,24 +98,24 @@ const describeCommand = (command: ChildProcess.Command): string => {
   return `${describeCommand(command.left)} | ${describeCommand(command.right)}`
 }
 
-const wrapError = (description: string, cause: unknown): AppProcessError =>
-  cause instanceof AppProcessError ? cause : new AppProcessError({ command: description, cause })
+const wrapError = (description: string, cause: unknown, language?: Language): AppProcessError =>
+  cause instanceof AppProcessError ? cause : new AppProcessError({ command: description, cause, language })
 
-export const abortError = (signal: AbortSignal): Error => {
+export const abortError = (signal: AbortSignal, language?: Language): Error => {
   const reason = signal.reason
   if (reason instanceof Error) return reason
-  const err = new Error("Aborted")
+  const err = new Error(t(language, "error.process_aborted"))
   err.name = "AbortError"
   return err
 }
 
-export const waitForAbort = (signal: AbortSignal) =>
+export const waitForAbort = (signal: AbortSignal, language?: Language) =>
   Effect.callback<never, Error>((resume) => {
     if (signal.aborted) {
-      resume(Effect.fail(abortError(signal)))
+      resume(Effect.fail(abortError(signal, language)))
       return
     }
-    const onabort = () => resume(Effect.fail(abortError(signal)))
+    const onabort = () => resume(Effect.fail(abortError(signal, language)))
     signal.addEventListener("abort", onabort, { once: true })
     return Effect.sync(() => signal.removeEventListener("abort", onabort))
   })
@@ -160,6 +171,7 @@ const layer = Layer.effect(
               outputTruncated: output.truncated,
               stdoutTruncated: false,
               stderrTruncated: false,
+              language: options?.language,
             } satisfies RunResult
           }
           const [stdout, stderr, exitCode] = yield* Effect.all(
@@ -177,23 +189,33 @@ const layer = Layer.effect(
             stderr: stderr.buffer,
             stdoutTruncated: stdout.truncated,
             stderrTruncated: stderr.truncated,
+            language: options?.language,
           } satisfies RunResult
         }),
       )
       const timed = options?.timeout
         ? Effect.timeoutOrElse(collect, {
             duration: options.timeout,
-            orElse: () => Effect.fail(new AppProcessError({ command: description, cause: new Error("Timed out") })),
+            orElse: () =>
+              Effect.fail(
+                new AppProcessError({
+                  command: description,
+                  cause: new Error(t(options.language, "error.process_timeout")),
+                  language: options.language,
+                }),
+              ),
           })
         : collect
       const aborted = options?.signal
         ? timed.pipe(
             Effect.raceFirst(
-              waitForAbort(options.signal).pipe(Effect.mapError((cause) => wrapError(description, cause))),
+              waitForAbort(options.signal, options.language).pipe(
+                Effect.mapError((cause) => wrapError(description, cause, options.language)),
+              ),
             ),
           )
         : timed
-      return aborted.pipe(Effect.catch((cause) => Effect.fail(wrapError(description, cause))))
+      return aborted.pipe(Effect.catch((cause) => Effect.fail(wrapError(description, cause, options?.language))))
     }
 
     const run = Effect.fn("AppProcess.run")(function* (command: ChildProcess.Command, options?: RunOptions) {
@@ -201,7 +223,8 @@ const layer = Layer.effect(
       if (command._tag !== "StandardCommand") {
         return yield* new AppProcessError({
           command: describeCommand(command),
-          cause: new Error("stdin option only supports StandardCommand; received PipedCommand"),
+          cause: new Error(t(options.language, "error.process_stdin_option")),
+          language: options.language,
         })
       }
       const next = ChildProcess.make(command.command, command.args, {
@@ -234,7 +257,9 @@ const layer = Layer.effect(
               const code = yield* handle.exitCode
               if (okExitCodes && okExitCodes.length > 0 && !okExitCodes.includes(code)) {
                 const stderr = yield* Fiber.join(stderrFiber)
-                return Stream.fail(new AppProcessError({ command: description, exitCode: code, stderr }))
+                return Stream.fail(
+                  new AppProcessError({ command: description, exitCode: code, stderr, language: options.language }),
+                )
               }
               return Stream.empty
             }),
@@ -243,12 +268,19 @@ const layer = Layer.effect(
         }),
       )
       const mapped = built.pipe(
-        Stream.catch((cause): Stream.Stream<string, AppProcessError> => Stream.fail(wrapError(description, cause))),
+        Stream.catch(
+          (cause): Stream.Stream<string, AppProcessError> =>
+            Stream.fail(wrapError(description, cause, options?.language)),
+        ),
       )
       if (!options?.signal) return mapped
       const signal = options.signal
       return mapped.pipe(
-        Stream.interruptWhen(waitForAbort(signal).pipe(Effect.mapError((cause) => wrapError(description, cause)))),
+        Stream.interruptWhen(
+          waitForAbort(signal, options.language).pipe(
+            Effect.mapError((cause) => wrapError(description, cause, options.language)),
+          ),
+        ),
       )
     }
 

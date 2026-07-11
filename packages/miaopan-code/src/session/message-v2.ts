@@ -1,4 +1,5 @@
 import { SessionID, MessageID } from "./schema"
+import { Language, t } from "@miaopan-code/core/i18n"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import {
@@ -43,13 +44,21 @@ interface FetchDecompressionError extends Error {
   path: string
 }
 
-export const SYNTHETIC_ATTACHMENT_PROMPT = "Attached media from tool result:"
+export const SYNTHETIC_ATTACHMENT_PROMPT = t("en", "prompt.synthetic_attachment_heading")
 export { isMedia }
 
-function truncateToolOutput(text: string, maxChars?: number) {
+export function syntheticAttachmentPrompt(language?: Language) {
+  return t(language, "prompt.synthetic_attachment_heading")
+}
+
+export function isSyntheticAttachmentPrompt(text: string) {
+  return Language.some((language) => text === syntheticAttachmentPrompt(language))
+}
+
+function truncateToolOutput(text: string, maxChars?: number, language?: Language) {
   if (!maxChars || text.length <= maxChars) return text
   const omitted = text.length - maxChars
-  return `${text.slice(0, maxChars)}\n[Tool output truncated for compaction: omitted ${omitted} chars]`
+  return `${text.slice(0, maxChars)}\n${t(language, "prompt.tool_output_truncated", { chars: omitted })}`
 }
 
 export const Event = {
@@ -131,7 +140,7 @@ function providerMeta(metadata: Record<string, any> | undefined) {
 export const toModelMessagesEffect = Effect.fnUntraced(function* (
   input: WithParts[],
   model: Provider.Model,
-  options?: { stripMedia?: boolean; toolOutputMaxChars?: number },
+  options?: { stripMedia?: boolean; toolOutputMaxChars?: number; language?: Language },
 ) {
   const result: UIMessage[] = []
   const toolNames = new Set<string>()
@@ -213,7 +222,10 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
           if (options?.stripMedia && isMedia(part.mime)) {
             userMessage.parts.push({
               type: "text",
-              text: `[Attached ${part.mime}: ${part.filename ?? "file"}]`,
+              text: t(options?.language, "prompt.attachment_placeholder", {
+                mime: part.mime,
+                filename: part.filename ?? t(options?.language, "prompt.default_file_name"),
+              }),
             })
           } else {
             userMessage.parts.push({
@@ -228,13 +240,13 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
         if (part.type === "compaction") {
           userMessage.parts.push({
             type: "text",
-            text: "What did we do so far?",
+            text: t(options?.language, "prompt.compaction_question"),
           })
         }
         if (part.type === "subtask") {
           userMessage.parts.push({
             type: "text",
-            text: "The following tool was executed by the user",
+            text: t(options?.language, "prompt.tool_executed_by_user"),
           })
         }
       }
@@ -291,8 +303,8 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
           toolNames.add(part.tool)
           if (part.state.status === "completed") {
             const outputText = part.state.time.compacted
-              ? "[Old tool result content cleared]"
-              : truncateToolOutput(part.state.output, options?.toolOutputMaxChars)
+              ? t(options?.language, "prompt.old_tool_result_cleared")
+              : truncateToolOutput(part.state.output, options?.toolOutputMaxChars, options?.language)
             const attachments = part.state.time.compacted || options?.stripMedia ? [] : (part.state.attachments ?? [])
 
             // For providers that don't support media in tool results, extract media files
@@ -354,7 +366,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
               state: "output-error",
               toolCallId: part.callID,
               input: part.state.input,
-              errorText: "[Tool execution was interrupted]",
+              errorText: t(options?.language, "prompt.tool_execution_interrupted"),
               ...(part.metadata?.providerExecuted ? { providerExecuted: true } : {}),
               ...(differentModel ? {} : { callProviderMetadata: providerMeta(part.metadata) }),
             })
@@ -386,7 +398,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
             parts: [
               {
                 type: "text" as const,
-                text: SYNTHETIC_ATTACHMENT_PROMPT,
+                text: syntheticAttachmentPrompt(options?.language),
               },
               ...media.map((attachment) => ({
                 type: "file" as const,
@@ -417,7 +429,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
 export function toModelMessages(
   input: WithParts[],
   model: Provider.Model,
-  options?: { stripMedia?: boolean; toolOutputMaxChars?: number },
+  options?: { stripMedia?: boolean; toolOutputMaxChars?: number; language?: Language },
 ): Promise<ModelMessage[]> {
   return Effect.runPromise(toModelMessagesEffect(input, model, options))
 }
@@ -426,6 +438,7 @@ export const page = Effect.fn("MessageV2.page")(function* (input: {
   sessionID: SessionID
   limit: number
   before?: string
+  language?: Language
 }) {
   const { db } = yield* Database.Service
   const before = input.before ? cursor.decode(input.before) : undefined
@@ -447,7 +460,10 @@ export const page = Effect.fn("MessageV2.page")(function* (input: {
       .where(eq(SessionTable.id, input.sessionID))
       .get()
       .pipe(Effect.orDie)
-    if (!row) return yield* new NotFoundError({ message: `Session not found: ${input.sessionID}` })
+    if (!row)
+      return yield* new NotFoundError({
+        message: t(input.language, "error.session_not_found", { id: input.sessionID }),
+      })
     return {
       items: [] as WithParts[],
       more: false,
@@ -503,7 +519,11 @@ export function parts(messageID: MessageID) {
   })
 }
 
-export const get = Effect.fn("MessageV2.get")(function* (input: { sessionID: SessionID; messageID: MessageID }) {
+export const get = Effect.fn("MessageV2.get")(function* (input: {
+  sessionID: SessionID
+  messageID: MessageID
+  language?: Language
+}) {
   const { db } = yield* Database.Service
   const row = yield* db
     .select()
@@ -511,7 +531,8 @@ export const get = Effect.fn("MessageV2.get")(function* (input: { sessionID: Ses
     .where(and(eq(MessageTable.id, input.messageID), eq(MessageTable.session_id, input.sessionID)))
     .get()
     .pipe(Effect.orDie)
-  if (!row) return yield* new NotFoundError({ message: `Message not found: ${input.messageID}` })
+  if (!row)
+    return yield* new NotFoundError({ message: t(input.language, "error.message_not_found", { id: input.messageID }) })
   return {
     info: info(row),
     parts: yield* parts(input.messageID),
@@ -602,7 +623,7 @@ export function latest(msgs: WithParts[]) {
 
 export function fromError(
   e: unknown,
-  ctx: { providerID: ProviderV2.ID; aborted?: boolean },
+  ctx: { providerID: ProviderV2.ID; aborted?: boolean; language?: Language },
 ): NonNullable<Assistant["error"]> {
   switch (true) {
     case e instanceof DOMException && e.name === "AbortError":
@@ -625,7 +646,7 @@ export function fromError(
     case (e as SystemError)?.code === "ECONNRESET":
       return new APIError(
         {
-          message: "Connection reset by server",
+          message: t(ctx.language, "error.connection_reset"),
           isRetryable: true,
           metadata: {
             code: (e as SystemError).code ?? "",
@@ -641,7 +662,7 @@ export function fromError(
       }
       return new APIError(
         {
-          message: "Response decompression failed",
+          message: t(ctx.language, "error.response_decompression"),
           isRetryable: true,
           metadata: {
             code: (e as FetchDecompressionError).code,
@@ -677,6 +698,7 @@ export function fromError(
       const parsed = ProviderError.parseAPICallError({
         providerID: ctx.providerID,
         error: e,
+        language: ctx.language,
       })
       if (parsed.type === "context_overflow") {
         return new ContextOverflowError(
@@ -703,7 +725,7 @@ export function fromError(
       return new NamedError.Unknown({ message: errorMessage(e) }, { cause: e }).toObject()
     default:
       try {
-        const parsed = ProviderError.parseStreamError(e)
+        const parsed = ProviderError.parseStreamError(e, ctx.language)
         if (parsed) {
           if (parsed.type === "context_overflow") {
             return new ContextOverflowError(

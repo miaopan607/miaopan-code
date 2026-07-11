@@ -7,13 +7,14 @@ import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
 import { errorLayer } from "../../src/server/routes/instance/httpapi/middleware/error"
 import { NotFoundError } from "../../src/storage/storage"
 import { testEffect } from "../lib/effect"
+import { t } from "../../src/server/routes/instance/httpapi/i18n"
 
 const it = testEffect(Layer.mergeAll(NodeHttpServer.layerTest, NodeServices.layer))
 
 function expectUnknownErrorBody(body: unknown) {
   expect(body).toMatchObject({
     name: "UnknownError",
-    data: { message: "Unexpected server error. Check server logs for details." },
+    data: { message: t(undefined, "error.unexpected_server") },
   })
   expect((body as { data?: { ref?: unknown } }).data?.ref).toMatch(/^err_[0-9a-f-]{8}$/)
 }

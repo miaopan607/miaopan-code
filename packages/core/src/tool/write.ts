@@ -15,16 +15,16 @@ import { PermissionV2 } from "../permission"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "write"
 
 // TODO: Revisit whether model-facing mutation schemas should prefer absolute `filePath` naming for trained-in compatibility after evaluating model behavior.
 export const Input = Schema.Struct({
   path: Schema.String.annotate({
-    description:
-      "File path to write. Relative paths resolve within the active Location. Absolute paths inside that Location are accepted; external absolute paths require external_directory approval.",
+    description: zh("tool.param.core_write_path"),
   }),
-  content: Schema.String.annotate({ description: "Content to write to the file" }),
+  content: Schema.String.annotate({ description: zh("tool.param.core_content") }),
 })
 
 export const Output = Schema.Struct({
@@ -35,8 +35,10 @@ export const Output = Schema.Struct({
 })
 export type Output = typeof Output.Type
 
-export const toModelOutput = (output: Output) =>
-  `${output.existed ? "Wrote" : "Created"} file successfully: ${output.resource}`
+export const toModelOutput = (output: Output, language?: Language) =>
+  t(language, output.existed ? "tool.output.write_updated" : "tool.output.write_created", {
+    resource: output.resource,
+  })
 
 /** Deferred V2 write UX integrations remain visible at the model-facing seam. */
 // TODO: Add formatter integration after V2 formatter runtime exists.
@@ -55,11 +57,10 @@ const layer = Layer.effectDiscard(
       .register({
         [name]: Tool.withPermission(
           Tool.make({
-            description:
-              "Write content to one file. Relative paths resolve within the active Location. Absolute paths inside the Location are accepted. Explicit external absolute paths require external_directory approval before edit approval.",
+            description: zh("tool.description.core_write"),
             input: Input,
             output: Output,
-            toModelOutput: ({ output }) => [{ type: "text", text: toModelOutput(output) }],
+            toModelOutput: ({ output, context }) => [{ type: "text", text: toModelOutput(output, context.language) }],
             execute: (input, context) =>
               Effect.gen(function* () {
                 const source = {
@@ -85,7 +86,11 @@ const layer = Layer.effectDiscard(
                   source,
                 })
                 return yield* files.writeTextPreservingBom({ target, content: input.content })
-              }).pipe(Effect.mapError(() => new ToolFailure({ message: `Unable to write ${input.path}` }))),
+              }).pipe(
+                Effect.mapError(
+                  () => new ToolFailure({ message: t(context.language, "tool.error.write", { path: input.path }) }),
+                ),
+              ),
           }),
           "edit",
         ),

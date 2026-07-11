@@ -71,7 +71,8 @@ import { CorsConfig, isAllowedCorsOrigin, type CorsOptions } from "@miaopan-code
 import { ServerAuth } from "@/server/auth"
 import { InstanceHttpApi, RootHttpApi } from "./api"
 import { Api } from "@miaopan-code/server/api"
-import { PublicApi } from "./public"
+import { makeApi } from "./public"
+import { requestLanguage } from "@miaopan-code/server/i18n"
 import {
   authorizationLayer,
   authorizationRouterMiddleware,
@@ -184,11 +185,20 @@ const serverRoutes = HttpApiBuilder.layer(Api).pipe(
 // `HttpServerResponse.jsonUnsafe` runs JSON.stringify eagerly, so caching
 // the response also caches the serialized body — every /doc request reuses
 // the same Uint8Array instead of re-stringifying the spec.
-const docResponse = lazy(() => HttpServerResponse.jsonUnsafe(OpenApi.fromApi(PublicApi)))
+const docResponse = {
+  "zh-CN": lazy(() => HttpServerResponse.jsonUnsafe(OpenApi.fromApi(makeApi("zh-CN")))),
+  en: lazy(() => HttpServerResponse.jsonUnsafe(OpenApi.fromApi(makeApi("en")))),
+}
 
-const docRoute = HttpRouter.use((router) => router.add("GET", "/doc", () => Effect.succeed(docResponse()))).pipe(
-  Layer.provide(authOnlyRouterLayer),
-)
+const docRoute = HttpRouter.use((router) =>
+  router.add(
+    "GET",
+    "/doc",
+    Effect.fn(function* () {
+      return docResponse[yield* requestLanguage()]()
+    }),
+  ),
+).pipe(Layer.provide(authOnlyRouterLayer))
 
 const app = LayerNode.group([
   Npm.node,
@@ -249,9 +259,7 @@ const app = LayerNode.group([
   PtyTicket.node,
 ])
 
-export function createRoutes(
-  corsOptions?: CorsOptions,
-) {
+export function createRoutes(corsOptions?: CorsOptions) {
   const locationServiceMapV2 = buildLocationServiceMap()
 
   return Layer.mergeAll(

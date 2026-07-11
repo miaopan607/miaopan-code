@@ -9,6 +9,7 @@ import { WebFetchTool } from "../../src/tool/webfetch"
 import { SessionID, MessageID } from "../../src/session/schema"
 import { Tool } from "@/tool/tool"
 import { testEffect } from "../lib/effect"
+import { t } from "@miaopan-code/core/i18n"
 
 const it = testEffect(
   LayerNode.compile(LayerNode.group([httpClient, Truncate.node, Agent.node]), [
@@ -52,7 +53,7 @@ describe("tool.webfetch", () => {
         (url) =>
           Effect.gen(function* () {
             const result = yield* exec({ url: new URL("/image.png", url).toString(), format: "markdown" })
-            expect(result.output).toBe("Image fetched successfully")
+            expect(result.output).toBe(t("zh-CN", "tool.image_fetched"))
             expect(result.attachments).toBeDefined()
             expect(result.attachments?.length).toBe(1)
             expect(result.attachments?.[0].type).toBe("file")

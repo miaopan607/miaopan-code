@@ -7,6 +7,8 @@ import { useToast } from "./toast"
 import { Flag } from "@miaopan-code/core/flag/flag"
 import { useBindings, useMiaopanCodeModeStack } from "../keymap"
 import { useClipboard } from "../context/clipboard"
+import { t } from "@miaopan-code/core/i18n"
+import { language } from "../util/locale"
 
 export function Dialog(
   props: ParentProps<{
@@ -107,7 +109,7 @@ function init() {
     bindings: [
       {
         key: "escape",
-        desc: "Close dialog",
+        desc: t(language(), "dialog.close"),
         group: "Dialog",
         cmd: () => {
           if (renderer.getSelection()) {
@@ -121,7 +123,7 @@ function init() {
       },
       {
         key: "ctrl+c",
-        desc: "Close dialog",
+        desc: t(language(), "dialog.close"),
         group: "Dialog",
         cmd: () => {
           if (renderer.getSelection()) {
@@ -189,7 +191,7 @@ export function DialogProvider(props: ParentProps) {
     const text = renderer.getSelection()?.getSelectedText()
     if (!text || !clipboard.write) return false
     void clipboard.write(text).then(
-      () => toast.show({ message: "Copied to clipboard", variant: "info" }),
+      () => toast.show({ message: t(language(), "tui.copied_to_clipboard"), variant: "info" }),
       (error) => toast.error(error),
     )
     renderer.clearSelection()
@@ -225,7 +227,7 @@ export function DialogProvider(props: ParentProps) {
 export function useDialog() {
   const value = useContext(ctx)
   if (!value) {
-    throw new Error("useDialog must be used within a DialogProvider")
+    throw new Error(t(language(), "tui.error.dialog_provider_missing"))
   }
   return value
 }

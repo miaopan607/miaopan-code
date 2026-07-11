@@ -4,6 +4,7 @@ import { Flag } from "@miaopan-code/core/flag/flag"
 import os from "os"
 import { Duration, Effect } from "effect"
 import { effectCmd } from "../../effect-cmd"
+import { UI } from "@/cli/ui"
 import { cmd } from "../cmd"
 import { ConfigCommand } from "./config"
 import { FileCommand } from "./file"
@@ -18,7 +19,7 @@ import { V2Command } from "./v2"
 
 export const DebugCommand = cmd({
   command: "debug",
-  describe: "debugging and troubleshooting tools",
+  describe: UI.t("cli.debug_tools"),
   builder: (yargs) =>
     yargs
       .command(ConfigCommand)
@@ -40,7 +41,7 @@ export const DebugCommand = cmd({
 
 const WaitCommand = effectCmd({
   command: "wait",
-  describe: "wait indefinitely (for debugging)",
+  describe: UI.t("cli.wait_debug"),
   handler: Effect.fn("Cli.debug.wait")(function* () {
     yield* Effect.sleep(Duration.days(1))
   }),
@@ -48,7 +49,7 @@ const WaitCommand = effectCmd({
 
 const InfoCommand = effectCmd({
   command: "info",
-  describe: "show debug information",
+  describe: UI.t("cli.show_debug"),
   handler: Effect.fn("Cli.debug.info")(function* () {
     const { Config } = yield* Effect.promise(() => import("@/config/config"))
     const { ConfigPlugin } = yield* Effect.promise(() => import("@/config/plugin"))
@@ -58,16 +59,16 @@ const InfoCommand = effectCmd({
       : undefined
     const terminal = [termProgram, process.env.TERM].filter((item): item is string => Boolean(item)).join(" / ")
 
-    console.log(`miaopanCode version: ${InstallationVersion}`)
-    console.log(`os: ${os.type()} ${os.release()} ${os.arch()}`)
-    console.log(`terminal: ${terminal || "unknown"}`)
-    console.log("plugins:")
+    console.log(UI.t("debug.version", { version: InstallationVersion }))
+    console.log(UI.t("debug.os", { value: `${os.type()} ${os.release()} ${os.arch()}` }))
+    console.log(UI.t("debug.terminal", { value: terminal || UI.t("tui.unknown") }))
+    console.log(UI.t("debug.plugins"))
     if (Flag.MIAOPAN_CODE_PURE) {
-      console.log("external plugins disabled (--pure)")
+      console.log(UI.t("debug.plugins_disabled"))
       return
     }
     if (!config.plugin_origins?.length) {
-      console.log("none")
+      console.log(UI.t("debug.none"))
       return
     }
     for (const plugin of config.plugin_origins) {
@@ -78,7 +79,7 @@ const InfoCommand = effectCmd({
 
 const PathsCommand = cmd({
   command: "paths",
-  describe: "show global paths (data, config, cache, state)",
+  describe: UI.t("cli.show_paths"),
   handler() {
     for (const [key, value] of Object.entries(Global.Path)) {
       console.log(key.padEnd(10), value)

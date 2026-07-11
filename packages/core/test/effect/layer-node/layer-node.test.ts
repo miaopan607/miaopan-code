@@ -67,7 +67,7 @@ describe("layer node", () => {
     const unbound = LayerNode.unbound(Value, tags.values.app)
     const greeting = make({ service: Greeting, layer: greetingLayer, deps: [unbound] })
     const tree = LayerNode.group([greeting])
-    expect(() => LayerNode.compile(tree)).toThrow("Unbound layer node: test/LayerNodeValue")
+    expect(() => LayerNode.compile(tree)).toThrow("未绑定的层节点：test/LayerNodeValue")
     const layer = LayerNode.compile(tree, [[unbound, value]]) as Layer.Layer<Greeting>
     const program = Effect.map(Greeting, (item) => item.value).pipe(Effect.provide(layer))
     expect(await Effect.runPromise(program)).toBe("hello production")
@@ -233,7 +233,7 @@ describe("layer node", () => {
     })
 
     expect(() => LayerNode.hoist(LayerNode.group([left, right]), tags.values.global)).toThrow(
-      "Tag global has conflicting implementations for test/GraphDatabase",
+      "标签 global 对 test/GraphDatabase 存在冲突实现",
     )
   })
 

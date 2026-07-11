@@ -1,11 +1,12 @@
 import type { JSONSchema7 } from "@ai-sdk/provider"
 import { JsonSchema, Schema } from "effect"
 import type * as Tool from "./tool"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 type JsonObject = Record<string, unknown>
 const cache = new WeakMap<Schema.Top, JSONSchema7>()
 
-export function fromSchema(schema: Schema.Top): JSONSchema7 {
+export function fromSchema(schema: Schema.Top, language?: Language): JSONSchema7 {
   const cached = cache.get(schema)
   if (cached) return cached
 
@@ -16,13 +17,13 @@ export function fromSchema(schema: Schema.Top): JSONSchema7 {
     ...(Object.keys(document.definitions).length > 0 ? { $defs: document.definitions } : {}),
   })
   const inlined = dropDefinitionsIfResolved(inlineLocalReferences(result))
-  if (!isJsonSchema(inlined)) throw new Error("tool JSON Schema helper produced a non-schema value")
+  if (!isJsonSchema(inlined)) throw new Error(t(language, "tool.error.json_schema_invalid"))
   cache.set(schema, inlined)
   return inlined
 }
 
-export function fromTool(tool: Tool.Def): JSONSchema7 {
-  return tool.jsonSchema ?? fromSchema(tool.parameters as Schema.Top)
+export function fromTool(tool: Tool.Def, language?: Language): JSONSchema7 {
+  return tool.jsonSchema ?? fromSchema(tool.parameters as Schema.Top, language)
 }
 
 function normalize(value: unknown, options: { stripNull?: boolean } = {}): unknown {

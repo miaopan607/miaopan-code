@@ -3,6 +3,8 @@ import { readFile, rm } from "node:fs/promises"
 import { platform, release, tmpdir } from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "./util/locale"
 
 const exec = promisify(execFile)
 
@@ -14,7 +16,7 @@ function command(command: string, args: string[] = [], input?: string) {
     child.stdout?.on("data", (chunk: Buffer) => output.push(chunk))
     child.on("close", (code) => {
       if (code === 0) return resolve(Buffer.concat(output))
-      reject(new Error(`${command} exited with code ${code}`))
+      reject(new Error(t(Locale.language(), "error.clipboard_command_exited", { command, code: code ?? "" })))
     })
     if (input !== undefined) child.stdin?.end(input)
   })

@@ -14,6 +14,7 @@ import { Integration } from "../../integration"
 import { ModelV2 } from "../../model"
 import { ProviderV2 } from "../../provider"
 import { SessionSchema } from "../schema"
+import { zh } from "../../i18n"
 
 export class ModelNotSelectedError extends Schema.TaggedErrorClass<ModelNotSelectedError>()(
   "SessionRunnerModel.ModelNotSelectedError",
@@ -22,7 +23,7 @@ export class ModelNotSelectedError extends Schema.TaggedErrorClass<ModelNotSelec
   },
 ) {
   override get message() {
-    return `No model is available for session ${this.sessionID}`
+    return zh("error.session_no_model", { sessionID: this.sessionID })
   }
 }
 
@@ -34,7 +35,7 @@ export class ModelUnavailableError extends Schema.TaggedErrorClass<ModelUnavaila
   },
 ) {
   override get message() {
-    return `Model unavailable: ${this.providerID}/${this.modelID}`
+    return zh("error.model_unavailable", { providerID: this.providerID, modelID: this.modelID })
   }
 }
 
@@ -47,7 +48,11 @@ export class VariantUnavailableError extends Schema.TaggedErrorClass<VariantUnav
   },
 ) {
   override get message() {
-    return `Variant unavailable for ${this.providerID}/${this.modelID}: ${this.variant}`
+    return zh("error.variant_unavailable", {
+      providerID: this.providerID,
+      modelID: this.modelID,
+      variant: this.variant,
+    })
   }
 }
 
@@ -60,7 +65,7 @@ export class UnsupportedApiError extends Schema.TaggedErrorClass<UnsupportedApiE
   },
 ) {
   override get message() {
-    return `Unsupported API for ${this.providerID}/${this.modelID}: ${this.api}`
+    return zh("error.api_unsupported", { providerID: this.providerID, modelID: this.modelID, api: this.api })
   }
 }
 

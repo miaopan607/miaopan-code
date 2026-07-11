@@ -4,6 +4,8 @@ import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"
 import { createServer } from "http"
 import open from "open"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { pluginLanguage } from "./language"
 
 const DO_OAUTH_CLIENT_ID = "b1a6c5158156caac821fd1b30253ca8acb52454a48fa744420e41889cb589f82"
 const DO_AUTHORIZE_URL = "https://cloud.digitalocean.com/v1/oauth/authorize"
@@ -36,6 +38,7 @@ interface RouterEntry {
 
 let oauthServer: ReturnType<typeof createServer> | undefined
 let pendingOAuth: PendingOAuth | undefined
+let oauthLanguage: Language = "zh-CN"
 
 function generateState(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32))
@@ -59,14 +62,17 @@ function buildAuthorizeUrl(state: string): string {
   return `${DO_AUTHORIZE_URL}?${params.toString()}`
 }
 
-async function startOAuthServer(): Promise<void> {
+async function startOAuthServer(language: Language): Promise<void> {
+  oauthLanguage = language
   if (oauthServer) return
   oauthServer = createServer((req, res) => {
     const url = new URL(req.url || "/", `http://localhost:${OAUTH_PORT}`)
 
     if (req.method === "GET" && url.pathname === OAUTH_REDIRECT_PATH) {
       res.writeHead(200, { "Content-Type": "text/html" })
-      res.end(OauthCallbackPage.bootstrap({ tokenPath: OAUTH_TOKEN_PATH, provider: "DigitalOcean" }))
+      res.end(
+        OauthCallbackPage.bootstrap({ tokenPath: OAUTH_TOKEN_PATH, provider: "DigitalOcean", language: oauthLanguage }),
+      )
       return
     }
 
@@ -87,7 +93,7 @@ async function startOAuthServer(): Promise<void> {
           return
         }
         if (body.error) {
-          const message = body.error_description || body.error || "OAuth error"
+          const message = body.error_description || body.error || t(oauthLanguage, "oauth.failed")
           pendingOAuth.reject(new Error(String(message)))
           pendingOAuth = undefined
           res.writeHead(200, { "Content-Type": "application/json" })
@@ -95,14 +101,14 @@ async function startOAuthServer(): Promise<void> {
           return
         }
         if (!body.access_token) {
-          pendingOAuth.reject(new Error("Missing access_token in callback"))
+          pendingOAuth.reject(new Error(t(oauthLanguage, "error.oauth_code_missing")))
           pendingOAuth = undefined
           res.writeHead(400, { "Content-Type": "application/json" })
           res.end(JSON.stringify({ error: "missing_access_token" }))
           return
         }
         if (body.state !== pendingOAuth.state) {
-          pendingOAuth.reject(new Error("Invalid state - potential CSRF attack"))
+          pendingOAuth.reject(new Error(t(oauthLanguage, "error.oauth_state_invalid")))
           pendingOAuth = undefined
           res.writeHead(400, { "Content-Type": "application/json" })
           res.end(JSON.stringify({ error: "invalid_state" }))
@@ -122,7 +128,7 @@ async function startOAuthServer(): Promise<void> {
     }
 
     res.writeHead(404)
-    res.end("Not found")
+    res.end(t(oauthLanguage, "error.oauth_not_found"))
   })
 
   await new Promise<void>((resolve, reject) => {
@@ -139,13 +145,13 @@ function stopOAuthServer() {
   oauthServer = undefined
 }
 
-function waitForOAuthCallback(state: string): Promise<ImplicitTokenPayload> {
+function waitForOAuthCallback(state: string, language: Language): Promise<ImplicitTokenPayload> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(
       () => {
         if (pendingOAuth) {
           pendingOAuth = undefined
-          reject(new Error("OAuth callback timeout - authorization took too long"))
+          reject(new Error(t(language, "error.oauth_timeout")))
         }
       },
       5 * 60 * 1000,
@@ -221,7 +227,8 @@ function parseRoutersJSON(raw: string | undefined): RouterEntry[] {
   }
 }
 
-export async function DigitalOceanAuthPlugin(input: PluginInput): Promise<Hooks> {
+export async function DigitalOceanAuthPlugin(input: PluginInput, options?: Record<string, unknown>): Promise<Hooks> {
+  const language = pluginLanguage(options)
   return {
     provider: {
       id: "digitalocean",
@@ -273,17 +280,16 @@ export async function DigitalOceanAuthPlugin(input: PluginInput): Promise<Hooks>
       methods: [
         {
           type: "oauth",
-          label: "Login with DigitalOcean",
+          label: t(language, "plugin.digitalocean.login"),
           async authorize() {
-            await startOAuthServer()
+            await startOAuthServer(language)
             const state = generateState()
-            const callbackPromise = waitForOAuthCallback(state)
+            const callbackPromise = waitForOAuthCallback(state, language)
             const url = buildAuthorizeUrl(state)
             await open(url).catch(() => undefined)
             return {
               url,
-              instructions:
-                "Sign in to DigitalOcean in your browser. MiaopanCode will use your DigitalOcean API token directly for inference and load your Inference Routers. Re-run /connect to refresh routers later.",
+              instructions: t(language, "plugin.digitalocean.browser_instructions"),
               method: "auto" as const,
               async callback() {
                 try {
@@ -317,7 +323,7 @@ export async function DigitalOceanAuthPlugin(input: PluginInput): Promise<Hooks>
         },
         {
           type: "api",
-          label: "Paste Model Access Key",
+          label: t(language, "plugin.digitalocean.paste_key"),
         },
       ],
     },

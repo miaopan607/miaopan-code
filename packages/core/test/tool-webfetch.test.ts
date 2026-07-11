@@ -148,7 +148,7 @@ describe("WebFetchTool registration", () => {
       reset()
       const registry = yield* ToolRegistry.Service
 
-      expect(yield* executeTool(registry, call({ url: "file:///etc/passwd", format: "text" }))).toEqual({
+      expect(yield* executeTool(registry, call({ url: "file:///etc/passwd", format: "text" }), "en")).toEqual({
         type: "error",
         value: "Unable to fetch file:///etc/passwd",
       })
@@ -193,7 +193,7 @@ describe("WebFetchTool registration", () => {
 
       expect(yield* executeTool(registry, call({ url, format: "markdown" }))).toEqual({
         type: "error",
-        value: `Unable to fetch ${url}`,
+        value: `无法获取 ${url}`,
       })
     }),
   )
@@ -210,7 +210,7 @@ describe("WebFetchTool registration", () => {
         )
       expect(yield* executeTool(registry, call({ url: "https://1.1.1.1/declared", format: "text" }))).toEqual({
         type: "error",
-        value: "Unable to fetch https://1.1.1.1/declared",
+        value: "无法获取 https://1.1.1.1/declared",
       })
 
       respond = () =>
@@ -219,7 +219,7 @@ describe("WebFetchTool registration", () => {
         )
       expect(yield* executeTool(registry, call({ url: "https://1.1.1.1/streamed", format: "text" }))).toEqual({
         type: "error",
-        value: "Unable to fetch https://1.1.1.1/streamed",
+        value: "无法获取 https://1.1.1.1/streamed",
       })
     }),
   )
@@ -231,13 +231,13 @@ describe("WebFetchTool registration", () => {
       respond = () => Effect.succeed(new Response("png", { headers: { "content-type": "image/png" } }))
       expect(yield* executeTool(registry, call({ url: "https://1.1.1.1/image", format: "html" }))).toEqual({
         type: "error",
-        value: "Unable to fetch https://1.1.1.1/image",
+        value: "无法获取 https://1.1.1.1/image",
       })
 
       respond = () => Effect.succeed(new Response("pdf", { headers: { "content-type": "application/pdf" } }))
       expect(yield* executeTool(registry, call({ url: "https://1.1.1.1/file", format: "html" }))).toEqual({
         type: "error",
-        value: "Unable to fetch https://1.1.1.1/file",
+        value: "无法获取 https://1.1.1.1/file",
       })
     }),
   )
@@ -260,7 +260,7 @@ describe("WebFetchTool registration", () => {
       })
       expect(requests).toHaveLength(2)
       expect(requests[0]?.headers["user-agent"]).toContain("Mozilla/5.0")
-      expect(requests[1]?.headers["user-agent"]).toBe("miaopanCode")
+      expect(requests[1]?.headers["user-agent"]).toBe("miaopan-code")
     }),
   )
 
@@ -275,7 +275,7 @@ describe("WebFetchTool registration", () => {
       ).pipe(Effect.forkChild)
       yield* TestClock.adjust(Duration.seconds(1))
 
-      expect(yield* Fiber.join(fiber)).toEqual({ type: "error", value: "Unable to fetch https://1.1.1.1/slow" })
+      expect(yield* Fiber.join(fiber)).toEqual({ type: "error", value: "无法获取 https://1.1.1.1/slow" })
     }),
   )
 })

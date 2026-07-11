@@ -1,47 +1,47 @@
-# Security
+# 安全
 
-## IMPORTANT
+语言：简体中文 · [English](SECURITY.en.md)
 
-We do not accept AI generated security reports. We receive a large number of
-these and we absolutely do not have the resources to review them all. If you
-submit one that will be an automatic ban from the project.
+## 重要说明
 
-## Threat Model
+我们不接受由 AI 生成的安全报告。我们收到大量此类报告，完全没有资源逐一审查。如果你提交此类报告，将被本项目自动封禁。
 
-### Overview
+## 威胁模型
 
-miaopan-code is an AI-powered coding assistant that runs locally on your machine. It provides an agent system with access to powerful tools including shell execution, file operations, and web access.
+### 概述
 
-### No Sandbox
+miaopan-code 是一款在你的机器上本地运行、由 AI 驱动的编程助手。它提供一套代理系统，可以访问包括 shell 执行、文件操作和网络访问在内的强大工具。
 
-miaopan-code does **not** sandbox the agent. The permission system exists as a UX feature to help users stay aware of what actions the agent is taking - it prompts for confirmation before executing commands, writing files, etc. However, it is not designed to provide security isolation.
+### 无沙箱
 
-If you need true isolation, run miaopan-code inside a Docker container or VM.
+miaopan-code **不会**对代理进行沙箱隔离。权限系统是一项用户体验功能，旨在帮助用户了解代理正在执行的操作——它会在执行命令、写入文件等操作前请求确认。不过，它并非为提供安全隔离而设计。
 
-### Server Mode
+如果你需要真正的隔离，请在 Docker 容器或虚拟机中运行 miaopan-code。
 
-Server mode is opt-in only. When enabled, set `MIAOPAN_CODE_SERVER_PASSWORD` to require HTTP Basic Auth. Without this, the server runs unauthenticated (with a warning). It is the end user's responsibility to secure the server - any functionality it provides is not a vulnerability.
+### 服务器模式
 
-### Out of Scope
+服务器模式仅在用户主动启用时运行。启用后，请设置 `MIAOPAN_CODE_SERVER_PASSWORD` 以要求 HTTP Basic Auth。如果未设置，服务器将以未认证方式运行（并显示警告）。保护服务器安全是最终用户的责任——服务器提供的任何功能本身都不构成漏洞。
 
-| Category                        | Rationale                                                               |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| **Server access when opted-in** | If you enable server mode, API access is expected behavior              |
-| **Sandbox escapes**             | The permission system is not a sandbox (see above)                      |
-| **LLM provider data handling**  | Data sent to your configured LLM provider is governed by their policies |
-| **MCP server behavior**         | External MCP servers you configure are outside our trust boundary       |
-| **Malicious config files**      | Users control their own config; modifying it is not an attack vector    |
+### 不在范围内
+
+| 类别                         | 理由                                                       |
+| ---------------------------- | ---------------------------------------------------------- |
+| **主动启用后的服务器访问**   | 如果你启用了服务器模式，API 访问就是预期行为               |
+| **沙箱逃逸**                 | 权限系统不是沙箱（见上文）                                 |
+| **LLM 提供商的数据处理**     | 发送给你所配置 LLM 提供商的数据受该提供商的政策约束        |
+| **MCP 服务器行为**           | 你配置的外部 MCP 服务器位于我们的信任边界之外              |
+| **恶意配置文件**             | 用户控制自己的配置；修改配置不属于攻击途径                 |
 
 ---
 
-# Reporting Security Issues
+# 报告安全问题
 
-We appreciate your efforts to responsibly disclose your findings, and will make every effort to acknowledge your contributions.
+感谢你为负责任地披露发现所做的努力，我们会尽力确认你的贡献。
 
-To report a security issue, please use the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/miaopan607/miaopan-code/security/advisories/new) tab.
+如需报告安全问题，请使用 GitHub Security Advisory 的 [“Report a Vulnerability”](https://github.com/miaopan607/miaopan-code/security/advisories/new) 标签页。
 
-The team will send a response indicating the next steps in handling your report. After the initial reply to your report, the security team will keep you informed of the progress towards a fix and full announcement, and may ask for additional information or guidance.
+团队将回复并说明处理报告的后续步骤。首次回复后，安全团队会持续告知你修复及完整公告的进展，并可能请求补充信息或指导。
 
-## Escalation
+## 升级处理
 
-If you do not receive an acknowledgement of your report within 6 business days, you may send an email to security@anoma.ly
+如果你在 6 个工作日内未收到对报告的确认，可以发送电子邮件至 security@anoma.ly。

@@ -10,6 +10,8 @@ import { createStore } from "solid-js/store"
 import { errorMessage } from "../util/error"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
+import { Locale } from "../util/locale"
+import { t } from "@miaopan-code/core/i18n"
 
 type WorkspaceOption = { workspace: Workspace }
 
@@ -39,9 +41,9 @@ export function DialogWorkspaceList() {
         return {
           title:
             removing() === workspace.id
-              ? "Deleting..."
+              ? t(Locale.language(), "workspace.deleting")
               : deleting() === workspace.id
-                ? `Delete ${workspace.name}? Press delete again`
+                ? t(Locale.language(), "workspace.confirm_delete", { name: workspace.name })
                 : workspace.name,
           value: { workspace },
           footer: workspace.type,
@@ -71,7 +73,7 @@ export function DialogWorkspaceList() {
       setRemoving(undefined)
       toast.show({
         variant: "error",
-        title: "Failed to delete workspace",
+        title: t(Locale.language(), "workspace.delete_failed"),
         message: errorMessage(result.error),
       })
       return
@@ -94,7 +96,7 @@ export function DialogWorkspaceList() {
 
   return (
     <DialogSelect
-      title="Workspaces"
+      title={t(Locale.language(), "dialog.workspaces")}
       options={options()}
       onMove={(option) => {
         setDeleting(undefined)
@@ -103,7 +105,7 @@ export function DialogWorkspaceList() {
       actions={[
         {
           command: "session.delete",
-          title: "delete",
+          title: t(Locale.language(), "dialog.delete"),
           onTrigger: (option) => void remove(option.value.workspace),
         },
       ]}

@@ -18,6 +18,7 @@ import {
 } from "@miaopan-code/llm"
 import type { LLMClientShape } from "@miaopan-code/llm/route"
 import { LLMNative } from "./native-request"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export type RuntimeStatus =
   | { readonly type: "supported"; readonly apiKey: string; readonly baseURL?: string }
@@ -41,28 +42,29 @@ type StreamInput = {
   readonly providerOptions?: Record<string, any>
   readonly headers: Record<string, string>
   readonly abort: AbortSignal
+  readonly language?: Language
 }
 
-export function status(input: Pick<StreamInput, "model" | "provider" | "auth">): RuntimeStatus {
+export function status(input: Pick<StreamInput, "model" | "provider" | "auth" | "language">): RuntimeStatus {
   return statusWithFetch(input, providerFetch(input))
 }
 
 function statusWithFetch(
-  input: Pick<StreamInput, "model" | "provider" | "auth">,
+  input: Pick<StreamInput, "model" | "provider" | "auth" | "language">,
   fetch: typeof globalThis.fetch | undefined,
 ): RuntimeStatus {
   const providerID = input.model.providerID
   if (providerID !== "openai" && providerID !== "anthropic" && !providerID.startsWith("miaopan-code"))
-    return { type: "unsupported", reason: "provider is not openai, miaopanCode, or anthropic" }
+    return { type: "unsupported", reason: t(input.language, "error.native_provider_unsupported") }
   const npm = input.model.api.npm
   if (npm !== "@ai-sdk/openai" && npm !== "@ai-sdk/openai-compatible" && npm !== "@ai-sdk/anthropic")
-    return { type: "unsupported", reason: "provider package is not OpenAI, OpenAI-compatible, or Anthropic" }
+    return { type: "unsupported", reason: t(input.language, "error.native_package_unsupported") }
   if (input.auth?.type === "oauth" && !(input.provider.id === "openai" && fetch)) {
-    return { type: "unsupported", reason: "OAuth auth requires a provider fetch override" }
+    return { type: "unsupported", reason: t(input.language, "error.native_oauth_fetch_required") }
   }
 
   const apiKey = typeof input.provider.options.apiKey === "string" ? input.provider.options.apiKey : input.provider.key
-  if (!apiKey) return { type: "unsupported", reason: "API key is not configured" }
+  if (!apiKey) return { type: "unsupported", reason: t(input.language, "error.native_api_key_missing") }
 
   return {
     type: "supported",
@@ -91,7 +93,7 @@ export function stream(input: StreamInput): StreamResult {
     model: input.model,
     apiKey: current.apiKey,
     baseURL: current.baseURL,
-    messages: ProviderTransform.message(input.messages, input.model, input.providerOptions ?? {}),
+    messages: ProviderTransform.message(input.messages, input.model, input.providerOptions ?? {}, input.language),
     toolChoice: input.toolChoice,
     temperature: input.temperature,
     topP: input.topP,
@@ -99,6 +101,7 @@ export function stream(input: StreamInput): StreamResult {
     maxOutputTokens: input.maxOutputTokens,
     providerOptions: ProviderTransform.providerOptions(input.model, input.providerOptions ?? {}),
     headers: { ...providerHeaders(input.provider.options.headers), ...input.headers },
+    language: input.language,
   })
   const stream = Stream.scoped(
     Stream.unwrap(
@@ -118,7 +121,7 @@ export function stream(input: StreamInput): StreamResult {
                 : Stream.make(event).pipe(
                     Stream.concat(
                       Stream.fromEffectDrain(
-                        ToolRuntime.dispatch(tools, event).pipe(
+                        ToolRuntime.dispatch(tools, event, input.language).pipe(
                           Effect.flatMap((dispatched) => Queue.offerAll(results, dispatched.events)),
                           Effect.catchCause((cause) => Queue.failCause(results, cause)),
                           Effect.asVoid,
@@ -166,7 +169,7 @@ function nativeSchema(value: unknown): JsonSchema {
   return asSchema(value as Parameters<typeof asSchema>[0]).jsonSchema as JsonSchema
 }
 
-export function nativeTools(tools: Record<string, Tool>, input: Pick<StreamInput, "messages" | "abort">) {
+export function nativeTools(tools: Record<string, Tool>, input: Pick<StreamInput, "messages" | "abort" | "language">) {
   return Object.fromEntries(
     Object.entries(tools).map(([name, item]) => [
       name,
@@ -178,7 +181,7 @@ export function nativeTools(tools: Record<string, Tool>, input: Pick<StreamInput
         execute: (args: unknown, ctx) =>
           Effect.tryPromise({
             try: () => {
-              if (!item.execute) throw new Error(`Tool has no execute handler: ${name}`)
+              if (!item.execute) throw new Error(t(input.language, "error.native_tool_execute_missing", { name }))
               return item.execute(args, {
                 toolCallId: ctx?.id ?? name,
                 messages: input.messages,

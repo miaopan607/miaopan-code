@@ -9,6 +9,7 @@ import { useClipboard } from "../context/clipboard"
 import { useToast } from "../ui/toast"
 import { useBindings } from "../keymap"
 import { describeOS, describeTerminal } from "../util/system"
+import { useI18n } from "../context/i18n"
 
 export function DialogDebug() {
   const { theme } = useTheme()
@@ -17,6 +18,7 @@ export function DialogDebug() {
   const local = useLocal()
   const clipboard = useClipboard()
   const toast = useToast()
+  const i18n = useI18n()
   const [copied, setCopied] = createSignal(false)
 
   dialog.setSize("large")
@@ -24,12 +26,18 @@ export function DialogDebug() {
   const entries = createMemo(() => {
     const model = local.model.current()
     return [
-      { label: "Version", value: `${InstallationVersion} (${InstallationChannel})` },
-      { label: "Date", value: new Date().toISOString() },
-      { label: "OS", value: describeOS() },
-      { label: "Terminal", value: describeTerminal() },
-      { label: "Session ID", value: route.data.type === "session" ? route.data.sessionID : "n/a" },
-      { label: "Model", value: model ? `${model.providerID}/${model.modelID}` : "n/a" },
+      { label: i18n.t("tui.version"), value: `${InstallationVersion} (${InstallationChannel})` },
+      { label: i18n.t("tui.date"), value: new Date().toISOString() },
+      { label: i18n.t("tui.os"), value: describeOS() },
+      { label: i18n.t("tui.terminal"), value: describeTerminal() },
+      {
+        label: i18n.t("tui.session_id"),
+        value: route.data.type === "session" ? route.data.sessionID : i18n.t("tui.not_available"),
+      },
+      {
+        label: i18n.t("tui.model"),
+        value: model ? `${model.providerID}/${model.modelID}` : i18n.t("tui.not_available"),
+      },
     ]
   })
 
@@ -41,20 +49,20 @@ export function DialogDebug() {
       .write?.(text)
       .then(() => {
         setCopied(true)
-        toast.show({ message: "Debug info copied to clipboard", variant: "info" })
+        toast.show({ message: i18n.t("tui.debug_info_copied"), variant: "info" })
       })
       .catch(toast.error)
   }
 
   useBindings(() => ({
-    bindings: [{ key: "return", desc: "Copy debug info", group: "Dialog", cmd: copy }],
+    bindings: [{ key: "return", desc: i18n.t("tui.copy_debug_info"), group: i18n.t("tui.system"), cmd: copy }],
   }))
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Debug
+          {i18n.t("tui.debug")}
         </text>
         <text fg={theme.textMuted} onMouseUp={() => dialog.clear()}>
           esc
@@ -77,10 +85,10 @@ export function DialogDebug() {
         </For>
       </box>
       <box flexDirection="row" justifyContent="space-between">
-        <text fg={theme.textMuted}>Share this when reporting an issue.</text>
+        <text fg={theme.textMuted}>{i18n.t("tui.share_debug_info")}</text>
         <text onMouseUp={copy}>
           <span style={{ fg: copied() ? theme.success : theme.text }}>
-            <b>{copied() ? "✓ copied" : "copy"}</b>{" "}
+            <b>{copied() ? `✓ ${i18n.t("tui.copied")}` : i18n.t("tui.copy")}</b>{" "}
           </span>
           <span style={{ fg: theme.textMuted }}>enter</span>
         </text>

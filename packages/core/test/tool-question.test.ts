@@ -8,6 +8,7 @@ import { SessionV2 } from "@miaopan-code/core/session"
 import { ToolRegistry } from "@miaopan-code/core/tool/registry"
 import { QuestionTool } from "@miaopan-code/core/tool/question"
 import { ToolOutputStore } from "@miaopan-code/core/tool-output-store"
+import { zh } from "@miaopan-code/core/i18n"
 import { testEffect } from "./lib/effect"
 import { toolIdentity, executeTool, settleTool, toolDefinitions } from "./lib/tool"
 
@@ -60,11 +61,15 @@ describe("QuestionTool", () => {
 
       expect(yield* toolDefinitions(registry, [{ action: "question", resource: "*", effect: "deny" }])).toEqual([])
       expect(
-        yield* settleTool(registry, {
-          sessionID,
-          ...toolIdentity,
-          call: { type: "tool-call", id: "call-question-denied", name: "question", input: { questions: [] } },
-        }),
+        yield* settleTool(
+          registry,
+          {
+            sessionID,
+            ...toolIdentity,
+            call: { type: "tool-call", id: "call-question-denied", name: "question", input: { questions: [] } },
+          },
+          "en",
+        ),
       ).toEqual({ result: { type: "error", value: "Permission denied: question" } })
       expect(capturedInput()).toBeUndefined()
       deny = false
@@ -92,6 +97,9 @@ describe("QuestionTool", () => {
       ]
 
       expect((yield* toolDefinitions(registry)).map((definition) => definition.name)).toEqual(["question"])
+      const text = zh("tool.question.answered", {
+        formatted: `"What should happen?"="Build", "Which environment?"="${zh("tool.question.unanswered")}"`,
+      })
       expect(
         yield* settleTool(registry, {
           sessionID,
@@ -101,15 +109,14 @@ describe("QuestionTool", () => {
       ).toEqual({
         result: {
           type: "text",
-          value:
-            'User has answered your questions: "What should happen?"="Build", "Which environment?"="Unanswered". You can now continue with the user\'s answers in mind.',
+          value: text,
         },
         output: {
           structured: { answers: [["Build"], []] },
           content: [
             {
               type: "text",
-              text: 'User has answered your questions: "What should happen?"="Build", "Which environment?"="Unanswered". You can now continue with the user\'s answers in mind.',
+              text,
             },
           ],
         },

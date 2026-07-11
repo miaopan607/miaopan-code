@@ -8,17 +8,21 @@ import { InstructionContext } from "../instruction-context"
 import { SystemContextRegistry } from "./registry"
 import { FSUtil } from "../fs-util"
 import { Global } from "../global"
+import { Config } from "../config"
+import { t } from "../i18n"
 
 const builtIns = Layer.effectDiscard(
   Effect.gen(function* () {
+    const config = yield* Config.Service
     const location = yield* Location.Service
     const registry = yield* SystemContextRegistry.Service
+    const language = Config.latest(yield* config.entries(), "language")
     const environment = [
       "<env>",
-      `  Working directory: ${location.directory}`,
-      `  Workspace root folder: ${location.project.directory}`,
-      `  Is directory a git repo: ${location.vcs?.type === "git" ? "yes" : "no"}`,
-      `  Platform: ${process.platform}`,
+      `  ${t(language, "prompt.environment_working_directory", { value: location.directory })}`,
+      `  ${t(language, "prompt.environment_workspace_root", { value: location.project.directory })}`,
+      `  ${t(language, "prompt.environment_git_repo", { value: t(language, location.vcs?.type === "git" ? "common.yes" : "common.no") })}`,
+      `  ${t(language, "prompt.environment_platform", { value: process.platform })}`,
       "</env>",
     ].join("\n")
     const context = SystemContext.combine([
@@ -26,16 +30,15 @@ const builtIns = Layer.effectDiscard(
         key: SystemContext.Key.make("core/environment"),
         codec: Schema.toCodecJson(Schema.String),
         load: Effect.succeed(environment),
-        baseline: (environment) =>
-          ["Here is some useful information about the environment you are running in:", environment].join("\n"),
-        update: (_previous, environment) => ["The environment you are running in is now:", environment].join("\n"),
+        baseline: (environment) => t(language, "prompt.environment_baseline", { environment }),
+        update: (_previous, environment) => t(language, "prompt.environment_updated", { environment }),
       }),
       SystemContext.make({
         key: SystemContext.Key.make("core/date"),
         codec: Schema.toCodecJson(Schema.String),
         load: DateTime.nowAsDate.pipe(Effect.map((date) => date.toDateString())),
-        baseline: (date) => `Today's date: ${date}`,
-        update: (_previous, date) => `Today's date is now: ${date}`,
+        baseline: (date) => t(language, "prompt.environment_date", { value: date }),
+        update: (_previous, date) => t(language, "prompt.environment_date_updated", { date }),
       }),
     ])
 
@@ -46,5 +49,5 @@ const builtIns = Layer.effectDiscard(
 export const node = makeLocationNode({
   name: "system-context-builtins",
   layer: builtIns,
-  deps: [Location.node, SystemContextRegistry.node, InstructionContext.node, FSUtil.node, Global.node],
+  deps: [Config.node, Location.node, SystemContextRegistry.node, InstructionContext.node, FSUtil.node, Global.node],
 })

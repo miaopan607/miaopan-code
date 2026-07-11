@@ -40,7 +40,7 @@ describe("NvidiaPlugin", () => {
       expect((yield* catalog.provider.get(ProviderV2.ID.make("nvidia")))?.request.headers).toEqual({
         Existing: "value",
         "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/",
-        "X-Title": "miaopanCode",
+        "X-Title": "miaopan-code",
         "X-BILLING-INVOKE-ORIGIN": "MiaopanCode",
       })
       expect((yield* catalog.provider.get(ProviderV2.ID.openrouter))?.request.headers).toEqual({})
@@ -63,7 +63,7 @@ describe("NvidiaPlugin", () => {
 
       expect((yield* catalog.provider.get(ProviderV2.ID.make("nvidia")))?.request.headers).toEqual({
         "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/",
-        "X-Title": "miaopanCode",
+        "X-Title": "miaopan-code",
         "X-BILLING-INVOKE-ORIGIN": "MiaopanCode",
       })
     }),
@@ -89,7 +89,7 @@ describe("NvidiaPlugin", () => {
 
       expect((yield* catalog.provider.get(ProviderV2.ID.make("nvidia")))?.request.headers).toEqual({
         "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/",
-        "X-Title": "miaopanCode",
+        "X-Title": "miaopan-code",
         "X-BILLING-INVOKE-ORIGIN": "CustomOrigin",
       })
     }),

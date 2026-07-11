@@ -25,6 +25,7 @@ import { BedrockMedia } from "./utils/bedrock-media"
 import { Lifecycle } from "./utils/lifecycle"
 import { ToolSchemaProjection } from "./utils/tool-schema"
 import { ToolStream } from "./utils/tool-stream"
+import { t, type Language } from "../i18n"
 
 const ADAPTER = "bedrock-converse"
 
@@ -239,13 +240,18 @@ const textWithCache = (
   return cachePoint ? [{ text }, cachePoint] : [{ text }]
 }
 
-const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>) =>
-  ProviderShared.matchToolChoice("Bedrock Converse", toolChoice, {
-    auto: () => ({ auto: {} }) as const,
-    none: () => undefined,
-    required: () => ({ any: {} }) as const,
-    tool: (name) => ({ tool: { name } }) as const,
-  })
+const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>, language?: Language) =>
+  ProviderShared.matchToolChoice(
+    "Bedrock Converse",
+    toolChoice,
+    {
+      auto: () => ({ auto: {} }) as const,
+      none: () => undefined,
+      required: () => ({ any: {} }) as const,
+      tool: (name) => ({ tool: { name } }) as const,
+    },
+    language,
+  )
 
 const bedrockMetadata = (metadata: Record<string, unknown>): ProviderMetadata => ({ bedrock: metadata })
 
@@ -265,7 +271,10 @@ const lowerToolCall = (part: ToolCallPart): BedrockToolUseBlock => ({
   },
 })
 
-const lowerToolResultContent = Effect.fn("BedrockConverse.lowerToolResultContent")(function* (part: ToolResultPart) {
+const lowerToolResultContent = Effect.fn("BedrockConverse.lowerToolResultContent")(function* (
+  part: ToolResultPart,
+  language?: Language,
+) {
   if (part.result.type === "text" || part.result.type === "error")
     return [{ text: ProviderShared.toolResultText(part) }]
   if (part.result.type === "json") return [{ json: part.result.value }]
@@ -276,24 +285,30 @@ const lowerToolResultContent = Effect.fn("BedrockConverse.lowerToolResultContent
       content.push({ text: item.text })
       continue
     }
-    const media = yield* BedrockMedia.lower({
-      type: "media",
-      mediaType: item.mime,
-      data: item.uri,
-      filename: item.name,
-    })
+    const media = yield* BedrockMedia.lower(
+      {
+        type: "media",
+        mediaType: item.mime,
+        data: item.uri,
+        filename: item.name,
+      },
+      language,
+    )
     if (!("image" in media))
-      return yield* ProviderShared.invalidRequest("Bedrock Converse only supports image media in tool results")
+      return yield* ProviderShared.invalidRequest(t(language, "llm.bedrock.tool_result_image_only"))
     content.push(media)
   }
   return content
 })
 
-const lowerToolResult = Effect.fn("BedrockConverse.lowerToolResult")(function* (part: ToolResultPart) {
+const lowerToolResult = Effect.fn("BedrockConverse.lowerToolResult")(function* (
+  part: ToolResultPart,
+  language?: Language,
+) {
   return {
     toolResult: {
       toolUseId: part.id,
-      content: yield* lowerToolResultContent(part),
+      content: yield* lowerToolResultContent(part, language),
       status: part.result.type === "error" ? "error" : "success",
     },
   } satisfies BedrockToolResultBlock
@@ -307,7 +322,7 @@ const lowerMessages = Effect.fn("BedrockConverse.lowerMessages")(function* (
 
   for (const message of request.messages) {
     if (message.role === "system") {
-      const part = yield* ProviderShared.wrappedSystemUpdate("Bedrock Converse", message)
+      const part = yield* ProviderShared.wrappedSystemUpdate("Bedrock Converse", message, request.language)
       const content = textWithCache(breakpoints, part.text, part.cache)
       const previous = messages.at(-1)
       if (previous?.role === "user")
@@ -320,13 +335,18 @@ const lowerMessages = Effect.fn("BedrockConverse.lowerMessages")(function* (
       const content: BedrockUserBlock[] = []
       for (const part of message.content) {
         if (!ProviderShared.supportsContent(part, ["text", "media"]))
-          return yield* ProviderShared.unsupportedContent("Bedrock Converse", "user", ["text", "media"])
+          return yield* ProviderShared.unsupportedContent(
+            "Bedrock Converse",
+            "user",
+            ["text", "media"],
+            request.language,
+          )
         if (part.type === "text") {
           content.push(...textWithCache(breakpoints, part.text, part.cache))
           continue
         }
         if (part.type === "media") {
-          content.push(yield* BedrockMedia.lower(part))
+          content.push(yield* BedrockMedia.lower(part, request.language))
           continue
         }
       }
@@ -338,11 +358,12 @@ const lowerMessages = Effect.fn("BedrockConverse.lowerMessages")(function* (
       const content: BedrockAssistantBlock[] = []
       for (const part of message.content) {
         if (!ProviderShared.supportsContent(part, ["text", "reasoning", "tool-call"]))
-          return yield* ProviderShared.unsupportedContent("Bedrock Converse", "assistant", [
-            "text",
-            "reasoning",
-            "tool-call",
-          ])
+          return yield* ProviderShared.unsupportedContent(
+            "Bedrock Converse",
+            "assistant",
+            ["text", "reasoning", "tool-call"],
+            request.language,
+          )
         if (part.type === "text") {
           content.push(...textWithCache(breakpoints, part.text, part.cache))
           continue
@@ -367,8 +388,8 @@ const lowerMessages = Effect.fn("BedrockConverse.lowerMessages")(function* (
     const content: BedrockUserBlock[] = []
     for (const part of message.content) {
       if (!ProviderShared.supportsContent(part, ["tool-result"]))
-        return yield* ProviderShared.unsupportedContent("Bedrock Converse", "tool", ["tool-result"])
-      content.push(yield* lowerToolResult(part))
+        return yield* ProviderShared.unsupportedContent("Bedrock Converse", "tool", ["tool-result"], request.language)
+      content.push(yield* lowerToolResult(part, request.language))
       const cachePoint = BedrockCache.block(breakpoints, part.cache)
       if (cachePoint) content.push(cachePoint)
     }
@@ -386,7 +407,7 @@ const lowerSystem = (
 ): BedrockSystemBlock[] => system.flatMap((part) => textWithCache(breakpoints, part.text, part.cache))
 
 const fromRequest = Effect.fn("BedrockConverse.fromRequest")(function* (request: LLMRequest) {
-  const toolChoice = request.toolChoice ? yield* lowerToolChoice(request.toolChoice) : undefined
+  const toolChoice = request.toolChoice ? yield* lowerToolChoice(request.toolChoice, request.language) : undefined
   const generation = request.generation
   // Bedrock-Claude shares Anthropic's 4-breakpoint cap. Spend the budget in
   // tools → system → messages order to favour the highest-impact prefixes.
@@ -399,7 +420,10 @@ const fromRequest = Effect.fn("BedrockConverse.fromRequest")(function* (request:
   const messages = yield* lowerMessages(request, breakpoints)
   if (breakpoints.dropped > 0) {
     yield* Effect.logWarning(
-      `Bedrock Converse: dropped ${breakpoints.dropped} cache breakpoint(s); the API allows at most ${BedrockCache.BEDROCK_BREAKPOINT_CAP} per request.`,
+      t(request.language, "llm.bedrock.cache_breakpoints_dropped", {
+        dropped: breakpoints.dropped,
+        maximum: BedrockCache.BEDROCK_BREAKPOINT_CAP,
+      }),
     )
   }
   return {
@@ -464,6 +488,7 @@ interface ParserState {
   readonly hasToolCalls: boolean
   readonly lifecycle: Lifecycle.State
   readonly reasoningSignatures: Readonly<Record<number, string>>
+  readonly language?: Language
 }
 
 const step = (state: ParserState, event: BedrockEvent) =>
@@ -532,7 +557,7 @@ const step = (state: ParserState, event: BedrockEvent) =>
         state.tools,
         index,
         event.contentBlockDelta.delta.toolUse.input,
-        "Bedrock Converse tool delta is missing its tool call",
+        t(state.language, "llm.tool_call.delta_missing", { route: "Bedrock Converse" }),
       )
       if (ToolStream.isError(result)) return yield* result
       const events: LLMEvent[] = []
@@ -543,7 +568,7 @@ const step = (state: ParserState, event: BedrockEvent) =>
 
     if (event.contentBlockStop) {
       const index = event.contentBlockStop.contentBlockIndex
-      const result = yield* ToolStream.finish(ADAPTER, state.tools, index)
+      const result = yield* ToolStream.finish(ADAPTER, state.tools, index, state.language)
       const events: LLMEvent[] = []
       const resultEvents = result.events ?? []
       const lifecycle = resultEvents.length
@@ -591,13 +616,15 @@ const step = (state: ParserState, event: BedrockEvent) =>
         event.internalServerException?.message ??
         event.modelStreamErrorException?.message ??
         event.serviceUnavailableException?.message ??
-        "Bedrock Converse stream error"
+        t(state.language, "llm.bedrock.stream_error")
       return [state, [LLMEvent.providerError({ message, retryable: true })]] as const
     }
 
     if (event.validationException || event.throttlingException) {
       const message =
-        event.validationException?.message ?? event.throttlingException?.message ?? "Bedrock Converse error"
+        event.validationException?.message ??
+        event.throttlingException?.message ??
+        t(state.language, "llm.bedrock.error")
       return [
         state,
         [
@@ -643,12 +670,13 @@ export const protocol = Protocol.make({
   },
   stream: {
     event: BedrockEvent,
-    initial: () => ({
+    initial: (request) => ({
       tools: ToolStream.empty<number>(),
       pendingFinish: undefined,
       hasToolCalls: false,
       lifecycle: Lifecycle.initial(),
       reasoningSignatures: {},
+      language: request.language,
     }),
     step,
     onHalt,

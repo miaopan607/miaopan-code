@@ -8,6 +8,7 @@ import { Global } from "../global"
 import { makeGlobalNode } from "../effect/app-node"
 import { httpClient } from "../effect/app-node-platform"
 import { AbsolutePath } from "../schema"
+import { zh } from "../i18n"
 
 const skillConcurrency = 4
 const fileConcurrency = 8
@@ -90,7 +91,7 @@ const layer = Layer.effect(
         Effect.flatMap((body) => fs.writeWithDirs(destination, new Uint8Array(body))),
         Effect.as(true),
         Effect.catch((error) =>
-          Effect.logError("failed to download skill file", { url, error }).pipe(Effect.as(false)),
+          Effect.logError(zh("log.skill_download_file_failed"), { url, error }).pipe(Effect.as(false)),
         ),
       )
     })
@@ -105,7 +106,7 @@ const layer = Layer.effect(
           http.execute,
           Effect.flatMap(HttpClientResponse.schemaBodyJson(Index)),
           Effect.catch((error) =>
-            Effect.logError("failed to fetch skill index", { url: index, error }).pipe(Effect.as(undefined)),
+            Effect.logError(zh("log.skill_fetch_index_failed"), { url: index, error }).pipe(Effect.as(undefined)),
           ),
         )
         if (!data) return []
@@ -194,7 +195,9 @@ const layer = Layer.effect(
                     }),
                   )
                 }).pipe(
-                  Effect.catch((error) => Effect.logError("failed to refresh skill", { skill: skill.name, error })),
+                  Effect.catch((error) =>
+                    Effect.logError(zh("log.skill_refresh_failed"), { skill: skill.name, error }),
+                  ),
                   Effect.ensuring(fs.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)),
                 )
               }

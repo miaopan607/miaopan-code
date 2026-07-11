@@ -6,7 +6,7 @@ import { ServerAuth } from "@/server/auth"
 
 export const AttachCommand = cmd({
   command: "attach <url>",
-  describe: "attach to a running miaopanCode server",
+  describe: UI.t("cli.attach_server"),
   builder: (yargs) =>
     yargs
       .positional("url", {
@@ -16,35 +16,35 @@ export const AttachCommand = cmd({
       })
       .option("dir", {
         type: "string",
-        description: "directory to run in",
+        description: UI.t("cli.directory"),
       })
       .option("continue", {
         alias: ["c"],
-        describe: "continue the last session",
+        describe: UI.t("cli.continue_last"),
         type: "boolean",
       })
       .option("session", {
         alias: ["s"],
         type: "string",
-        describe: "session id to continue",
+        describe: UI.t("cli.session_id"),
       })
       .option("fork", {
         type: "boolean",
-        describe: "fork the session when continuing (use with --continue or --session)",
+        describe: UI.t("cli.fork_session"),
       })
       .option("password", {
         alias: ["p"],
         type: "string",
-        describe: "basic auth password (defaults to MIAOPAN_CODE_SERVER_PASSWORD)",
+        describe: UI.t("cli.password"),
       })
       .option("username", {
         alias: ["u"],
         type: "string",
-        describe: "basic auth username (defaults to MIAOPAN_CODE_SERVER_USERNAME or 'miaopan-code')",
+        describe: UI.t("cli.username"),
       })
       .option("mini", {
         type: "boolean",
-        describe: "start the minimal interactive interface",
+        describe: UI.t("cli.direct_mode"),
         default: false,
       })
       .option("replay", {
@@ -53,15 +53,15 @@ export const AttachCommand = cmd({
       })
       .option("no-replay", {
         type: "boolean",
-        describe: "disable mini session history replay on resume and after resize",
+        describe: UI.t("cli.replay_history"),
       })
       .option("replay-limit", {
         type: "number",
-        describe: "cap visible mini replay to the newest N messages",
+        describe: UI.t("cli.replay_limit"),
       }),
   handler: async (args) => {
     if (args.replay === true) {
-      UI.error("--replay is not supported; replay is enabled by default")
+      UI.error(UI.t("cli.replay_unsupported"))
       process.exitCode = 1
       return
     }
@@ -99,14 +99,14 @@ export const AttachCommand = cmd({
       ["--replay-limit", args.replayLimit !== undefined],
     ].find((entry) => entry[1])?.[0]
     if (unsupported) {
-      UI.error(`${unsupported} requires --mini`)
+      UI.error(UI.t("cli.requires_mini", { option: String(unsupported) }))
       process.exitCode = 1
       return
     }
 
     const { TuiConfig } = await import("@/config/tui")
     if (args.fork && !args.continue && !args.session) {
-      UI.error("--fork requires --continue or --session")
+      UI.error(UI.t("cli.fork_requires"))
       process.exitCode = 1
       return
     }

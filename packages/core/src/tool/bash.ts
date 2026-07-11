@@ -14,6 +14,7 @@ import { PositiveInt } from "../schema"
 import { ToolRegistry } from "./registry"
 import { Tool } from "./tool"
 import { Tools } from "./tools"
+import { t, zh, type Language } from "../i18n"
 
 export const name = "bash"
 export const DEFAULT_TIMEOUT_MS = 2 * 60 * 1_000
@@ -21,14 +22,12 @@ export const MAX_TIMEOUT_MS = 10 * 60 * 1_000
 export const MAX_CAPTURE_BYTES = 1024 * 1024
 
 export const Input = Schema.Struct({
-  command: Schema.String.annotate({ description: "Shell command string to execute" }),
-  workdir: Schema.String.pipe(Schema.optional).annotate({
-    description: "Working directory. Defaults to the active Location; relative paths resolve from that Location.",
-  }),
+  command: Schema.String.annotate({ description: zh("tool.param.core_command") }),
+  workdir: Schema.String.pipe(Schema.optional).annotate({ description: zh("tool.param.core_workdir") }),
   timeout: PositiveInt.check(Schema.isLessThanOrEqualTo(MAX_TIMEOUT_MS))
     .pipe(Schema.optional)
     .annotate({
-      description: `Timeout in milliseconds. Defaults to ${DEFAULT_TIMEOUT_MS} and may not exceed ${MAX_TIMEOUT_MS}.`,
+      description: zh("tool.param.core_timeout"),
     }),
 })
 
@@ -48,12 +47,13 @@ type Output = typeof Output.Type
 
 const defaultShell = () => (process.platform === "win32" ? (process.env.COMSPEC ?? "cmd.exe") : "/bin/sh")
 
-const modelOutput = (output: Output) => {
+const modelOutput = (output: Output, language?: Language) => {
   const warnings = output.warnings?.length
-    ? `\n\nWarnings:\n${output.warnings.map((warning) => `- ${warning}`).join("\n")}`
+    ? `\n\n${t(language, "tool.output.warnings_heading")}:\n${output.warnings.map((warning) => `- ${warning}`).join("\n")}`
     : ""
-  if (output.timeout) return `${warnings.trimStart()}${warnings ? "\n\n" : ""}Command timed out before completion.`
-  return `${warnings.trimStart()}${warnings ? "\n\n" : ""}Command exited with code ${output.exit}.`
+  if (output.timeout)
+    return `${warnings.trimStart()}${warnings ? "\n\n" : ""}${t(language, "tool.output.command_timed_out")}`
+  return `${warnings.trimStart()}${warnings ? "\n\n" : ""}${t(language, "tool.output.command_exit", { code: output.exit })}`
 }
 
 const isTimeout = (error: AppProcess.AppProcessError) =>
@@ -106,7 +106,7 @@ const layer = Layer.effectDiscard(
     yield* tools
       .register({
         [name]: Tool.make({
-          description: `Execute one shell command string with the host user's filesystem, process, and network authority. The active Location is the default working directory. Relative workdir values resolve from that Location. External workdir values require external_directory approval; best-effort command-argument path warnings are advisory only. Timeout values are milliseconds (default: ${DEFAULT_TIMEOUT_MS}; maximum: ${MAX_TIMEOUT_MS}). Uses the configured shell when set; otherwise uses /bin/sh on POSIX and COMSPEC or cmd.exe on Windows.`,
+          description: zh("tool.description.core_bash"),
           input: Input,
           output: Output,
           structured: StructuredOutput,
@@ -115,9 +115,9 @@ const layer = Layer.effectDiscard(
             ...(output.exit === undefined ? {} : { exit: output.exit }),
             ...(output.timeout === undefined ? {} : { timeout: output.timeout }),
           }),
-          toModelOutput: ({ output }) => [
+          toModelOutput: ({ output, context }) => [
             { type: "text", text: output.output },
-            { type: "text", text: modelOutput(output) },
+            { type: "text", text: modelOutput(output, context.language) },
           ],
           execute: (input, context) =>
             Effect.gen(function* () {
@@ -137,7 +137,9 @@ const layer = Layer.effectDiscard(
                 })
               const warnings = (yield* externalCommandDirectories(fs, input.command, target.canonical)).map(
                 (directory) =>
-                  `Command argument references external directory ${path.join(directory, "*").replaceAll("\\", "/")}. Bash runs with host-user filesystem, process, and network authority; this scan is advisory only.`,
+                  t(context.language, "tool.shell.external_directory_warning", {
+                    path: path.join(directory, "*").replaceAll("\\", "/"),
+                  }),
               )
               yield* permission.assert({
                 action: name,
@@ -149,7 +151,9 @@ const layer = Layer.effectDiscard(
               })
 
               if ((yield* fs.stat(target.canonical)).type !== "Directory")
-                return yield* Effect.fail(new Error(`Working directory is not a directory: ${target.canonical}`))
+                return yield* Effect.fail(
+                  new Error(t(context.language, "tool.error.workdir_not_directory", { path: target.canonical })),
+                )
 
               const entries = yield* config.entries()
               const shell =
@@ -176,24 +180,29 @@ const layer = Layer.effectDiscard(
                 )
               if (!result) {
                 return {
-                  output: `Command exceeded timeout of ${timeout} ms. Retry with a larger timeout if the command is expected to take longer.`,
+                  output: t(context.language, "tool.shell.command_timeout", { ms: timeout }),
                   truncated: false,
                   timeout: true,
                   ...(warnings.length ? { warnings } : {}),
                 }
               }
 
-              const output = result.output?.toString("utf8") || "(no output)"
-              const notice = result.outputTruncated
-                ? "[output capture truncated at the in-memory safety limit]"
-                : undefined
+              const output = result.output?.toString("utf8") || t(context.language, "tool.shell.no_output")
+              const notice = result.outputTruncated ? t(context.language, "tool.shell.capture_truncated") : undefined
               return {
                 exit: result.exitCode,
                 output: notice ? `${output}\n\n${notice}` : output,
                 truncated: result.outputTruncated === true,
                 ...(warnings.length ? { warnings } : {}),
               }
-            }).pipe(Effect.mapError(() => new ToolFailure({ message: `Unable to execute command: ${input.command}` }))),
+            }).pipe(
+              Effect.mapError(
+                () =>
+                  new ToolFailure({
+                    message: t(context.language, "tool.error.execute_command", { command: input.command }),
+                  }),
+              ),
+            ),
         }),
       })
       .pipe(Effect.orDie)

@@ -1,6 +1,8 @@
 import type { TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo, Show } from "solid-js"
+import { t } from "@miaopan-code/core/i18n"
+import { Locale } from "../../util/locale"
 import { Tips } from "./tips-view"
 import { useBindings } from "../../keymap"
 
@@ -11,8 +13,8 @@ function View(props: { api: TuiPluginApi; hidden: boolean; show: boolean; connec
     commands: [
       {
         name: "tips.toggle",
-        title: props.hidden ? "Show tips" : "Hide tips",
-        category: "System",
+        title: t(Locale.language(), props.hidden ? "tips.show" : "tips.hide"),
+        category: Locale.category("System"),
         namespace: "palette",
         run() {
           props.api.kv.set("tips_hidden", !props.api.kv.get("tips_hidden", false))

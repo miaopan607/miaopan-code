@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import type { ToolPart } from "@miaopan-code/sdk/v2"
 import { RGBA, SyntaxStyle } from "@opentui/core"
 import { MockTreeSitterClient, createTestRenderer, type TestRenderer } from "@opentui/core/testing"
@@ -945,7 +946,7 @@ test("does not emit blank patch snapshots between edit and task", async () => {
     const output = lines.join("\n")
     expect(output).toContain("+ Created README-demo.md")
     expect(output).not.toContain("~ Patched src/demo-format.ts")
-    expect(output).toContain("+ Created README-demo.md\n\n# Explore Task")
+    expect(output).toContain(`+ Created README-demo.md\n\n# ${t("zh-CN", "cli.run.task_title", { type: "Explore" })}`)
     expect(output).not.toContain("+ Created README-demo.md\n\n\n# Explore Task")
   } finally {
     out.scrollback.destroy()
@@ -1032,7 +1033,7 @@ test("renders structured write finals once as code blocks", async () => {
     try {
       expect(commits).toHaveLength(1)
       const output = render(commits[0] ? [commits[0]] : [])
-      expect(output).toContain("# Wrote src/a.ts")
+      expect(output).toContain(`# ${t("zh-CN", "cli.run.wrote_snapshot", { path: "src/a.ts" }).slice(2)}`)
       expect(output).toMatch(/1\s+const x = 1/)
       expect(output).toMatch(/2\s+const y = 2/)
     } finally {

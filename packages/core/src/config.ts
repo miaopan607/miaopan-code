@@ -25,82 +25,94 @@ import { ConfigToolOutput } from "./config/tool-output"
 import { ConfigWatcher } from "./config/watcher"
 import { ConfigV1 } from "./v1/config/config"
 import { ConfigMigrateV1 } from "./v1/config/migrate"
+import { zh } from "./i18n"
 
 export class Info extends Schema.Class<Info>("Config.Info")({
   $schema: Schema.optional(Schema.String).annotate({
-    description: "JSON schema reference for configuration validation",
+    description: zh("config.schema"),
   }),
+  language: Schema.Literals(["zh-CN", "en"])
+    .pipe(Schema.optional)
+    .annotate({
+      description: zh("config.language"),
+    }),
   shell: Schema.String.pipe(Schema.optional).annotate({
-    description: "Default shell to use for terminal and shell tool execution",
+    description: zh("config.shell"),
   }),
   model: Schema.String.pipe(Schema.optional).annotate({
-    description: "Default model to use when no session or agent model is selected",
+    description: zh("config.model"),
   }),
   default_agent: Schema.String.pipe(Schema.optional).annotate({
-    description: "Default primary agent to use when no session agent is selected",
+    description: zh("config.agent"),
   }),
   autoupdate: Schema.Union([Schema.Boolean, Schema.Literal("notify")])
     .pipe(Schema.optional)
     .annotate({
-      description: "Automatically update or notify when a new version is available",
+      description: zh("config.autoupdate"),
     }),
-  share: Schema.Literals(["manual", "auto", "disabled"]).pipe(Schema.optional).annotate({
-    description: "Control whether sessions may be shared manually, automatically, or not at all",
-  }),
+  share: Schema.Literals(["manual", "auto", "disabled"])
+    .pipe(Schema.optional)
+    .annotate({
+      description: zh("config.share"),
+    }),
   enterprise: Schema.Struct({
     url: Schema.String.pipe(Schema.optional),
   })
     .pipe(Schema.optional)
     .annotate({
-      description: "Enterprise sharing service configuration",
+      description: zh("config.enterprise"),
     }),
   username: Schema.String.pipe(Schema.optional).annotate({
-    description: "Username displayed in conversations and used for telemetry identity",
+    description: zh("config.username"),
   }),
   permissions: Permission.Ruleset.pipe(Schema.optional).annotate({
-    description: "Ordered tool permission rules applied to agent tool use",
+    description: zh("config.permissions"),
   }),
-  agents: Schema.Record(Schema.String, ConfigAgent.Info).pipe(Schema.optional).annotate({
-    description: "Named built-in agent overrides and custom agent definitions",
-  }),
+  agents: Schema.Record(Schema.String, ConfigAgent.Info)
+    .pipe(Schema.optional)
+    .annotate({
+      description: zh("config.agents"),
+    }),
   snapshots: Schema.Boolean.pipe(Schema.optional).annotate({
-    description: "Enable snapshots used for undo and revert behavior",
+    description: zh("config.snapshots"),
   }),
   watcher: ConfigWatcher.Info.pipe(Schema.optional).annotate({
-    description: "Filesystem watcher configuration",
+    description: zh("config.watcher"),
   }),
   formatter: ConfigFormatter.Info.pipe(Schema.optional).annotate({
-    description: "Enable built-in formatters or configure formatter overrides",
+    description: zh("config.formatter"),
   }),
   lsp: ConfigLSP.Info.pipe(Schema.optional).annotate({
-    description: "Enable built-in language servers or configure server overrides",
+    description: zh("config.lsp"),
   }),
   attachments: ConfigAttachments.Info.pipe(Schema.optional).annotate({
-    description: "Attachment processing configuration",
+    description: zh("config.attachments"),
   }),
   tool_output: ConfigToolOutput.Info.pipe(Schema.optional).annotate({
-    description: "Tool output truncation thresholds",
+    description: zh("config.tool_output"),
   }),
   mcp: ConfigMCP.Info.pipe(Schema.optional).annotate({
-    description: "MCP server configuration",
+    description: zh("config.mcp"),
   }),
   compaction: ConfigCompaction.Info.pipe(Schema.optional).annotate({
-    description: "Conversation compaction behavior",
+    description: zh("config.compaction"),
   }),
   skills: Schema.String.pipe(Schema.Array, Schema.optional).annotate({
-    description: "Additional paths or URLs to discover skills from",
+    description: zh("config.skills"),
   }),
-  commands: Schema.Record(Schema.String, ConfigCommand.Info).pipe(Schema.optional).annotate({
-    description: "Named slash command definitions",
-  }),
+  commands: Schema.Record(Schema.String, ConfigCommand.Info)
+    .pipe(Schema.optional)
+    .annotate({
+      description: zh("config.commands"),
+    }),
   instructions: Schema.String.pipe(Schema.Array, Schema.optional).annotate({
-    description: "Additional paths or URLs supplying ambient instructions",
+    description: zh("config.instructions"),
   }),
   references: ConfigReference.Info.pipe(Schema.optional).annotate({
-    description: "Named local directories or Git repositories available as external context",
+    description: zh("config.references"),
   }),
   plugins: ConfigPlugin.Plugins.pipe(Schema.optional).annotate({
-    description: "Ordered external plugin packages to load",
+    description: zh("config.plugins"),
   }),
   experimental: ConfigExperimental.Experimental.pipe(Schema.optional),
   providers: Schema.Record(Schema.String, ConfigProvider.Info).pipe(Schema.optional),

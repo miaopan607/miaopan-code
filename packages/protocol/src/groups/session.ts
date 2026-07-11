@@ -21,64 +21,71 @@ import { Model } from "@miaopan-code/schema/model"
 import { Location } from "@miaopan-code/schema/location"
 import { Revert } from "@miaopan-code/schema/revert"
 import { SessionEvent } from "@miaopan-code/schema/session-event"
+import { t, type Language } from "../i18n"
 
-const SessionsQueryFields = {
-  workspace: Workspace.ID.pipe(Schema.optional),
-  limit: Schema.NumberFromString.pipe(Schema.decodeTo(PositiveInt), Schema.optional).annotate({
-    description: "Maximum number of sessions to return. Defaults to the newest 50 sessions.",
-  }),
-  order: Schema.optional(Schema.Union([Schema.Literal("asc"), Schema.Literal("desc")])).annotate({
-    description: "Session order for the first page. Use desc for newest first or asc for oldest first.",
-  }),
-  search: Schema.optional(Schema.String),
+const makeSessionSchemas = (language?: Language) => {
+  const queryFields = {
+    workspace: Workspace.ID.pipe(Schema.optional),
+    limit: Schema.NumberFromString.pipe(Schema.decodeTo(PositiveInt), Schema.optional).annotate({
+      description: t(language, "session_limit_description"),
+    }),
+    order: Schema.optional(Schema.Union([Schema.Literal("asc"), Schema.Literal("desc")])).annotate({
+      description: t(language, "session_order_description"),
+    }),
+    search: Schema.optional(Schema.String),
+  }
+
+  const directoryQuery = Schema.Struct({
+    ...queryFields,
+    directory: AbsolutePath,
+  })
+  const projectQuery = Schema.Struct({
+    ...queryFields,
+    project: Project.ID,
+    subpath: RelativePath.pipe(Schema.optional),
+  })
+  const allQuery = Schema.Struct(queryFields)
+  const withCursor = <Fields extends Schema.Struct.Fields>(schema: Schema.Struct<Fields>) =>
+    schema.mapFields((fields) => ({
+      ...Struct.omit(fields, ["limit"]),
+      anchor: Session.ListAnchor,
+    }))
+  const cursorInput = Schema.Union([withCursor(directoryQuery), withCursor(projectQuery), withCursor(allQuery)])
+  const cursorJson = Schema.fromJsonString(cursorInput)
+  const encodeCursor = Schema.encodeSync(cursorJson)
+  const decodeCursor = Schema.decodeUnknownEffect(cursorJson)
+  const invalidCursor = t(language, "invalid_cursor")
+  const cursor = Schema.String.pipe(
+    Schema.brand("SessionsCursor"),
+    statics((schema) => {
+      const make = schema.make.bind(schema)
+      return {
+        make: (input: typeof cursorInput.Type) => make(Encoding.encodeBase64Url(encodeCursor(input))),
+        parse: (input: string) =>
+          Effect.suspend(() => {
+            const result = Encoding.decodeBase64UrlString(input)
+            return Result.isFailure(result)
+              ? Effect.fail(invalidCursor)
+              : decodeCursor(result.success).pipe(Effect.mapError(() => invalidCursor))
+          }),
+      }
+    }),
+  )
+  const query = Schema.Struct({
+    ...queryFields,
+    directory: AbsolutePath.pipe(Schema.optional),
+    project: Project.ID.pipe(Schema.optional),
+    subpath: RelativePath.pipe(Schema.optional),
+    cursor: cursor.annotate({ description: t(language, "session_cursor_description") }).pipe(Schema.optional),
+  }).annotate({ identifier: "SessionsQuery" })
+  return { cursor, query }
 }
 
-const SessionsDirectoryQuery = Schema.Struct({
-  ...SessionsQueryFields,
-  directory: AbsolutePath,
-})
-
-const SessionsProjectQuery = Schema.Struct({
-  ...SessionsQueryFields,
-  project: Project.ID,
-  subpath: RelativePath.pipe(Schema.optional),
-})
-
-const SessionsAllQuery = Schema.Struct(SessionsQueryFields)
-
-const withCursor = <Fields extends Schema.Struct.Fields>(schema: Schema.Struct<Fields>) =>
-  schema.mapFields((fields) => ({
-    ...Struct.omit(fields, ["limit"]),
-    anchor: Session.ListAnchor,
-  }))
-
-const SessionsCursorInput = Schema.Union([
-  withCursor(SessionsDirectoryQuery),
-  withCursor(SessionsProjectQuery),
-  withCursor(SessionsAllQuery),
-])
-const SessionsCursorJson = Schema.fromJsonString(SessionsCursorInput)
-const encodeSessionsCursor = Schema.encodeSync(SessionsCursorJson)
-const decodeSessionsCursor = Schema.decodeUnknownEffect(SessionsCursorJson)
-const invalidCursor = "Invalid cursor" as const
-
-export const SessionsCursor = Schema.String.pipe(
-  Schema.brand("SessionsCursor"),
-  statics((schema) => {
-    const make = schema.make.bind(schema)
-    return {
-      make: (input: typeof SessionsCursorInput.Type) => make(Encoding.encodeBase64Url(encodeSessionsCursor(input))),
-      parse: (input: string) =>
-        Effect.suspend(() => {
-          const result = Encoding.decodeBase64UrlString(input)
-          return Result.isFailure(result)
-            ? Effect.fail(invalidCursor)
-            : decodeSessionsCursor(result.success).pipe(Effect.mapError(() => invalidCursor))
-        }),
-    }
-  }),
-)
+export const makeSessionsCursor = (language?: Language) => makeSessionSchemas(language).cursor
+export const makeSessionsQuery = (language?: Language) => makeSessionSchemas(language).query
+export const SessionsCursor = makeSessionsCursor()
 export type SessionsCursor = typeof SessionsCursor.Type
+export const SessionsQuery = makeSessionsQuery()
 
 const SessionActive = Schema.Struct({
   type: Schema.Literal("running"),
@@ -91,37 +98,28 @@ export const SessionHistoryQuery = Schema.Struct({
   after: Schema.NumberFromString.pipe(Schema.decodeTo(NonNegativeInt), Schema.optional),
 })
 
-const SessionsQueryCursor = SessionsCursor.annotate({
-  description: "Opaque pagination cursor returned as cursor.previous or cursor.next in the previous response.",
-})
-
-export const SessionsQuery = Schema.Struct({
-  ...SessionsQueryFields,
-  directory: AbsolutePath.pipe(Schema.optional),
-  project: Project.ID.pipe(Schema.optional),
-  subpath: RelativePath.pipe(Schema.optional),
-  cursor: SessionsQueryCursor.pipe(Schema.optional),
-}).annotate({ identifier: "SessionsQuery" })
-
-export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLocationMiddleware: Context.Key<I, S>) =>
-  HttpApiGroup.make("server.session")
+export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(
+  sessionLocationMiddleware: Context.Key<I, S>,
+  language?: Language,
+) => {
+  const sessionSchemas = makeSessionSchemas(language)
+  return HttpApiGroup.make("server.session")
     .add(
       HttpApiEndpoint.get("session.list", "/api/session", {
-        query: SessionsQuery,
+        query: sessionSchemas.query,
         success: Schema.Struct({
           data: Schema.Array(Session.Info),
           cursor: Schema.Struct({
-            previous: SessionsCursor.pipe(Schema.optional),
-            next: SessionsCursor.pipe(Schema.optional),
+            previous: sessionSchemas.cursor.pipe(Schema.optional),
+            next: sessionSchemas.cursor.pipe(Schema.optional),
           }),
         }).annotate({ identifier: "SessionsResponse" }),
         error: [InvalidCursorError, InvalidRequestError],
       }).annotateMerge(
         OpenApi.annotations({
           identifier: "v2.session.list",
-          summary: "List sessions",
-          description:
-            "Retrieve sessions in the requested order. Items keep that order across pages; use cursor.next or cursor.previous to move through the ordered list.",
+          summary: t(language, "session_list"),
+          description: t(language, "session_list_description"),
         }),
       ),
     )
@@ -137,8 +135,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
       }).annotateMerge(
         OpenApi.annotations({
           identifier: "v2.session.create",
-          summary: "Create session",
-          description: "Create a session at the requested location.",
+          summary: t(language, "session_create"),
+          description: t(language, "session_create_description"),
         }),
       ),
     )
@@ -148,9 +146,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
       }).annotateMerge(
         OpenApi.annotations({
           identifier: "v2.session.active",
-          summary: "List active sessions",
-          description:
-            "Retrieve foreground Session drains currently owned by this MiaopanCode process. Sessions absent from the result are inactive.",
+          summary: t(language, "session_active"),
+          description: t(language, "session_active_description"),
         }),
       ),
     )
@@ -164,8 +161,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.get",
-            summary: "Get session",
-            description: "Retrieve a session by ID.",
+            summary: t(language, "session_get"),
+            description: t(language, "session_get_description"),
           }),
         ),
     )
@@ -180,8 +177,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.switchAgent",
-            summary: "Switch session agent",
-            description: "Switch the agent used by subsequent provider turns.",
+            summary: t(language, "session_switch_agent"),
+            description: t(language, "session_switch_agent_description"),
           }),
         ),
     )
@@ -196,8 +193,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.switchModel",
-            summary: "Switch session model",
-            description: "Switch the model used by subsequent provider turns.",
+            summary: t(language, "session_switch_model"),
+            description: t(language, "session_switch_model_description"),
           }),
         ),
     )
@@ -217,8 +214,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.prompt",
-            summary: "Send message",
-            description: "Durably admit one session input and schedule agent-loop execution unless resume is false.",
+            summary: t(language, "session_send_message"),
+            description: t(language, "session_send_message_description"),
           }),
         ),
     )
@@ -232,8 +229,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.compact",
-            summary: "Compact session",
-            description: "Compact a session conversation.",
+            summary: t(language, "session_compact"),
+            description: t(language, "session_compact_description"),
           }),
         ),
     )
@@ -247,8 +244,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.wait",
-            summary: "Wait for session",
-            description: "Wait for a session agent loop to become idle.",
+            summary: t(language, "session_wait"),
+            description: t(language, "session_wait_description"),
           }),
         ),
     )
@@ -263,8 +260,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.revert.stage",
-            summary: "Stage session revert",
-            description: "Stage or move a reversible session boundary and optionally apply its file changes.",
+            summary: t(language, "session_revert_stage"),
+            description: t(language, "session_revert_stage_description"),
           }),
         ),
     )
@@ -275,7 +272,9 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         error: [SessionNotFoundError, UnknownError],
       })
         .middleware(sessionLocationMiddleware)
-        .annotateMerge(OpenApi.annotations({ identifier: "v2.session.revert.clear", summary: "Clear staged revert" })),
+        .annotateMerge(
+          OpenApi.annotations({ identifier: "v2.session.revert.clear", summary: t(language, "session_revert_clear") }),
+        ),
     )
     .add(
       HttpApiEndpoint.post("session.revert.commit", "/api/session/:sessionID/revert/commit", {
@@ -285,7 +284,10 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
       })
         .middleware(sessionLocationMiddleware)
         .annotateMerge(
-          OpenApi.annotations({ identifier: "v2.session.revert.commit", summary: "Commit staged revert" }),
+          OpenApi.annotations({
+            identifier: "v2.session.revert.commit",
+            summary: t(language, "session_revert_commit"),
+          }),
         ),
     )
     .add(
@@ -298,8 +300,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.context",
-            summary: "Get session context",
-            description: "Retrieve the active context messages for a session (all messages after the last compaction).",
+            summary: t(language, "session_context"),
+            description: t(language, "session_context_description"),
           }),
         ),
     )
@@ -317,9 +319,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.history",
-            summary: "Get session history",
-            description:
-              "Read one finite page of public durable Session events after an exclusive aggregate sequence. Newly committed events may appear on later pages.",
+            summary: t(language, "session_history"),
+            description: t(language, "session_history_description"),
           }),
         ),
     )
@@ -336,8 +337,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.events",
-            summary: "Subscribe to session events",
-            description: "Replay durable events after an aggregate sequence, then continue with new durable events.",
+            summary: t(language, "session_events"),
+            description: t(language, "session_events_description"),
           }),
         ),
     )
@@ -351,8 +352,8 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.interrupt",
-            summary: "Interrupt session execution",
-            description: "Interrupt active execution owned by this MiaopanCode process. Idle interruption is a no-op.",
+            summary: t(language, "session_interrupt"),
+            description: t(language, "session_interrupt_description"),
           }),
         ),
     )
@@ -366,14 +367,15 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S>(sessionLo
         .annotateMerge(
           OpenApi.annotations({
             identifier: "v2.session.message",
-            summary: "Get session message",
-            description: "Retrieve one projected message owned by the Session.",
+            summary: t(language, "session_message"),
+            description: t(language, "session_message_description"),
           }),
         ),
     )
     .annotateMerge(
       OpenApi.annotations({
-        title: "sessions",
-        description: "Experimental session routes.",
+        title: t(language, "session_title"),
+        description: t(language, "session_description"),
       }),
     )
+}

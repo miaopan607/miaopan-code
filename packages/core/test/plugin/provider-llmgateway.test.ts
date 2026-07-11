@@ -47,8 +47,8 @@ describe("LLMGatewayPlugin", () => {
       expect((yield* catalog.provider.get(ProviderV2.ID.make("llmgateway")))?.request.headers).toEqual({
         Existing: "value",
         "HTTP-Referer": "https://github.com/miaopan607/miaopan-code/",
-        "X-Title": "miaopanCode",
-        "X-Source": "miaopanCode",
+        "X-Title": "miaopan-code",
+        "X-Source": "miaopan-code",
       })
       expect((yield* catalog.provider.get(ProviderV2.ID.openrouter))?.request.headers).toEqual({})
     }),

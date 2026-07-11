@@ -21,6 +21,7 @@ import { JsonObject, optionalArray, ProviderShared } from "./shared"
 import { GeminiToolSchema } from "./utils/gemini-tool-schema"
 import { Lifecycle } from "./utils/lifecycle"
 import { ToolSchemaProjection } from "./utils/tool-schema"
+import type { Language } from "../i18n"
 
 const ADAPTER = "gemini"
 const MEDIA_MIMES = new Set<string>(ProviderShared.MEDIA_MIMES)
@@ -174,17 +175,22 @@ const lowerTool = (tool: ToolDefinition, inputSchema: JsonSchema) => ({
   parameters: GeminiToolSchema.convert(inputSchema),
 })
 
-const lowerToolConfig = (toolChoice: NonNullable<LLMRequest["toolChoice"]>) =>
-  ProviderShared.matchToolChoice("Gemini", toolChoice, {
-    auto: () => ({ functionCallingConfig: { mode: "AUTO" as const } }),
-    none: () => ({ functionCallingConfig: { mode: "NONE" as const } }),
-    required: () => ({ functionCallingConfig: { mode: "ANY" as const } }),
-    tool: (name) => ({ functionCallingConfig: { mode: "ANY" as const, allowedFunctionNames: [name] } }),
-  })
+const lowerToolConfig = (toolChoice: NonNullable<LLMRequest["toolChoice"]>, language?: Language) =>
+  ProviderShared.matchToolChoice(
+    "Gemini",
+    toolChoice,
+    {
+      auto: () => ({ functionCallingConfig: { mode: "AUTO" as const } }),
+      none: () => ({ functionCallingConfig: { mode: "NONE" as const } }),
+      required: () => ({ functionCallingConfig: { mode: "ANY" as const } }),
+      tool: (name) => ({ functionCallingConfig: { mode: "ANY" as const, allowedFunctionNames: [name] } }),
+    },
+    language,
+  )
 
-const lowerUserPart = Effect.fn("Gemini.lowerUserPart")(function* (part: TextPart | MediaPart) {
+const lowerUserPart = Effect.fn("Gemini.lowerUserPart")(function* (part: TextPart | MediaPart, language?: Language) {
   if (part.type === "text") return { text: part.text }
-  const media = yield* ProviderShared.validateMedia("Gemini", part, MEDIA_MIMES)
+  const media = yield* ProviderShared.validateMedia("Gemini", part, MEDIA_MIMES, language)
   return { inlineData: { mimeType: media.mime, data: media.base64 } }
 })
 
@@ -207,7 +213,7 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
 
   for (const message of request.messages) {
     if (message.role === "system") {
-      const part = yield* ProviderShared.wrappedSystemUpdate("Gemini", message)
+      const part = yield* ProviderShared.wrappedSystemUpdate("Gemini", message, request.language)
       const previous = contents.at(-1)
       if (previous?.role === "user")
         contents[contents.length - 1] = { role: "user", parts: [...previous.parts, { text: part.text }] }
@@ -219,8 +225,8 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
       const parts: Array<Schema.Schema.Type<typeof GeminiContentPart>> = []
       for (const part of message.content) {
         if (!ProviderShared.supportsContent(part, ["text", "media"]))
-          return yield* ProviderShared.unsupportedContent("Gemini", "user", ["text", "media"])
-        parts.push(yield* lowerUserPart(part))
+          return yield* ProviderShared.unsupportedContent("Gemini", "user", ["text", "media"], request.language)
+        parts.push(yield* lowerUserPart(part, request.language))
       }
       contents.push({ role: "user", parts })
       continue
@@ -230,7 +236,12 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
       const parts: Array<Schema.Schema.Type<typeof GeminiContentPart>> = []
       for (const part of message.content) {
         if (!ProviderShared.supportsContent(part, ["text", "reasoning", "tool-call"]))
-          return yield* ProviderShared.unsupportedContent("Gemini", "assistant", ["text", "reasoning", "tool-call"])
+          return yield* ProviderShared.unsupportedContent(
+            "Gemini",
+            "assistant",
+            ["text", "reasoning", "tool-call"],
+            request.language,
+          )
         if (part.type === "text") {
           parts.push({ text: part.text })
           continue
@@ -251,7 +262,7 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
     const parts: Array<Schema.Schema.Type<typeof GeminiContentPart>> = []
     for (const part of message.content) {
       if (!ProviderShared.supportsContent(part, ["tool-result"]))
-        return yield* ProviderShared.unsupportedContent("Gemini", "tool", ["tool-result"])
+        return yield* ProviderShared.unsupportedContent("Gemini", "tool", ["tool-result"], request.language)
       if (part.result.type !== "content") {
         parts.push({
           functionResponse: {
@@ -277,7 +288,7 @@ const lowerMessages = Effect.fn("Gemini.lowerMessages")(function* (request: LLMR
       })
       for (const item of content) {
         if (item.type === "text") continue
-        const media = yield* ProviderShared.validateToolFile("Gemini", item, MEDIA_MIMES)
+        const media = yield* ProviderShared.validateToolFile("Gemini", item, MEDIA_MIMES, request.language)
         parts.push({ inlineData: { mimeType: media.mime, data: media.base64 } })
       }
     }
@@ -325,7 +336,8 @@ const fromRequest = Effect.fn("Gemini.fromRequest")(function* (request: LLMReque
           },
         ]
       : undefined,
-    toolConfig: toolsEnabled && request.toolChoice ? yield* lowerToolConfig(request.toolChoice) : undefined,
+    toolConfig:
+      toolsEnabled && request.toolChoice ? yield* lowerToolConfig(request.toolChoice, request.language) : undefined,
     generationConfig: Object.values(generationConfig).some((value) => value !== undefined)
       ? generationConfig
       : undefined,

@@ -6,6 +6,7 @@ import path from "path"
 import { pathToFileURL, fileURLToPath } from "url"
 import * as LSPServer from "./server"
 import { Config } from "@/config/config"
+import { resolveLanguage, t } from "@miaopan-code/core/i18n"
 import { Process } from "@/util/process"
 import { spawn as lspspawn } from "./launch"
 import { Effect, Layer, Context, Schema } from "effect"
@@ -145,11 +146,12 @@ const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(
       Effect.fn("LSP.state")(function* (ctx) {
         const cfg = yield* config.get()
+        const language = resolveLanguage(cfg.language)
 
         const servers: Record<string, LSPServer.Info> = {}
 
         if (!cfg.lsp) {
-          yield* Effect.logInfo("all LSPs are disabled")
+          yield* Effect.logInfo(t(language, "log.lsp_disabled"))
         } else {
           for (const server of Object.values(LSPServer)) {
             servers[server.id] = server
@@ -161,7 +163,7 @@ const layer = Layer.effect(
             for (const [name, item] of Object.entries(cfg.lsp)) {
               const existing = servers[name]
               if (item.disabled) {
-                yield* Effect.logInfo(`LSP server ${name} is disabled`)
+                yield* Effect.logInfo(t(language, "log.lsp_server_disabled", { name }))
                 delete servers[name]
                 continue
               }
@@ -174,6 +176,7 @@ const layer = Layer.effect(
                   process: lspspawn(item.command[0], item.command.slice(1), {
                     cwd: root,
                     env: { ...process.env, ...item.env },
+                    language,
                   }),
                   initialization: item.initialization,
                 }),
@@ -181,7 +184,7 @@ const layer = Layer.effect(
             }
           }
 
-          yield* Effect.logInfo("enabled LSP servers", {
+          yield* Effect.logInfo(t(language, "log.lsp_enabled"), {
             serverIds: Object.values(servers)
               .map((server) => server.id)
               .join(", "),
@@ -342,7 +345,8 @@ const layer = Layer.effect(
     })
 
     const touchFile = Effect.fn("LSP.touchFile")(function* (input: string, diagnostics?: "document" | "full") {
-      yield* Effect.logInfo("touching file", { file: input })
+      const language = resolveLanguage((yield* config.get()).language)
+      yield* Effect.logInfo(t(language, "log.lsp_touching"), { file: input })
       const clients = yield* getClients(input)
       yield* Effect.promise(() =>
         Promise.all(

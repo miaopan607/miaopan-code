@@ -4,6 +4,8 @@ import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"
 import { createServer } from "http"
 import open from "open"
+import { t, type Language } from "@miaopan-code/core/i18n"
+import { pluginLanguage } from "./language"
 
 const OAUTH_CLIENT_ID = "LOCAL_APPLICATION"
 const OAUTH_CALLBACK_HOST = "127.0.0.1"
@@ -29,11 +31,13 @@ interface PendingOAuth {
   pkce: PkceCodes
   resolve: (tokens: TokenResponse) => void
   reject: (error: Error) => void
+  language: Language
 }
 
 let oauthServer: ReturnType<typeof createServer> | undefined
 let pendingOAuth: PendingOAuth | undefined
 let oauthServerPort: number | undefined
+let oauthLanguage: Language = "zh-CN"
 
 function normalizeAccount(input: string) {
   return input
@@ -64,8 +68,8 @@ async function generatePKCE(): Promise<PkceCodes> {
   }
 }
 
-function callbackUrl() {
-  if (!oauthServerPort) throw new Error("Snowflake OAuth callback server is not running")
+function callbackUrl(language?: Language) {
+  if (!oauthServerPort) throw new Error(t(language, "error.oauth_server_not_running"))
   return `http://${OAUTH_CALLBACK_HOST}:${oauthServerPort}${OAUTH_CALLBACK_PATH}`
 }
 
@@ -88,12 +92,18 @@ function authBasicHeader() {
   return `Basic ${Buffer.from(`${OAUTH_CLIENT_ID}:${OAUTH_CLIENT_ID}`).toString("base64")}`
 }
 
-function buildAuthorizeUrl(account: string, role: string | undefined, state: string, pkce: PkceCodes) {
+function buildAuthorizeUrl(
+  account: string,
+  role: string | undefined,
+  state: string,
+  pkce: PkceCodes,
+  language: Language,
+) {
   const scope = oauthScope(role)
   const params = new URLSearchParams({
     client_id: OAUTH_CLIENT_ID,
     response_type: "code",
-    redirect_uri: callbackUrl(),
+    redirect_uri: callbackUrl(language),
     scope,
     state,
     code_challenge: pkce.challenge,
@@ -102,7 +112,7 @@ function buildAuthorizeUrl(account: string, role: string | undefined, state: str
   return `https://${account}.snowflakecomputing.com/oauth/authorize?${params.toString()}`
 }
 
-async function exchangeCodeForToken(account: string, code: string, pkce: PkceCodes) {
+async function exchangeCodeForToken(account: string, code: string, pkce: PkceCodes, language: Language) {
   const response = await fetch(`https://${account}.snowflakecomputing.com/oauth/token-request`, {
     method: "POST",
     headers: {
@@ -112,7 +122,7 @@ async function exchangeCodeForToken(account: string, code: string, pkce: PkceCod
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: callbackUrl(),
+      redirect_uri: callbackUrl(language),
       client_id: OAUTH_CLIENT_ID,
       code_verifier: pkce.verifier,
     }).toString(),
@@ -120,20 +130,24 @@ async function exchangeCodeForToken(account: string, code: string, pkce: PkceCod
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "")
-    throw new Error(`Snowflake token exchange failed (${response.status})${detail ? `: ${detail}` : ""}`)
+    throw new Error(
+      t(language, "error.oauth_exchange_failed", {
+        provider: "Snowflake",
+        status: response.status,
+        detail: detail ? `: ${detail}` : "",
+      }),
+    )
   }
 
   const token = (await response.json()) as TokenResponse
-  if (!token.access_token) throw new Error("Snowflake token response did not include access_token")
+  if (!token.access_token) throw new Error(t(language, "error.snowflake_token_missing"))
   if (!token.refresh_token) {
-    throw new Error(
-      "Snowflake token response did not include refresh_token. Ensure integration issues refresh tokens and scope includes refresh_token.",
-    )
+    throw new Error(t(language, "error.snowflake_refresh_token_missing"))
   }
   return token
 }
 
-async function refreshAccessToken(account: string, refreshToken: string) {
+async function refreshAccessToken(account: string, refreshToken: string, language: Language) {
   const response = await fetch(`https://${account}.snowflakecomputing.com/oauth/token-request`, {
     method: "POST",
     headers: {
@@ -149,15 +163,22 @@ async function refreshAccessToken(account: string, refreshToken: string) {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "")
-    throw new Error(`Snowflake token refresh failed (${response.status})${detail ? `: ${detail}` : ""}`)
+    throw new Error(
+      t(language, "error.oauth_refresh_failed", {
+        provider: "Snowflake",
+        status: response.status,
+        detail: detail ? `: ${detail}` : "",
+      }),
+    )
   }
 
   const token = (await response.json()) as TokenResponse
-  if (!token.access_token) throw new Error("Snowflake refresh response did not include access_token")
+  if (!token.access_token) throw new Error(t(language, "error.snowflake_refresh_missing"))
   return token
 }
 
-async function startOAuthServer() {
+async function startOAuthServer(language: Language) {
+  oauthLanguage = language
   if (oauthServer) return
 
   oauthServer = createServer((req, res) => {
@@ -166,7 +187,7 @@ async function startOAuthServer() {
 
     if (url.pathname !== OAUTH_CALLBACK_PATH) {
       res.writeHead(404)
-      res.end("Not found")
+      res.end(t(oauthLanguage, "error.oauth_not_found"))
       return
     }
 
@@ -177,11 +198,12 @@ async function startOAuthServer() {
 
     // CSRF guard: validate state before processing any callback
     if (!pendingOAuth || state !== pendingOAuth.state) {
-      const message = "Invalid state - potential CSRF attack"
+      const callbackLanguage = pendingOAuth?.language ?? oauthLanguage
+      const message = t(callbackLanguage, "error.oauth_state_invalid")
       pendingOAuth?.reject(new Error(message))
       pendingOAuth = undefined
       res.writeHead(400, { "Content-Type": "text/html" })
-      res.end(OauthCallbackPage.error(message, { provider: "Snowflake" }))
+      res.end(OauthCallbackPage.error(message, { provider: "Snowflake", language: callbackLanguage }))
       return
     }
 
@@ -192,31 +214,31 @@ async function startOAuthServer() {
       const message = errorDescription || error
       current.reject(new Error(message))
       res.writeHead(200, { "Content-Type": "text/html" })
-      res.end(OauthCallbackPage.error(message, { provider: "Snowflake" }))
+      res.end(OauthCallbackPage.error(message, { provider: "Snowflake", language: current.language }))
       return
     }
 
     if (!code) {
-      const message = "Missing authorization code"
+      const message = t(current.language, "error.oauth_code_missing")
       current.reject(new Error(message))
       res.writeHead(400, { "Content-Type": "text/html" })
-      res.end(OauthCallbackPage.error(message, { provider: "Snowflake" }))
+      res.end(OauthCallbackPage.error(message, { provider: "Snowflake", language: current.language }))
       return
     }
 
-    exchangeCodeForToken(current.account, code, current.pkce)
+    exchangeCodeForToken(current.account, code, current.pkce, current.language)
       .then((tokens) => current.resolve(tokens))
       .catch((err) => current.reject(err instanceof Error ? err : new Error(String(err))))
 
     res.writeHead(200, { "Content-Type": "text/html" })
-    res.end(OauthCallbackPage.success({ provider: "Snowflake" }))
+    res.end(OauthCallbackPage.success({ provider: "Snowflake", language: current.language }))
   })
 
   await new Promise<void>((resolve, reject) => {
     oauthServer!.listen(0, OAUTH_CALLBACK_HOST, () => {
       const address = oauthServer!.address()
       if (!address || typeof address === "string") {
-        reject(new Error("Unable to resolve Snowflake OAuth callback port"))
+        reject(new Error(t(language, "error.oauth_port_unresolved")))
         return
       }
       oauthServerPort = address.port
@@ -233,9 +255,14 @@ function stopOAuthServer() {
   oauthServerPort = undefined
 }
 
-function waitForOAuthCallback(account: string, pkce: PkceCodes, state: string): Promise<TokenResponse> {
+function waitForOAuthCallback(
+  account: string,
+  pkce: PkceCodes,
+  state: string,
+  language: Language,
+): Promise<TokenResponse> {
   if (pendingOAuth) {
-    pendingOAuth.reject(new Error("Superseded by a newer Snowflake authorize request"))
+    pendingOAuth.reject(new Error(t(pendingOAuth.language, "error.oauth_superseded")))
     pendingOAuth = undefined
   }
 
@@ -244,13 +271,14 @@ function waitForOAuthCallback(account: string, pkce: PkceCodes, state: string): 
       if (!pendingOAuth) return
       pendingOAuth = undefined
       stopOAuthServer()
-      reject(new Error("Snowflake OAuth callback timeout - authorization took too long"))
+      reject(new Error(t(language, "error.oauth_timeout")))
     }, OAUTH_TIMEOUT_MS)
 
     pendingOAuth = {
       account,
       state,
       pkce,
+      language,
       resolve: (tokens) => {
         clearTimeout(timeout)
         resolve(tokens)
@@ -263,19 +291,23 @@ function waitForOAuthCallback(account: string, pkce: PkceCodes, state: string): 
   })
 }
 
-export async function SnowflakeCortexAuthPlugin(_input: PluginInput): Promise<Hooks> {
+export async function SnowflakeCortexAuthPlugin(
+  _input: PluginInput,
+  options?: Record<string, unknown>,
+): Promise<Hooks> {
+  const language = pluginLanguage(options)
   const prompts = [
     {
       type: "text" as const,
       key: "account",
-      message: "Snowflake Account Identifier",
-      placeholder: "myorg-myaccount",
-      validate: (value: string) => (value && value.trim().length > 0 ? undefined : "Required"),
+      message: t(language, "plugin.snowflake.account_identifier"),
+      placeholder: t(language, "plugin.example.snowflake_account"),
+      validate: (value: string) => (value && value.trim().length > 0 ? undefined : t(language, "provider.required")),
     },
     {
       type: "text" as const,
       key: "role",
-      message: "Snowflake Role (optional)",
+      message: t(language, "plugin.snowflake.role_optional"),
       placeholder: "PUBLIC",
     },
   ]
@@ -299,7 +331,7 @@ export async function SnowflakeCortexAuthPlugin(_input: PluginInput): Promise<Ho
 
         if (oauth.accountId && oauth.refresh && oauth.expires && oauth.expires <= Date.now()) {
           try {
-            const tokens = await refreshAccessToken(oauth.accountId, oauth.refresh)
+            const tokens = await refreshAccessToken(oauth.accountId, oauth.refresh, language)
             const refreshedRefresh = tokens.refresh_token || oauth.refresh
             const refreshedExpires = Date.now() + (tokens.expires_in ?? 600) * 1000
             await _input.client.auth
@@ -329,13 +361,13 @@ export async function SnowflakeCortexAuthPlugin(_input: PluginInput): Promise<Ho
               accountId?: string
             }
 
-            if (!currentOauth.accountId) throw new Error("Snowflake OAuth auth is missing accountId")
+            if (!currentOauth.accountId) throw new Error(t(language, "error.snowflake_account_required"))
             const accountId = currentOauth.accountId
 
             const refresh = async () => {
               if (!refreshPromise) {
                 const refreshToken = currentOauth.refresh
-                refreshPromise = refreshAccessToken(accountId, refreshToken)
+                refreshPromise = refreshAccessToken(accountId, refreshToken, language)
                   .then(async (tokens) => {
                     const refreshedRefresh = tokens.refresh_token || refreshToken
                     const refreshedExpires = Date.now() + (tokens.expires_in ?? 600) * 1000
@@ -458,24 +490,23 @@ export async function SnowflakeCortexAuthPlugin(_input: PluginInput): Promise<Ho
       methods: [
         {
           type: "oauth",
-          label: "Login with Snowflake (External Browser)",
+          label: t(language, "plugin.snowflake.login_browser"),
           prompts,
           async authorize(inputs = {}) {
             const account = normalizeAccount(inputs.account || "")
-            if (!account) throw new Error("Snowflake account is required")
+            if (!account) throw new Error(t(language, "error.snowflake_account_required"))
 
-            await startOAuthServer()
+            await startOAuthServer(language)
             const pkce = await generatePKCE()
             const state = generateRandomString(64)
             const role = (inputs.role || "").trim() || undefined
-            const url = buildAuthorizeUrl(account, role, state, pkce)
-            const callbackPromise = waitForOAuthCallback(account, pkce, state)
+            const url = buildAuthorizeUrl(account, role, state, pkce, language)
+            const callbackPromise = waitForOAuthCallback(account, pkce, state, language)
             await open(url).catch(() => undefined)
 
             return {
               url,
-              instructions:
-                "Complete Snowflake sign-in in your browser. MiaopanCode will capture the OAuth callback and store the bearer token automatically.",
+              instructions: t(language, "plugin.snowflake.browser_instructions"),
               method: "auto" as const,
               async callback() {
                 try {
@@ -498,7 +529,7 @@ export async function SnowflakeCortexAuthPlugin(_input: PluginInput): Promise<Ho
         },
         {
           type: "api",
-          label: "Paste PAT or bearer token manually",
+          label: t(language, "plugin.snowflake.paste_token"),
           prompts: prompts.filter((item) => item.key === "account"),
         },
       ],

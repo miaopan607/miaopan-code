@@ -3,6 +3,7 @@ import { Project } from "@miaopan-code/schema/project"
 import { Schema, Struct } from "effect"
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi"
 import { LocationQuery, locationQueryOpenApi } from "./location"
+import { t, type Language } from "../i18n"
 
 const root = "/experimental/project/:projectID/copy"
 
@@ -20,37 +21,45 @@ export class ProjectCopyError extends Schema.ErrorClass<ProjectCopyError>("Proje
 const CreatePayload = Schema.Struct(Struct.omit(ProjectCopy.CreateInput.fields, ["projectID", "sourceDirectory"]))
 const RemovePayload = Schema.Struct(Struct.omit(ProjectCopy.RemoveInput.fields, ["projectID"]))
 
-export const ProjectCopyGroup = HttpApiGroup.make("server.projectCopy")
-  .add(
-    HttpApiEndpoint.post("projectCopy.create", root, {
-      params: { projectID: Project.ID },
-      query: LocationQuery,
-      payload: CreatePayload,
-      success: ProjectCopy.Copy,
-      error: ProjectCopyError,
-    })
-      .annotateMerge(locationQueryOpenApi)
-      .annotateMerge(OpenApi.annotations({ identifier: "v2.projectCopy.create" })),
-  )
-  .add(
-    HttpApiEndpoint.delete("projectCopy.remove", root, {
-      params: { projectID: Project.ID },
-      query: LocationQuery,
-      payload: RemovePayload,
-      success: HttpApiSchema.NoContent,
-      error: ProjectCopyError,
-    })
-      .annotateMerge(locationQueryOpenApi)
-      .annotateMerge(OpenApi.annotations({ identifier: "v2.projectCopy.remove" })),
-  )
-  .add(
-    HttpApiEndpoint.post("projectCopy.refresh", `${root}/refresh`, {
-      params: { projectID: Project.ID },
-      query: LocationQuery,
-      success: HttpApiSchema.NoContent,
-      error: ProjectCopyError,
-    })
-      .annotateMerge(locationQueryOpenApi)
-      .annotateMerge(OpenApi.annotations({ identifier: "v2.projectCopy.refresh" })),
-  )
-  .annotateMerge(OpenApi.annotations({ title: "projectCopy", description: "Project copy management routes." }))
+export const makeProjectCopyGroup = (language?: Language) =>
+  HttpApiGroup.make("server.projectCopy")
+    .add(
+      HttpApiEndpoint.post("projectCopy.create", root, {
+        params: { projectID: Project.ID },
+        query: LocationQuery,
+        payload: CreatePayload,
+        success: ProjectCopy.Copy,
+        error: ProjectCopyError,
+      })
+        .annotateMerge(locationQueryOpenApi)
+        .annotateMerge(OpenApi.annotations({ identifier: "v2.projectCopy.create" })),
+    )
+    .add(
+      HttpApiEndpoint.delete("projectCopy.remove", root, {
+        params: { projectID: Project.ID },
+        query: LocationQuery,
+        payload: RemovePayload,
+        success: HttpApiSchema.NoContent,
+        error: ProjectCopyError,
+      })
+        .annotateMerge(locationQueryOpenApi)
+        .annotateMerge(OpenApi.annotations({ identifier: "v2.projectCopy.remove" })),
+    )
+    .add(
+      HttpApiEndpoint.post("projectCopy.refresh", `${root}/refresh`, {
+        params: { projectID: Project.ID },
+        query: LocationQuery,
+        success: HttpApiSchema.NoContent,
+        error: ProjectCopyError,
+      })
+        .annotateMerge(locationQueryOpenApi)
+        .annotateMerge(OpenApi.annotations({ identifier: "v2.projectCopy.refresh" })),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "project_copy_title"),
+        description: t(language, "project_copy_description"),
+      }),
+    )
+
+export const ProjectCopyGroup = makeProjectCopyGroup()

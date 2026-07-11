@@ -1,13 +1,20 @@
 import { GlobalBus, type GlobalEvent } from "@/bus/global"
 import { Effect } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
-export function waitEvent(input: { timeout: number; signal?: AbortSignal; fn: (event: GlobalEvent) => boolean }) {
-  if (input.signal?.aborted) return Effect.fail(input.signal.reason ?? new Error("Request aborted"))
+export function waitEvent(input: {
+  timeout: number
+  signal?: AbortSignal
+  language?: Language
+  fn: (event: GlobalEvent) => boolean
+}) {
+  if (input.signal?.aborted)
+    return Effect.fail(input.signal.reason ?? new Error(t(input.language, "error.request_aborted")))
 
   return Effect.callback<void, unknown>((resume) => {
     const abort = () => {
       cleanup()
-      resume(Effect.fail(input.signal?.reason ?? new Error("Request aborted")))
+      resume(Effect.fail(input.signal?.reason ?? new Error(t(input.language, "error.request_aborted"))))
     }
 
     const handler = (event: GlobalEvent) => {
@@ -29,7 +36,7 @@ export function waitEvent(input: { timeout: number; signal?: AbortSignal; fn: (e
 
     const timeout = setTimeout(() => {
       cleanup()
-      resume(Effect.fail(new Error("Timed out waiting for global event")))
+      resume(Effect.fail(new Error(t(input.language, "error.global_event_timeout"))))
     }, input.timeout)
 
     GlobalBus.on("event", handler)

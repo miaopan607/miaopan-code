@@ -6,7 +6,7 @@ import { Global } from "@miaopan-code/core/global"
 
 describe("global paths", () => {
   test("tmp path is under the system temp directory", () => {
-    expect(Global.Path.tmp).toBe(path.join(os.tmpdir(), "miaopanCode"))
+    expect(Global.Path.tmp).toBe(path.join(os.tmpdir(), "miaopan-code"))
     expect(Global.make().tmp).toBe(Global.Path.tmp)
   })
 

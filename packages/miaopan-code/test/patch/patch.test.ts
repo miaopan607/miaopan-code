@@ -7,6 +7,7 @@ import { tmpdir } from "os"
 import { Patch } from "../../src/patch"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { testEffect } from "../lib/effect"
+import { t } from "@miaopan-code/core/i18n"
 
 const it = testEffect(LayerNode.compile(FSUtil.node))
 
@@ -89,7 +90,7 @@ describe("Patch namespace", () => {
     test("should throw error for invalid patch format", () => {
       const invalidPatch = `This is not a valid patch`
 
-      expect(() => Patch.parsePatch(invalidPatch)).toThrow("Invalid patch format")
+      expect(() => Patch.parsePatch(invalidPatch)).toThrow(t("zh-CN", "error.patch_invalid_format"))
     })
   })
 

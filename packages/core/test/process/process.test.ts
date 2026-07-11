@@ -78,11 +78,26 @@ describe("AppProcess", () => {
           if (reason && reason._tag === "Fail") {
             expect(reason.error).toBeInstanceOf(AppProcess.AppProcessError)
             expect((reason.error as AppProcess.AppProcessError).exitCode).toBe(1)
-            expect((reason.error as AppProcess.AppProcessError).message).toContain("Command failed (exit 1)")
+            expect((reason.error as AppProcess.AppProcessError).message).toContain("命令失败（退出代码 1）")
           } else {
             throw new Error("expected fail reason")
           }
         }
+      }),
+    )
+
+    it.effect(
+      "propagates English into process errors",
+      Effect.gen(function* () {
+        const svc = yield* AppProcess.Service
+        const exit = yield* svc
+          .run(cmd("-e", "process.exit(3)"), { language: "en" })
+          .pipe(Effect.flatMap(AppProcess.requireSuccess), Effect.exit)
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (!Exit.isFailure(exit)) return
+        const reason = exit.cause.reasons[0]
+        if (!reason || reason._tag !== "Fail") throw new Error("expected fail reason")
+        expect((reason.error as AppProcess.AppProcessError).message).toContain("Command failed (exit 3)")
       }),
     )
 

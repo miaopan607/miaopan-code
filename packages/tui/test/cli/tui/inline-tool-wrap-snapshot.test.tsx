@@ -275,20 +275,18 @@ describe("TUI inline tool wrapping", () => {
 
   test("formats completed subagent toolcall details", () => {
     expect(formatCompletedSubagentDetail(0, "501ms")).toBe("501ms")
-    expect(formatCompletedSubagentDetail(1, "501ms")).toBe("1 toolcall · 501ms")
-    expect(formatCompletedSubagentDetail(2, "501ms")).toBe("2 toolcalls · 501ms")
-    expect(formatSubagentToolcalls(0)).toBe("0 toolcalls")
+    expect(formatCompletedSubagentDetail(1, "501ms")).toBe("1 次工具调用 · 501ms")
+    expect(formatCompletedSubagentDetail(2, "501ms")).toBe("2 次工具调用 · 501ms")
+    expect(formatSubagentToolcalls(0)).toBe("0 次工具调用")
   })
 
   test("keeps background state attached to the subagent identity", () => {
-    expect(formatSubagentTitle("Explore", "Inspect renderer", false)).toBe("Explore Task — Inspect renderer")
-    expect(formatSubagentTitle("Explore", "Inspect renderer", true)).toBe(
-      "Explore Task (background) — Inspect renderer",
-    )
+    expect(formatSubagentTitle("Explore", "Inspect renderer", false)).toBe("Explore 任务 — Inspect renderer")
+    expect(formatSubagentTitle("Explore", "Inspect renderer", true)).toBe("Explore 任务 (后台) — Inspect renderer")
   })
 
   test("keeps retry status ahead of wrapping messages", () => {
-    expect(formatSubagentRetry(2, "Rate limited by provider")).toBe("Retrying (attempt 2) · Rate limited by provider")
+    expect(formatSubagentRetry(2, "Rate limited by provider")).toBe("重试中（第 2 次）· Rate limited by provider")
   })
 
   test("snapshots consecutive grep, glob, and read rows at a narrow width", async () => {

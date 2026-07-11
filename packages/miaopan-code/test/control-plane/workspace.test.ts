@@ -31,6 +31,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Ripgrep } from "@miaopan-code/core/ripgrep"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import { t } from "@miaopan-code/core/i18n"
 
 const originalEnv = {
   MIAOPAN_CODE_AUTH_CONTENT: process.env.MIAOPAN_CODE_AUTH_CONTENT,
@@ -1692,7 +1693,7 @@ describe("workspace waitForSync", () => {
           yield* Effect.exit(
             workspace.waitForSync(WorkspaceV2.ID.ascending("wrk_wait_timeout"), { [sessionID]: 1 }, undefined, 25),
           ),
-          `Timed out waiting for sync fence: {"${sessionID}":1}`,
+          t(undefined, "error.sync_fence_timeout", { state: JSON.stringify({ [sessionID]: 1 }) }),
         )
       }),
     { git: true },

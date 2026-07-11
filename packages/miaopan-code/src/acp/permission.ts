@@ -12,16 +12,11 @@ import { exists, readText } from "@/util/filesystem"
 import type { ACPSession } from "./session"
 import { pendingToolCall, toLocations, type ToolInput } from "./tool"
 import { Effect } from "effect"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 type PermissionEvent = Extract<Event, { type: "permission.asked" }>
 type Reply = "once" | "always" | "reject"
 type Connection = Partial<Pick<AgentSideConnection, "requestPermission" | "writeTextFile">>
-
-const permissionOptions: PermissionOption[] = [
-  { optionId: "once", kind: "allow_once", name: "Allow once" },
-  { optionId: "always", kind: "allow_always", name: "Always allow" },
-  { optionId: "reject", kind: "reject_once", name: "Reject" },
-]
 
 export class Handler {
   private readonly queues = new Map<string, Promise<void>>()
@@ -31,6 +26,7 @@ export class Handler {
       sdk: MiaopanCodeClient
       connection: Connection
       session: ACPSession.Interface
+      language?: Language
     },
   ) {}
 
@@ -65,8 +61,9 @@ export class Handler {
           toolCallId: permission.tool?.callID ?? permission.id,
           toolName: permission.permission,
           input: permission.metadata,
+          language: this.input.language,
         }),
-        options: permissionOptions,
+        options: permissionOptions(this.input.language),
       })
       .catch(async () => {
         await this.reply(permission.id, "reject", session.cwd)
@@ -119,13 +116,14 @@ async function permissionToolCall(input: {
   readonly toolCallId: string
   readonly toolName: string
   readonly input: ToolInput
+  readonly language?: Language
 }): Promise<ToolCallUpdate> {
   const toolCall = pendingToolCall({
     toolCallId: input.toolCallId,
     toolName: input.toolName,
     state: {
       input: input.input,
-      title: permissionTitle(input.toolName, input.input),
+      title: permissionTitle(input.toolName, input.input, input.language),
     },
   })
   const content = await permissionContent(input.toolName, input.input)
@@ -136,7 +134,7 @@ async function permissionToolCall(input: {
   }
 }
 
-function permissionTitle(toolName: string, input: ToolInput) {
+function permissionTitle(toolName: string, input: ToolInput, language?: Language) {
   const tool = toolName.toLocaleLowerCase()
   switch (tool) {
     case "external_directory":
@@ -155,18 +153,26 @@ function permissionTitle(toolName: string, input: ToolInput) {
     case "read":
     case "edit":
     case "write":
-      return editTitle(input)
+      return editTitle(input, language)
 
     default:
       return undefined
   }
 }
 
-function editTitle(input: ToolInput) {
+function editTitle(input: ToolInput, language?: Language) {
   const files = fileMetadata(input)
   if (files.length === 1) return files[0]?.relativePath ?? files[0]?.filePath
-  if (files.length > 1) return `${files.length} files`
+  if (files.length > 1) return t(language, "acp.files_count", { count: files.length })
   return stringValue(input.filePath) ?? stringValue(input.filepath) ?? stringValue(input.path)
+}
+
+function permissionOptions(language?: Language): PermissionOption[] {
+  return [
+    { optionId: "once", kind: "allow_once", name: t(language, "acp.permission_allow_once") },
+    { optionId: "always", kind: "allow_always", name: t(language, "acp.permission_allow_always") },
+    { optionId: "reject", kind: "reject_once", name: t(language, "acp.permission_reject") },
+  ]
 }
 
 function permissionLocations(toolName: string, input: ToolInput): ToolCallLocation[] {

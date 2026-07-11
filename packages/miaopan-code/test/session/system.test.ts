@@ -90,7 +90,7 @@ describe("session.system", () => {
     )
   })
 
-  it.effect("skills output is sorted by name and stable across calls", () =>
+  it.instance("skills output is sorted by name and stable across calls", () =>
     Effect.gen(function* () {
       const prompt = yield* SystemPrompt.Service
       const first = yield* prompt.skills(build)
@@ -110,7 +110,7 @@ describe("session.system", () => {
     }),
   )
 
-  it.effect("MCP output includes connected server instructions", () =>
+  it.instance("MCP output includes connected server instructions", () =>
     Effect.gen(function* () {
       const prompt = yield* SystemPrompt.Service
       const output = yield* prompt.mcp(build)
@@ -130,7 +130,7 @@ describe("session.system", () => {
     }),
   )
 
-  it.effect("MCP output omits servers when all advertised tools are denied", () =>
+  it.instance("MCP output omits servers when all advertised tools are denied", () =>
     Effect.gen(function* () {
       const prompt = yield* SystemPrompt.Service
       const output = yield* prompt.mcp(build, Permission.fromConfig({ "tool-server_*": "deny" }))

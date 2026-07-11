@@ -1,5 +1,7 @@
 # TUI Command Shim Removal
 
+Languages: [简体中文索引](../README.md) · English
+
 Problem:
 
 - v1 keeps a deprecated `api.command` TUI plugin shim so older plugins do not fail during initialization

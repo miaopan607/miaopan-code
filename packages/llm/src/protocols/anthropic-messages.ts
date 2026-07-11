@@ -24,6 +24,7 @@ import * as Cache from "./utils/cache"
 import { Lifecycle } from "./utils/lifecycle"
 import { ToolSchemaProjection } from "./utils/tool-schema"
 import { ToolStream } from "./utils/tool-stream"
+import { t, type Language } from "../i18n"
 
 const ADAPTER = "anthropic-messages"
 export const DEFAULT_BASE_URL = "https://api.anthropic.com/v1"
@@ -224,6 +225,7 @@ interface ParserState {
   readonly tools: ToolStream.State<number>
   readonly usage?: Usage
   readonly lifecycle: Lifecycle.State
+  readonly language?: Language
 }
 
 const invalid = ProviderShared.invalidRequest
@@ -265,13 +267,18 @@ const lowerTool = (breakpoints: Cache.Breakpoints, tool: ToolDefinition, inputSc
   cache_control: cacheControl(breakpoints, tool.cache),
 })
 
-const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>) =>
-  ProviderShared.matchToolChoice("Anthropic Messages", toolChoice, {
-    auto: () => ({ type: "auto" as const }),
-    none: () => undefined,
-    required: () => ({ type: "any" as const }),
-    tool: (name) => ({ type: "tool" as const, name }),
-  })
+const lowerToolChoice = (toolChoice: NonNullable<LLMRequest["toolChoice"]>, language?: Language) =>
+  ProviderShared.matchToolChoice(
+    "Anthropic Messages",
+    toolChoice,
+    {
+      auto: () => ({ type: "auto" as const }),
+      none: () => undefined,
+      required: () => ({ type: "any" as const }),
+      tool: (name) => ({ type: "tool" as const, name }),
+    },
+    language,
+  )
 
 const lowerToolCall = (part: ToolCallPart): AnthropicToolUseBlock => ({
   type: "tool_use",
@@ -297,18 +304,21 @@ const serverToolResultType = (name: string): AnthropicServerToolResultType | und
   return undefined
 }
 
-const lowerServerToolResult = Effect.fn("AnthropicMessages.lowerServerToolResult")(function* (part: ToolResultPart) {
+const lowerServerToolResult = Effect.fn("AnthropicMessages.lowerServerToolResult")(function* (
+  part: ToolResultPart,
+  language?: Language,
+) {
   const wireType = serverToolResultType(part.name)
-  if (!wireType)
-    return yield* invalid(`Anthropic Messages does not know how to round-trip server tool result for ${part.name}`)
+  if (!wireType) return yield* invalid(t(language, "llm.anthropic.server_tool_result_unknown", { name: part.name }))
   return { type: wireType, tool_use_id: part.id, content: part.result.value } satisfies AnthropicServerToolResultBlock
 })
 
-const lowerImage = Effect.fn("AnthropicMessages.lowerImage")(function* (part: MediaPart) {
+const lowerImage = Effect.fn("AnthropicMessages.lowerImage")(function* (part: MediaPart, language?: Language) {
   const media = yield* ProviderShared.validateMedia(
     "Anthropic Messages",
     part,
     new Set<string>(ProviderShared.IMAGE_MIMES),
+    language,
   )
   return {
     type: "image" as const,
@@ -324,12 +334,14 @@ const lowerImage = Effect.fn("AnthropicMessages.lowerImage")(function* (part: Me
 // content instead of JSON-stringifying base64 into a prompt string.
 const lowerToolResultContentItem = Effect.fn("AnthropicMessages.lowerToolResultContentItem")(function* (
   item: ToolContent,
+  language?: Language,
 ) {
   if (item.type === "text") return { type: "text" as const, text: item.text } satisfies AnthropicTextBlock
   const media = yield* ProviderShared.validateToolFile(
     "Anthropic Messages",
     item,
     new Set<string>(ProviderShared.IMAGE_MIMES),
+    language,
   )
   return {
     type: "image" as const,
@@ -341,13 +353,16 @@ const lowerToolResultContentItem = Effect.fn("AnthropicMessages.lowerToolResultC
   } satisfies AnthropicImageBlock
 })
 
-const lowerToolResultContent = Effect.fn("AnthropicMessages.lowerToolResultContent")(function* (part: ToolResultPart) {
+const lowerToolResultContent = Effect.fn("AnthropicMessages.lowerToolResultContent")(function* (
+  part: ToolResultPart,
+  language?: Language,
+) {
   // Text / json / error results stay as a string for backward compatibility
   // with existing cassettes and provider expectations.
   if (part.result.type !== "content") return ProviderShared.toolResultText(part)
   // Preserve the narrowed array element type when compiled through a consumer package.
   const content: ReadonlyArray<ToolContent> = part.result.value
-  return yield* Effect.forEach(content, lowerToolResultContentItem)
+  return yield* Effect.forEach(content, (item) => lowerToolResultContentItem(item, language))
 })
 
 // Mid-conversation system messages are a native Claude API feature only for
@@ -387,8 +402,9 @@ const splitsLocalToolResults = (messages: LLMRequest["messages"], index: number)
 const lowerNativeSystemUpdate = Effect.fn("AnthropicMessages.lowerNativeSystemUpdate")(function* (
   message: LLMRequest["messages"][number],
   breakpoints: Cache.Breakpoints,
+  language?: Language,
 ) {
-  const content = yield* ProviderShared.systemUpdateText("Anthropic Messages", message)
+  const content = yield* ProviderShared.systemUpdateText("Anthropic Messages", message, language)
   return {
     role: "system" as const,
     content: content.map((part) => ({
@@ -408,12 +424,12 @@ const lowerMessages = Effect.fn("AnthropicMessages.lowerMessages")(function* (
   for (const [index, message] of request.messages.entries()) {
     if (message.role === "system") {
       if (splitsLocalToolResults(request.messages, index))
-        return yield* invalid("Anthropic Messages system updates cannot split a local tool call from its tool result")
+        return yield* invalid(t(request.language, "llm.anthropic.system_split_tool_result"))
       if (supportsNativeSystemUpdates(request) && canUseNativeSystemUpdate(request.messages, index)) {
-        messages.push(yield* lowerNativeSystemUpdate(message, breakpoints))
+        messages.push(yield* lowerNativeSystemUpdate(message, breakpoints, request.language))
         continue
       }
-      const part = yield* ProviderShared.wrappedSystemUpdate("Anthropic Messages", message)
+      const part = yield* ProviderShared.wrappedSystemUpdate("Anthropic Messages", message, request.language)
       const block = { type: "text" as const, text: part.text, cache_control: cacheControl(breakpoints, part.cache) }
       const previous = messages.at(-1)
       if (previous?.role === "user")
@@ -430,10 +446,15 @@ const lowerMessages = Effect.fn("AnthropicMessages.lowerMessages")(function* (
           continue
         }
         if (part.type === "media") {
-          content.push(yield* lowerImage(part))
+          content.push(yield* lowerImage(part, request.language))
           continue
         }
-        return yield* ProviderShared.unsupportedContent("Anthropic Messages", "user", ["text", "media"])
+        return yield* ProviderShared.unsupportedContent(
+          "Anthropic Messages",
+          "user",
+          ["text", "media"],
+          request.language,
+        )
       }
       messages.push({ role: "user", content })
       continue
@@ -459,12 +480,10 @@ const lowerMessages = Effect.fn("AnthropicMessages.lowerMessages")(function* (
           continue
         }
         if (part.type === "tool-result" && part.providerExecuted) {
-          content.push(yield* lowerServerToolResult(part))
+          content.push(yield* lowerServerToolResult(part, request.language))
           continue
         }
-        return yield* invalid(
-          `Anthropic Messages assistant messages only support text, reasoning, and tool-call content for now`,
-        )
+        return yield* invalid(t(request.language, "llm.anthropic.assistant_content_unsupported"))
       }
       messages.push({ role: "assistant", content })
       continue
@@ -473,11 +492,11 @@ const lowerMessages = Effect.fn("AnthropicMessages.lowerMessages")(function* (
     const content: AnthropicToolResultBlock[] = []
     for (const part of message.content) {
       if (!ProviderShared.supportsContent(part, ["tool-result"]))
-        return yield* ProviderShared.unsupportedContent("Anthropic Messages", "tool", ["tool-result"])
+        return yield* ProviderShared.unsupportedContent("Anthropic Messages", "tool", ["tool-result"], request.language)
       content.push({
         type: "tool_result",
         tool_use_id: part.id,
-        content: yield* lowerToolResultContent(part),
+        content: yield* lowerToolResultContent(part, request.language),
         is_error: part.result.type === "error" ? true : undefined,
         cache_control: cacheControl(breakpoints, part.cache),
       })
@@ -499,12 +518,12 @@ const lowerThinking = Effect.fn("AnthropicMessages.lowerThinking")(function* (re
       : typeof thinking.budget_tokens === "number"
         ? thinking.budget_tokens
         : undefined
-  if (budget === undefined) return yield* invalid("Anthropic thinking provider option requires budgetTokens")
+  if (budget === undefined) return yield* invalid(t(request.language, "llm.anthropic.thinking_budget_required"))
   return { type: "enabled" as const, budget_tokens: budget }
 })
 
 const fromRequest = Effect.fn("AnthropicMessages.fromRequest")(function* (request: LLMRequest) {
-  const toolChoice = request.toolChoice ? yield* lowerToolChoice(request.toolChoice) : undefined
+  const toolChoice = request.toolChoice ? yield* lowerToolChoice(request.toolChoice, request.language) : undefined
   const generation = request.generation
   const toolSchemaCompatibility = request.model.compatibility?.toolSchema
   const outputLimit = request.model.defaults?.limits?.output ?? request.model.route.defaults.limits?.output ?? 4096
@@ -533,7 +552,10 @@ const fromRequest = Effect.fn("AnthropicMessages.fromRequest")(function* (reques
   const messages = yield* lowerMessages(request, breakpoints)
   if (breakpoints.dropped > 0) {
     yield* Effect.logWarning(
-      `Anthropic Messages: dropped ${breakpoints.dropped} cache breakpoint(s); the API allows at most ${ANTHROPIC_BREAKPOINT_CAP} per request.`,
+      t(request.language, "llm.anthropic.cache_breakpoints_dropped", {
+        dropped: breakpoints.dropped,
+        maximum: ANTHROPIC_BREAKPOINT_CAP,
+      }),
     )
   }
   return {
@@ -748,7 +770,7 @@ const onContentBlockDelta = Effect.fn("AnthropicMessages.onContentBlockDelta")(f
       state.tools,
       event.index,
       delta.partial_json,
-      "Anthropic Messages tool argument delta is missing its tool call",
+      t(state.language, "llm.tool_call.delta_missing", { route: "Anthropic Messages" }),
     )
     if (ToolStream.isError(result)) return yield* result
     const events: LLMEvent[] = []
@@ -765,7 +787,7 @@ const onContentBlockStop = Effect.fn("AnthropicMessages.onContentBlockStop")(fun
   event: AnthropicEvent,
 ) {
   if (event.index === undefined) return [state, NO_EVENTS] satisfies StepResult
-  const result = yield* ToolStream.finish(ADAPTER, state.tools, event.index)
+  const result = yield* ToolStream.finish(ADAPTER, state.tools, event.index, state.language)
   const events: LLMEvent[] = []
   const resultEvents = result.events ?? []
   const lifecycle = resultEvents.length
@@ -794,18 +816,18 @@ const onMessageDelta = (state: ParserState, event: AnthropicEvent): StepResult =
 
 // Prefix `error.type` so overloads, rate limits, and quota errors are visible
 // even when the provider message is generic or empty.
-const providerErrorMessage = (event: AnthropicEvent): string => {
+const providerErrorMessage = (event: AnthropicEvent, language?: Language): string => {
   const type = event.error?.type
   const message = event.error?.message
   if (type && message) return `${type}: ${message}`
-  return message || type || "Anthropic Messages stream error"
+  return message || type || t(language, "llm.anthropic.stream_error")
 }
 
 const onError = (state: ParserState, event: AnthropicEvent): StepResult => [
   state,
   [
     LLMEvent.providerError({
-      message: providerErrorMessage(event),
+      message: providerErrorMessage(event, state.language),
       classification: isContextOverflow(event.error?.message ?? "") ? "context-overflow" : undefined,
     }),
   ],
@@ -837,7 +859,11 @@ export const protocol = Protocol.make({
   },
   stream: {
     event: Protocol.jsonEvent(AnthropicEvent),
-    initial: () => ({ tools: ToolStream.empty<number>(), lifecycle: Lifecycle.initial() }),
+    initial: (request) => ({
+      tools: ToolStream.empty<number>(),
+      lifecycle: Lifecycle.initial(),
+      language: request.language,
+    }),
     step,
   },
 })

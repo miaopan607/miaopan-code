@@ -4,6 +4,7 @@ import { Schema } from "effect"
 import { define, inventory } from "./event"
 import { NonNegativeInt, optional } from "./schema"
 import { ProjectID } from "./project-id"
+import { t, type Language } from "./i18n"
 
 export const ID = ProjectID
 export type ID = typeof ID.Type
@@ -15,11 +16,11 @@ export const Icon = Schema.Struct({
   color: optional(Schema.String),
 }).annotate({ identifier: "Project.Icon" })
 export interface Icon extends Schema.Schema.Type<typeof Icon> {}
-export const Commands = Schema.Struct({
-  start: optional(
-    Schema.String.annotate({ description: "Startup script to run when creating a new workspace (worktree)" }),
-  ),
-}).annotate({ identifier: "Project.Commands" })
+export const makeCommands = (language?: Language) =>
+  Schema.Struct({
+    start: optional(Schema.String.annotate({ description: t(language, "project_startup") })),
+  }).annotate({ identifier: "Project.Commands" })
+export const Commands = makeCommands()
 export interface Commands extends Schema.Schema.Type<typeof Commands> {}
 export const Time = Schema.Struct({
   created: NonNegativeInt,
@@ -28,16 +29,18 @@ export const Time = Schema.Struct({
 }).annotate({ identifier: "Project.Time" })
 export interface Time extends Schema.Schema.Type<typeof Time> {}
 
-export const Info = Schema.Struct({
-  id: ID,
-  worktree: Schema.String,
-  vcs: optional(Vcs),
-  name: optional(Schema.String),
-  icon: optional(Icon),
-  commands: optional(Commands),
-  time: Time,
-  sandboxes: Schema.Array(Schema.String),
-}).annotate({ identifier: "Project" })
+export const makeInfo = (language?: Language) =>
+  Schema.Struct({
+    id: ID,
+    worktree: Schema.String,
+    vcs: optional(Vcs),
+    name: optional(Schema.String),
+    icon: optional(Icon),
+    commands: optional(makeCommands(language)),
+    time: Time,
+    sandboxes: Schema.Array(Schema.String),
+  }).annotate({ identifier: "Project" })
+export const Info = makeInfo()
 export interface Info extends Schema.Schema.Type<typeof Info> {}
 
 const Updated = define({ type: "project.updated", schema: Info.fields })

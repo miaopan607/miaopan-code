@@ -7,68 +7,75 @@ import { Authorization } from "../middleware/authorization"
 import { InstanceContextMiddleware } from "../middleware/instance-context"
 import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
 import { described } from "./metadata"
+import { t, type Language } from "@miaopan-code/protocol/i18n"
 
 const root = "/question"
-const ReplyPayload = Schema.Struct({
-  answers: Schema.Array(Question.Answer).annotate({
-    description: "User answers in order of questions (each answer is an array of selected labels)",
-  }),
-})
-
-export const QuestionApi = HttpApi.make("question")
-  .add(
-    HttpApiGroup.make("question")
-      .add(
-        HttpApiEndpoint.get("list", root, {
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Array(Question.Request), "List of pending questions"),
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "question.list",
-            summary: "List pending questions",
-            description: "Get all pending question requests across all sessions.",
-          }),
-        ),
-        HttpApiEndpoint.post("reply", `${root}/:requestID/reply`, {
-          params: { requestID: QuestionID },
-          query: WorkspaceRoutingQuery,
-          payload: ReplyPayload,
-          success: described(Schema.Boolean, "Question answered successfully"),
-          error: [HttpApiError.BadRequest, QuestionNotFoundError],
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "question.reply",
-            summary: "Reply to question request",
-            description: "Provide answers to a question request from the AI assistant.",
-          }),
-        ),
-        HttpApiEndpoint.post("reject", `${root}/:requestID/reject`, {
-          params: { requestID: QuestionID },
-          query: WorkspaceRoutingQuery,
-          success: described(Schema.Boolean, "Question rejected successfully"),
-          error: [HttpApiError.BadRequest, QuestionNotFoundError],
-        }).annotateMerge(
-          OpenApi.annotations({
-            identifier: "question.reject",
-            summary: "Reject question request",
-            description: "Reject a question request from the AI assistant.",
-          }),
-        ),
-      )
-      .annotateMerge(
-        OpenApi.annotations({
-          title: "question",
-          description: "Question routes.",
-        }),
-      )
-      .middleware(InstanceContextMiddleware)
-      .middleware(WorkspaceRoutingMiddleware)
-      .middleware(Authorization),
-  )
-  .annotateMerge(
-    OpenApi.annotations({
-      title: "miaopanCode HttpApi",
-      version: "0.0.1",
-      description: "Effect HttpApi surface for instance routes.",
+const makeReplyPayload = (language?: Language) =>
+  Schema.Struct({
+    answers: Schema.Array(Question.Answer).annotate({
+      description: t(language, "session_question_reply_description"),
     }),
-  )
+  })
+
+const ReplyPayload = makeReplyPayload()
+
+export const makeQuestionApi = (language?: Language) =>
+  HttpApi.make("question")
+    .add(
+      HttpApiGroup.make("question")
+        .add(
+          HttpApiEndpoint.get("list", root, {
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Array(Question.Request), t(language, "question_list_pending")),
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "question.list",
+              summary: t(language, "question_list_pending"),
+              description: t(language, "question_list_pending_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("reply", `${root}/:requestID/reply`, {
+            params: { requestID: QuestionID },
+            query: WorkspaceRoutingQuery,
+            payload: makeReplyPayload(language),
+            success: described(Schema.Boolean, t(language, "session_question_reply")),
+            error: [HttpApiError.BadRequest, QuestionNotFoundError],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "question.reply",
+              summary: t(language, "session_question_reply"),
+              description: t(language, "session_question_reply_description"),
+            }),
+          ),
+          HttpApiEndpoint.post("reject", `${root}/:requestID/reject`, {
+            params: { requestID: QuestionID },
+            query: WorkspaceRoutingQuery,
+            success: described(Schema.Boolean, t(language, "session_question_reject")),
+            error: [HttpApiError.BadRequest, QuestionNotFoundError],
+          }).annotateMerge(
+            OpenApi.annotations({
+              identifier: "question.reject",
+              summary: t(language, "session_question_reject"),
+              description: t(language, "session_question_reject_description"),
+            }),
+          ),
+        )
+        .annotateMerge(
+          OpenApi.annotations({
+            title: t(language, "question_title"),
+            description: t(language, "question_description"),
+          }),
+        )
+        .middleware(InstanceContextMiddleware)
+        .middleware(WorkspaceRoutingMiddleware)
+        .middleware(Authorization),
+    )
+    .annotateMerge(
+      OpenApi.annotations({
+        title: t(language, "api_title"),
+        version: "0.0.1",
+        description: t(language, "api_description"),
+      }),
+    )
+
+export const QuestionApi = makeQuestionApi()

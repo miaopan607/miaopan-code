@@ -7,6 +7,7 @@ import { ProviderError } from "@/provider/error"
 import { errorMessage } from "@/util/error"
 import { ProxyEnv } from "@/util/proxy-env"
 import { isRecord } from "@/util/record"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export const PROTOCOL_HEADER = "responses_websockets=2026-02-06"
 
@@ -15,6 +16,7 @@ export interface ConnectResponsesWebSocketOptions {
   headers: Record<string, string>
   timeout?: number
   signal?: AbortSignal
+  language?: Language
 }
 
 export interface StreamResponsesWebSocketOptions {
@@ -28,6 +30,7 @@ export interface StreamResponsesWebSocketOptions {
   onRetryableTerminal?: (event: Record<string, unknown>) => Promise<WebSocket | undefined>
   onConnectionInvalid?: (error: ProviderError.ResponseStreamError) => void
   onAbort?: (error: Error) => void
+  language?: Language
 }
 
 export interface WrappedError {
@@ -71,7 +74,7 @@ export function isAbortError(error: unknown): error is DOMException {
 export function connectResponsesWebSocket(options: ConnectResponsesWebSocketOptions) {
   return new Promise<WebSocket>((resolve, reject) => {
     if (options.signal?.aborted) {
-      reject(abortError(options.signal))
+      reject(abortError(options.signal, options.language))
       return
     }
 
@@ -93,7 +96,7 @@ export function connectResponsesWebSocket(options: ConnectResponsesWebSocketOpti
           cleanup()
           socket.on("error", () => {})
           socket.terminate()
-          reject(new Error("WebSocket connect timed out"))
+          reject(new Error(t(options.language, "error.websocket_timeout")))
         }, options.timeout)
       : undefined
 
@@ -118,14 +121,18 @@ export function connectResponsesWebSocket(options: ConnectResponsesWebSocketOpti
 
     function onClose(code: number, reason: Buffer) {
       cleanup()
-      reject(new Error(closeMessage("WebSocket closed before open", code, reason)))
+      reject(
+        new Error(
+          closeMessage(t(options.language, "error.websocket_closed_before_open"), code, reason, options.language),
+        ),
+      )
     }
 
     function onAbort() {
       cleanup()
       socket.on("error", () => {})
       socket.terminate()
-      reject(abortError(options.signal))
+      reject(abortError(options.signal, options.language))
     }
 
     socket.once("open", onOpen)
@@ -180,7 +187,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
   async function onMessage(data: WebSocket.RawData, isBinary: boolean) {
     if (completed) return
     if (isBinary) {
-      invalidate(new ProviderError.ResponseStreamError("Unexpected binary WebSocket frame"))
+      invalidate(new ProviderError.ResponseStreamError(t(options.language, "error.websocket_binary_frame")))
       return
     }
 
@@ -247,7 +254,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
       ),
     )
     emitted = true
-    resetIdleTimeout("idle timeout waiting for websocket")
+    resetIdleTimeout(t(options.language, "error.websocket_idle_waiting"))
 
     if (!event) return
 
@@ -273,12 +280,14 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
   function onClose(code: number, reason: Buffer) {
     if (completed) return
     invalidate(
-      new ProviderError.ResponseStreamError(closeMessage("WebSocket closed before response.completed", code, reason)),
+      new ProviderError.ResponseStreamError(
+        closeMessage(t(options.language, "error.websocket_closed_before_completed"), code, reason, options.language),
+      ),
     )
   }
 
   function onAbort() {
-    const error = abortError(options.signal)
+    const error = abortError(options.signal, options.language)
     if (completed) return
     completed = true
     cleanup()
@@ -292,7 +301,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
     completed = true
     cleanup()
     terminateSocket()
-    options.onAbort?.(cancelError(reason))
+    options.onAbort?.(cancelError(reason, options.language))
   }
 
   function attach(next: WebSocket) {
@@ -307,10 +316,10 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
       socket.off("close", onClose)
     }
     const { stream: _stream, background: _background, ...payload } = options.body
-    resetIdleTimeout("idle timeout sending websocket request")
+    resetIdleTimeout(t(options.language, "error.websocket_idle_sending"))
     socket.send(JSON.stringify({ type: "response.create", ...payload }), (error) => {
       if (completed) return
-      resetIdleTimeout("idle timeout waiting for websocket")
+      resetIdleTimeout(t(options.language, "error.websocket_idle_waiting"))
       if (error) invalidate(new ProviderError.ResponseStreamError(error.message, { cause: error }))
     })
   }
@@ -359,21 +368,21 @@ function parseWrappedError(event: Record<string, unknown> | undefined, body: str
   }
 }
 
-function cancelError(reason: unknown) {
+function cancelError(reason: unknown, language?: Language) {
   if (isAbortError(reason)) return reason
   if (reason instanceof Error) return reason
-  return new DOMException(typeof reason === "string" ? reason : "Aborted", "AbortError")
+  return new DOMException(typeof reason === "string" ? reason : t(language, "error.request_aborted"), "AbortError")
 }
 
-function abortError(signal: AbortSignal | undefined) {
+function abortError(signal: AbortSignal | undefined, language?: Language) {
   const reason = signal?.reason
   if (isAbortError(reason)) return reason
-  return new DOMException(reason instanceof Error ? reason.message : "Aborted", "AbortError")
+  return new DOMException(reason instanceof Error ? reason.message : t(language, "error.request_aborted"), "AbortError")
 }
 
-function closeMessage(message: string, code: number, reason: Buffer) {
-  const details = [`code ${code}`]
-  if (code === 1009) details.push("message too big")
+function closeMessage(message: string, code: number, reason: Buffer, language?: Language) {
+  const details = [t(language, "error.websocket_close_code", { code })]
+  if (code === 1009) details.push(t(language, "error.websocket_message_too_big"))
   if (reason.length > 0) details.push(reason.toString())
   return `${message} (${details.join(": ")})`
 }

@@ -2,6 +2,7 @@ import path from "path"
 import { describe, expect } from "bun:test"
 import { Effect, Layer } from "effect"
 import { AgentV2 } from "@miaopan-code/core/agent"
+import { Config } from "@miaopan-code/core/config"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { AbsolutePath } from "@miaopan-code/core/schema"
 import { SkillV2 } from "@miaopan-code/core/skill"
@@ -28,8 +29,20 @@ const denied = SkillV2.Info.make({
   content: "Denied guidance",
 })
 
-const layer = (list: () => SkillV2.Info[]) =>
+const layer = (list: () => SkillV2.Info[], language?: "zh-CN" | "en") =>
   AppNodeBuilder.build(SkillGuidance.node, [
+    [
+      Config.node,
+      Layer.succeed(
+        Config.Service,
+        Config.Service.of({
+          entries: () =>
+            Effect.succeed(
+              language ? [new Config.Document({ type: "document", info: new Config.Info({ language }) })] : [],
+            ),
+        }),
+      ),
+    ],
     [SkillV2.node, Layer.mock(SkillV2.Service, { list: () => Effect.succeed(list()) })],
   ])
 
@@ -48,8 +61,8 @@ describe("SkillGuidance", () => {
 
       expect(initialized.baseline).toBe(
         [
-          "Skills provide specialized instructions and workflows for specific tasks.",
-          "Use the skill tool to load a skill when a task matches its description.",
+          "技能为特定任务提供专门的指令和工作流。",
+          "当任务与技能描述匹配时，使用 skill 工具加载该技能。",
           "<available_skills>",
           "  <skill>",
           "    <name>effect</name>",
@@ -66,7 +79,7 @@ describe("SkillGuidance", () => {
           .pipe(Effect.flatMap((context) => SystemContext.reconcile(context, initialized.snapshot))),
       ).toMatchObject({
         _tag: "Updated",
-        text: expect.stringContaining("No skills are currently available."),
+        text: expect.stringContaining("当前没有可用技能。"),
       })
     }).pipe(Effect.provide(layer(() => skills)))
   })
@@ -140,5 +153,17 @@ describe("SkillGuidance", () => {
         snapshot: {},
       })
     }).pipe(Effect.provide(layer(() => [effect])))
+  })
+
+  it.effect("renders English guidance when configured", () => {
+    const agent = AgentV2.Info.make(AgentV2.Info.empty(build))
+    return Effect.gen(function* () {
+      const guidance = yield* SkillGuidance.Service
+      const initialized = yield* guidance
+        .load({ id: agent.id, info: agent })
+        .pipe(Effect.flatMap(SystemContext.initialize))
+      expect(initialized.baseline).toContain("Skills provide specialized instructions and workflows")
+      expect(initialized.baseline).toContain("Use the skill tool")
+    }).pipe(Effect.provide(layer(() => [effect], "en")))
   })
 })

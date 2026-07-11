@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import type { Event } from "@miaopan-code/sdk/v2"
 import { entryBody } from "@/cli/cmd/run/entry.body"
 import {
@@ -400,7 +401,7 @@ describe("run subagent data", () => {
     expect(snapshot.tabs).toEqual([expect.objectContaining({ sessionID: "child-1", status: "running" })])
     expect(visible(snapshot.details["child-1"]?.commits ?? [])).toEqual([
       "› Inspect footer tabs",
-      "_Thinking:_ planning next steps",
+      t("zh-CN", "cli.run.thinking", { text: "planning next steps" }),
       "$ git status --short",
       "hello world",
     ])
@@ -479,7 +480,7 @@ describe("run subagent data", () => {
 
     expect(visible(snapshotSubagentData(data).details["child-1"]?.commits ?? [])).toEqual([
       "› Inspect footer tabs",
-      "_Thinking:_ planning next steps",
+      t("zh-CN", "cli.run.thinking", { text: "planning next steps" }),
       "hello world",
     ])
   })

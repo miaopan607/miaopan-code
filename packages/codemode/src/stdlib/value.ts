@@ -25,7 +25,8 @@ export const errorBrandName = (value: unknown): string | undefined =>
     ? ((value as Record<PropertyKey, unknown>)[ErrorBrand] as string | undefined)
     : undefined
 
-export const boundedData = (value: unknown, label: string): unknown => copyIn(value, label, true)
+export const boundedData = (value: unknown, label: string, language?: Language): unknown =>
+  copyIn(value, label, true, language)
 
 export const coerceToString = (value: unknown): string => {
   if (value === null) return "null"
@@ -51,7 +52,13 @@ export const coerceToNumber = (value: unknown): number => {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? Number.NaN : Number(value)
 }
 
-export const invokeCoercion = (ref: CoercionFunction, args: Array<unknown>, node: AstNode): unknown => {
+export const invokeCoercion = (
+  ref: CoercionFunction,
+  args: Array<unknown>,
+  node: AstNode,
+  language?: Language,
+): unknown => {
+  language ??= languageOf(node)
   const raw = args[0]
   if (isSandboxValue(raw)) {
     if (ref.name === "Boolean") return true
@@ -60,20 +67,21 @@ export const invokeCoercion = (ref: CoercionFunction, args: Array<unknown>, node
     if (ref.name === "parseInt") return parseInt(coerceToString(raw))
     return parseFloat(coerceToString(raw))
   }
-  const value = boundedData(args[0], `${ref.name} input`)
+  const value = boundedData(args[0], t(language, "codemode.stdlib.method_input", { name: ref.name }), language)
   if (ref.name === "Number") return coerceToNumber(value)
   if (ref.name === "Boolean") return Boolean(value)
   if (ref.name === "parseInt") {
     const radix = args[1]
     if (radix !== undefined && typeof radix !== "number") {
-      throw new InterpreterRuntimeError("parseInt expects a numeric radix.", node)
+      throw new InterpreterRuntimeError(t(language, "codemode.stdlib.numeric_radix", { name: "parseInt" }), node)
     }
     return parseInt(coerceToString(value), radix)
   }
   if (ref.name === "parseFloat") return parseFloat(coerceToString(value))
   return coerceToString(value)
 }
-import { type AstNode, CoercionFunction, InterpreterRuntimeError } from "../interpreter/model.js"
+import { type AstNode, CoercionFunction, InterpreterRuntimeError, languageOf } from "../interpreter/model.js"
+import { t, type Language } from "../i18n.js"
 import { copyIn, type SafeObject } from "../tool-runtime.js"
 import {
   isSandboxValue,

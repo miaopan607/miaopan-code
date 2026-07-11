@@ -13,6 +13,8 @@ import { HttpClient, HttpServerRequest, HttpServerResponse } from "effect/unstab
 import { HttpApiMiddleware } from "effect/unstable/httpapi"
 import * as Socket from "effect/unstable/socket/Socket"
 import { InvalidRequestError } from "../errors"
+import { t, type Language } from "../i18n"
+import { fromAcceptLanguage } from "@miaopan-code/server/i18n"
 
 // Query fields this middleware reads from the URL. Spread into every
 // endpoint query schema in groups that apply WorkspaceRoutingMiddleware,
@@ -99,15 +101,15 @@ function resolveWorkspace(
   return Workspace.Service.use((workspace) => workspace.get(id))
 }
 
-function missingWorkspaceResponse(id: WorkspaceV2.ID): HttpServerResponse.HttpServerResponse {
-  return HttpServerResponse.text(`Workspace not found: ${id}`, {
+function missingWorkspaceResponse(id: WorkspaceV2.ID, language: Language): HttpServerResponse.HttpServerResponse {
+  return HttpServerResponse.text(t(language, "error.workspace_not_found", { id }), {
     status: 500,
     contentType: "text/plain; charset=utf-8",
   })
 }
 
-function resolveTarget(workspace: Workspace.Info): Effect.Effect<Target> {
-  return WorkspaceAdapterRuntime.target(workspace)
+function resolveTarget(workspace: Workspace.Info, language: Language): Effect.Effect<Target> {
+  return WorkspaceAdapterRuntime.target(workspace, language)
 }
 
 function proxyRemote(
@@ -116,11 +118,12 @@ function proxyRemote(
   workspace: Workspace.Info,
   target: RemoteTarget,
   url: URL,
+  language: Language,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, never, Socket.WebSocketConstructor | Workspace.Service> {
   return Effect.gen(function* () {
     const syncing = yield* Workspace.Service.use((svc) => svc.isSyncing(workspace.id))
     if (!syncing) {
-      return HttpServerResponse.text(`broken sync connection for workspace: ${workspace.id}`, {
+      return HttpServerResponse.text(t(language, "error.workspace_sync_broken", { id: workspace.id }), {
         status: 503,
         contentType: "text/plain; charset=utf-8",
       })
@@ -135,6 +138,7 @@ function proxyRemote(
         workspace.id,
         sync,
         request.source instanceof Request ? request.source.signal : undefined,
+        language,
       ).pipe(
         Effect.as(undefined),
         Effect.catch((error) => Effect.succeed(HttpServerResponse.text(error.message, { status: 503 }))),
@@ -149,9 +153,10 @@ function planWorkspaceRequest(
   request: HttpServerRequest.HttpServerRequest,
   url: URL,
   workspace: Workspace.Info,
+  language: Language,
 ): Effect.Effect<RequestPlan, never, Workspace.Service> {
   return Effect.gen(function* () {
-    const target = yield* resolveTarget(workspace)
+    const target = yield* resolveTarget(workspace, language)
     if (target.type === "remote") return RequestPlan.Remote({ request, workspace, target, url })
     return RequestPlan.Local({ directory: target.directory, workspaceID: workspace.id })
   })
@@ -160,6 +165,7 @@ function planWorkspaceRequest(
 function planRequest(
   request: HttpServerRequest.HttpServerRequest,
   session?: Session.Info,
+  language: Language = "zh-CN",
 ): Effect.Effect<RequestPlan, never, Workspace.Service> {
   return Effect.gen(function* () {
     const url = requestURL(request)
@@ -175,7 +181,7 @@ function planRequest(
     }
 
     if (workspace !== undefined && !envWorkspaceID && !shouldStayOnControlPlane(request, url)) {
-      return yield* planWorkspaceRequest(request, url, workspace)
+      return yield* planWorkspaceRequest(request, url, workspace, language)
     }
 
     return RequestPlan.Local({
@@ -189,21 +195,22 @@ function routeWorkspace<E>(
   client: HttpClient.HttpClient,
   effect: Effect.Effect<HttpServerResponse.HttpServerResponse, E, WorkspaceRouteContext>,
   plan: RequestPlan,
+  language: Language,
 ): Effect.Effect<HttpServerResponse.HttpServerResponse, E, Socket.WebSocketConstructor | Workspace.Service> {
   return RequestPlan.$match(plan, {
     InvalidWorkspace: () =>
       Effect.succeed(
         HttpServerResponse.jsonUnsafe(
           new InvalidRequestError({
-            message: "Invalid workspace query parameter",
+            message: t(language, "error.invalid_workspace_query"),
             kind: "Query",
             field: "workspace",
           }),
           { status: 400 },
         ),
       ),
-    MissingWorkspace: ({ workspaceID }) => Effect.succeed(missingWorkspaceResponse(workspaceID)),
-    Remote: ({ request, workspace, target, url }) => proxyRemote(client, request, workspace, target, url),
+    MissingWorkspace: ({ workspaceID }) => Effect.succeed(missingWorkspaceResponse(workspaceID, language)),
+    Remote: ({ request, workspace, target, url }) => proxyRemote(client, request, workspace, target, url, language),
     Local: ({ directory, workspaceID }) =>
       effect.pipe(Effect.provideService(WorkspaceRouteContext, WorkspaceRouteContext.of({ directory, workspaceID }))),
   })
@@ -219,6 +226,7 @@ function routeHttpApiWorkspace<E>(
 > {
   return Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
+    const language = fromAcceptLanguage(request.headers["accept-language"])
     const sessionID = getWorkspaceRouteSessionID(requestURL(request))
     const session = sessionID
       ? yield* Session.Service.use((svc) => svc.get(sessionID)).pipe(
@@ -229,8 +237,8 @@ function routeHttpApiWorkspace<E>(
           Effect.catchDefect(() => Effect.succeed(undefined)),
         )
       : undefined
-    const plan = yield* planRequest(request, session)
-    return yield* routeWorkspace(client, effect, plan)
+    const plan = yield* planRequest(request, session, language)
+    return yield* routeWorkspace(client, effect, plan, language)
   })
 }
 

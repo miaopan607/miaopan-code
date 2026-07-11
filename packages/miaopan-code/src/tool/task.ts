@@ -1,5 +1,5 @@
 import * as Tool from "./tool"
-import DESCRIPTION from "./task.txt"
+import { ToolI18n } from "./i18n"
 import { ToolJsonSchema } from "./json-schema"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { BackgroundJob } from "@/background/job"
@@ -14,6 +14,7 @@ import { Effect, Exit, Schema, Scope } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@miaopan-code/core/database/database"
+import { t, type Language } from "@miaopan-code/core/i18n"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -22,44 +23,27 @@ export interface TaskPromptOps {
 }
 
 const id = "task"
-const BACKGROUND_DESCRIPTION = [
-  "Background mode: background=true launches the subagent asynchronously and returns immediately.",
-  "Foreground is the default; use it when you need the result before continuing.",
-  "Use background only for independent work that can run while you continue elsewhere.",
-  "You will be notified automatically when it finishes.",
-].join(" ")
-const BACKGROUND_STARTED = [
-  "The task is working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work — avoid working with the same files or topics it is using.",
-  "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.",
-].join("\n")
-const BACKGROUND_UPDATED = [
-  "Additional context sent to the running background task.",
-  "The task is still working in the background. You will be notified automatically when it finishes.",
-  "DO NOT sleep, poll for progress, ask the task for status, or duplicate this task's work — avoid working with the same files or topics it is using.",
-  "Work on non-overlapping tasks, or briefly tell the user what you sent and end your response.",
-].join("\n")
 
-const BaseParameterFields = {
-  description: Schema.String.annotate({ description: "A short (3-5 words) description of the task" }),
-  prompt: Schema.String.annotate({ description: "The task for the agent to perform" }),
-  subagent_type: Schema.String.annotate({ description: "The type of specialized agent to use for this task" }),
+const baseParameterFields = (language?: Language) => ({
+  description: Schema.String.annotate({ description: t(language, "tool.param.task_description") }),
+  prompt: Schema.String.annotate({ description: t(language, "tool.param.task_prompt") }),
+  subagent_type: Schema.String.annotate({ description: t(language, "tool.param.task_type") }),
   task_id: Schema.optional(Schema.String).annotate({
-    description:
-      "This should only be set if you mean to resume a previous task (you can pass a prior task_id and the task will continue the same subagent session as before instead of creating a fresh one)",
+    description: t(language, "tool.param.task_resume"),
   }),
-  command: Schema.optional(Schema.String).annotate({ description: "The command that triggered this task" }),
-}
-
-const BaseParameters = Schema.Struct(BaseParameterFields)
-
-export const Parameters = Schema.Struct({
-  ...BaseParameterFields,
-  background: Schema.optional(Schema.Boolean).annotate({
-    description:
-      "Run the agent in the background. You will be notified when it completes. DO NOT sleep, poll, or proactively check on its progress",
-  }),
+  command: Schema.optional(Schema.String).annotate({ description: t(language, "tool.param.task_command") }),
 })
+
+const makeBaseParameters = (language?: Language) => Schema.Struct(baseParameterFields(language))
+
+export const makeParameters = (language?: Language) =>
+  Schema.Struct({
+    ...baseParameterFields(language),
+    background: Schema.optional(Schema.Boolean).annotate({
+      description: t(language, "tool.param.task_background"),
+    }),
+  })
+export const Parameters = makeParameters()
 
 function renderOutput(input: {
   sessionID: SessionID
@@ -88,6 +72,7 @@ export const TaskTool = Tool.define(
     const scope = yield* Scope.Scope
     const flags = yield* RuntimeFlags.Service
     const database = yield* Database.Service
+    const language = yield* ToolI18n.language()
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -96,9 +81,7 @@ export const TaskTool = Tool.define(
       const cfg = yield* config.get()
       const runInBackground = params.background === true
       if (runInBackground && !flags.experimentalBackgroundSubagents) {
-        return yield* Effect.fail(
-          new Error("Background subagents require MIAOPAN_CODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true"),
-        )
+        return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.background_disabled")))
       }
 
       if (!ctx.extra?.bypassAgentCheck) {
@@ -115,7 +98,9 @@ export const TaskTool = Tool.define(
 
       const next = yield* agent.get(params.subagent_type)
       if (!next) {
-        return yield* Effect.fail(new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`))
+        return yield* Effect.fail(
+          new Error(ToolI18n.text(ctx, "tool.error.unknown_agent", { type: params.subagent_type })),
+        )
       }
 
       const session = params.task_id
@@ -143,7 +128,7 @@ export const TaskTool = Tool.define(
         session ??
         (yield* sessions.create({
           parentID: ctx.sessionID,
-          title: params.description + ` (@${next.name} subagent)`,
+          title: params.description + ToolI18n.text(ctx, "tool.task.subagent_suffix", { name: next.name }),
           agent: next.name,
           permission: [
             ...childPermission,
@@ -161,7 +146,8 @@ export const TaskTool = Tool.define(
         Effect.provideService(Database.Service, database),
         Effect.orDie,
       )
-      if (msg.info.role !== "assistant") return yield* Effect.fail(new Error("Not an assistant message"))
+      if (msg.info.role !== "assistant")
+        return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.not_assistant")))
       const variant = msg.info.variant
 
       const model = next.model ?? {
@@ -181,7 +167,7 @@ export const TaskTool = Tool.define(
       })
 
       const ops = ctx.extra?.promptOps as TaskPromptOps
-      if (!ops) return yield* Effect.fail(new Error("TaskTool requires promptOps in ctx.extra"))
+      if (!ops) return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.prompt_ops")))
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
         const parts = yield* ops.resolvePromptParts(params.prompt)
@@ -216,10 +202,11 @@ export const TaskTool = Tool.define(
                 text: renderOutput({
                   sessionID: nextSession.id,
                   state,
-                  summary:
-                    state === "completed"
-                      ? `Background task completed: ${params.description}`
-                      : `Background task failed: ${params.description}`,
+                  summary: ToolI18n.text(
+                    ctx,
+                    state === "completed" ? "tool.summary.background_completed" : "tool.summary.background_failed",
+                    { description: params.description },
+                  ),
                   text,
                 }),
               },
@@ -250,8 +237,8 @@ export const TaskTool = Tool.define(
           output: renderOutput({
             sessionID: nextSession.id,
             state: "running",
-            summary: "Background task updated",
-            text: BACKGROUND_UPDATED,
+            summary: ToolI18n.text(ctx, "tool.summary.background_updated"),
+            text: ToolI18n.text(ctx, "tool.task.background_updated"),
           }),
         }
       }
@@ -282,8 +269,8 @@ export const TaskTool = Tool.define(
           output: renderOutput({
             sessionID: nextSession.id,
             state: "running",
-            summary: "Background task started",
-            text: BACKGROUND_STARTED,
+            summary: ToolI18n.text(ctx, "tool.summary.background_started"),
+            text: ToolI18n.text(ctx, "tool.task.background_started"),
           }),
         }
       }
@@ -311,8 +298,10 @@ export const TaskTool = Tool.define(
               background.waitForPromotion(nextSession.id),
             )
             if (result?.metadata?.background === true) return backgroundResult()
-            if (result?.status === "error") return yield* Effect.fail(new Error(result.error ?? "Task failed"))
-            if (result?.status === "cancelled") return yield* Effect.fail(new Error("Task cancelled"))
+            if (result?.status === "error")
+              return yield* Effect.fail(new Error(result.error ?? ToolI18n.text(ctx, "tool.error.task_failed")))
+            if (result?.status === "cancelled")
+              return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.task_cancelled")))
             return {
               title: params.description,
               metadata,
@@ -335,10 +324,15 @@ export const TaskTool = Tool.define(
 
     return {
       description: flags.experimentalBackgroundSubagents
-        ? [DESCRIPTION, BACKGROUND_DESCRIPTION].join("\n\n")
-        : DESCRIPTION,
-      parameters: Parameters,
-      jsonSchema: flags.experimentalBackgroundSubagents ? undefined : ToolJsonSchema.fromSchema(BaseParameters),
+        ? [
+            yield* ToolI18n.description("tool.task"),
+            yield* ToolI18n.configuredText("tool.task.background_description"),
+          ].join("\n\n")
+        : yield* ToolI18n.description("tool.task"),
+      parameters: makeParameters(language),
+      jsonSchema: flags.experimentalBackgroundSubagents
+        ? undefined
+        : ToolJsonSchema.fromSchema(makeBaseParameters(language), language),
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context) =>
         run(params, ctx).pipe(Effect.orDie),
     }

@@ -7,7 +7,7 @@ import { CodeMode, Tool } from "../src/index.js"
 // values, while at the host boundary (final result, tool arguments, JSON.stringify) they
 // serialize exactly as JSON.stringify would: Date -> ISO string (invalid -> null),
 // URL -> href, and RegExp/Map/Set/URLSearchParams -> {}.
-const run = (code: string) => Effect.runPromise(CodeMode.execute({ code, tools: {} }))
+const run = (code: string) => Effect.runPromise(CodeMode.execute({ code, tools: {}, language: "en" }))
 const value = async (code: string) => {
   const result = await run(code)
   if (!result.ok) throw new Error(`expected success, got ${result.error.kind}: ${result.error.message}`)
@@ -194,6 +194,7 @@ describe("RegExp", () => {
     })
     const result = await Effect.runPromise(
       CodeMode.execute({
+        language: "en",
         tools: { host: { decorate } },
         code: `return "a1b22".replace(/\\d+/g, async (match) => await tools.host.decorate(match))`,
       }),
@@ -202,6 +203,7 @@ describe("RegExp", () => {
 
     const missingAwait = await Effect.runPromise(
       CodeMode.execute({
+        language: "en",
         tools: { host: { decorate } },
         code: `return "a1".replace(/\\d/, (match) => tools.host.decorate(match))`,
       }),

@@ -1,5 +1,7 @@
 # V2 Plugin System Implementation Plan
 
+Languages: [简体中文概览](README.md) · English
+
 ## Status
 
 This document describes the agreed target design for the V2 plugin system. It is an implementation plan, not documentation for the current API.

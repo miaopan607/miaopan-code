@@ -1,6 +1,7 @@
 import { AgentV2 } from "@miaopan-code/core/agent"
 import { SessionMessage } from "@miaopan-code/core/session/message"
 import { ToolRegistry } from "@miaopan-code/core/tool/registry"
+import type { Language } from "@miaopan-code/core/i18n"
 import { Effect } from "effect"
 
 export const toolIdentity = {
@@ -11,10 +12,11 @@ export const toolIdentity = {
 export const toolDefinitions = (
   registry: ToolRegistry.Interface,
   permissions?: Parameters<typeof registry.materialize>[0],
-) => registry.materialize(permissions).pipe(Effect.map((materialized) => materialized.definitions))
+  language?: Language,
+) => registry.materialize(permissions, language).pipe(Effect.map((materialized) => materialized.definitions))
 
-export const settleTool = (registry: ToolRegistry.Interface, input: ToolRegistry.ExecuteInput) =>
-  registry.materialize().pipe(Effect.flatMap((materialized) => materialized.settle(input)))
+export const settleTool = (registry: ToolRegistry.Interface, input: ToolRegistry.ExecuteInput, language?: Language) =>
+  registry.materialize(undefined, language).pipe(Effect.flatMap((materialized) => materialized.settle(input)))
 
-export const executeTool = (registry: ToolRegistry.Interface, input: ToolRegistry.ExecuteInput) =>
-  settleTool(registry, input).pipe(Effect.map((settlement) => settlement.result))
+export const executeTool = (registry: ToolRegistry.Interface, input: ToolRegistry.ExecuteInput, language?: Language) =>
+  settleTool(registry, input, language).pipe(Effect.map((settlement) => settlement.result))
