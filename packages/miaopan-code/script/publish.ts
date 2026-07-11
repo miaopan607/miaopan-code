@@ -23,10 +23,10 @@ async function publish(dir: string, name: string, version: string) {
   await $`find . -maxdepth 1 -type f -name '*.tgz' -delete`.cwd(dir)
   await $`bun pm pack`.cwd(dir)
   if (dryRun) {
-    await $`bun publish *.tgz --access public --tag ${Script.channel} --dry-run`.cwd(dir)
+    await $`npm publish *.tgz --access public --tag ${Script.channel} --dry-run`.cwd(dir)
     return
   }
-  await $`bun publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
+  await $`npm publish *.tgz --access public --tag ${Script.channel}`.cwd(dir)
 }
 
 const binaries = await Promise.all(
