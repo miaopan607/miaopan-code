@@ -293,6 +293,12 @@ function readCompactionPart(sessionID: SessionID) {
     )
 }
 
+function briefHistory(messages: SessionV1.WithParts[]) {
+  return messages
+    .findLast((message) => message.info.role === "assistant" && message.info.summary)
+    ?.parts.find((part): part is SessionV1.TextPart => part.type === "text" && part.synthetic === true)?.text
+}
+
 function llm() {
   const queue: Array<
     Stream.Stream<LLMEvent, unknown> | ((input: LLM.StreamInput) => Stream.Stream<LLMEvent, unknown>)
@@ -1078,13 +1084,21 @@ describe("session.compaction.process", () => {
         expect(part?.tail_start_id).toBe(keep.id)
         expect(captured).toContain("zzzz")
         expect(captured).not.toContain("keep tail")
+        const history = briefHistory(yield* ssn.messages({ sessionID: session.id }))
+        expect(history).toContain('"user_input":"recent turn"')
+        expect(history).toContain('"assistant_final_output":"keep tail"')
 
         const filtered = MessageV2.filterCompacted(yield* MessageV2.stream(session.id))
         expect(filtered.map((msg) => msg.info.id).slice(0, 3)).toEqual([parent!, expect.any(String), keep.id])
         expect(filtered[1]?.info.role).toBe("assistant")
         expect(filtered[1]?.info.role === "assistant" ? filtered[1].info.summary : false).toBe(true)
         expect(filtered.map((msg) => msg.info.id)).not.toContain(large.id)
-      }).pipe(withCompaction({ llm: stub.llmLayer, config: cfg({ tail_turns: 1, preserve_recent_tokens: 100 }) }))
+      }).pipe(
+        withCompaction({
+          llm: stub.llmLayer,
+          config: cfg({ tail_turns: 1, preserve_recent_tokens: 100, preserve_brief_history: true }),
+        }),
+      )
     },
     { git: true },
   )
@@ -1395,6 +1409,198 @@ describe("session.compaction.process", () => {
         expect(captured).not.toContain("and this one too")
         expect(captured).not.toContain("What did we do so far?")
       }).pipe(withCompaction({ llm: stub.llmLayer }))
+    },
+    { git: true },
+  )
+
+  itCompaction.instance(
+    "preserves compacted turns as hidden model history",
+    () => {
+      const stub = llm()
+      stub.push(reply("summary"))
+      return Effect.gen(function* () {
+        const ssn = yield* SessionNs.Service
+        const test = yield* TestInstance
+        const session = yield* ssn.create({})
+        const archived = yield* createUserMessage(session.id, "first raw input")
+        const intermediate = yield* createAssistantMessage(session.id, archived.id, test.directory)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: intermediate.id,
+          sessionID: session.id,
+          type: "text",
+          text: "intermediate output",
+        })
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: intermediate.id,
+          sessionID: session.id,
+          type: "patch",
+          hash: "patch-1",
+          files: [`${test.directory}/src/a.ts`, `${test.directory}/src/b.ts`],
+        })
+        const final = yield* createAssistantMessage(session.id, archived.id, test.directory)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: final.id,
+          sessionID: session.id,
+          type: "text",
+          text: "final output",
+        })
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: final.id,
+          sessionID: session.id,
+          type: "patch",
+          hash: "patch-2",
+          files: [`${test.directory}/src/b.ts`],
+        })
+        yield* createUserMessage(session.id, "empty output input")
+        const retained = yield* createUserMessage(session.id, "retained input")
+        const retainedReply = yield* createAssistantMessage(session.id, retained.id, test.directory)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: retainedReply.id,
+          sessionID: session.id,
+          type: "text",
+          text: "retained output",
+        })
+        yield* createCompactionMarker(session.id)
+
+        const messages = yield* ssn.messages({ sessionID: session.id })
+        yield* SessionCompaction.use.process({
+          parentID: messages.at(-1)!.info.id,
+          messages,
+          sessionID: session.id,
+          auto: false,
+        })
+
+        const stored = yield* ssn.messages({ sessionID: session.id })
+        const history = briefHistory(stored)
+        expect(history).toContain('"user_input":"first raw input"')
+        expect(history).toContain('"assistant_final_output":"final output"')
+        expect(history).not.toContain("intermediate output")
+        expect(history).toContain('"modified_files":["src/a.ts","src/b.ts"]')
+        expect(history).toContain(
+          '<turn>{"user_input":"empty output input","assistant_final_output":"","modified_files":[]}</turn>',
+        )
+        expect(history).not.toContain("retained input")
+        const modelMessages = yield* MessageV2.toModelMessagesEffect(
+          MessageV2.filterCompacted(yield* MessageV2.stream(session.id)),
+          defaultProvider.model,
+        )
+        expect(JSON.stringify(modelMessages)).toContain("brief-conversation-history")
+        expect(
+          stored
+            .findLast((message) => message.info.role === "assistant" && message.info.summary)
+            ?.parts.some((part) => part.type === "text" && part.synthetic),
+        ).toBe(true)
+      }).pipe(
+        withCompaction({
+          llm: stub.llmLayer,
+          config: cfg({ tail_turns: 1, preserve_recent_tokens: 10_000, preserve_brief_history: true }),
+        }),
+      )
+    },
+    { git: true },
+  )
+
+  itCompaction.instance(
+    "accumulates brief history across repeated compactions",
+    () => {
+      const stub = llm()
+      stub.push(reply("summary one"))
+      stub.push(reply("summary two"))
+      return Effect.gen(function* () {
+        const ssn = yield* SessionNs.Service
+        const test = yield* TestInstance
+        const session = yield* ssn.create({})
+        const first = yield* createUserMessage(session.id, "first input")
+        const firstReply = yield* createAssistantMessage(session.id, first.id, test.directory)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: firstReply.id,
+          sessionID: session.id,
+          type: "text",
+          text: "first output",
+        })
+        const second = yield* createUserMessage(session.id, "second input")
+        const secondReply = yield* createAssistantMessage(session.id, second.id, test.directory)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: secondReply.id,
+          sessionID: session.id,
+          type: "text",
+          text: "second output",
+        })
+        yield* createCompactionMarker(session.id)
+
+        let messages = yield* ssn.messages({ sessionID: session.id })
+        yield* SessionCompaction.use.process({
+          parentID: messages.at(-1)!.info.id,
+          messages,
+          sessionID: session.id,
+          auto: false,
+        })
+
+        const third = yield* createUserMessage(session.id, "third input")
+        const thirdReply = yield* createAssistantMessage(session.id, third.id, test.directory)
+        yield* ssn.updatePart({
+          id: PartID.ascending(),
+          messageID: thirdReply.id,
+          sessionID: session.id,
+          type: "text",
+          text: "third output",
+        })
+        yield* createCompactionMarker(session.id)
+
+        messages = MessageV2.filterCompacted(yield* MessageV2.stream(session.id))
+        yield* SessionCompaction.use.process({
+          parentID: messages.at(-1)!.info.id,
+          messages,
+          sessionID: session.id,
+          auto: false,
+        })
+
+        const history = briefHistory(yield* ssn.messages({ sessionID: session.id }))
+        expect(history?.match(/first input/g)).toHaveLength(1)
+        expect(history?.match(/second input/g)).toHaveLength(1)
+        expect(history).not.toContain("third input")
+      }).pipe(
+        withCompaction({
+          llm: stub.llmLayer,
+          config: cfg({ tail_turns: 1, preserve_recent_tokens: 10_000, preserve_brief_history: true }),
+        }),
+      )
+    },
+    { git: true },
+  )
+
+  itCompaction.instance(
+    "does not add brief history when disabled",
+    () => {
+      const stub = llm()
+      stub.push(reply("summary"))
+      return Effect.gen(function* () {
+        const ssn = yield* SessionNs.Service
+        const session = yield* ssn.create({})
+        yield* createUserMessage(session.id, "archived input")
+        yield* createUserMessage(session.id, "retained input")
+        yield* createCompactionMarker(session.id)
+        const messages = yield* ssn.messages({ sessionID: session.id })
+        yield* SessionCompaction.use.process({
+          parentID: messages.at(-1)!.info.id,
+          messages,
+          sessionID: session.id,
+          auto: false,
+        })
+        expect(briefHistory(yield* ssn.messages({ sessionID: session.id }))).toBeUndefined()
+      }).pipe(
+        withCompaction({
+          llm: stub.llmLayer,
+          config: cfg({ tail_turns: 1, preserve_recent_tokens: 10_000 }),
+        }),
+      )
     },
     { git: true },
   )

@@ -87,6 +87,16 @@ describe("Config", () => {
     }),
   )
 
+  it.effect("decodes the v1 brief compaction history setting", () =>
+    Effect.sync(() => {
+      expect(
+        Schema.decodeUnknownSync(ConfigV1.Info)({ compaction: { preserve_brief_history: true } }).compaction
+          ?.preserve_brief_history,
+      ).toBe(true)
+      expect(Schema.decodeUnknownSync(ConfigV1.Info)({}).compaction?.preserve_brief_history).toBeUndefined()
+    }),
+  )
+
   it.effect("migrates v1 provider setup options into AISDK settings", () =>
     Effect.sync(() => {
       const migrated = ConfigMigrateV1.migrate({

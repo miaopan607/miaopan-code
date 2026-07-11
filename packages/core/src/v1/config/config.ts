@@ -154,6 +154,9 @@ export const Info = Schema.Struct({
       preserve_recent_tokens: Schema.optional(NonNegativeInt).annotate({
         description: zh("config.v1.compaction_turns"),
       }),
+      preserve_brief_history: Schema.optional(Schema.Boolean).annotate({
+        description: zh("config.v1.preserve_brief_history"),
+      }),
       reserved: Schema.optional(NonNegativeInt).annotate({
         description: zh("config.v1.compaction_buffer"),
       }),

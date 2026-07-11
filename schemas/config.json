@@ -1218,6 +1218,10 @@
               "maximum": 9007199254740991,
               "description": "Maximum number of tokens from recent turns to preserve verbatim after compaction"
             },
+            "preserve_brief_history": {
+              "type": "boolean",
+              "description": "Preserve each turn's original user input, final assistant output, and modified files alongside the model summary after compaction (default: false)"
+            },
             "reserved": {
               "minimum": 0,
               "type": "integer",

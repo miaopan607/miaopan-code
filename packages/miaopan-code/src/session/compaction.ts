@@ -1,3 +1,4 @@
+import path from "node:path"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { ConfigV1 } from "@miaopan-code/core/v1/config/config"
@@ -33,6 +34,8 @@ const PRUNE_PROTECTED_TOOLS = ["skill"]
 const DEFAULT_TAIL_TURNS = 2
 const MIN_PRESERVE_RECENT_TOKENS = 2_000
 const MAX_PRESERVE_RECENT_TOKENS = 8_000
+const BRIEF_HISTORY_START = "<brief-conversation-history>"
+const BRIEF_HISTORY_END = "</brief-conversation-history>"
 type Turn = {
   start: number
   end: number
@@ -48,16 +51,24 @@ type CompletedCompaction = {
   userIndex: number
   assistantIndex: number
   summary: string | undefined
+  history: string | undefined
 }
 
 function summaryText(message: SessionV1.WithParts) {
   const text = message.parts
-    .filter((part): part is SessionV1.TextPart => part.type === "text")
+    .filter((part): part is SessionV1.TextPart => part.type === "text" && !part.synthetic)
     .map((part) => part.text.trim())
     .filter(Boolean)
     .join("\n\n")
     .trim()
   return text || undefined
+}
+
+function briefHistoryText(message: SessionV1.WithParts) {
+  return message.parts.find(
+    (part): part is SessionV1.TextPart =>
+      part.type === "text" && part.synthetic === true && part.text.startsWith(BRIEF_HISTORY_START),
+  )?.text
 }
 
 function completedCompactions(messages: SessionV1.WithParts[]) {
@@ -74,8 +85,62 @@ function completedCompactions(messages: SessionV1.WithParts[]) {
     if (!msg.info.summary || !msg.info.finish || msg.info.error) return []
     const userIndex = users.get(msg.info.parentID)
     if (userIndex === undefined) return []
-    return [{ userIndex, assistantIndex, summary: summaryText(msg) }]
+    return [{ userIndex, assistantIndex, summary: summaryText(msg), history: briefHistoryText(msg) }]
   })
+}
+
+function buildBriefHistory(input: {
+  messages: SessionV1.WithParts[]
+  head: SessionV1.WithParts[]
+  previous?: string
+  worktree: string
+  language?: ConfigV1.Info["language"]
+}) {
+  const head = new Set(input.head.map((message) => message.info.id))
+  const records = turns(input.messages)
+    .filter((turn) => head.has(turn.id))
+    .map((turn) => {
+      const user = input.messages[turn.start]!
+      const messages = input.messages.slice(turn.start, turn.end)
+      const assistants = messages.filter(
+        (message): message is SessionV1.WithParts & { info: SessionV1.Assistant } =>
+          message.info.role === "assistant" && message.info.parentID === turn.id && !message.info.summary,
+      )
+      const final = assistants.findLast((message) => message.info.finish && !message.info.error)
+      return {
+        user_input:
+          user.info.role === "user"
+            ? user.parts
+                .filter((part): part is SessionV1.TextPart => part.type === "text" && !part.synthetic && !part.ignored)
+                .map((part) => part.text)
+                .join("\n\n")
+            : "",
+        assistant_final_output:
+          final?.parts
+            .filter((part): part is SessionV1.TextPart => part.type === "text" && !part.synthetic && !part.ignored)
+            .map((part) => part.text)
+            .join("\n\n") ?? "",
+        modified_files: [
+          ...new Set(
+            assistants
+              .flatMap((message) => message.parts.flatMap((part) => (part.type === "patch" ? part.files : [])))
+              .map((file) =>
+                (path.isAbsolute(file) ? path.relative(input.worktree, file) : file).replaceAll("\\", "/"),
+              ),
+          ),
+        ],
+      }
+    })
+  const previous =
+    input.previous?.split("\n").filter((line) => line.startsWith("<turn>") && line.endsWith("</turn>")) ?? []
+  const entries = [...previous, ...records.map((record) => `<turn>${JSON.stringify(record)}</turn>`)]
+  if (!entries.length) return
+  return [
+    BRIEF_HISTORY_START,
+    t(input.language, "prompt.compaction_brief_history"),
+    ...entries,
+    BRIEF_HISTORY_END,
+  ].join("\n")
 }
 
 function preserveRecentBudget(input: { cfg: ConfigV1.Info; model: Provider.Model }) {
@@ -337,8 +402,9 @@ const layer = Layer.effect(
       const prior = completedCompactions(history)
       const hidden = new Set(prior.flatMap((item) => [item.userIndex, item.assistantIndex]))
       const previousSummary = prior.at(-1)?.summary
+      const activeHistory = history.filter((_, index) => !hidden.has(index))
       const selected = yield* select({
-        messages: history.filter((_, index) => !hidden.has(index)),
+        messages: activeHistory,
         cfg,
         model,
       })
@@ -357,6 +423,15 @@ const layer = Layer.effect(
         language: cfg.language,
       })
       const ctx = yield* InstanceState.context
+      const briefHistory = cfg.compaction?.preserve_brief_history
+        ? buildBriefHistory({
+            messages: activeHistory,
+            head: selected.head,
+            previous: prior.at(-1)?.history,
+            worktree: ctx.worktree,
+            language: cfg.language,
+          })
+        : undefined
       const msg: SessionV1.Assistant = {
         id: MessageID.ascending(),
         role: "assistant",
@@ -414,6 +489,17 @@ const layer = Layer.effect(
         processor.message.finish = "error"
         yield* session.updateMessage(processor.message)
         return "stop"
+      }
+
+      if (result === "continue" && !processor.message.error && briefHistory) {
+        yield* session.updatePart({
+          id: PartID.ascending(),
+          messageID: processor.message.id,
+          sessionID: input.sessionID,
+          type: "text",
+          text: briefHistory,
+          synthetic: true,
+        })
       }
 
       if (compactionPart && selected.tail_start_id && compactionPart.tail_start_id !== selected.tail_start_id) {

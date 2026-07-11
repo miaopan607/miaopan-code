@@ -2012,6 +2012,7 @@ export type Config = {
     prune?: boolean
     tail_turns?: number
     preserve_recent_tokens?: number
+    preserve_brief_history?: boolean
     reserved?: number
   }
   experimental?: {
