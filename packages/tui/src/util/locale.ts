@@ -1,6 +1,7 @@
 import { resolveLanguage, t, type Language, type MessageKey } from "@miaopan-code/core/i18n"
+import { createSignal } from "solid-js"
 
-let currentLanguage: Language = "zh-CN"
+const [currentLanguage, setCurrentLanguage] = createSignal<Language>("zh-CN")
 
 const CATEGORY_KEYS: Record<string, MessageKey> = {
   Dialog: "tui.category_dialog",
@@ -16,16 +17,16 @@ const CATEGORY_KEYS: Record<string, MessageKey> = {
 }
 
 export function setLanguage(input: unknown) {
-  currentLanguage = resolveLanguage(input)
+  setCurrentLanguage(resolveLanguage(input))
 }
 
 export function language() {
-  return currentLanguage
+  return currentLanguage()
 }
 
 export function category(value: string) {
   const key = CATEGORY_KEYS[value]
-  return key ? t(currentLanguage, key) : value
+  return key ? t(currentLanguage(), key) : value
 }
 
 export function titlecase(str: string) {
@@ -34,13 +35,14 @@ export function titlecase(str: string) {
 
 export function time(input: number): string {
   const date = new Date(input)
-  return date.toLocaleTimeString(currentLanguage, { timeStyle: "short" })
+  return date.toLocaleTimeString(currentLanguage(), { timeStyle: "short" })
 }
 
 export function datetime(input: number): string {
   const date = new Date(input)
-  const localTime = time(input)
-  const localDate = date.toLocaleDateString(currentLanguage)
+  const language = currentLanguage()
+  const localTime = date.toLocaleTimeString(language, { timeStyle: "short" })
+  const localDate = date.toLocaleDateString(language)
   return `${localTime} · ${localDate}`
 }
 
@@ -58,65 +60,67 @@ export function todayTimeOrDateTime(input: number): string {
 }
 
 export function number(num: number): string {
-  if (currentLanguage === "zh-CN") {
-    if (num >= 100000000) return t(currentLanguage, "locale.hundred_million", { value: (num / 100000000).toFixed(1) })
-    if (num >= 10000) return t(currentLanguage, "locale.ten_thousand", { value: (num / 10000).toFixed(1) })
+  const language = currentLanguage()
+  if (language === "zh-CN") {
+    if (num >= 100000000) return t(language, "locale.hundred_million", { value: (num / 100000000).toFixed(1) })
+    if (num >= 10000) return t(language, "locale.ten_thousand", { value: (num / 10000).toFixed(1) })
     return num.toString()
   }
   if (num >= 1000000) {
-    return t(currentLanguage, "locale.hundred_million", { value: (num / 1000000).toFixed(1) })
+    return t(language, "locale.hundred_million", { value: (num / 1000000).toFixed(1) })
   } else if (num >= 1000) {
-    return t(currentLanguage, "locale.ten_thousand", { value: (num / 1000).toFixed(1) })
+    return t(language, "locale.ten_thousand", { value: (num / 1000).toFixed(1) })
   }
   return num.toString()
 }
 
 export function integer(input: number): string {
-  return new Intl.NumberFormat(currentLanguage).format(input)
+  return new Intl.NumberFormat(currentLanguage()).format(input)
 }
 
 export function currency(input: number, code = "USD"): string {
-  return new Intl.NumberFormat(currentLanguage, { style: "currency", currency: code }).format(input)
+  return new Intl.NumberFormat(currentLanguage(), { style: "currency", currency: code }).format(input)
 }
 
 export function duration(input: number) {
-  if (currentLanguage === "zh-CN") {
-    if (input < 1000) return t(currentLanguage, "locale.millisecond", { value: input })
-    if (input < 60000) return t(currentLanguage, "locale.second", { value: (input / 1000).toFixed(1) })
+  const language = currentLanguage()
+  if (language === "zh-CN") {
+    if (input < 1000) return t(language, "locale.millisecond", { value: input })
+    if (input < 60000) return t(language, "locale.second", { value: (input / 1000).toFixed(1) })
     if (input < 3600000)
-      return t(currentLanguage, "locale.minute_second", {
+      return t(language, "locale.minute_second", {
         minutes: Math.floor(input / 60000),
         seconds: Math.floor((input % 60000) / 1000),
       })
     if (input < 86400000)
-      return t(currentLanguage, "locale.hour_minute", {
+      return t(language, "locale.hour_minute", {
         hours: Math.floor(input / 3600000),
         minutes: Math.floor((input % 3600000) / 60000),
       })
-    return t(currentLanguage, "locale.day_hour", {
+    return t(language, "locale.day_hour", {
       days: Math.floor(input / 86400000),
       hours: Math.floor((input % 86400000) / 3600000),
     })
   }
   if (input < 1000) {
-    return t(currentLanguage, "locale.millisecond", { value: input })
+    return t(language, "locale.millisecond", { value: input })
   }
   if (input < 60000) {
-    return t(currentLanguage, "locale.second", { value: (input / 1000).toFixed(1) })
+    return t(language, "locale.second", { value: (input / 1000).toFixed(1) })
   }
   if (input < 3600000) {
     const minutes = Math.floor(input / 60000)
     const seconds = Math.floor((input % 60000) / 1000)
-    return t(currentLanguage, "locale.minute_second", { minutes, seconds })
+    return t(language, "locale.minute_second", { minutes, seconds })
   }
   if (input < 86400000) {
     const hours = Math.floor(input / 3600000)
     const minutes = Math.floor((input % 3600000) / 60000)
-    return t(currentLanguage, "locale.hour_minute", { hours, minutes })
+    return t(language, "locale.hour_minute", { hours, minutes })
   }
   const days = Math.floor(input / 86400000)
   const hours = Math.floor((input % 86400000) / 3600000)
-  return t(currentLanguage, "locale.day_hour", { days, hours })
+  return t(language, "locale.day_hour", { days, hours })
 }
 
 export function truncate(str: string, len: number): string {
