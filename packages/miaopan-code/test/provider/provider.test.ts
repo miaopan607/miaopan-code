@@ -1852,6 +1852,36 @@ it.effect("plugin config providers persist after instance dispose", () =>
 )
 
 it.instance(
+  "refresh reloads provider models from the current directory config",
+  Effect.gen(function* () {
+    const instance = yield* TestInstance
+    const provider = yield* Provider.Service
+    const config = (modelID: string) => ({
+      provider: {
+        demo: {
+          name: "Demo",
+          npm: "@ai-sdk/openai-compatible",
+          api: "https://example.com/v1",
+          models: { [modelID]: { name: modelID } },
+        },
+      },
+    })
+    const providerID = ProviderV2.ID.make("demo")
+    const modelA = ModelV2.ID.make("a")
+    const modelB = ModelV2.ID.make("b")
+
+    yield* Effect.promise(() => Bun.write(path.join(instance.directory, "miaopan-code.json"), JSON.stringify(config("a"))))
+    expect((yield* provider.list())[providerID].models[modelA]).toBeDefined()
+
+    yield* Effect.promise(() => Bun.write(path.join(instance.directory, "miaopan-code.json"), JSON.stringify(config("b"))))
+    const refreshed = yield* provider.refresh()
+    expect(refreshed[providerID].models[modelA]).toBeUndefined()
+    expect(refreshed[providerID].models[modelB]).toBeDefined()
+    expect((yield* provider.list())[providerID].models[modelB]).toBeDefined()
+  }),
+)
+
+it.instance(
   "plugin config enabled and disabled providers are honored",
   Effect.gen(function* () {
     const instance = yield* TestInstance

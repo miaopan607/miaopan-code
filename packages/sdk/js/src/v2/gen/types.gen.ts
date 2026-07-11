@@ -7507,6 +7507,39 @@ export type ConfigProvidersResponses = {
 
 export type ConfigProvidersResponse = ConfigProvidersResponses[keyof ConfigProvidersResponses]
 
+export type ConfigProvidersRefreshData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/providers/refresh"
+}
+
+export type ConfigProvidersRefreshErrors = {
+  /**
+   * 错误请求
+   */
+  400: BadRequestError
+}
+
+export type ConfigProvidersRefreshError = ConfigProvidersRefreshErrors[keyof ConfigProvidersRefreshErrors]
+
+export type ConfigProvidersRefreshResponses = {
+  /**
+   * 提供商列表
+   */
+  200: {
+    providers: Array<Provider>
+    default: {
+      [key: string]: string
+    }
+  }
+}
+
+export type ConfigProvidersRefreshResponse = ConfigProvidersRefreshResponses[keyof ConfigProvidersRefreshResponses]
+
 export type ExperimentalCapabilitiesGetData = {
   body?: never
   path?: never

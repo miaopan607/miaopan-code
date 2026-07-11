@@ -374,6 +374,7 @@ describe("HttpApi SDK", () => {
           expectStatus(() => sdk.project.current(), 200),
           expectStatus(() => sdk.config.get(), 200),
           expectStatus(() => sdk.config.providers(), 200),
+          expectStatus(() => sdk.config.providers2.refresh(), 200),
           expectStatus(() => sdk.find.files({ query: "hello", limit: 10 }), 200),
         ])
       }),

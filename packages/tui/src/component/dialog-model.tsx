@@ -1,4 +1,5 @@
-import { createMemo, createSignal } from "solid-js"
+import { batch, createMemo, createSignal } from "solid-js"
+import { reconcile } from "solid-js/store"
 import { useLocal } from "../context/local"
 import { map, pipe, flatMap, entries, filter, sortBy, take } from "remeda"
 import { DialogSelect } from "../ui/dialog-select"
@@ -9,13 +10,20 @@ import * as fuzzysort from "fuzzysort"
 import { useConnected } from "./use-connected"
 import { useSync } from "../context/sync"
 import { useI18n } from "../context/i18n"
+import { useSDK } from "../context/sdk"
+import { useProject } from "../context/project"
+import { useToast } from "../ui/toast"
 
 export function DialogModel(props: { providerID?: string }) {
   const local = useLocal()
   const sync = useSync()
   const dialog = useDialog()
   const i18n = useI18n()
+  const sdk = useSDK()
+  const project = useProject()
+  const toast = useToast()
   const [query, setQuery] = createSignal("")
+  const [refreshing, setRefreshing] = createSignal(false)
 
   const connected = useConnected()
   const providers = createDialogProviderOptions()
@@ -156,10 +164,36 @@ export function DialogModel(props: { providerID?: string }) {
     dialog.clear()
   }
 
+  function refresh() {
+    if (refreshing()) return
+    setRefreshing(true)
+    return sdk.client.config.providers2
+      .refresh({ workspace: project.workspace.current() }, { throwOnError: true })
+      .then((response) => {
+        batch(() => {
+          sync.set("provider", reconcile(response.data.providers))
+          sync.set("provider_default", reconcile(response.data.default))
+        })
+        toast.show({ message: i18n.t("cli.run.models_refreshed"), variant: "success" })
+      })
+      .catch(() => {
+        toast.show({ message: i18n.t("cli.run.models_refresh_failed"), variant: "error" })
+      })
+      .finally(() => setRefreshing(false))
+  }
+
   return (
     <DialogSelect<ReturnType<typeof options>[number]["value"]>
       options={options()}
       actions={[
+        {
+          command: "model.refresh",
+          title: i18n.t("cli.run.models_refresh"),
+          disabled: refreshing,
+          onTrigger() {
+            void refresh()
+          },
+        },
         {
           command: "model.dialog.provider",
           title: connected() ? i18n.t("dialog.connect_provider") : i18n.t("dialog.view_all_providers"),
