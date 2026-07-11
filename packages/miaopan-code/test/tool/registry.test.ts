@@ -100,6 +100,14 @@ afterEach(async () => {
 })
 
 describe("tool.registry", () => {
+  it.instance("exposes persisted goal tools", () =>
+    Effect.gen(function* () {
+      const registry = yield* ToolRegistry.Service
+
+      expect(yield* registry.ids()).toEqual(expect.arrayContaining(["get_goal", "create_goal", "update_goal"]))
+    }),
+  )
+
   it.instance("does not expose task_status", () =>
     Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service

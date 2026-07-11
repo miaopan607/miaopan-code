@@ -13,6 +13,7 @@ import { SessionMessageUpdater } from "./message-updater"
 import { SessionInput } from "./input"
 import { WorkspaceV2 } from "../workspace"
 import { SessionContextEpoch } from "./context-epoch"
+import { SessionGoalTable } from "./goal.sql"
 import { MessageTable, PartTable, SessionInputTable, SessionMessageTable, SessionTable } from "./sql"
 import type { DeepMutable } from "../schema"
 import { zh } from "../i18n"
@@ -108,6 +109,17 @@ function applyUsage(
     .where(eq(SessionTable.id, sessionID))
     .run()
     .pipe(Effect.orDie)
+}
+
+function goalTokens(value: Usage | undefined) {
+  if (!value) return 0
+  return (
+    value.tokens.input +
+    value.tokens.output +
+    value.tokens.reasoning +
+    value.tokens.cache.read +
+    value.tokens.cache.write
+  )
 }
 
 function run(db: DatabaseService, event: SessionEvent.Event) {
@@ -327,6 +339,20 @@ const layer = Layer.effectDiscard(
         const next = usage(event.data.part)
         if (previous) yield* applyUsage(db, row.session_id, previous, -1)
         if (next) yield* applyUsage(db, sessionID, next)
+        const tokenDelta = Math.max(0, goalTokens(next) - goalTokens(previous))
+        if (tokenDelta > 0) {
+          yield* db
+            .update(SessionGoalTable)
+            .set({ tokens_used: sql`${SessionGoalTable.tokens_used} + ${tokenDelta}` })
+            .where(
+              and(
+                eq(SessionGoalTable.session_id, sessionID),
+                or(eq(SessionGoalTable.status, "active"), eq(SessionGoalTable.settlement_pending, true)),
+              ),
+            )
+            .run()
+            .pipe(Effect.orDie)
+        }
       }),
     )
     yield* events.project(SessionEvent.AgentSwitched, (event) =>

@@ -11,6 +11,8 @@ import AGENT_TITLE_EN from "../agent/prompt/title.txt"
 import AGENT_TITLE_ZH_CN from "../agent/prompt/title.zh-CN.txt"
 import COMMAND_INITIALIZE_EN from "../command/template/initialize.txt"
 import COMMAND_INITIALIZE_ZH_CN from "../command/template/initialize.zh-CN.txt"
+import COMMAND_GOAL_EN from "../command/template/goal.txt"
+import COMMAND_GOAL_ZH_CN from "../command/template/goal.zh-CN.txt"
 import COMMAND_REVIEW_EN from "../command/template/review.txt"
 import COMMAND_REVIEW_ZH_CN from "../command/template/review.zh-CN.txt"
 import SESSION_ANTHROPIC_EN from "../session/prompt/anthropic.txt"
@@ -79,6 +81,7 @@ export const messages = {
   "agent.summary": { "zh-CN": AGENT_SUMMARY_ZH_CN, en: AGENT_SUMMARY_EN },
   "agent.title": { "zh-CN": AGENT_TITLE_ZH_CN, en: AGENT_TITLE_EN },
   "command.initialize": { "zh-CN": COMMAND_INITIALIZE_ZH_CN, en: COMMAND_INITIALIZE_EN },
+  "command.goal": { "zh-CN": COMMAND_GOAL_ZH_CN, en: COMMAND_GOAL_EN },
   "command.review": { "zh-CN": COMMAND_REVIEW_ZH_CN, en: COMMAND_REVIEW_EN },
   "session.anthropic": { "zh-CN": SESSION_ANTHROPIC_ZH_CN, en: SESSION_ANTHROPIC_EN },
   "session.beast": { "zh-CN": SESSION_BEAST_ZH_CN, en: SESSION_BEAST_EN },

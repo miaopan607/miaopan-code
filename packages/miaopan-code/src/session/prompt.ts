@@ -54,9 +54,11 @@ import { ModelV2 } from "@miaopan-code/core/model"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { eq } from "drizzle-orm"
 import { SessionTable } from "@miaopan-code/core/session/sql"
+import { SessionGoal } from "@miaopan-code/core/session/goal"
 import { SessionReminders } from "./reminders"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@miaopan-code/llm"
+import { escapeHtml } from "@/util/html"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -131,6 +133,7 @@ const layer = Layer.effect(
     const events = yield* EventV2Bridge.Service
     const flags = yield* RuntimeFlags.Service
     const database = yield* Database.Service
+    const goals = yield* SessionGoal.Service
     const { db } = database
     const ops = Effect.fn("SessionPrompt.ops")(function* () {
       return {
@@ -1125,6 +1128,7 @@ const layer = Layer.effect(
           const { user: lastUser, assistant: lastAssistant, finished: lastFinished, tasks } = MessageV2.latest(msgs)
 
           if (!lastUser) throw new Error(t((yield* config.get()).language, "error.no_user_message"))
+          const selectedAgent = yield* agents.get(lastUser.agent)
 
           const lastAssistantMsg = msgs.findLast(
             (msg) => msg.info.role === "assistant" && msg.info.id === lastAssistant?.id,
@@ -1136,20 +1140,29 @@ const layer = Layer.effect(
             lastAssistantMsg?.parts.some(
               (part) => part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part),
             ) ?? false
-
-          if (
-            lastAssistant?.finish &&
-            !["tool-calls"].includes(lastAssistant.finish) &&
+          const finished =
+            Boolean(lastAssistant?.finish) &&
+            !["tool-calls"].includes(lastAssistant?.finish ?? "") &&
             !hasToolCalls &&
-            lastUser.id < lastAssistant.id
-          ) {
+            lastUser.id < (lastAssistant?.id ?? "")
+          const hasGoalUpdate =
+            lastAssistantMsg?.parts.some((part) => part.type === "tool" && part.tool === "update_goal") ?? false
+          const goalState = finished || hasGoalUpdate ? yield* goals.runtime(sessionID) : undefined
+          const goal = goalState?.goal
+          const continueGoal =
+            finished &&
+            selectedAgent !== undefined &&
+            goal?.status === "active" &&
+            step < (selectedAgent.steps ?? Infinity)
+
+          if (finished && !continueGoal) {
             const orphan = lastAssistantMsg?.parts.find(
               (part): part is SessionV1.ToolPart => part.type === "tool" && isOrphanedInterruptedTool(part),
             )
             if (orphan) {
               yield* Effect.logWarning(t(language, "log.session_loop_orphaned"), {
                 "session.id": sessionID,
-                messageID: lastAssistant.id,
+                messageID: lastAssistant?.id ?? orphan.messageID,
                 tool: orphan.tool,
                 callID: orphan.callID,
               })
@@ -1196,7 +1209,7 @@ const layer = Layer.effect(
             continue
           }
 
-          const agent = yield* agents.get(lastUser.agent)
+          const agent = selectedAgent
           if (!agent) {
             const available = (yield* agents.list()).filter((a) => !a.hidden).map((a) => a.name)
             const hint = available.length
@@ -1309,6 +1322,15 @@ const layer = Layer.effect(
             ]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(t(language, "prompt.structured_output_system"))
+            const goalContext =
+              continueGoal && goal
+                ? t(language, goal.tokenBudget === undefined ? "prompt.goal_active" : "prompt.goal_active_budgeted", {
+                    objective: escapeHtml(goal.objective),
+                    tokensUsed: goal.tokensUsed,
+                    tokenBudget: goal.tokenBudget ?? 0,
+                    remainingTokens: goal.remainingTokens ?? 0,
+                  })
+                : undefined
             const result = yield* handle.process({
               user: lastUser,
               agent,
@@ -1318,12 +1340,14 @@ const layer = Layer.effect(
               system,
               messages: [
                 ...modelMsgs,
+                ...(goalContext ? [{ role: "user" as const, content: goalContext }] : []),
                 ...(isLastStep ? [{ role: "assistant" as const, content: maxStepsPrompt(language) }] : []),
               ],
               tools,
               model,
               toolChoice: format.type === "json_schema" ? "required" : undefined,
             })
+            if (goalState?.settlementPending || result === "stop") yield* goals.settle(sessionID)
 
             if (structured !== undefined) {
               handle.message.structured = structured
@@ -1661,6 +1685,7 @@ export const node = LayerNode.make({
     FSUtil.node,
     MCP.node,
     LSP.node,
+    SessionGoal.node,
     ToolRegistry.node,
     Truncate.node,
     Image.node,

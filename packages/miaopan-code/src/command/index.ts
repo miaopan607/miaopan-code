@@ -46,6 +46,7 @@ export function hints(template: string) {
 export const Default = {
   INIT: "init",
   REVIEW: "review",
+  GOAL: "goal",
 } as const
 
 export interface Interface {
@@ -68,6 +69,7 @@ const layer = Layer.effect(
       const commands: Record<string, Info> = {}
       const initialize = PromptI18n.text(cfg.language, "command.initialize")
       const review = PromptI18n.text(cfg.language, "command.review")
+      const goal = PromptI18n.text(cfg.language, "command.goal")
 
       commands[Default.INIT] = {
         name: Default.INIT,
@@ -87,6 +89,13 @@ const layer = Layer.effect(
         },
         subtask: true,
         hints: hints(review),
+      }
+      commands[Default.GOAL] = {
+        name: Default.GOAL,
+        description: t(cfg.language, "command.goal"),
+        source: "command",
+        template: goal,
+        hints: hints(goal),
       }
 
       for (const [name, command] of Object.entries(cfg.command ?? {})) {

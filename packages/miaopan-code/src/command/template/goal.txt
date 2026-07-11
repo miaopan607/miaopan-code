@@ -1,0 +1,7 @@
+The user explicitly invoked `/goal`.
+
+Arguments: $ARGUMENTS
+
+- If the arguments are empty, call `get_goal` and report the current goal succinctly.
+- Otherwise, call `create_goal` with the arguments as the objective. Only extract a token budget when the user explicitly included one.
+- After creating a goal, pursue it immediately. Do not stop while it remains active; use `update_goal` only when it is genuinely complete or blocked under the tool rules.
