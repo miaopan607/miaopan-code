@@ -14,8 +14,8 @@
 - 重新生成旧版 JavaScript SDK：运行 `./packages/sdk/js/script/build.ts`。
 - 修改公开 Protocol 或 Server `HttpApi` 后，必须运行 `./packages/sdk/js/script/build.ts` 重新生成旧版 SDK。不要直接编辑生成的 SDK 输出。
 - 保持运行时依赖方向为 Schema → Core、Protocol，再由 Core、Protocol → Server。生成的 SDK 必须独立于 Core 和 Server；CLI 负责组合 SDK、Core 和 Server。
-- 本仓库默认分支为 `dev`。
-- 本地可能不存在 `main` 引用；比较差异时使用 `dev` 或 `origin/dev`。
+- 本仓库默认分支为 `main`。
+- 比较差异时使用 `main` 或 `origin/main`。
 
 ## 分支命名
 
