@@ -9,6 +9,7 @@ const language = resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
 process.chdir(dir)
+const dryRun = process.argv.includes("--dry-run")
 
 async function published(name: string, version: string) {
   return (await $`npm view ${name}@${version} version`.nothrow()).exitCode === 0
@@ -20,6 +21,7 @@ const pkg = JSON.parse(originalText) as {
   version: string
   exports: Record<string, unknown>
 }
+const version = Script.version
 function transformExports(exports: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(exports).map(([key, value]) => {
@@ -34,14 +36,20 @@ function transformExports(exports: Record<string, unknown>) {
     }),
   )
 }
-if (await published(pkg.name, pkg.version)) {
-  console.log(t(language, "publish_already_published", { name: pkg.name, version: pkg.version }))
+if (await published(pkg.name, version)) {
+  console.log(t(language, "publish_already_published", { name: pkg.name, version }))
 } else {
+  pkg.version = version
   pkg.exports = transformExports(pkg.exports)
   await Bun.write("package.json", JSON.stringify(pkg, null, 2))
   try {
+    await $`find . -maxdepth 1 -type f -name '*.tgz' -delete`
     await $`bun pm pack`
-    await $`npm publish *.tgz --tag ${Script.channel} --access public`
+    if (dryRun) {
+      await $`npm publish *.tgz --tag ${Script.channel} --access public --dry-run`
+    } else {
+      await $`npm publish *.tgz --tag ${Script.channel} --access public`
+    }
   } finally {
     await Bun.write("package.json", originalText)
   }

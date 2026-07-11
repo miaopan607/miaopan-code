@@ -19,6 +19,20 @@ jobs:
           test "v$version" = "$GITHUB_REF_NAME"
       - name: Set release version
         run: echo "MIAOPAN_CODE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Build SDK
+        run: bun ./packages/sdk/js/script/build.ts
+        env:
+          MIAOPAN_CODE_CHANNEL: latest
+      - name: Publish SDK
+        run: bun ./packages/sdk/js/script/publish.ts
+        env:
+          MIAOPAN_CODE_CHANNEL: latest
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish plugin
+        run: bun ./packages/plugin/script/publish.ts
+        env:
+          MIAOPAN_CODE_CHANNEL: latest
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Build CLI
         run: bun run --cwd packages/miaopan-code build
         env:
