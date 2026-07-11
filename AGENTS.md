@@ -163,12 +163,4 @@ const table = sqliteTable("session", {
 
 ## V2 Session Core
 
-- 将持久化提示接纳与模型执行分开。`SessionV2.prompt(...)` 先接纳一行持久化的 `session_input`，再调度建议性的 `SessionExecution.wake(sessionID)`；除非 `resume: false` 要求只接纳，否则按此顺序执行。序列化 runner 在安全边界将已接纳输入提升为可见的用户消息。
-- 复用 Session ID 时采用已有 Session。复用提示消息 ID 只有在 Session、提示内容和传递模式都一致时才协调为精确重试；冲突复用必须失败。历史投影中的提示在精确重试时可以惰性合成已提升的 inbox 记录。
-- `SessionExecution` 必须是进程全局且按 Session ID 工作。其本地实现拥有进程内 Session 协调器，只有在 drain 开始时才通过 `SessionStore` 和 `LocationServiceMap.get(session.location)` 发现放置位置；任何层都不应接收 Session ID。V2 中断针对该 Session 当前进程内的所有权链；空闲或不存在的中断是无操作。
-- `SessionRunner`、模型解析、工具注册、权限和文件系统必须限定在 Location 作用域。省略 `Location.workspaceID` 表示隐式本地放置；显式 workspace 身份为未来的放置语义保留。
-- 每个 provider turn 保留一次明确的 `llm.stream(request)` 调用，并在持久化继续执行前重新加载投影历史。不要桥接到旧的 `SessionPrompt.loop(...)`，也不要委托给内存工具循环。
-- 在实现集群前，本地 Session drain 保持进程内。`SessionRunCoordinator` 合并同一 Session 的显式恢复、合并提示唤醒，同时允许不同 Session 并行运行。建议性唤醒只 drain 符合条件的持久化 inbox 行；崩溃后的继续恢复必须另行设计，不能在此处重试 provider 工作。drain 没有持久化身份或 transcript 边界。
-- 明确传递词汇。提示默认采用 steer，在当前 drain 仍需继续时于下一个安全 provider-turn 边界提升。显式 `queue` 输入保持 pending，直到 Session 即将空闲；在该边界提升一条 queued 输入，然后重新判断是否继续再提升下一条。提升任意新用户输入都会重置所选 agent 的 provider-turn 配额；同一批 steer 只重置一次。
-- EventV2 的 replay 所有权声明必须与集群 Session 执行所有权分离。
-- System Context 的代数结构、注册表和内置项保存在 `src/system-context`；Context Source producer 保留在各自观察域；Session History 选择和 Context Epoch 持久化由 Session 自己负责。
+项目代码里有这个部分，但是不要管他。
