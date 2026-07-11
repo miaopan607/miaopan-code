@@ -1,4 +1,4 @@
-import type { Plugin } from "@miaopan-code/plugin"
+import type { Plugin } from "@miaopan/plugin"
 import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { rename, writeFile } from "node:fs/promises"
 import { randomInt } from "node:crypto"

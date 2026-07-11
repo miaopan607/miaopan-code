@@ -2,7 +2,7 @@
 
 Languages: [简体中文](README.md) · English
 
-The Promise plugin API is the async/await equivalent of `@miaopan-code/plugin/v2/effect`. It grants plugins the same two in-process capabilities:
+The Promise plugin API is the async/await equivalent of `@miaopan/plugin/v2/effect`. It grants plugins the same two in-process capabilities:
 
 - `hook` installs behavior at an miaopan-code extension point.
 - `reload` reruns every transform hook for a stateful domain.
@@ -12,7 +12,7 @@ The only difference from the Effect API is the async boundary: hook callbacks, h
 ## Defining A Plugin
 
 ```ts
-import { define } from "@miaopan-code/plugin/v2/promise"
+import { define } from "@miaopan/plugin/v2/promise"
 
 export const Plugin = define({
   id: "example",

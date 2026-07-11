@@ -2,12 +2,12 @@
 
 语言版本：简体中文 · [English](README.en.md)
 
-Promise 插件 API 是 `@miaopan-code/plugin/v2/effect` 的 async/await 版本，提供相同的 `hook` 和 `reload` 能力。Hook 回调、注册、`reload` 以及 `Registration.dispose` 使用 Promise，而不是 Effect。
+Promise 插件 API 是 `@miaopan/plugin/v2/effect` 的 async/await 版本，提供相同的 `hook` 和 `reload` 能力。Hook 回调、注册、`reload` 以及 `Registration.dispose` 使用 Promise，而不是 Effect。
 
 ## 定义插件
 
 ```ts
-import { define } from "@miaopan-code/plugin/v2/promise"
+import { define } from "@miaopan/plugin/v2/promise"
 
 export const Plugin = define({
   id: "example",

@@ -22,7 +22,7 @@ import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { EOL } from "os"
 import { Filesystem } from "@/util/filesystem"
-import { createMiaopanCodeClient, type MiaopanCodeClient, type ToolPart } from "@miaopan-code/sdk/v2"
+import { createMiaopanCodeClient, type MiaopanCodeClient, type ToolPart } from "@miaopan/sdk/v2"
 import { FormatError, FormatUnknownError } from "../error"
 import { INTERACTIVE_INPUT_ERROR, resolveInteractiveStdin } from "./run/runtime.stdin"
 

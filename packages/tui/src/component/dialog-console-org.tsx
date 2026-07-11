@@ -6,7 +6,7 @@ import { useDialog } from "../ui/dialog"
 import { useToast } from "../ui/toast"
 import { useTheme } from "../context/theme"
 import { errorMessage } from "../util/error"
-import type { ExperimentalConsoleListOrgsResponse } from "@miaopan-code/sdk/v2"
+import type { ExperimentalConsoleListOrgsResponse } from "@miaopan/sdk/v2"
 import { Locale } from "../util/locale"
 import { t } from "@miaopan-code/core/i18n"
 

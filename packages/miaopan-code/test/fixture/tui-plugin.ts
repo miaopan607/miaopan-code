@@ -1,4 +1,4 @@
-import { createMiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import { createMiaopanCodeClient } from "@miaopan/sdk/v2"
 import { RGBA, type CliRenderer } from "@opentui/core"
 import type { HostPluginApi } from "@miaopan-code/tui/plugin/slots"
 import { createTuiResolvedConfig } from "./tui-runtime"

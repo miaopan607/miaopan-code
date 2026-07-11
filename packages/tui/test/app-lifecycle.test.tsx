@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test"
-import type { TuiPluginApi } from "@miaopan-code/plugin/tui"
+import type { TuiPluginApi } from "@miaopan/plugin/tui"
 import { createTestRenderer } from "@opentui/core/testing"
 import { Effect } from "effect"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"

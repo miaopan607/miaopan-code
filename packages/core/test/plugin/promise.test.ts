@@ -4,7 +4,7 @@ import { AgentV2 } from "@miaopan-code/core/agent"
 import { PluginV2 } from "@miaopan-code/core/plugin"
 import { PluginHost } from "@miaopan-code/core/plugin/host"
 import { PluginPromise } from "@miaopan-code/core/plugin/promise"
-import { define } from "@miaopan-code/plugin/v2/promise"
+import { define } from "@miaopan/plugin/v2/promise"
 import { testEffect } from "../lib/effect"
 import { PluginTestLayer } from "./fixture"
 

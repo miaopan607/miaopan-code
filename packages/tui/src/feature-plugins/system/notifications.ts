@@ -1,5 +1,5 @@
-import type { Event } from "@miaopan-code/sdk/v2"
-import type { TuiAttentionSoundName, TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
+import type { Event } from "@miaopan/sdk/v2"
+import type { TuiAttentionSoundName, TuiPlugin, TuiPluginApi } from "@miaopan/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { t } from "@miaopan-code/core/i18n"
 import { Locale } from "../../util/locale"

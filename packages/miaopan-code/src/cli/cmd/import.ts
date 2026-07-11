@@ -1,4 +1,4 @@
-import type { Session as SDKSession, Message, Part } from "@miaopan-code/sdk/v2"
+import type { Session as SDKSession, Message, Part } from "@miaopan/sdk/v2"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { Session } from "@/session/session"
 import { MessageV2 } from "../../session/message-v2"

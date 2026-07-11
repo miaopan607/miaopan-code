@@ -1,4 +1,4 @@
-import type { FileSystemEntry } from "@miaopan-code/sdk/v2/types"
+import type { FileSystemEntry } from "@miaopan/sdk/v2/types"
 import type { Effect } from "effect"
 
 export interface FileSystem {

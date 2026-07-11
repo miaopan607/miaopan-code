@@ -1,6 +1,6 @@
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { httpClient } from "@miaopan-code/core/effect/app-node-platform"
-import type * as SDK from "@miaopan-code/sdk/v2"
+import type * as SDK from "@miaopan/sdk/v2"
 import { serviceUse } from "@miaopan-code/core/effect/service-use"
 import { Effect, Exit, Layer, Option, Schema, Scope, Context, Stream } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"

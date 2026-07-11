@@ -7,7 +7,7 @@ Effect 插件 API 为插件提供两个进程内能力：`hook` 在 miaopan-code
 ## 定义插件
 
 ```ts
-import { define } from "@miaopan-code/plugin/v2/effect"
+import { define } from "@miaopan/plugin/v2/effect"
 import { Effect } from "effect"
 
 export const Plugin = define({

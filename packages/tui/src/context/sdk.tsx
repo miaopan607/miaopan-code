@@ -1,5 +1,5 @@
-import { createMiaopanCodeClient } from "@miaopan-code/sdk/v2"
-import type { GlobalEvent } from "@miaopan-code/sdk/v2"
+import { createMiaopanCodeClient } from "@miaopan/sdk/v2"
+import type { GlobalEvent } from "@miaopan/sdk/v2"
 import { Flag } from "@miaopan-code/core/flag/flag"
 import { createSimpleContext } from "./helper"
 import { batch, onCleanup, onMount } from "solid-js"

@@ -330,7 +330,7 @@ model: anthropic/claude-sonnet-4-6
 （如果没有要注册的内容，则返回 `{}`）。
 
 ```ts
-import type { Plugin } from "@miaopan-code/plugin"
+import type { Plugin } from "@miaopan/plugin"
 
 export default (async ({ client, project, directory, $ }) => {
   return {

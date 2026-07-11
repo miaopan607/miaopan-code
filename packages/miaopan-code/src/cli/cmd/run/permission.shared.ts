@@ -13,7 +13,7 @@
 //
 // permissionInfo() extracts display info (icon, title, lines, diff) from
 // the request, delegating to tool.ts for tool-specific formatting.
-import type { PermissionRequest } from "@miaopan-code/sdk/v2"
+import type { PermissionRequest } from "@miaopan/sdk/v2"
 import type { PermissionReply } from "./types"
 import { toolPath, toolPermissionInfo } from "./tool"
 import { UI } from "../../ui"

@@ -5,7 +5,7 @@ import type {
   RequestPermissionResponse,
   SessionUpdate,
 } from "@agentclientprotocol/sdk"
-import type { Event, MiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import type { Event, MiaopanCodeClient } from "@miaopan/sdk/v2"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import type { Language } from "@miaopan-code/core/i18n"
 import { createTwoFilesPatch } from "diff"

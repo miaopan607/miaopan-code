@@ -19,7 +19,7 @@ export const GenerateCommand = {
           {
             lang: "js",
             source: [
-              `import { createMiaopanCodeClient } from "@miaopan-code/sdk`,
+              `import { createMiaopanCodeClient } from "@miaopan/sdk`,
               ``,
               `const client = createMiaopanCodeClient()`,
               `await client.${operation.operationId}({`,

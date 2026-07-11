@@ -1,4 +1,4 @@
-import type { SkillV2Source } from "@miaopan-code/sdk/v2/types"
+import type { SkillV2Source } from "@miaopan/sdk/v2/types"
 import type { Hooks } from "./registration.js"
 
 export interface SkillDraft {

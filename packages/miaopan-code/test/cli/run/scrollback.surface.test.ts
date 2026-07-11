@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { t } from "@miaopan-code/core/i18n"
-import type { ToolPart } from "@miaopan-code/sdk/v2"
+import type { ToolPart } from "@miaopan/sdk/v2"
 import { RGBA, SyntaxStyle } from "@opentui/core"
 import { MockTreeSitterClient, createTestRenderer, type TestRenderer } from "@opentui/core/testing"
 import { RunScrollbackStream } from "@/cli/cmd/run/scrollback.surface"

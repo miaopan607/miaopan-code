@@ -1,4 +1,4 @@
-import type { TuiPluginApi, TuiSlotContext, TuiSlotMap, TuiSlotProps } from "@miaopan-code/plugin/tui"
+import type { TuiPluginApi, TuiSlotContext, TuiSlotMap, TuiSlotProps } from "@miaopan/plugin/tui"
 import { createSlot, createSolidSlotRegistry, type JSX, type SolidPlugin } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { isRecord } from "../util/record"

@@ -9,7 +9,7 @@ import type {
   TuiAttentionSoundName,
   TuiAttentionSoundPack,
   TuiAttentionSoundPackInfo,
-} from "@miaopan-code/plugin/tui"
+} from "@miaopan/plugin/tui"
 import { AttentionSoundName, type TuiConfig } from "./config"
 import { Schema } from "effect"
 import stripAnsi from "strip-ansi"

@@ -5,9 +5,9 @@ import type {
   Plugin as PluginInstance,
   PluginModule,
   WorkspaceAdapter as PluginWorkspaceAdapter,
-} from "@miaopan-code/plugin"
+} from "@miaopan/plugin"
 import { Config } from "@/config/config"
-import { createMiaopanCodeClient } from "@miaopan-code/sdk"
+import { createMiaopanCodeClient } from "@miaopan/sdk"
 import { ServerAuth } from "@/server/auth"
 import { CodexAuthPlugin } from "./openai/codex"
 import { Session } from "@/session/session"

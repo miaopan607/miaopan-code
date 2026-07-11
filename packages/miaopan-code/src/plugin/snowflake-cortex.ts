@@ -1,4 +1,4 @@
-import type { Hooks, PluginInput } from "@miaopan-code/plugin"
+import type { Hooks, PluginInput } from "@miaopan/plugin"
 import { OAUTH_DUMMY_KEY } from "../auth"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"

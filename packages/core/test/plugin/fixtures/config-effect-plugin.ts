@@ -1,4 +1,4 @@
-import { define } from "@miaopan-code/plugin/v2/effect"
+import { define } from "@miaopan/plugin/v2/effect"
 import { Effect } from "effect"
 
 export default define({

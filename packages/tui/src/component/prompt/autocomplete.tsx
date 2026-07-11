@@ -22,7 +22,7 @@ import type { PromptInfo } from "../../prompt/history"
 import { useFrecency } from "../../prompt/frecency"
 import { useBindings, useCommandSlashes, useMiaopanCodeModeStack } from "../../keymap"
 import { displayCharAt, mentionTriggerIndex } from "../../prompt/display"
-import type { FileSystemEntry } from "@miaopan-code/sdk/v2"
+import type { FileSystemEntry } from "@miaopan/sdk/v2"
 import { t } from "@miaopan-code/core/i18n"
 
 function removeLineRange(input: string) {

@@ -369,7 +369,7 @@ describe("tool.registry", () => {
         yield* Effect.promise(() =>
           Bun.write(
             path.join(plugin, "package.json"),
-            JSON.stringify({ name: "@miaopan-code/plugin", type: "module", exports: { ".": "./dist/index.js" } }),
+            JSON.stringify({ name: "@miaopan/plugin", type: "module", exports: { ".": "./dist/index.js" } }),
           ),
         )
         yield* Effect.promise(() =>
@@ -389,7 +389,7 @@ describe("tool.registry", () => {
           Bun.write(
             path.join(customTools, "addition.ts"),
             [
-              'import { tool } from "@miaopan-code/plugin"',
+              'import { tool } from "@miaopan/plugin"',
               "export default tool({",
               "  description: 'Use this tool to add two numbers and return their sum.',",
               "  args: {",
@@ -506,7 +506,7 @@ describe("tool.registry", () => {
           JSON.stringify({
             name: "custom-tools",
             dependencies: {
-              "@miaopan-code/plugin": "^0.0.0",
+              "@miaopan/plugin": "^0.0.0",
               cowsay: "^1.6.0",
             },
           }),
@@ -521,7 +521,7 @@ describe("tool.registry", () => {
             packages: {
               "": {
                 dependencies: {
-                  "@miaopan-code/plugin": "^0.0.0",
+                  "@miaopan/plugin": "^0.0.0",
                   cowsay: "^1.6.0",
                 },
               },

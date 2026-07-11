@@ -92,7 +92,7 @@
     "@miaopan-code/effect-sqlite-node": "workspace:*",
     "@miaopan-code/llm": "workspace:*",
     "@miaopan-code/schema": "workspace:*",
-    "@miaopan-code/plugin": "workspace:*",
+    "@miaopan/plugin": "workspace:*",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/context-async-hooks": "2.6.1",
     "@opentelemetry/exporter-trace-otlp-http": "0.214.0",

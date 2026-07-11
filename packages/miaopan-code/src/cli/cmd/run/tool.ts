@@ -15,7 +15,7 @@
 import os from "os"
 import path from "path"
 import stripAnsi from "strip-ansi"
-import type { ToolPart } from "@miaopan-code/sdk/v2"
+import type { ToolPart } from "@miaopan/sdk/v2"
 import type * as Tool from "@/tool/tool"
 import type { ApplyPatchTool } from "@/tool/apply_patch"
 import type { ShellTool as BashTool } from "@/tool/shell"

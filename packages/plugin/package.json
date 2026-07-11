@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@miaopan-code/plugin",
+  "name": "@miaopan/plugin",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
@@ -23,7 +23,7 @@
   ],
   "dependencies": {
     "@ai-sdk/provider": "3.0.8",
-    "@miaopan-code/sdk": "workspace:*",
+    "@miaopan/sdk": "workspace:*",
     "effect": "catalog:",
     "zod": "catalog:"
   },

@@ -1,4 +1,4 @@
-import type { TuiPluginApi } from "@miaopan-code/plugin/tui"
+import type { TuiPluginApi } from "@miaopan/plugin/tui"
 import { RGBA } from "@opentui/core"
 import { createTuiResolvedConfig } from "./tui-runtime"
 

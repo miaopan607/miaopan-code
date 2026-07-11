@@ -7,7 +7,7 @@ import type {
   Part,
   SessionMessageResponse,
   ToolPart,
-} from "@miaopan-code/sdk/v2"
+} from "@miaopan/sdk/v2"
 import { Effect } from "effect"
 import type { Language } from "@miaopan-code/core/i18n"
 import { ACPSession } from "./session"

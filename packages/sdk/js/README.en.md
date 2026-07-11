@@ -1,4 +1,4 @@
-# @miaopan-code/sdk
+# @miaopan/sdk
 
 Languages: [简体中文](README.md) · English
 

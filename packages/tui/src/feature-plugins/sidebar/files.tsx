@@ -1,4 +1,4 @@
-import type { TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
+import type { TuiPlugin, TuiPluginApi } from "@miaopan/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo, For, Show, createSignal } from "solid-js"
 import { Locale } from "../../util/locale"

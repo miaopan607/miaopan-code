@@ -1,6 +1,6 @@
 export * as VariantPlugin from "./variant"
 
-import type { ModelV2Info } from "@miaopan-code/sdk/v2/types"
+import type { ModelV2Info } from "@miaopan/sdk/v2/types"
 import { Effect } from "effect"
 import { define } from "./internal"
 

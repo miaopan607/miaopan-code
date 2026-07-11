@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
-import { MiaopanCodeClient, type GlobalEvent } from "@miaopan-code/sdk/v2"
+import { MiaopanCodeClient, type GlobalEvent } from "@miaopan/sdk/v2"
 import { createSessionTransport } from "@/cli/cmd/run/stream.transport"
 import type { FooterApi, FooterEvent, LocalReplayRow, RunFilePart, StreamCommit } from "@/cli/cmd/run/types"
 import { UI } from "@/cli/ui"

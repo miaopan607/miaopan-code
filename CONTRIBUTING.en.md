@@ -79,7 +79,7 @@ Replace `<platform>` with your platform (e.g., `darwin-arm64`, `linux-x64`).
   - `packages/miaopan-code`: miaopan-code core business logic & server.
   - `packages/miaopan-code/src/cli/cmd/tui/`: The TUI code, written in SolidJS with [opentui](https://github.com/sst/opentui)
   - `packages/tui`: The terminal UI, written in SolidJS with [opentui](https://github.com/sst/opentui)
-  - `packages/plugin`: Source for `@miaopan-code/plugin`
+  - `packages/plugin`: Source for `@miaopan/plugin`
 
 ### Understanding bun dev vs miaopan-code
 

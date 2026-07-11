@@ -1,4 +1,4 @@
-import type { GlobalEvent } from "@miaopan-code/sdk/v2"
+import type { GlobalEvent } from "@miaopan/sdk/v2"
 import type { EventSource } from "@miaopan-code/tui/context/sdk"
 
 export const worktree = "/tmp/miaopanCode"

@@ -72,7 +72,7 @@
   },
   "dependencies": {
     "@miaopan-code/script": "workspace:*",
-    "@miaopan-code/sdk": "workspace:*"
+    "@miaopan/sdk": "workspace:*"
   },
   "repository": {
     "type": "git",

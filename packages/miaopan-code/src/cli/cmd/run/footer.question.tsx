@@ -16,7 +16,7 @@
 import type { TextareaRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { For, Show, createEffect, createMemo, createSignal } from "solid-js"
-import type { QuestionRequest } from "@miaopan-code/sdk/v2"
+import type { QuestionRequest } from "@miaopan/sdk/v2"
 import { UI } from "../../ui"
 import {
   createQuestionBodyState,

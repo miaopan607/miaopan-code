@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test"
 import { Effect, Exit, Fiber } from "effect"
-import { define } from "@miaopan-code/plugin/v2/effect"
+import { define } from "@miaopan/plugin/v2/effect"
 import { AgentV2 } from "@miaopan-code/core/agent"
 import { PluginV2 } from "@miaopan-code/core/plugin"
 import { testEffect } from "./lib/effect"

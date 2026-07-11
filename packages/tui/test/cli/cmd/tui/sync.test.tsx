@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "../../../fixture/fixture"
 import { mount, wait } from "./sync-fixture"
-import type { GlobalEvent } from "@miaopan-code/sdk/v2"
+import type { GlobalEvent } from "@miaopan/sdk/v2"
 
 function branchEvent(branch: string, workspace?: string): GlobalEvent {
   return {

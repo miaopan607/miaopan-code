@@ -1,6 +1,6 @@
 import { createServer } from "node:http"
-import type { IntegrationOAuthMethodRegistration } from "@miaopan-code/plugin/v2/effect/integration"
-import { define } from "@miaopan-code/plugin/v2/effect/plugin"
+import type { IntegrationOAuthMethodRegistration } from "@miaopan/plugin/v2/effect/integration"
+import { define } from "@miaopan/plugin/v2/effect/plugin"
 import { Deferred, Effect } from "effect"
 import type { Scope } from "effect"
 import { Credential } from "../../credential"

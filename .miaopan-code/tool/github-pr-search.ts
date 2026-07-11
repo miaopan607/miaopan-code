@@ -1,5 +1,5 @@
 /// <reference path="../env.d.ts" />
-import { tool } from "@miaopan-code/plugin"
+import { tool } from "@miaopan/plugin"
 async function githubFetch(endpoint: string, options: RequestInit = {}) {
   const response = await fetch(`https://api.github.com${endpoint}`, {
     ...options,

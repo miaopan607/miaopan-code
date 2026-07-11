@@ -1,4 +1,4 @@
-import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan-code/sdk/v2"
+import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan/sdk/v2"
 import { Locale } from "./locale"
 import * as Model from "./model"
 import { t } from "@miaopan-code/core/i18n"

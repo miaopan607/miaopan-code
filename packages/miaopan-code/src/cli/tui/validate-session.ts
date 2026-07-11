@@ -1,4 +1,4 @@
-import { createMiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import { createMiaopanCodeClient } from "@miaopan/sdk/v2"
 import { SessionID } from "@/session/schema"
 import { Schema } from "effect"
 import { UI } from "@/cli/ui"

@@ -50,8 +50,8 @@
   },
   "dependencies": {
     "@miaopan-code/core": "workspace:*",
-    "@miaopan-code/plugin": "workspace:*",
-    "@miaopan-code/sdk": "workspace:*",
+    "@miaopan/plugin": "workspace:*",
+    "@miaopan/sdk": "workspace:*",
     "@opentui/core": "catalog:",
     "@opentui/keymap": "catalog:",
     "@opentui/solid": "catalog:",

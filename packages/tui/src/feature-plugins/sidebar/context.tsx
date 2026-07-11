@@ -1,5 +1,5 @@
-import type { AssistantMessage } from "@miaopan-code/sdk/v2"
-import type { TuiPlugin, TuiPluginApi } from "@miaopan-code/plugin/tui"
+import type { AssistantMessage } from "@miaopan/sdk/v2"
+import type { TuiPlugin, TuiPluginApi } from "@miaopan/plugin/tui"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createMemo } from "solid-js"
 import { t } from "@miaopan-code/core/i18n"

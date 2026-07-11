@@ -1,5 +1,5 @@
-import type { Hooks, PluginInput } from "@miaopan-code/plugin"
-import type { Model } from "@miaopan-code/sdk/v2"
+import type { Hooks, PluginInput } from "@miaopan/plugin"
+import type { Model } from "@miaopan/sdk/v2"
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"
 import { createServer } from "http"

@@ -32,7 +32,7 @@ import {
 import { InstallationVersion } from "@miaopan-code/core/installation/version"
 import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
-import type { AssistantMessage, Message, MiaopanCodeClient, SessionMessageResponse } from "@miaopan-code/sdk/v2"
+import type { AssistantMessage, Message, MiaopanCodeClient, SessionMessageResponse } from "@miaopan/sdk/v2"
 import { Context, Effect, Layer, ManagedRuntime } from "effect"
 import * as ACPError from "./error"
 import { buildConfigOptions, parseModelSelection } from "./config-option"

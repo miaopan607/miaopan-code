@@ -10,7 +10,7 @@ import type {
   SessionConfigSelectOption,
   SetSessionConfigOptionResponse,
 } from "@agentclientprotocol/sdk"
-import type { AssistantMessage, MiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import type { AssistantMessage, MiaopanCodeClient } from "@miaopan/sdk/v2"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import type { Language } from "@miaopan-code/core/i18n"

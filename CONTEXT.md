@@ -133,7 +133,7 @@ _避免使用：Response envelope（响应信封）_
 - Promise SDK 返回带类型的值、保留声明的失败，并将传输选项与领域输入分开。
 - Promise streaming 方法返回惰性的 `AsyncIterable`，传输断开时显式失败；重新订阅策略由调用方负责。
 - SDK 构造同步且不访问网络。它需要 `baseUrl`，默认使用 `globalThis.fetch`，并接受客户端级 headers。
-- 生成的 Promise 客户端从 `@miaopan-code/sdk` 发布，并由 CLI 和 TUI 内部使用。
+- 生成的 Promise 客户端从 `@miaopan/sdk` 发布，并由 CLI 和 TUI 内部使用。
 - SDK 通过公开 HTTP 边界保留 Server 的 routing、codec、handler 和 error；它不承载进程内服务器。
 - 面向 CLI 和 TUI 的能力必须属于权威公开 `HttpApi` 及其生成的 SDK。
 - `sessions.events({ sessionID, after })` 是公开的持久化 Session event stream。它先验证 Session，重放可选 aggregate sequence 之后的持久化事件，继续发送新提交的持久化事件，并排除仅实时片段。

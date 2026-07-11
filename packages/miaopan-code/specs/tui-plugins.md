@@ -7,7 +7,7 @@ Technical reference for the current TUI plugin system.
 ## Overview
 
 - TUI plugin config lives in `tui.json`.
-- Author package entrypoint is `@miaopan-code/plugin/tui`.
+- Author package entrypoint is `@miaopan/plugin/tui`.
 - Internal plugins load inside the CLI app the same way external TUI plugins do.
 - Package plugins can be installed from CLI or TUI.
 - v1 plugin modules are target-exclusive: a module can export `server` or `tui`, never both.
@@ -70,14 +70,14 @@ Example:
 
 Package entrypoint:
 
-- Import types from `@miaopan-code/plugin/tui`.
-- `@miaopan-code/plugin` exports `./tui` and declares optional peer deps on `@opentui/core` and `@opentui/solid`.
+- Import types from `@miaopan/plugin/tui`.
+- `@miaopan/plugin` exports `./tui` and declares optional peer deps on `@opentui/core` and `@opentui/solid`.
 
 Minimal module shape:
 
 ```tsx
 /** @jsxImportSource @opentui/solid */
-import type { TuiPlugin, TuiPluginModule } from "@miaopan-code/plugin/tui"
+import type { TuiPlugin, TuiPluginModule } from "@miaopan/plugin/tui"
 
 const tui: TuiPlugin = async (api, options, meta) => {
   api.keymap.registerLayer({
@@ -215,14 +215,14 @@ npm plugins can declare a version compatibility range in `package.json` using th
 - There is no uninstall, list, or update CLI command for external plugins.
 - Local file plugins are configured directly in `tui.json`.
 
-When `plugin` entries exist in a writable `.miaopan-code` dir or `MIAOPAN_CODE_CONFIG_DIR`, miaopan-code installs `@miaopan-code/plugin` into that dir and writes:
+When `plugin` entries exist in a writable `.miaopan-code` dir or `MIAOPAN_CODE_CONFIG_DIR`, miaopan-code installs `@miaopan/plugin` into that dir and writes:
 
 - `package.json`
 - `bun.lock`
 - `node_modules/`
 - `.gitignore`
 
-That is what makes local config-scoped plugins able to import `@miaopan-code/plugin/tui`.
+That is what makes local config-scoped plugins able to import `@miaopan/plugin/tui`.
 
 ## TUI plugin API
 
@@ -325,7 +325,7 @@ Mode pushes are automatically tracked by the plugin runtime. If a plugin is disa
 - `api.keys` exposes host-formatted shortcut display helpers for plugin UI.
 - `formatSequence(parts)` formats parsed key sequence parts using the host's display policy.
 - `formatBindings(bindings)` formats binding lists and returns `undefined` when there is nothing to show.
-- For generic config-to-bindings helpers, import `createBindingLookup` from `@miaopan-code/plugin/tui`.
+- For generic config-to-bindings helpers, import `createBindingLookup` from `@miaopan/plugin/tui`.
 
 ### Attention
 

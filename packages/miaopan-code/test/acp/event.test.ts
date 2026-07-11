@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import type { AgentSideConnection } from "@agentclientprotocol/sdk"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
-import type { Event, Message, MiaopanCodeClient, Part, SessionMessageResponse, ToolPart } from "@miaopan-code/sdk/v2"
+import type { Event, Message, MiaopanCodeClient, Part, SessionMessageResponse, ToolPart } from "@miaopan/sdk/v2"
 import { Effect, ManagedRuntime } from "effect"
 import { ACPEvent } from "@/acp/event"
 import * as ACPService from "@/acp/service"

@@ -2,7 +2,7 @@
 
 import path from "path"
 import { pathToFileURL } from "bun"
-import { createMiaopanCode } from "@miaopan-code/sdk"
+import { createMiaopanCode } from "@miaopan/sdk"
 import { parseArgs } from "util"
 
 async function main() {

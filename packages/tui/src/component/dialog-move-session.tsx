@@ -16,7 +16,7 @@ import { useCommandShortcut } from "../keymap"
 import { useProject } from "../context/project"
 import { Spinner } from "./spinner"
 import { DialogWorkspaceFileChanges } from "./dialog-workspace-file-changes"
-import type { ProjectDirectories } from "@miaopan-code/sdk/v2"
+import type { ProjectDirectories } from "@miaopan/sdk/v2"
 import { useRoute } from "../context/route"
 import { t } from "@miaopan-code/core/i18n"
 

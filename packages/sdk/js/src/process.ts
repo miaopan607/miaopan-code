@@ -1,7 +1,7 @@
 import { type ChildProcess, spawnSync } from "node:child_process"
 
 // Duplicated from `packages/miaopan-code/src/util/process.ts` because the SDK cannot
-// import `miaopan-code` without creating a cycle (`miaopan-code` depends on `@miaopan-code/sdk`).
+// import `miaopan-code` without creating a cycle (`miaopan-code` depends on `@miaopan/sdk`).
 export function stop(proc: ChildProcess) {
   if (proc.exitCode !== null || proc.signalCode !== null) return
   if (process.platform === "win32" && proc.pid) {

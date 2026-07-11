@@ -1,5 +1,5 @@
 import type { McpServer } from "@agentclientprotocol/sdk"
-import type { Message, Part } from "@miaopan-code/sdk/v2"
+import type { Message, Part } from "@miaopan/sdk/v2"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"

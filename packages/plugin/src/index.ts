@@ -9,8 +9,8 @@ import type {
   Message,
   Part,
   Config as SDKConfig,
-} from "@miaopan-code/sdk"
-import type { Provider as ProviderV2, Model as ModelV2, Auth } from "@miaopan-code/sdk/v2"
+} from "@miaopan/sdk"
+import type { Provider as ProviderV2, Model as ModelV2, Auth } from "@miaopan/sdk/v2"
 
 import type { BunShell } from "./shell.js"
 import { type ToolDefinition } from "./tool.js"

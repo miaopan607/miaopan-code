@@ -1,4 +1,4 @@
-import type { Event as SDKEvent } from "@miaopan-code/sdk/v2/types"
+import type { Event as SDKEvent } from "@miaopan/sdk/v2/types"
 import type { Stream } from "effect"
 
 export type EventMap = {

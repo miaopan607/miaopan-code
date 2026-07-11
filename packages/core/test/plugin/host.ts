@@ -1,11 +1,11 @@
-import type { PluginContext } from "@miaopan-code/plugin/v2/effect"
+import type { PluginContext } from "@miaopan/plugin/v2/effect"
 import { AgentV2 } from "@miaopan-code/core/agent"
 import { Catalog } from "@miaopan-code/core/catalog"
 import { Credential } from "@miaopan-code/core/credential"
 import { Integration } from "@miaopan-code/core/integration"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { ProviderV2 } from "@miaopan-code/core/provider"
-import type { IntegrationEnvMethod, IntegrationKeyMethod, IntegrationOAuthMethod } from "@miaopan-code/sdk/v2/types"
+import type { IntegrationEnvMethod, IntegrationKeyMethod, IntegrationOAuthMethod } from "@miaopan/sdk/v2/types"
 import { Effect } from "effect"
 
 type Overrides = Partial<Omit<PluginContext, "options">>

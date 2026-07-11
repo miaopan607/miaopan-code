@@ -6,7 +6,7 @@
 // the run footer + scrollback color model. Falls back to a hardcoded dark-mode
 // palette if detection fails.
 import { RGBA, SyntaxStyle, type CliRenderer, type ColorInput, type TerminalColors } from "@opentui/core"
-import type { TuiThemeCurrent } from "@miaopan-code/plugin/tui"
+import type { TuiThemeCurrent } from "@miaopan/plugin/tui"
 import type { EntryKind } from "./types"
 import { t, type Language } from "@miaopan-code/core/i18n"
 

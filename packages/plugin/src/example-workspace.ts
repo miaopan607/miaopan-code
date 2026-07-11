@@ -1,4 +1,4 @@
-import type { Plugin } from "@miaopan-code/plugin"
+import type { Plugin } from "@miaopan/plugin"
 import { mkdir, rm } from "node:fs/promises"
 import { resolveLanguage, t } from "./i18n.js"
 

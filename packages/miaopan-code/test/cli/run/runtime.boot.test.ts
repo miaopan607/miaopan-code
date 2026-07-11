@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
-import { MiaopanCodeClient, type Provider } from "@miaopan-code/sdk/v2"
+import { MiaopanCodeClient, type Provider } from "@miaopan/sdk/v2"
 import type { Resolved } from "@miaopan-code/tui/config"
 import { TuiConfig } from "@/config/tui"
 import { resolveDiffStyle, resolveModelInfo, resolveRunTuiConfig } from "@/cli/cmd/run/runtime.boot"

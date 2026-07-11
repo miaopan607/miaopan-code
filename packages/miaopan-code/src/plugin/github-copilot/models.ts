@@ -1,4 +1,4 @@
-import type { Model } from "@miaopan-code/sdk/v2"
+import type { Model } from "@miaopan/sdk/v2"
 import { Option, Schema } from "effect"
 import { t, type Language } from "@miaopan-code/core/i18n"
 

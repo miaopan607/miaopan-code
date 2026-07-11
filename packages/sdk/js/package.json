@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "@miaopan-code/sdk",
+  "name": "@miaopan/sdk",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",

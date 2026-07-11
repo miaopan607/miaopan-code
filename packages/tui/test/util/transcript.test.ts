@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { formatAssistantHeader, formatMessage, formatPart, formatTranscript } from "../../src/util/transcript"
-import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan-code/sdk/v2"
+import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan/sdk/v2"
 import { Locale } from "../../src/util/locale"
 
 const providers: Provider[] = [

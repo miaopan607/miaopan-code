@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { t } from "@miaopan-code/core/i18n"
-import type { Event } from "@miaopan-code/sdk/v2"
+import type { Event } from "@miaopan/sdk/v2"
 import { entryBody } from "@/cli/cmd/run/entry.body"
 import {
   bootstrapSubagentCalls,

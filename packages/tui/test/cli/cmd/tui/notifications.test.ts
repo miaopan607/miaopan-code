@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import Notifications from "../../../../src/feature-plugins/system/notifications"
-import type { Event, PermissionRequest, QuestionRequest, Session } from "@miaopan-code/sdk/v2"
-import type { TuiAttentionNotifyInput } from "@miaopan-code/plugin/tui"
+import type { Event, PermissionRequest, QuestionRequest, Session } from "@miaopan/sdk/v2"
+import type { TuiAttentionNotifyInput } from "@miaopan/plugin/tui"
 import { createTuiPluginApi } from "../../../fixture/tui-plugin"
 
 async function setup() {

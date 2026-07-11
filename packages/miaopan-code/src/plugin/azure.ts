@@ -1,4 +1,4 @@
-import type { Hooks, PluginInput } from "@miaopan-code/plugin"
+import type { Hooks, PluginInput } from "@miaopan/plugin"
 import { t } from "@miaopan-code/core/i18n"
 import { pluginLanguage } from "./language"
 

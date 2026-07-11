@@ -27,7 +27,7 @@ if (await published(pkg.name, version)) {
   console.log(t(language, "publish_already_published", { name: pkg.name, version }))
 } else {
   pkg.version = version
-  pkg.dependencies["@miaopan-code/sdk"] = version
+  pkg.dependencies["@miaopan/sdk"] = version
   for (const [key, value] of Object.entries(pkg.exports)) {
     if (typeof value !== "string") continue
     const file = value.replace("./src/", "./dist/").replace(".ts", "")

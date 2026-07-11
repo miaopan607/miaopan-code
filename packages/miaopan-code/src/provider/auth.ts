@@ -1,5 +1,5 @@
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
-import type { AuthOAuthResult, Hooks } from "@miaopan-code/plugin"
+import type { AuthOAuthResult, Hooks } from "@miaopan/plugin"
 import { serviceUse } from "@miaopan-code/core/effect/service-use"
 import { Auth } from "@/auth"
 import { InstanceState } from "@/effect/instance-state"

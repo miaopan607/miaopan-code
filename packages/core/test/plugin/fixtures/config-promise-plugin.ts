@@ -1,4 +1,4 @@
-import { define } from "@miaopan-code/plugin/v2/promise"
+import { define } from "@miaopan/plugin/v2/promise"
 
 export default define({
   id: "config-promise-plugin",

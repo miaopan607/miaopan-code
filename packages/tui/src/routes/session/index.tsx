@@ -36,7 +36,7 @@ import type {
   TextPart,
   ReasoningPart,
   SessionStatus,
-} from "@miaopan-code/sdk/v2"
+} from "@miaopan/sdk/v2"
 import { useLocal } from "../../context/local"
 import { Locale } from "../../util/locale"
 import { t } from "@miaopan-code/core/i18n"

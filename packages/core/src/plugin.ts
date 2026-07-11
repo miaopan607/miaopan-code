@@ -2,7 +2,7 @@ export * as PluginV2 from "./plugin"
 
 import { makeLocationNode } from "./effect/app-node"
 import { Context, Deferred, Effect, Exit, Layer, Scope } from "effect"
-import type { Plugin as PluginRuntime } from "@miaopan-code/plugin/v2/effect"
+import type { Plugin as PluginRuntime } from "@miaopan/plugin/v2/effect"
 import { Plugin } from "@miaopan-code/schema/plugin"
 import { AgentV2 } from "./agent"
 import { AISDK } from "./aisdk"

@@ -8,7 +8,7 @@ import type {
   IntegrationMethod,
   IntegrationOAuthMethod,
   IntegrationRef,
-} from "@miaopan-code/sdk/v2/types"
+} from "@miaopan/sdk/v2/types"
 import type { Effect, Scope } from "effect"
 import type { Hooks } from "./registration.js"
 

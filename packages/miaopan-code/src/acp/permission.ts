@@ -6,7 +6,7 @@ import type {
   ToolCallLocation,
   ToolCallUpdate,
 } from "@agentclientprotocol/sdk"
-import type { Event, MiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import type { Event, MiaopanCodeClient } from "@miaopan/sdk/v2"
 import { applyPatch } from "diff"
 import { exists, readText } from "@/util/filesystem"
 import type { ACPSession } from "./session"

@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 import { expect, test } from "bun:test"
-import type { GlobalEvent } from "@miaopan-code/sdk/v2"
+import type { GlobalEvent } from "@miaopan/sdk/v2"
 import { tmpdir } from "../../../fixture/fixture"
 import { json, mount, wait } from "./sync-fixture"
 

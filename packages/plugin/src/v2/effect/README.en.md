@@ -12,7 +12,7 @@ The public server client will be exposed separately. It is intentionally not par
 ## Defining A Plugin
 
 ```ts
-import { define } from "@miaopan-code/plugin/v2/effect"
+import { define } from "@miaopan/plugin/v2/effect"
 import { Effect } from "effect"
 
 export const Plugin = define({

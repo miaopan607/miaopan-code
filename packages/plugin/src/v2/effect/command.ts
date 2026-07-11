@@ -1,4 +1,4 @@
-import type { CommandV2Info } from "@miaopan-code/sdk/v2/types"
+import type { CommandV2Info } from "@miaopan/sdk/v2/types"
 import type { Hooks } from "./registration.js"
 
 export interface CommandDraft {

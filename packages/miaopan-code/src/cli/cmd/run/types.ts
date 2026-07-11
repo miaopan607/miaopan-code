@@ -11,7 +11,7 @@
 //     → stream.ts bridges to footer API
 //       → footer.ts queues commits and patches the footer view
 //         → OpenTUI split-footer renderer writes to terminal
-import type { MiaopanCodeClient, PermissionRequest, QuestionRequest, ToolPart } from "@miaopan-code/sdk/v2"
+import type { MiaopanCodeClient, PermissionRequest, QuestionRequest, ToolPart } from "@miaopan/sdk/v2"
 import type { TuiConfig } from "@miaopan-code/tui/config"
 
 export type RunFilePart = {

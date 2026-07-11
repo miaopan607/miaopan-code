@@ -17,7 +17,7 @@ import {
   type SetSessionModeRequest,
 } from "@agentclientprotocol/sdk"
 import { Effect } from "effect"
-import type { MiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import type { MiaopanCodeClient } from "@miaopan/sdk/v2"
 import type { Language } from "@miaopan-code/core/i18n"
 import * as ACPError from "./error"
 import * as ACPService from "./service"

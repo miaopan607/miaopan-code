@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
-import { MiaopanCodeClient } from "@miaopan-code/sdk/v2"
+import { MiaopanCodeClient } from "@miaopan/sdk/v2"
 import { runInteractiveMode } from "@/cli/cmd/run/runtime"
 import type { FooterApi, RunProvider } from "@/cli/cmd/run/types"
 

@@ -78,7 +78,7 @@ bun dev .
   - `packages/miaopan-code`：miaopan-code 核心业务逻辑和服务器。
   - `packages/miaopan-code/src/cli/cmd/tui/`：TUI 代码，使用 SolidJS 和 [opentui](https://github.com/sst/opentui) 编写。
   - `packages/tui`：终端 UI，使用 SolidJS 和 [opentui](https://github.com/sst/opentui) 编写。
-  - `packages/plugin`：`@miaopan-code/plugin` 的源代码。
+  - `packages/plugin`：`@miaopan/plugin` 的源代码。
 
 ### 理解 bun dev 与 miaopan-code
 

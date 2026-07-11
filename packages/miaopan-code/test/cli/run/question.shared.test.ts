@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { QuestionRequest } from "@miaopan-code/sdk/v2"
+import type { QuestionRequest } from "@miaopan/sdk/v2"
 import {
   createQuestionBodyState,
   questionConfirm,

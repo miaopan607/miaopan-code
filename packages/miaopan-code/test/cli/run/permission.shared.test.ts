@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { t } from "@miaopan-code/core/i18n"
-import type { PermissionRequest } from "@miaopan-code/sdk/v2"
+import type { PermissionRequest } from "@miaopan/sdk/v2"
 import {
   createPermissionBodyState,
   permissionAlwaysLines,

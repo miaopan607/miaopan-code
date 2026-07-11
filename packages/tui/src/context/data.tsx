@@ -17,7 +17,7 @@ import type {
   SessionV2Info,
   SkillV2Info,
   V2Event,
-} from "@miaopan-code/sdk/v2"
+} from "@miaopan/sdk/v2"
 import { createStore, produce } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"
