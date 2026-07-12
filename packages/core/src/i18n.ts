@@ -2547,6 +2547,7 @@ export const messages = {
   "question.next_answer": { "zh-CN": "下一个答案", en: "Next answer" },
   "question.select_answer": { "zh-CN": "选择答案", en: "Select answer" },
   "question.custom_answer": { "zh-CN": "输入自定义答案", en: "Type your own answer" },
+  "question.answer_label": { "zh-CN": "答案", en: "Answer" },
   "question.notes_placeholder": { "zh-CN": "添加备注", en: "Add notes" },
   "question.add_notes": { "zh-CN": "添加备注", en: "add notes" },
   "question.save_notes": { "zh-CN": "保存备注", en: "save notes" },
@@ -3277,6 +3278,10 @@ export const messages = {
   "tool.skill_title": { "zh-CN": "技能 {{name}}", en: 'Skill "{{name}}"' },
   "tool.asking_questions": { "zh-CN": "正在提问……", en: "Asking questions..." },
   "tool.asked_questions": { "zh-CN": "提问", en: "Asked {{count}} question(s)" },
+  "tool.questions_answered": {
+    "zh-CN": "问题 {{answered}}/{{total}} 已回答",
+    en: "Questions {{answered}}/{{total}} answered",
+  },
   "model.connect_provider": { "zh-CN": "连接提供商", en: "Connect a provider" },
   "model.no_provider": { "zh-CN": "未选择提供商", en: "No provider selected" },
   "model.add_favorite_shortcut": {
