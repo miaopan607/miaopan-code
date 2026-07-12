@@ -1232,6 +1232,109 @@ describe("session.llm.stream", () => {
   )
 
   it.instance(
+    "bypasses native runtime for Codex-emulated OpenAI requests",
+    () =>
+      Effect.gen(function* () {
+        const model = loadFixture("openai", "gpt-5.2").model
+        const itemID = "item-codex-native-bypass"
+        const request = waitRequest(
+          "/responses",
+          createEventResponse(
+            [
+              {
+                type: "response.created",
+                response: {
+                  id: "resp-codex-native-bypass",
+                  created_at: Math.floor(Date.now() / 1000),
+                  model: model.id,
+                  service_tier: null,
+                },
+              },
+              {
+                type: "response.output_item.added",
+                output_index: 0,
+                item: { type: "message", id: itemID, status: "in_progress", role: "assistant", content: [] },
+              },
+              {
+                type: "response.content_part.added",
+                item_id: itemID,
+                output_index: 0,
+                content_index: 0,
+                part: { type: "output_text", text: "", annotations: [] },
+              },
+              { type: "response.output_text.delta", item_id: itemID, delta: "Codex" },
+              {
+                type: "response.completed",
+                response: {
+                  incomplete_details: null,
+                  usage: {
+                    input_tokens: 1,
+                    input_tokens_details: null,
+                    output_tokens: 1,
+                    output_tokens_details: null,
+                  },
+                  service_tier: null,
+                },
+              },
+            ],
+            true,
+          ),
+        )
+        const failingNativeClient = Layer.succeed(
+          LLMClient.Service,
+          LLMClient.Service.of({
+            prepare: () => Effect.die(new Error("native LLM client should not be used for Codex emulation")),
+            stream: () => Stream.die(new Error("native LLM client should not be used for Codex emulation")),
+            generate: () => Effect.die(new Error("native LLM client should not be used for Codex emulation")),
+          }),
+        )
+
+        const resolved = yield* Provider.use.getModel(ProviderV2.ID.openai, ModelV2.ID.make(model.id))
+        const sessionID = SessionID.make("session-test-codex-native-bypass")
+        const agent = {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [{ permission: "*", pattern: "*", action: "allow" }],
+        } satisfies Agent.Info
+
+        yield* drainWith(
+          AppNodeBuilder.build(LLM.node, [
+            [LayerNodePlatform.llmClient, failingNativeClient],
+            [RuntimeFlags.node, RuntimeFlags.layer({ experimentalNativeLlm: true })],
+          ]),
+          {
+            user: {
+              id: MessageID.make("msg_user-codex-native-bypass"),
+              sessionID,
+              role: "user",
+              time: { created: Date.now() },
+              agent: agent.name,
+              model: { providerID: ProviderV2.ID.make("openai"), modelID: resolved.id },
+              oai: true,
+            } satisfies SessionV1.User,
+            sessionID,
+            model: resolved,
+            agent,
+            system: ["You are a helpful assistant."],
+            messages: [{ role: "user", content: "Hello" }],
+            tools: {},
+          },
+        )
+
+        const capture = yield* Effect.promise(() => request)
+        expect(capture.headers.get("originator")).toBe("codex_cli_rs")
+        expect(capture.headers.get("thread-id")).toBe(sessionID)
+        expect(capture.headers.get("x-client-request-id")).toBe(sessionID)
+        expect(capture.body.store).toBe(false)
+        expect(capture.body.instructions).toContain("You are a helpful assistant.")
+      }),
+    {
+      config: () => openAIConfig(loadFixture("openai", "gpt-5.2").model, `${state.server!.url.origin}/v1`),
+    },
+  )
+
+  it.instance(
     "streams OpenAI through native runtime when opted in",
     () =>
       Effect.gen(function* () {

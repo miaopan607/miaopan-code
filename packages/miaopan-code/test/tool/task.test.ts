@@ -86,7 +86,7 @@ function defer<T>() {
   return { promise, resolve }
 }
 
-const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned", agent = "build") {
+const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned", agent = "build", oai?: boolean) {
   const session = yield* Session.Service
   const chat = yield* session.create({ title, agent })
   const user = yield* session.updateMessage({
@@ -96,6 +96,7 @@ const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned", agent =
     agent,
     model: ref,
     time: { created: Date.now() },
+    ...(oai === undefined ? {} : { oai }),
   })
   const assistant: SessionV1.Assistant = {
     id: MessageID.ascending(),
@@ -354,11 +355,41 @@ describe("tool.task", () => {
     }),
   )
 
-  it.instance("formats the built-in Codex review result before returning it", () =>
+  it.instance("propagates OAI request mode to subagent prompts", () =>
     Effect.gen(function* () {
-      const { chat, assistant } = yield* seed()
+      const { chat, assistant } = yield* seed("OAI mode", "build", true)
       const tool = yield* TaskTool
       const def = yield* tool.init()
+      let seen: SessionPrompt.PromptInput | undefined
+
+      yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps({ onPrompt: (input) => (seen = input) }) },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect(seen?.oai).toBe(true)
+    }),
+  )
+
+  it.instance("formats the built-in Codex review result before returning it", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed("OAI review", "build", true)
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      let seen: SessionPrompt.PromptInput | undefined
       const result = yield* def.execute(
         {
           description: "review changes",
@@ -372,7 +403,10 @@ describe("tool.task", () => {
           agent: "build",
           abort: new AbortController().signal,
           extra: {
-            promptOps: stubOps({ text: JSON.stringify(reviewOutput) }),
+            promptOps: stubOps({
+              text: JSON.stringify(reviewOutput),
+              onPrompt: (input) => (seen = input),
+            }),
           },
           messages: [],
           metadata: () => Effect.void,
@@ -385,6 +419,7 @@ describe("tool.task", () => {
       expect(result.output).not.toContain('"findings"')
       expect(result.metadata.reviewOutput).toContain("The retry path can loop forever.")
       expect(result.metadata.reviewOutput).not.toContain("<task_result>")
+      expect(seen?.oai).toBe(true)
     }),
   )
 
@@ -760,7 +795,7 @@ describe("tool.task", () => {
   background.instance("background task completion waits for running updates", () =>
     Effect.gen(function* () {
       const jobs = yield* BackgroundJob.Service
-      const { chat, assistant } = yield* seed()
+      const { chat, assistant } = yield* seed("OAI background", "build", true)
       const tool = yield* TaskTool
       const def = yield* tool.init()
       const first = defer<void>()
@@ -816,9 +851,9 @@ describe("tool.task", () => {
       expect(result.output).toContain(t("zh-CN", "tool.summary.background_updated"))
       first.resolve()
       expect((yield* jobs.get(started.metadata.sessionId))?.status).toBe("running")
-      expect((yield* Effect.promise(() => updated.promise)).parts).toEqual([
-        { type: "text", text: "also inspect cancellation" },
-      ])
+      const updatedPrompt = yield* Effect.promise(() => updated.promise)
+      expect(updatedPrompt.oai).toBe(true)
+      expect(updatedPrompt.parts).toEqual([{ type: "text", text: "also inspect cancellation" }])
 
       second.resolve()
       const waited = yield* jobs.wait({ id: started.metadata.sessionId, timeout: 1_000 })
@@ -826,6 +861,7 @@ describe("tool.task", () => {
       expect(waited.info?.output).toBe("second done")
       const notification = yield* Effect.promise(() => injected.promise)
       expect(notification.variant).toBe("xhigh")
+      expect(notification.oai).toBe(true)
       expect(notification.parts[0]?.type).toBe("text")
       if (notification.parts[0]?.type === "text") expect(notification.parts[0].text).toContain("second done")
     }),

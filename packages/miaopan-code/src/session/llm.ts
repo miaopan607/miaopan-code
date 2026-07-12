@@ -223,9 +223,16 @@ const live: Layer.Layer<
           })
         : undefined
 
+      const useCodexRequest =
+        input.user.oai === true &&
+        input.model.api.npm === "@ai-sdk/openai" &&
+        !(input.model.providerID === "openai" && info?.type === "oauth")
+
       // Runtime seam: native is an opt-in adapter over @miaopan-code/llm. It
       // either returns a ready LLMEvent stream or a concrete fallback reason.
-      if (flags.experimentalNativeLlm) {
+      // Codex emulation currently relies on the AI SDK Responses serializer;
+      // keep native from silently producing a different request shape.
+      if (flags.experimentalNativeLlm && !useCodexRequest) {
         const native = LLMNativeRuntime.stream({
           model: input.model,
           provider: item,
@@ -276,16 +283,13 @@ const live: Layer.Layer<
         "llm.provider": input.model.providerID,
         "llm.model": input.model.id,
       })
-      const codex =
-        input.user.oai === true &&
-        input.model.api.npm === "@ai-sdk/openai" &&
-        !(input.model.providerID === "openai" && info?.type === "oauth")
-          ? LLMRequestPrep.codex({
-              prepared,
-              messages: input.messages,
-              sessionID: input.sessionID,
-            })
-          : undefined
+      const codex = useCodexRequest
+        ? LLMRequestPrep.codex({
+            prepared,
+            messages: input.messages,
+            sessionID: input.sessionID,
+          })
+        : undefined
       const options = codex?.options ?? prepared.params.options
       // Default runtime path: AI SDK owns provider execution and tool dispatch;
       // LLMAISDK.toLLMEvents below normalizes fullStream parts for the processor.

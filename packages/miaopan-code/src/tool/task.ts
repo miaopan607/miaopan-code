@@ -82,6 +82,13 @@ export const TaskTool = Tool.define(
     const flags = yield* RuntimeFlags.Service
     const database = yield* Database.Service
     const language = yield* ToolI18n.language()
+    const latestUserOai = Effect.fnUntraced(function* (sessionID: SessionID) {
+      const messages = yield* sessions.messages({ sessionID }).pipe(Effect.orDie)
+      const user = messages.findLast(
+        (message): message is SessionV1.WithParts & { info: SessionV1.User } => message.info.role === "user",
+      )
+      return user?.info.oai
+    })
 
     const run = Effect.fn("TaskTool.execute")(function* (
       params: Schema.Schema.Type<typeof Parameters>,
@@ -191,6 +198,11 @@ export const TaskTool = Tool.define(
 
       const ops = ctx.extra?.promptOps as TaskPromptOps
       if (!ops) return yield* Effect.fail(new Error(ToolI18n.text(ctx, "tool.error.prompt_ops")))
+      const parentMessage = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: msg.info.parentID }).pipe(
+        Effect.provideService(Database.Service, database),
+        Effect.orDie,
+      )
+      const oai = parentMessage.info.role === "user" ? parentMessage.info.oai : undefined
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
         const parts = yield* ops.resolvePromptParts(params.prompt)
@@ -203,6 +215,7 @@ export const TaskTool = Tool.define(
           },
           variant: next.model ? undefined : variant,
           agent: next.name,
+          oai,
           parts,
         })
         const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
@@ -215,11 +228,13 @@ export const TaskTool = Tool.define(
         text: string,
       ) {
         const currentParent = yield* sessions.get(ctx.sessionID)
+        const oai = yield* latestUserOai(ctx.sessionID)
         yield* ops
           .prompt({
             sessionID: ctx.sessionID,
             agent: currentParent.agent ?? ctx.agent,
             variant,
+            oai,
             parts: [
               {
                 type: "text",
