@@ -12,16 +12,6 @@ exports[`TUI inline tool wrapping snapshots consecutive grep, glob, and read row
      data|data =" in packages/miaopan-code/src (115 matches)"
 `;
 
-exports[`TUI inline tool wrapping renders completed request_user_input results in compact mode 1`] = `
-"   • 问题 2/3 已回答
-   • 哪些结果应该始终显示？
-   答案: 提问结果
-   • 需要附加备注吗？
-   答案: 需要
-   备注: 保留备注
-   • 这个问题没有回答时如何显示？ （无回答）"
-`;
-
 exports[`TUI inline tool wrapping snapshots expanded tool errors under the tool text 1`] = `
 "   ✱ Grep "MIAOPAN_CODE.*DB|database|sqlite|drizzle|dev.*db|data.
      *dir|xdg|APPDATA" in packages/miaopan-code/src (151 matches)

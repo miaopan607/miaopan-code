@@ -2224,9 +2224,6 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
         <Match when={display() === "question"}>
           <Question {...toolprops} />
         </Match>
-        <Match when={display() === "request_user_input"}>
-          <RequestUserInput {...toolprops} />
-        </Match>
         <Match when={display() === "skill"}>
           <Skill {...toolprops} />
         </Match>
@@ -2674,7 +2671,6 @@ export function shellCommandSucceeded(state: ToolPart["state"]) {
 }
 
 export function toolDetailsHidden(showDetails: boolean, tool: string, state: ToolPart["state"]) {
-  if (tool === "request_user_input" && state.status === "completed") return false
   return !showDetails && state.status === "completed" && !(tool === "bash" && shellCommandSucceeded(state) === false)
 }
 
@@ -3376,77 +3372,6 @@ function Question(props: ToolProps) {
   )
 }
 
-export function RequestUserInput(props: ToolProps) {
-  const { theme } = useTheme()
-  const questions = createMemo(() => parseRequestUserInputQuestions(props.input.questions))
-  const answers = createMemo(() => parseRequestUserInputAnswers(props.metadata.answers))
-  const count = createMemo(() => questions().length)
-  const answered = createMemo(
-    () => questions().filter((question) => (answers()?.[question.id]?.length ?? 0) > 0).length,
-  )
-
-  return (
-    <Switch>
-      <Match when={answers()}>
-        <InlineToolRow
-          icon="•"
-          iconColor={theme.textMuted}
-          color={theme.textMuted}
-          complete={props.part.state.status === "completed"}
-          pending={t(Locale.language(), "tool.asking_questions")}
-          dense={true}
-          details={
-            <box flexDirection="column">
-              <For each={questions()}>
-                {(q) => {
-                  const value = createMemo(() => splitQuestionAnswer(answers()?.[q.id] ?? []))
-                  const missing = createMemo(() => (answers()?.[q.id]?.length ?? 0) === 0)
-                  return (
-                    <box flexDirection="column">
-                      <text wrapMode="word" fg={theme.textMuted}>
-                        • {q.question}
-                        <Show when={missing()}>
-                          <span style={{ fg: theme.textMuted }}> {t(Locale.language(), "tui.no_answer")}</span>
-                        </Show>
-                      </text>
-                      <For each={value().answers}>
-                        {(answer) => (
-                          <text paddingLeft={2} wrapMode="word" fg={theme.textMuted}>
-                            {t(Locale.language(), "question.answer_label")}: {answer}
-                          </text>
-                        )}
-                      </For>
-                      <For each={value().notes}>
-                        {(note) => (
-                          <text paddingLeft={2} wrapMode="word" fg={theme.textMuted}>
-                            {t(Locale.language(), "question.note_label")}: {note}
-                          </text>
-                        )}
-                      </For>
-                    </box>
-                  )
-                }}
-              </For>
-            </box>
-          }
-        >
-          {t(Locale.language(), "tool.questions_answered", { answered: answered(), total: count() })}
-        </InlineToolRow>
-      </Match>
-      <Match when={true}>
-        <InlineTool
-          icon="→"
-          pending={t(Locale.language(), "tool.asking_questions")}
-          complete={props.part.state.status === "completed"}
-          part={props.part}
-        >
-          {t(Locale.language(), "tool.asked_questions", { count: count() })}
-        </InlineTool>
-      </Match>
-    </Switch>
-  )
-}
-
 function Skill(props: ToolProps) {
   return (
     <InlineTool
@@ -3521,7 +3446,6 @@ const toolDisplays = new Set([
   "apply_patch",
   "todowrite",
   "question",
-  "request_user_input",
   "skill",
   "execute",
 ])
@@ -3594,29 +3518,6 @@ export function parseQuestionAnswers(value: unknown) {
   if (!Array.isArray(value)) return
   return value.map((answer) =>
     Array.isArray(answer) ? answer.filter((item): item is string => typeof item === "string") : [],
-  )
-}
-
-export function parseRequestUserInputQuestions(value: unknown) {
-  if (!Array.isArray(value)) return []
-  return value.flatMap((item) => {
-    const question = recordValue(item)
-    const id = stringValue(question?.id)
-    const text = stringValue(question?.question)
-    if (!id || !text) return []
-    return [{ id, question: text }]
-  })
-}
-
-export function parseRequestUserInputAnswers(value: unknown) {
-  const answers = recordValue(value)
-  if (!answers) return
-  return Object.fromEntries(
-    Object.entries(answers).flatMap(([id, value]) => {
-      const answer = recordValue(value)
-      if (!Array.isArray(answer?.answers)) return []
-      return [[id, answer.answers.filter((item): item is string => typeof item === "string")]]
-    }),
   )
 }
 
