@@ -1,6 +1,6 @@
 # Download Stats
 
-Languages: [中文项目说明](README.zh.md) · English
+Languages: [中文项目说明](README.md) · English
 
 | Date       | GitHub Downloads     | npm Downloads        | Total                 |
 | ---------- | -------------------- | -------------------- | --------------------- |

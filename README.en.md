@@ -2,69 +2,134 @@
 
 Languages: [简体中文](README.md) · English
 
-`miaopan-code` is an open-source AI coding assistant that runs locally.
+`miaopan-code` is an open-source AI coding assistant that runs locally. It provides a terminal TUI, non-interactive commands, an API server, MCP integration, and plugin support.
 
 ## Installation
 
-Download the platform-specific CLI archive from [GitHub Releases](https://github.com/miaopan607/miaopan-code/releases), or build from source:
+### npm
+
+```bash
+npm install -g @miaopan/code@latest
+```
+
+The same package can also be installed globally with `bun`, `pnpm`, or `yarn`.
+
+### GitHub Releases
+
+Download the archive for your platform from [GitHub Releases](https://github.com/miaopan607/miaopan-code/releases/latest), extract it, and run the included `miaopan-code` executable.
+
+### Build from source
+
+Bun 1.3 or later is required:
 
 ```bash
 bun install
 bun --cwd packages/miaopan-code run build
 ```
 
-You can also install the latest CLI with the installer or a package manager:
+Build outputs are written to `packages/miaopan-code/dist/`.
+
+## Quick start
+
+Open the TUI in the current directory:
 
 ```bash
-curl -fsSL https://github.com/miaopan607/miaopan-code/install | bash
-npm i -g @miaopan/code@latest
+miaopan-code .
 ```
 
-Before installing, remove releases older than 0.1.x. The installer honors
-`MIAOPAN_CODE_INSTALL_DIR` and `XDG_BIN_DIR`; otherwise it falls back to
-`$HOME/bin` or `$HOME/.miaopan-code/bin`.
+Use `/connect` in the TUI to configure a provider, or use the CLI:
 
-## Usage and support
+```bash
+miaopan-code providers login
+miaopan-code models
+```
 
-Run `miaopan-code --help` to see CLI commands. Run `miaopan-code serve` to start the API server; without a subcommand, the CLI opens the TUI.
-Please report bugs and feature requests through [GitHub Issues](https://github.com/miaopan607/miaopan-code/issues).
+Start with a specific model:
 
-## Language
+```bash
+miaopan-code . --model provider/model
+```
 
-The default language is Simplified Chinese. Set the global `miaopan-code.jsonc` (or `miaopan-code.json`) language to English:
+## Common workflows
+
+### Non-interactive runs
+
+```bash
+miaopan-code run "Explain the structure of this project"
+miaopan-code run --format json "Review the current changes"
+miaopan-code run --continue "Continue the task"
+```
+
+`run` also supports `--session`, `--fork`, `--file`, `--variant`, `--thinking`, and `--interactive`. Run `miaopan-code run --help` for the complete option list.
+
+### API server and remote TUI
+
+```bash
+miaopan-code serve --port 4096
+miaopan-code attach http://localhost:4096
+```
+
+`attach` supports a remote working directory, existing-session recovery, and basic authentication.
+
+### Session management
+
+```bash
+miaopan-code session list
+miaopan-code export <sessionID> > session.json
+miaopan-code import session.json
+miaopan-code stats
+```
+
+Both the TUI and CLI can continue, fork, and recover sessions. Use `export --sanitize` to hide sensitive transcript and file data before sharing an export.
+
+### MCP, plugins, and agents
+
+```bash
+miaopan-code mcp add
+miaopan-code mcp list
+miaopan-code plugin <module>
+miaopan-code agent list
+miaopan-code agent create
+```
+
+The TUI includes three switchable primary agents. Use `Tab` to cycle forward and `Shift+Tab` to cycle backward:
+
+- `build`: The default agent. It reads and modifies the workspace and executes tools according to the configured permissions, making it suitable for implementation work.
+- `ask`: A question-and-answer agent that can read and analyze the workspace but cannot modify files. Use it for code explanations, investigation, and project questions.
+- `plan`: A planning agent that cannot edit the workspace. Use it to clarify requirements, explore approaches, and produce an implementation plan before making changes.
+
+Custom agents can also be added through configuration or `miaopan-code agent create`.
+
+## Configuration
+
+Project configuration uses `miaopan-code.jsonc` or `miaopan-code.json`. Place it in the project directory or under `.miaopan-code/`; the global configuration directory depends on the operating system.
+
+Minimal example:
 
 ```jsonc
 {
+  "$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json",
   "language": "en",
+  "model": "provider/model",
+  "autoupdate": "notify",
 }
 ```
 
-In the TUI, enter `/language` to open the language selector. Confirming the selection updates the interface immediately and saves it to the global configuration.
+For the complete field list, use `schemas/config.json` from a release or the repository's [configuration schema](schemas/config.json). TUI-specific settings use the [TUI schema](schemas/tui.json).
 
-## Agents
+## Language
 
-The built-in agents can be switched with `Tab`:
+Simplified Chinese is the default language, with English available as an additional language. Set `language` to `zh-CN` or `en`, or use `/language` in the TUI. The selection takes effect immediately and is saved to the global configuration.
 
-- **build** — the default mode with full permissions for development work.
-- **plan** — read-only mode for analysis and exploration. File changes are
-  denied by default and shell commands require confirmation.
+## Development and contributing
 
-The internal **general** sub-agent is available for complex searches and
-multi-step tasks; type `@general` in a message to invoke it.
+```bash
+bun install
+bun dev .
+```
 
-## Documentation and contributing
-
-See the [official documentation](https://github.com/miaopan607/miaopan-code/docs)
-for configuration details. Contributors should read the
-[English contribution guide](CONTRIBUTING.en.md) or its
-[Chinese version](CONTRIBUTING.md) before opening a pull request.
-
-If you build a project whose name includes “miaopan-code”, state in its README
-that it is not an official project of the miaopan-code team and has no
-affiliation with it.
+Before contributing, read the [contribution guide](CONTRIBUTING.en.md) and the repository's [development conventions](AGENTS.md). Report issues and feature requests through [GitHub Issues](https://github.com/miaopan607/miaopan-code/issues).
 
 ## License and attribution
 
 This project is licensed under MIT. See [NOTICE](NOTICE) for attribution and upstream source information.
-
-Join the community on [Feishu](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=52ao9352-5623-4fa0-b7dd-3407c392c1af&qr_code=true) or [X.com](https://x.com/miaopan-code).
