@@ -99,6 +99,31 @@ const GO_UPSELL_PROVIDERS = new Set(["opencode", "opencode-go"])
 
 export const alwaysSeparate = new WeakSet<BoxRenderable>()
 
+export function implementPlanInCurrentContext(input: {
+  plan: { messageID: string } | undefined
+  prompt: () => Pick<PromptRef, "set" | "submit"> | undefined
+  finish: (messageID: string) => void
+  build: () => void
+  message: string
+  defer?: (callback: () => void) => void
+}) {
+  if (!input.plan) return
+  input.finish(input.plan.messageID)
+  input.build()
+
+  const submit = () => {
+    const prompt = input.prompt()
+    if (!prompt) return
+    prompt.set({ input: input.message, parts: [] })
+    prompt.submit()
+  }
+  if (input.defer) {
+    input.defer(submit)
+    return
+  }
+  setTimeout(submit, 0)
+}
+
 type RetryAction = Extract<SessionStatus, { type: "retry" }>["action"]
 
 function goUpsellKeys(action: RetryAction) {
@@ -473,12 +498,13 @@ export function Session() {
   }
 
   function implementPlan() {
-    const plan = pendingPlan()
-    if (!plan || !prompt) return
-    finishPlanPrompt(plan.messageID)
-    local.agent.set("build")
-    prompt.set({ input: i18n.t("plan.implement_message"), parts: [] })
-    setTimeout(() => prompt?.submit(), 0)
+    implementPlanInCurrentContext({
+      plan: pendingPlan(),
+      prompt: () => prompt,
+      finish: finishPlanPrompt,
+      build: () => local.agent.set("build"),
+      message: i18n.t("plan.implement_message"),
+    })
   }
 
   async function implementPlanFresh() {
