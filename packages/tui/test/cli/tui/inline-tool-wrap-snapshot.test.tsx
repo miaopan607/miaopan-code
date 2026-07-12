@@ -3,6 +3,12 @@ import { createSignal, For, Show } from "solid-js"
 import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core"
 import type { ToolPart } from "@miaopan/sdk/v2"
 import { testRender, type JSX } from "@opentui/solid"
+import { mkdir } from "node:fs/promises"
+import path from "node:path"
+import { I18nProvider } from "../../../src/context/i18n"
+import { KVProvider } from "../../../src/context/kv"
+import { ThemeProvider } from "../../../src/context/theme"
+import { TuiConfigProvider } from "../../../src/config"
 import {
   formatCompletedSubagentDetail,
   formatSubagentRetry,
@@ -13,12 +19,18 @@ import {
   parseDiagnostics,
   parseQuestionAnswers,
   parseQuestions,
+  parseRequestUserInputAnswers,
+  parseRequestUserInputQuestions,
   parseTodos,
+  RequestUserInput,
   shellCommandSucceeded,
   toolDetailsHidden,
   alwaysSeparate,
   toolDisplay,
 } from "../../../src/routes/session"
+import { createTuiResolvedConfig } from "../../fixture/tui-runtime"
+import { TestTuiContexts } from "../../fixture/tui-environment"
+import { tmpdir } from "../../fixture/fixture"
 import { splitQuestionAnswer } from "../../../src/routes/session/question.shared"
 
 let testSetup: Awaited<ReturnType<typeof testRender>> | undefined
@@ -248,6 +260,108 @@ async function renderFrame(component: () => JSX.Element, options: { width: numbe
     .trimEnd()
 }
 
+async function renderRequestUserInput() {
+  await using tmp = await tmpdir()
+  const state = path.join(tmp.path, "state")
+  await mkdir(state, { recursive: true })
+  await Bun.write(path.join(state, "kv.json"), "{}")
+
+  const input = {
+    questions: [
+      {
+        id: "scope",
+        header: "范围",
+        question: "哪些结果应该始终显示？",
+        options: [
+          { label: "提问结果", description: "显示提问和回答" },
+          { label: "工具结果", description: "显示工具输出" },
+        ],
+      },
+      {
+        id: "note",
+        header: "备注",
+        question: "需要附加备注吗？",
+        options: [
+          { label: "需要", description: "保留备注" },
+          { label: "不需要", description: "不保留备注" },
+        ],
+      },
+      {
+        id: "unanswered",
+        header: "未答",
+        question: "这个问题没有回答时如何显示？",
+        options: [
+          { label: "保留", description: "保留未回答状态" },
+          { label: "隐藏", description: "隐藏未回答问题" },
+        ],
+      },
+    ],
+  }
+  const metadata = {
+    answers: {
+      scope: { answers: ["提问结果"] },
+      note: { answers: ["需要", "user_note: 保留备注"] },
+    },
+  }
+  const part = {
+    id: "part_request_user_input",
+    sessionID: "session",
+    messageID: "message",
+    type: "tool" as const,
+    callID: "call_request_user_input",
+    tool: "request_user_input",
+    state: {
+      status: "completed" as const,
+      input,
+      output: JSON.stringify(metadata),
+      title: "提问",
+      metadata,
+      time: { start: 1, end: 2 },
+    },
+  } as ToolPart
+
+  const app = await testRender(
+    () => (
+      <TestTuiContexts paths={{ state }}>
+        <TuiConfigProvider config={createTuiResolvedConfig({ tool_display: "compact" })}>
+          <KVProvider>
+            <I18nProvider language="zh-CN">
+              <ThemeProvider mode="dark">
+                <box width={72}>
+                  <RequestUserInput input={input} metadata={metadata} tool={part.tool} part={part} />
+                </box>
+              </ThemeProvider>
+            </I18nProvider>
+          </KVProvider>
+        </TuiConfigProvider>
+      </TestTuiContexts>
+    ),
+    { width: 72, height: 16 },
+  )
+
+  try {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await app.renderOnce()
+      const frame = app
+        .captureCharFrame()
+        .split("\n")
+        .map((line) => line.trimEnd())
+        .join("\n")
+        .trimEnd()
+      if (frame) return frame
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+    return app
+      .captureCharFrame()
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .join("\n")
+      .trimEnd()
+  } finally {
+    app.renderer.destroy()
+  }
+}
+
 describe("TUI inline tool wrapping", () => {
   test("falls back for unknown tool names", () => {
     expect(toolDisplay("bash")).toBe("bash")
@@ -290,6 +404,11 @@ describe("TUI inline tool wrapping", () => {
     expect(toolDetailsHidden(true, "read", shellState("completed", 0))).toBe(false)
   })
 
+  test("keeps completed request_user_input details visible", () => {
+    expect(toolDisplay("request_user_input")).toBe("request_user_input")
+    expect(toolDetailsHidden(false, "request_user_input", shellState("completed", 0))).toBe(false)
+  })
+
   test("filters malformed nested tool wire data", () => {
     expect(
       parseApplyPatchFiles([
@@ -306,6 +425,23 @@ describe("TUI inline tool wrapping", () => {
     expect(parseQuestions([{}, { question: 1 }, { question: "Continue?" }])).toEqual([{ question: "Continue?" }])
     expect(parseQuestionAnswers([null, ["yes", 1], "no"])).toEqual([[], ["yes"], []])
     expect(parseQuestionAnswers({})).toBeUndefined()
+    expect(
+      parseRequestUserInputQuestions([
+        {},
+        { id: "scope", question: "What should change?" },
+        { id: "missing-question" },
+      ]),
+    ).toEqual([{ id: "scope", question: "What should change?" }])
+    expect(
+      parseRequestUserInputAnswers({
+        scope: { answers: ["The TUI", "user_note: keep it visible"] },
+        malformed: { answers: ["valid", 1] },
+        missing: {},
+      }),
+    ).toEqual({
+      scope: ["The TUI", "user_note: keep it visible"],
+      malformed: ["valid"],
+    })
     expect(splitQuestionAnswer(["yes", "user_note: keep the change small"])).toEqual({
       answers: ["yes"],
       notes: ["keep the change small"],
@@ -345,6 +481,10 @@ describe("TUI inline tool wrapping", () => {
 
   test("snapshots consecutive grep, glob, and read rows at a narrow width", async () => {
     expect(await renderFrame(() => <Fixture />, { width: 72, height: 12 })).toMatchSnapshot()
+  })
+
+  test("renders completed request_user_input results in compact mode", async () => {
+    expect(await renderRequestUserInput()).toMatchSnapshot()
   })
 
   test("snapshots expanded tool errors under the tool text", async () => {

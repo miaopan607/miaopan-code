@@ -142,6 +142,30 @@ describe("assistantDisplayParts", () => {
     ).toEqual(["compact-explore"])
   })
 
+  test("keeps request_user_input as a standalone tool in compact mode", () => {
+    const request = tool(
+      "request_user_input",
+      {
+        questions: [{ id: "scope", question: "What should change?" }],
+      },
+      {
+        answers: {
+          scope: { answers: ["The TUI"] },
+        },
+      },
+    )
+
+    expect(toolUsesCompactDisplay(request)).toBe(false)
+    expect(
+      assistantDisplayParts([request], {
+        last: true,
+        thinkingMode: "collapsed",
+        toolDisplay: "compact",
+        showDetails: false,
+      }),
+    ).toEqual([request])
+  })
+
   test("keeps only the last streaming reasoning in the current message", () => {
     const parts = [reasoning, streamingReasoning]
 
