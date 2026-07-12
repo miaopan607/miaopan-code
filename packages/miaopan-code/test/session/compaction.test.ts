@@ -29,6 +29,7 @@ import { testEffect } from "../lib/effect"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { TestConfig } from "../fixture/config"
 import { RuntimeFlags } from "@/effect/runtime-flags"
+import { PromptI18n } from "@/i18n/prompt"
 import { LLMEvent, Usage } from "@miaopan-code/llm"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
@@ -55,6 +56,18 @@ const basicUsage = () => usage({ inputTokens: 1, outputTokens: 1, totalTokens: 2
 
 afterEach(() => {
   mock.restore()
+})
+
+test("compaction prompts preserve handoff accuracy in both languages", () => {
+  expect(PromptI18n.text("zh-CN", "agent.compaction")).toContain("另一模型继续当前任务的交接上下文")
+  expect(PromptI18n.text("en", "agent.compaction")).toContain("handoff context for another model")
+
+  const zh = t("zh-CN", "prompt.compaction_summary_template")
+  const en = t("en", "prompt.compaction_summary_template")
+  expect(zh).toContain("已知的验收标准")
+  expect(zh).toContain("不要推断或编造")
+  expect(en).toContain("known acceptance criteria")
+  expect(en).toContain("Do not infer or invent")
 })
 
 function createModel(opts: {
