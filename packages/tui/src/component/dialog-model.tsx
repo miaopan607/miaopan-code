@@ -27,13 +27,21 @@ export function DialogModel(props: { providerID?: string }) {
 
   const connected = useConnected()
   const providers = createDialogProviderOptions()
+  const favoriteModels = createMemo(() =>
+    connected()
+      ? local.model.favorite().filter((item) => {
+          const provider = sync.data.provider.find((provider) => provider.id === item.providerID)
+          return !!provider?.models[item.modelID]
+        })
+      : [],
+  )
 
   const showExtra = createMemo(() => connected() && !props.providerID)
 
   const options = createMemo(() => {
     const needle = query().trim()
     const showSections = showExtra() && needle.length === 0
-    const favorites = connected() ? local.model.favorite() : []
+    const favorites = favoriteModels()
     const recents = local.model.recent()
 
     function toOptions(items: typeof favorites, category: string) {
@@ -182,6 +190,18 @@ export function DialogModel(props: { providerID?: string }) {
       .finally(() => setRefreshing(false))
   }
 
+  function favoriteMoveDisabled(option: { value: unknown } | undefined, direction: -1 | 1) {
+    if (!showExtra() || query().trim()) return true
+    const model = option?.value as { providerID: string; modelID: string } | undefined
+    if (!model) return true
+    const favorites = favoriteModels()
+    const index = favorites.findIndex(
+      (item) => item.providerID === model.providerID && item.modelID === model.modelID,
+    )
+    if (index === -1) return true
+    return direction === -1 ? index === 0 : index === favorites.length - 1
+  }
+
   return (
     <DialogSelect<ReturnType<typeof options>[number]["value"]>
       options={options()}
@@ -209,12 +229,33 @@ export function DialogModel(props: { providerID?: string }) {
             local.model.toggleFavorite(option.value as { providerID: string; modelID: string })
           },
         },
+        {
+          command: "model.dialog.favorite_up",
+          title: i18n.t("dialog.favorite_move_up"),
+          hidden: !connected(),
+          showInFooter: false,
+          disabled: (option) => favoriteMoveDisabled(option, -1),
+          onTrigger: (option) => {
+            local.model.moveFavorite(option.value as { providerID: string; modelID: string }, -1)
+          },
+        },
+        {
+          command: "model.dialog.favorite_down",
+          title: i18n.t("dialog.favorite_move_down"),
+          hidden: !connected(),
+          showInFooter: false,
+          disabled: (option) => favoriteMoveDisabled(option, 1),
+          onTrigger: (option) => {
+            local.model.moveFavorite(option.value as { providerID: string; modelID: string }, 1)
+          },
+        },
       ]}
       onFilter={setQuery}
       flat={true}
       skipFilter={true}
       title={title()}
       current={local.model.current()}
+      preserveSelection={true}
     />
   )
 }

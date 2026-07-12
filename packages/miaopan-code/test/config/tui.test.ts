@@ -486,6 +486,8 @@ it.instance("resolves keybind lookup from canonical keybinds", () =>
           "dialog.prompt.submit": "ctrl+s",
           "dialog.mcp.toggle": "ctrl+t",
           model_favorite_toggle: "ctrl+f",
+          model_favorite_move_up: "alt+up",
+          model_favorite_move_down: "alt+down",
           "dialog.plugins.install": "shift+i",
         },
         leader_timeout: 1234,
@@ -509,6 +511,8 @@ it.instance("resolves keybind lookup from canonical keybinds", () =>
       expect(config.keybinds.get("dialog.prompt.submit")?.[0]?.key).toBe("ctrl+s")
       expect(config.keybinds.get("dialog.mcp.toggle")?.[0]?.key).toBe("ctrl+t")
       expect(config.keybinds.get("model.dialog.favorite")?.[0]?.key).toBe("ctrl+f")
+      expect(config.keybinds.get("model.dialog.favorite_up")?.[0]?.key).toBe("alt+up")
+      expect(config.keybinds.get("model.dialog.favorite_down")?.[0]?.key).toBe("alt+down")
       expect(config.keybinds.get("dialog.plugins.install")?.[0]?.key).toBe("shift+i")
       expect(
         config.keybinds.gather("plugins.dialog", ["dialog.plugins.install"]).map((binding) => binding.cmd),

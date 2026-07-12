@@ -86,6 +86,19 @@ test("resolves a session move keybind", () => {
   expect(config.keybinds.get("session.move")).toMatchObject([{ key: "ctrl+o" }])
 })
 
+test("resolves favorite model move keybinds", () => {
+  const defaults = resolve({}, { terminalSuspend: true })
+  const overrides = resolve(
+    { keybinds: { model_favorite_move_up: "alt+up", model_favorite_move_down: "alt+down" } },
+    { terminalSuspend: true },
+  )
+
+  expect(defaults.keybinds.get("model.dialog.favorite_up")).toMatchObject([{ key: "[" }])
+  expect(defaults.keybinds.get("model.dialog.favorite_down")).toMatchObject([{ key: "]" }])
+  expect(overrides.keybinds.get("model.dialog.favorite_up")).toMatchObject([{ key: "alt+up" }])
+  expect(overrides.keybinds.get("model.dialog.favorite_down")).toMatchObject([{ key: "alt+down" }])
+})
+
 test("disables suspend and assigns ctrl+z to undo when unsupported", () => {
   const config = resolve({}, { terminalSuspend: false })
 
