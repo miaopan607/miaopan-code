@@ -43,30 +43,15 @@ const version = binaries[0].version
 if (binaries.some((binary) => binary.version !== version)) throw new Error("Platform package versions must match.")
 
 await $`mkdir -p ./dist/${pkg.name}/bin`
-await $`cp ./script/postinstall.mjs ./dist/${pkg.name}/postinstall.mjs`
+await $`cp ./bin/${pkg.name} ./dist/${pkg.name}/bin/${pkg.name}`
 await Bun.file(`./dist/${pkg.name}/LICENSE`).write(await Bun.file("../../LICENSE").text())
 await Bun.file(`./dist/${pkg.name}/NOTICE`).write(await Bun.file("../../NOTICE").text())
-await Bun.file(`./dist/${pkg.name}/bin/${pkg.name}.exe`).write(
-  [
-    `echo "Error: ${packageName}'s postinstall script was not run." >&2`,
-    'echo "" >&2',
-    'echo "This occurs when using --ignore-scripts during installation, or when using a" >&2',
-    'echo "package manager like pnpm that does not run postinstall scripts by default." >&2',
-    'echo "" >&2',
-    'echo "To fix this, run the postinstall script manually:" >&2',
-    `echo "  cd node_modules/${packageName} && node postinstall.mjs" >&2`,
-    'echo "" >&2',
-    `echo "Or reinstall ${packageName} without the --ignore-scripts flag." >&2`,
-    "exit 1",
-    "",
-  ].join("\n"),
-)
 await Bun.file(`./dist/${pkg.name}/package.json`).write(
   JSON.stringify(
     {
       name: packageName,
-      bin: { [pkg.name]: `./bin/${pkg.name}.exe` },
-      scripts: { postinstall: "node ./postinstall.mjs" },
+      bin: { [pkg.name]: `./bin/${pkg.name}` },
+      type: "module",
       version,
       license: pkg.license,
       os: ["darwin", "linux", "win32"],
