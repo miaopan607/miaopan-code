@@ -2234,6 +2234,10 @@ export const messages = {
     "zh-CN": "压缩 Token 缓冲区，为避免溢出预留足够窗口",
     en: "Token buffer for compaction. Leaves enough window to avoid overflow during compaction.",
   },
+  "config.v1.model_compaction_model": {
+    "zh-CN": "此模型专用的压缩模型，格式为 provider/model",
+    en: "Compaction model used specifically for this model, in provider/model format",
+  },
   "config.v1.batch_tool": { "zh-CN": "启用批处理工具", en: "Enable the batch tool" },
   "config.v1.telemetry": {
     "zh-CN": "为 AI SDK 调用启用 OpenTelemetry span（使用 experimental_telemetry 标志）",

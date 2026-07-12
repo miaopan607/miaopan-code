@@ -351,6 +351,11 @@
               "id": {
                 "type": "string"
               },
+              "compaction_model": {
+                "type": "string",
+                "description": "此模型专用的压缩模型，格式为 provider/model",
+                "$ref": "https://models.dev/model-schema.json#/$defs/Model"
+              },
               "name": {
                 "type": "string"
               },

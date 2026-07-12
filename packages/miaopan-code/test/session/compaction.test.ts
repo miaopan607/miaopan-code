@@ -236,6 +236,11 @@ function cfg(compaction?: ConfigV1.Info["compaction"]) {
   return Layer.succeed(Config.Service, TestConfig.make({ get: () => Effect.succeed({ ...base, compaction }) }))
 }
 
+function configured(input: Partial<ConfigV1.Info>) {
+  const base = Schema.decodeUnknownSync(ConfigV1.Info)({}) as ConfigV1.Info
+  return Layer.succeed(Config.Service, TestConfig.make({ get: () => Effect.succeed({ ...base, ...input }) }))
+}
+
 const defaultProvider = wide()
 const compactionTestNode = LayerNode.group([
   SessionCompaction.node,
@@ -818,6 +823,55 @@ describe("session.compaction.prune", () => {
 })
 
 describe("session.compaction.process", () => {
+  itCompaction.instance(
+    "prefers the current model's compaction model over the compaction agent model",
+    Effect.gen(function* () {
+      const ssn = yield* SessionNs.Service
+      const session = yield* ssn.create({})
+      yield* createUserMessage(session.id, "hello")
+      yield* createSummaryCompaction(session.id)
+
+      const msgs = yield* ssn.messages({ sessionID: session.id })
+      const parentID = msgs.at(-1)?.info.id
+      expect(parentID).toBeTruthy()
+      yield* SessionCompaction.use.process({
+        parentID: parentID!,
+        messages: msgs,
+        sessionID: session.id,
+        auto: false,
+      })
+
+      const summary = (yield* ssn.messages({ sessionID: session.id })).find(
+        (message) => message.info.role === "assistant" && message.info.summary,
+      )
+      expect(summary?.info).toMatchObject({ providerID: "summary", modelID: "summary-model" })
+    }).pipe(
+      withCompaction({
+        config: configured({
+          agent: { compaction: { model: "fallback/fallback-model" } },
+          provider: {
+            test: {
+              models: {
+                "test-model": { compaction_model: "summary/summary-model" },
+              },
+            },
+          },
+        }),
+        provider: ProviderTest.fake({
+          model: createModel({ context: 100_000, output: 32_000 }),
+          getModel: (providerID, modelID) =>
+            Effect.succeed(
+              ProviderTest.model({
+                providerID,
+                id: modelID,
+                limit: { context: 100_000, output: 32_000 },
+              }),
+            ),
+        }),
+      }),
+    ),
+  )
+
   it.instance(
     "throws when parent is not a user message",
     Effect.gen(function* () {

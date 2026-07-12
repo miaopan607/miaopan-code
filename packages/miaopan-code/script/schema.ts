@@ -55,7 +55,7 @@ function restoreModelRefs(value: unknown, key?: string): unknown {
   if (!isRecord(value)) return value
 
   const schema = Object.fromEntries(Object.entries(value).map(([name, item]) => [name, restoreModelRefs(item, name)]))
-  if ((key === "model" || key === "small_model") && schema.type === "string") {
+  if ((key === "model" || key === "small_model" || key === "compaction_model") && schema.type === "string") {
     return { ...schema, $ref: MODEL_REF }
   }
   return schema

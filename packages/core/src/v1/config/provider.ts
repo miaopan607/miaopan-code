@@ -8,6 +8,9 @@ export const ModelStatus = Schema.Literals(["alpha", "beta", "deprecated", "acti
 
 export const Model = Schema.Struct({
   id: Schema.optional(Schema.String),
+  compaction_model: Schema.optional(Schema.String).annotate({
+    description: zh("config.v1.model_compaction_model"),
+  }),
   name: Schema.optional(Schema.String),
   family: Schema.optional(Schema.String),
   release_date: Schema.optional(Schema.String),

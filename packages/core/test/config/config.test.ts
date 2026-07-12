@@ -97,6 +97,22 @@ describe("Config", () => {
     }),
   )
 
+  it.effect("decodes a model-specific compaction model", () =>
+    Effect.sync(() => {
+      const config = Schema.decodeUnknownSync(ConfigV1.Info)({
+        provider: {
+          source: {
+            models: {
+              chat: { compaction_model: "summary/vendor/model" },
+            },
+          },
+        },
+      })
+
+      expect(config.provider?.source?.models?.chat?.compaction_model).toBe("summary/vendor/model")
+    }),
+  )
+
   it.effect("migrates v1 provider setup options into AISDK settings", () =>
     Effect.sync(() => {
       const migrated = ConfigMigrateV1.migrate({
