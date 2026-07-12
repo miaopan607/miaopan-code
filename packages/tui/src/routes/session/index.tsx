@@ -81,7 +81,7 @@ import { useTuiConfig } from "../../config"
 import { useClipboard } from "../../context/clipboard"
 import { reasoningSummary, useThinkingMode, type ThinkingMode } from "../../context/thinking"
 import { getScrollAcceleration } from "../../util/scroll"
-import { collapseToolOutput } from "../../util/collapse-tool-output"
+import { collapseToolOutput, collapseToolText } from "../../util/collapse-tool-output"
 import { usePluginRuntime } from "../../plugin/runtime"
 import { DialogRetryAction } from "../../component/dialog-retry-action"
 import { getRevertDiffFiles } from "../../util/revert-diff"
@@ -2241,6 +2241,7 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
 type CompactExploreKind = "read" | "search" | "web" | "write" | "edit" | "create" | "delete" | "move" | "patch"
 
 function CompactExplore(props: { part: CompactExplorePart }) {
+  const ctx = use()
   const { theme } = useTheme()
   const pathFormatter = usePathFormatter()
   const renderer = useRenderer()
@@ -2254,6 +2255,13 @@ function CompactExplore(props: { part: CompactExplorePart }) {
     return theme.textMuted
   })
   const rows = createMemo(() => compactToolRows(props.part.parts, (value) => pathFormatter.format(value)))
+  const fullText = createMemo(() =>
+    rows()
+      .map((row) => `${compactExploreLabel(row.key)} ${row.labels}`)
+      .join("\n"),
+  )
+  const collapsed = createMemo(() => collapseToolText(fullText(), Math.max(4, ctx.width - 6)))
+  const expandable = createMemo(() => collapsed().overflow || errors().length > 0)
 
   return (
     <InlineToolRow
@@ -2263,29 +2271,26 @@ function CompactExplore(props: { part: CompactExplorePart }) {
       complete={true}
       pending=""
       dense={true}
-      onMouseUp={
-        errors().length
-          ? () => {
-              if (renderer.getSelection()?.getSelectedText()) return
-              setExpanded((previous) => !previous)
-            }
-          : undefined
-      }
+      onMouseUp={() => {
+        if (renderer.getSelection()?.getSelectedText()) return
+        if (!expandable()) return
+        setExpanded((previous) => !previous)
+      }}
       details={
         <>
-          <For each={rows().slice(1)}>
-            {(row) => (
-              <box flexDirection="row">
-                <text width={INLINE_TOOL_ICON_WIDTH} fg={status()}>
-                  •
-                </text>
-                <text flexGrow={1} fg={theme.textMuted}>
-                  {compactExploreLabel(row.key)} {row.labels}
-                </text>
-              </box>
-            )}
-          </For>
           <Show when={expanded()}>
+            <For each={rows().slice(1)}>
+              {(row) => (
+                <box flexDirection="row">
+                  <text width={INLINE_TOOL_ICON_WIDTH} fg={status()}>
+                    •
+                  </text>
+                  <text flexGrow={1} fg={theme.textMuted}>
+                    {compactExploreLabel(row.key)} {row.labels}
+                  </text>
+                </box>
+              )}
+            </For>
             <For each={errors()}>
               {(error) => (
                 <text paddingLeft={INLINE_TOOL_ICON_WIDTH} fg={theme.error}>
@@ -2296,8 +2301,11 @@ function CompactExplore(props: { part: CompactExplorePart }) {
           </Show>
         </>
       }
+      compactText={fullText()}
+      compactWidth={Math.max(4, ctx.width - 6)}
+      expanded={expanded()}
     >
-      {compactExploreLabel(rows()[0]?.key ?? "read")} {rows()[0]?.labels}
+      {`${compactExploreLabel(rows()[0]?.key ?? "read")} ${rows()[0]?.labels ?? ""}`}
     </InlineToolRow>
   )
 }
@@ -2392,6 +2400,7 @@ function GenericTool(props: ToolProps) {
           pending={t(Locale.language(), "tui.writing_command")}
           complete={props.part.state.status === "completed"}
           part={props.part}
+          compactText={[props.tool, input(props.input)].filter(Boolean).join(" ")}
         >
           {props.tool} {input(props.input)}
         </InlineTool>
@@ -2425,6 +2434,8 @@ function InlineTool(props: {
   spinner?: boolean
   separate?: boolean
   dense?: boolean
+  compactText?: string
+  expandable?: boolean
   children: JSX.Element
   part: ToolPart
   onClick?: () => void
@@ -2435,7 +2446,7 @@ function InlineTool(props: {
   const sync = useSync()
   const renderer = useRenderer()
   const [hover, setHover] = createSignal(false)
-  const [errorExpanded, setErrorExpanded] = createSignal(false)
+  const [expanded, setExpanded] = createSignal(false)
 
   const permission = createMemo(() => {
     const callID = sync.data.permission[ctx.sessionID]?.at(0)?.tool?.callID
@@ -2454,12 +2465,17 @@ function InlineTool(props: {
   )
 
   const failed = createMemo(() => Boolean(error() && !denied()))
-  const clickable = createMemo(() => Boolean(props.onClick || failed()))
+  const compact = createMemo(() => {
+    if (ctx.tui.tool_display !== "compact" || props.compactText === undefined) return
+    return collapseToolText(props.compactText, Math.max(4, ctx.width - 6))
+  })
+  const expandable = createMemo(() => Boolean(compact()?.overflow || props.expandable || failed()))
+  const clickable = createMemo(() => Boolean(props.onClick || expandable()))
   const fg = createMemo(() => {
     if (props.color) return props.color
     if (permission()) return theme.warning
     if (failed()) return theme.error
-    if (hover() && props.onClick) return theme.text
+    if (hover() && clickable()) return theme.text
     if (props.complete) return theme.textMuted
     return theme.text
   })
@@ -2473,7 +2489,7 @@ function InlineTool(props: {
       failed={failed()}
       denied={Boolean(denied())}
       error={error()}
-      errorExpanded={errorExpanded()}
+      errorExpanded={expanded()}
       complete={props.complete}
       pending={props.pending}
       failure={props.failure}
@@ -2484,13 +2500,16 @@ function InlineTool(props: {
       onMouseOut={() => setHover(false)}
       onMouseUp={() => {
         if (renderer.getSelection()?.getSelectedText()) return
-        if (failed()) {
-          setErrorExpanded((value) => !value)
+        if (expandable()) {
+          setExpanded((value) => !value)
           return
         }
         props.onClick?.()
       }}
-      details={props.details}
+      details={<Show when={ctx.tui.tool_display !== "compact" || expanded()}>{props.details}</Show>}
+      compactText={ctx.tui.tool_display === "compact" ? props.compactText : undefined}
+      compactWidth={Math.max(4, ctx.width - 6)}
+      expanded={expanded()}
     >
       {props.children}
     </InlineToolRow>
@@ -2512,12 +2531,20 @@ export function InlineToolRow(props: {
   spinner?: boolean
   separate?: boolean
   dense?: boolean
+  compactText?: string
+  compactWidth?: number
+  expanded?: boolean
   children: JSX.Element
   onMouseOver?: () => void
   onMouseOut?: () => void
   onMouseUp?: () => void
   details?: JSX.Element
 }) {
+  const compact = createMemo(() => {
+    if (props.compactText === undefined || props.compactWidth === undefined) return
+    return collapseToolText(props.compactText, props.compactWidth)
+  })
+
   return (
     <box
       paddingLeft={3}
@@ -2537,7 +2564,7 @@ export function InlineToolRow(props: {
     >
       <Switch>
         <Match when={props.spinner}>
-          <Spinner color={props.color} children={props.children} />
+          <Spinner color={props.color} children={compact() && !props.expanded ? compact()!.text : props.children} />
         </Match>
         <Match when={true}>
           <Show
@@ -2565,7 +2592,11 @@ export function InlineToolRow(props: {
                 fg={props.failed ? props.errorColor : props.color}
                 attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
               >
-                {props.failed && !props.complete ? (props.failure ?? props.children) : props.children}
+                {props.failed && !props.complete
+                  ? (props.failure ?? props.children)
+                  : compact() && !props.expanded
+                    ? compact()!.text
+                    : props.children}
               </text>
             </box>
           </Show>
@@ -2695,9 +2726,10 @@ function Shell(props: ToolProps) {
           complete={complete()}
           spinner={running()}
           part={props.part}
-          onClick={output() ? () => setExpanded((prev) => !prev) : undefined}
+          compactText={commandLabel()}
+          expandable={Boolean(output())}
           details={
-            <Show when={expanded() && output()}>
+            <Show when={output()}>
               <text paddingLeft={INLINE_TOOL_ICON_WIDTH} fg={theme.textMuted}>
                 {output()}
               </text>
@@ -2749,6 +2781,7 @@ function Shell(props: ToolProps) {
           complete={complete()}
           spinner={running()}
           part={props.part}
+          compactText={commandLabel()}
         >
           {commandLabel()}
         </InlineTool>
@@ -2760,6 +2793,9 @@ function Shell(props: ToolProps) {
 function Write(props: ToolProps) {
   const { theme, syntax } = useTheme()
   const pathFormatter = usePathFormatter()
+  const label = createMemo(() =>
+    t(Locale.language(), "tui.write_file", { path: pathFormatter.format(stringValue(props.input.filePath)) }),
+  )
   const code = createMemo(() => {
     return stringValue(props.input.content) ?? ""
   })
@@ -2789,8 +2825,9 @@ function Write(props: ToolProps) {
           pending={t(Locale.language(), "tui.preparing_write")}
           complete={stringValue(props.input.filePath)}
           part={props.part}
+          compactText={label()}
         >
-          {t(Locale.language(), "tui.write_file", { path: pathFormatter.format(stringValue(props.input.filePath)) })}
+          {label()}
         </InlineTool>
       </Match>
     </Switch>
@@ -2799,20 +2836,28 @@ function Write(props: ToolProps) {
 
 function Glob(props: ToolProps) {
   const pathFormatter = usePathFormatter()
+  const label = createMemo(() =>
+    [
+      t(Locale.language(), "tui.glob", { pattern: stringValue(props.input.pattern) }),
+      stringValue(props.input.path)
+        ? t(Locale.language(), "tui.in_path", { path: pathFormatter.format(stringValue(props.input.path)) })
+        : undefined,
+      numberValue(props.metadata.count) !== undefined
+        ? `(${t(Locale.language(), "tui.match_count", { count: numberValue(props.metadata.count) })})`
+        : undefined,
+    ]
+      .filter((value): value is string => value !== undefined)
+      .join(" "),
+  )
   return (
     <InlineTool
       icon="✱"
       pending={t(Locale.language(), "tui.finding_files")}
       complete={stringValue(props.input.pattern)}
       part={props.part}
+      compactText={label()}
     >
-      {t(Locale.language(), "tui.glob", { pattern: stringValue(props.input.pattern) })}{" "}
-      <Show when={stringValue(props.input.path)}>
-        {t(Locale.language(), "tui.in_path", { path: pathFormatter.format(stringValue(props.input.path)) })}{" "}
-      </Show>
-      <Show when={numberValue(props.metadata.count)}>
-        {`(${t(Locale.language(), "tui.match_count", { count: numberValue(props.metadata.count) })})`}
-      </Show>
+      {label()}
     </InlineTool>
   )
 }
@@ -2820,6 +2865,9 @@ function Glob(props: ToolProps) {
 function Read(props: ToolProps) {
   const { theme } = useTheme()
   const pathFormatter = usePathFormatter()
+  const label = createMemo(() =>
+    `${t(Locale.language(), "tui.read_file", { path: pathFormatter.format(stringValue(props.input.filePath)) })} ${input(props.input, ["filePath"])}`.trim(),
+  )
   const isRunning = createMemo(() => props.part.state.status === "running")
   const loaded = createMemo(() => {
     if (props.part.state.status !== "completed") return []
@@ -2836,9 +2884,9 @@ function Read(props: ToolProps) {
         complete={stringValue(props.input.filePath)}
         spinner={isRunning()}
         part={props.part}
+        compactText={label()}
       >
-        {t(Locale.language(), "tui.read_file", { path: pathFormatter.format(stringValue(props.input.filePath)) })}{" "}
-        {input(props.input, ["filePath"])}
+        {label()}
       </InlineTool>
       <For each={loaded()}>
         {(filepath) => (
@@ -2855,49 +2903,67 @@ function Read(props: ToolProps) {
 
 function Grep(props: ToolProps) {
   const pathFormatter = usePathFormatter()
+  const label = createMemo(() =>
+    [
+      t(Locale.language(), "tui.grep", { pattern: stringValue(props.input.pattern) }),
+      stringValue(props.input.path)
+        ? t(Locale.language(), "tui.in_path", { path: pathFormatter.format(stringValue(props.input.path)) })
+        : undefined,
+      numberValue(props.metadata.matches) !== undefined
+        ? `(${t(Locale.language(), "tui.match_count", { count: numberValue(props.metadata.matches) })})`
+        : undefined,
+    ]
+      .filter((value): value is string => value !== undefined)
+      .join(" "),
+  )
   return (
     <InlineTool
       icon="✱"
       pending={t(Locale.language(), "tui.searching_content")}
       complete={stringValue(props.input.pattern)}
       part={props.part}
+      compactText={label()}
     >
-      {t(Locale.language(), "tui.grep", { pattern: stringValue(props.input.pattern) })}{" "}
-      <Show when={stringValue(props.input.path)}>
-        {t(Locale.language(), "tui.in_path", { path: pathFormatter.format(stringValue(props.input.path)) })}{" "}
-      </Show>
-      <Show when={numberValue(props.metadata.matches)}>
-        {`(${t(Locale.language(), "tui.match_count", { count: numberValue(props.metadata.matches) })})`}
-      </Show>
+      {label()}
     </InlineTool>
   )
 }
 
 function WebFetch(props: ToolProps) {
+  const label = createMemo(() => t(Locale.language(), "tui.webfetch_tool", { url: stringValue(props.input.url) }))
   return (
     <InlineTool
       icon="%"
       pending={t(Locale.language(), "tui.fetching_web")}
       complete={stringValue(props.input.url)}
       part={props.part}
+      compactText={label()}
     >
-      {t(Locale.language(), "tui.webfetch_tool", { url: stringValue(props.input.url) })}
+      {label()}
     </InlineTool>
   )
 }
 
 function WebSearch(props: ToolProps) {
+  const label = createMemo(() =>
+    [
+      `${webSearchProviderLabel(props.metadata.provider)} "${stringValue(props.input.query)}"`,
+      numberValue(props.metadata.numResults) !== undefined
+        ? `(${t(Locale.language(), "tui.results_count", { count: numberValue(props.metadata.numResults) })})`
+        : undefined,
+    ]
+      .filter((value): value is string => value !== undefined)
+      .join(" "),
+  )
   return (
     <InlineTool
       icon="◈"
       pending={t(Locale.language(), "tui.searching_web")}
       complete={stringValue(props.input.query)}
       part={props.part}
+      compactText={label()}
     >
-      {webSearchProviderLabel(props.metadata.provider)} "{stringValue(props.input.query)}"{" "}
-      <Show
-        when={numberValue(props.metadata.numResults)}
-      >{`(${t(Locale.language(), "tui.results_count", { count: numberValue(props.metadata.numResults) })})`}</Show>
+      {label()}
     </InlineTool>
   )
 }
@@ -3061,6 +3127,7 @@ function Execute(props: ToolProps) {
         pending="execute"
         complete={true}
         part={props.part}
+        compactText={content()}
       >
         {content()}
       </InlineTool>
@@ -3084,6 +3151,9 @@ function Edit(props: ToolProps) {
   const ctx = use()
   const { theme, syntax } = useTheme()
   const pathFormatter = usePathFormatter()
+  const label = createMemo(() =>
+    `${t(Locale.language(), "tui.edit_file", { path: pathFormatter.format(stringValue(props.input.filePath)) })} ${input({ replaceAll: props.input.replaceAll })}`.trim(),
+  )
 
   const view = createMemo(() => {
     const diffStyle = ctx.tui.diff_style
@@ -3136,9 +3206,9 @@ function Edit(props: ToolProps) {
           pending={t(Locale.language(), "tui.preparing_edit")}
           complete={stringValue(props.input.filePath)}
           part={props.part}
+          compactText={label()}
         >
-          {t(Locale.language(), "tui.edit_file", { path: pathFormatter.format(stringValue(props.input.filePath)) })}{" "}
-          {input({ replaceAll: props.input.replaceAll })}
+          {label()}
         </InlineTool>
       </Match>
     </Switch>
@@ -3223,6 +3293,7 @@ function ApplyPatch(props: ToolProps) {
           failure={t(Locale.language(), "tui.patch_failed")}
           complete={false}
           part={props.part}
+          compactText={t(Locale.language(), "tui.patch")}
         >
           {t(Locale.language(), "tui.patch")}
         </InlineTool>
@@ -3249,6 +3320,7 @@ function TodoWrite(props: ToolProps) {
           failure={t(Locale.language(), "tui.todo_update_failed")}
           complete={false}
           part={props.part}
+          compactText={t(Locale.language(), "tui.updating_todos")}
         >
           {t(Locale.language(), "tui.updating_todos")}
         </InlineTool>
@@ -3295,6 +3367,7 @@ function Question(props: ToolProps) {
           pending={t(Locale.language(), "tool.asking_questions")}
           complete={count()}
           part={props.part}
+          compactText={t(Locale.language(), "tool.asked_questions", { count: count() })}
         >
           {t(Locale.language(), "tool.asked_questions", { count: count() })}
         </InlineTool>
@@ -3381,6 +3454,7 @@ function Skill(props: ToolProps) {
       pending={t(Locale.language(), "tool.loading_skill")}
       complete={stringValue(props.input.name)}
       part={props.part}
+      compactText={t(Locale.language(), "tool.skill_title", { name: stringValue(props.input.name) })}
     >
       {t(Locale.language(), "tool.skill_title", { name: stringValue(props.input.name) })}
     </InlineTool>

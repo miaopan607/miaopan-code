@@ -358,4 +358,18 @@ describe("assistantDisplayParts", () => {
       }),
     ).toEqual([edit])
   })
+
+  test("keeps Task and Execute rows outside compact exploration", () => {
+    const task = tool("task", { description: "Inspect the long-running task" })
+    const execute = tool("execute", {}, { toolCalls: [{ tool: "read", status: "completed" }] })
+
+    expect(
+      assistantDisplayParts([task, execute], {
+        last: true,
+        thinkingMode: "collapsed",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([task, execute])
+  })
 })

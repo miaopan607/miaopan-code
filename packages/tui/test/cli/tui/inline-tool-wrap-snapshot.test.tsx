@@ -238,6 +238,25 @@ function DenseRowsFixture() {
   )
 }
 
+function CompactRowFixture(props: { expanded: boolean; onMouseUp: () => void }) {
+  const content = "Grep a very long pattern that wraps before the next tool"
+  return (
+    <box flexDirection="column" width={40}>
+      <InlineToolRow
+        icon="✱"
+        complete={true}
+        pending=""
+        compactText={content}
+        compactWidth={34}
+        expanded={props.expanded}
+        onMouseUp={props.onMouseUp}
+      >
+        {content}
+      </InlineToolRow>
+    </box>
+  )
+}
+
 function shellState(status: ToolPart["state"]["status"], exit?: unknown) {
   const metadata = exit === undefined ? undefined : { exit }
   if (status === "pending") return { status, input: {}, raw: "" } as ToolPart["state"]
@@ -384,6 +403,32 @@ describe("TUI inline tool wrapping", () => {
     const frame = await renderFrame(() => <DenseRowsFixture />, { width: 40, height: 6 })
     expect(frame).not.toContain("\n\n")
     expect(frame).toContain("Read src/index.ts")
+  })
+
+  test("keeps compact tool rows to one line until expanded", async () => {
+    const [expanded, setExpanded] = createSignal(false)
+    testSetup = await testRender(
+      () => <CompactRowFixture expanded={expanded()} onMouseUp={() => setExpanded((value) => !value)} />,
+      { width: 40, height: 4 },
+    )
+
+    await testSetup.renderOnce()
+    expect(testSetup.captureCharFrame()).toContain(" ...")
+    expect(
+      testSetup
+        .captureCharFrame()
+        .split("\n")
+        .filter((line) => line.trim()),
+    ).toHaveLength(1)
+
+    await testSetup.mockMouse.click(5, 0)
+    await testSetup.renderOnce()
+    expect(testSetup.captureCharFrame()).toContain("Grep a very long pattern")
+    expect(testSetup.captureCharFrame()).not.toContain(" ...")
+
+    await testSetup.mockMouse.click(5, 0)
+    await testSetup.renderOnce()
+    expect(testSetup.captureCharFrame()).toContain(" ...")
   })
 
   test("derives shell command success from tool state and exit metadata", () => {

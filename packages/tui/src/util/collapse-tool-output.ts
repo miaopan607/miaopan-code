@@ -17,3 +17,24 @@ export function collapseToolOutput(output: string, maxLines: number, maxChars: n
 
   return { output: [...lines.slice(0, maxLines), "…"].join("\n"), overflow: true }
 }
+
+export function collapseToolText(text: string, maxWidth: number) {
+  const firstLine = text.split("\n", 1)[0] ?? ""
+  const marker = " ..."
+  const markerWidth = Bun.stringWidth(marker)
+  if (text === firstLine && Bun.stringWidth(text) <= maxWidth) return { text, overflow: false }
+
+  const available = Math.max(0, maxWidth - markerWidth)
+  const prefix = Array.from(firstLine).reduce(
+    (result, character) => {
+      const width = Bun.stringWidth(character)
+      if (result.width + width > available) return result
+      return { text: result.text + character, width: result.width + width }
+    },
+    { text: "", width: 0 },
+  )
+  return {
+    text: prefix.text + marker,
+    overflow: true,
+  }
+}
