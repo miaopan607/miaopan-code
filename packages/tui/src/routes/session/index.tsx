@@ -86,6 +86,7 @@ import { getRevertDiffFiles } from "../../util/revert-diff"
 import { MIAOPAN_CODE_BASE_MODE, useBindings, useCommandShortcut, useMiaopanCodeKeymap } from "../../keymap"
 import { usePathFormatter } from "../../context/path-format"
 import { LocationProvider } from "../../context/location"
+import { stripPromptPartIDs } from "../../prompt/part"
 
 addDefaultParsers(parsers.parsers)
 
@@ -126,6 +127,7 @@ const sessionBindingCommands = [
   "session.continue",
   "session.unshare",
   "session.undo",
+  "session.undo_message",
   "session.redo",
   "session.sidebar.toggle",
   "session.toggle.conceal",
@@ -561,6 +563,37 @@ export function Session() {
     }
   }
 
+  async function revertPreviousTurn(revertFiles: boolean) {
+    const status = sync.data.session_status?.[route.sessionID]
+    if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+    const revert = session()?.revert?.messageID
+    const message = messages().findLast((item) => (!revert || item.id < revert) && item.role === "user")
+    if (!message) return
+    void sdk.client.session
+      .revert({
+        sessionID: route.sessionID,
+        messageID: message.id,
+        revertFiles,
+      })
+      .then(() => {
+        toBottom()
+      })
+    const parts = sync.data.part[message.id]
+    prompt?.set(
+      parts.reduce(
+        (result, part) => {
+          if (part.type === "text") {
+            if (!part.synthetic) result.input += part.text
+          }
+          if (part.type === "file") result.parts.push(stripPromptPartIDs(part))
+          return result
+        },
+        { input: "", parts: [] as PromptInfo["parts"] },
+      ),
+    )
+    dialog.clear()
+  }
+
   const sessionCommandList = createMemo(() => [
     {
       title: i18n.t("session.continue"),
@@ -740,35 +773,17 @@ export function Session() {
       slash: {
         name: "undo",
       },
-      run: async () => {
-        const status = sync.data.session_status?.[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
-        const revert = session()?.revert?.messageID
-        const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
-        if (!message) return
-        void sdk.client.session
-          .revert({
-            sessionID: route.sessionID,
-            messageID: message.id,
-          })
-          .then(() => {
-            toBottom()
-          })
-        const parts = sync.data.part[message.id]
-        prompt?.set(
-          parts.reduce(
-            (agg, part) => {
-              if (part.type === "text") {
-                if (!part.synthetic) agg.input += part.text
-              }
-              if (part.type === "file") agg.parts.push(part)
-              return agg
-            },
-            { input: "", parts: [] as PromptInfo["parts"] },
-          ),
-        )
-        dialog.clear()
+      run: () => revertPreviousTurn(true),
+    },
+    {
+      title: i18n.t("session.undo_message"),
+      value: "session.undo_message",
+      category: i18n.t("tui.session"),
+      slash: {
+        name: "undo-message",
+        aliases: ["rewind"],
       },
+      run: () => revertPreviousTurn(false),
     },
     {
       title: i18n.t("session.redo"),

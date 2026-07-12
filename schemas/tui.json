@@ -17961,7 +17961,7 @@
               }
             }
           ],
-          "description": "Undo message"
+          "description": "Revert conversation and code"
         },
         "messages_redo": {
           "anyOf": [

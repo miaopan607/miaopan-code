@@ -1778,6 +1778,7 @@ export type ProviderConfig = {
   models?: {
     [key: string]: {
       id?: string
+      compaction_model?: string
       name?: string
       family?: string
       release_date?: string
@@ -1829,7 +1830,16 @@ export type ProviderConfig = {
       variants?: {
         [key: string]: {
           disabled?: boolean
-          [key: string]: unknown | boolean | undefined
+          $miaopanCode?: {
+            mode: "ultra"
+          }
+          [key: string]:
+            | unknown
+            | boolean
+            | {
+                mode: "ultra"
+              }
+            | undefined
         }
       }
     }
@@ -10384,6 +10394,7 @@ export type SessionRevertData = {
   body?: {
     messageID: string
     partID?: string
+    revertFiles?: boolean
   }
   path: {
     sessionID: string

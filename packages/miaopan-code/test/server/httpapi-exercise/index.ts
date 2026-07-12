@@ -1609,7 +1609,7 @@ const scenarios: Scenario[] = [
     .at((ctx) => ({
       path: route("/session/{sessionID}/revert", { sessionID: ctx.state.session.id }),
       headers: ctx.headers(),
-      body: { messageID: ctx.state.message.info.id },
+      body: { messageID: ctx.state.message.info.id, revertFiles: false },
     }))
     .json(
       200,
@@ -1619,6 +1619,10 @@ const scenarios: Scenario[] = [
         check(
           isRecord(body.revert) && body.revert.messageID === ctx.state.message.info.id,
           "revert should record reverted message",
+        )
+        check(
+          isRecord(body.revert) && body.revert.snapshot === undefined,
+          "message-only revert should not snapshot files",
         )
       },
       "status",

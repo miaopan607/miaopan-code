@@ -5,7 +5,7 @@ import { useSDK } from "../../context/sdk"
 import { useRoute } from "../../context/route"
 import { useClipboard } from "../../context/clipboard"
 import type { PromptInfo } from "../../component/prompt/history"
-import { stripPromptPartIDs as strip } from "../../prompt/part"
+import { stripPromptPartIDs } from "../../prompt/part"
 import { useI18n } from "../../context/i18n"
 
 export function DialogMessage(props: {
@@ -20,6 +20,32 @@ export function DialogMessage(props: {
   const clipboard = useClipboard()
   const i18n = useI18n()
 
+  function revertMessage(revertFiles: boolean) {
+    const msg = message()
+    if (!msg) return
+
+    void sdk.client.session.revert({
+      sessionID: props.sessionID,
+      messageID: msg.id,
+      revertFiles,
+    })
+
+    if (props.setPrompt) {
+      const parts = sync.data.part[msg.id]
+      const promptInfo = parts.reduce(
+        (result, part) => {
+          if (part.type === "text") {
+            if (!part.synthetic) result.input += part.text
+          }
+          if (part.type === "file") result.parts.push(stripPromptPartIDs(part))
+          return result
+        },
+        { input: "", parts: [] as PromptInfo["parts"] },
+      )
+      props.setPrompt(promptInfo)
+    }
+  }
+
   return (
     <DialogSelect
       title={i18n.t("session.message_actions")}
@@ -29,29 +55,16 @@ export function DialogMessage(props: {
           value: "session.revert",
           description: i18n.t("session.revert_description"),
           onSelect: (dialog) => {
-            const msg = message()
-            if (!msg) return
-
-            void sdk.client.session.revert({
-              sessionID: props.sessionID,
-              messageID: msg.id,
-            })
-
-            if (props.setPrompt) {
-              const parts = sync.data.part[msg.id]
-              const promptInfo = parts.reduce(
-                (agg, part) => {
-                  if (part.type === "text") {
-                    if (!part.synthetic) agg.input += part.text
-                  }
-                  if (part.type === "file") agg.parts.push(strip(part))
-                  return agg
-                },
-                { input: "", parts: [] as PromptInfo["parts"] },
-              )
-              props.setPrompt(promptInfo)
-            }
-
+            revertMessage(true)
+            dialog.clear()
+          },
+        },
+        {
+          title: i18n.t("session.revert_message"),
+          value: "session.revert_message",
+          description: i18n.t("session.revert_message_description"),
+          onSelect: (dialog) => {
+            revertMessage(false)
             dialog.clear()
           },
         },

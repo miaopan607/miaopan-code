@@ -4340,7 +4340,7 @@ export class Session2 extends HeyApiClient {
   /**
    * 还原消息
    *
-   * 还原会话中的特定消息，撤销其影响并恢复之前状态。
+   * 还原会话中的特定消息，撤销其影响并恢复之前状态；将 revertFiles 设为 false 可保留文件改动。
    */
   public revert<ThrowOnError extends boolean = false>(
     parameters: {
@@ -4349,6 +4349,7 @@ export class Session2 extends HeyApiClient {
       workspace?: string
       messageID?: string
       partID?: string
+      revertFiles?: boolean
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4362,6 +4363,7 @@ export class Session2 extends HeyApiClient {
             { in: "query", key: "workspace" },
             { in: "body", key: "messageID" },
             { in: "body", key: "partID" },
+            { in: "body", key: "revertFiles" },
           ],
         },
       ],

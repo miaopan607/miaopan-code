@@ -16,6 +16,7 @@ export const RevertInput = Schema.Struct({
   sessionID: SessionID,
   messageID: MessageID,
   partID: Schema.optional(PartID),
+  revertFiles: Schema.optional(Schema.Boolean),
 })
 export type RevertInput = Schema.Schema.Type<typeof RevertInput>
 
@@ -43,6 +44,7 @@ const layer = Layer.effect(
       const all = yield* sessions.messages({ sessionID: input.sessionID }).pipe(Effect.orDie)
       let lastUser: SessionV1.User | undefined
       const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
+      const revertFiles = input.revertFiles ?? (session.revert ? session.revert.snapshot !== undefined : true)
 
       let rev: Session.Info["revert"]
       const patches: Snapshot.Patch[] = []
@@ -51,7 +53,7 @@ const layer = Layer.effect(
         const remaining = []
         for (const part of msg.parts) {
           if (rev) {
-            if (part.type === "patch") patches.push(part)
+            if (revertFiles && part.type === "patch") patches.push(part)
             continue
           }
 
@@ -70,10 +72,12 @@ const layer = Layer.effect(
 
       if (!rev) return session
 
-      rev.snapshot = session.revert?.snapshot ?? (yield* snap.track())
       if (session.revert?.snapshot) yield* snap.restore(session.revert.snapshot)
-      yield* snap.revert(patches)
-      if (rev.snapshot) rev.diff = yield* snap.diff(rev.snapshot)
+      if (revertFiles) {
+        rev.snapshot = session.revert?.snapshot ?? (yield* snap.track())
+        yield* snap.revert(patches)
+        if (rev.snapshot) rev.diff = yield* snap.diff(rev.snapshot)
+      }
       const range = all.filter((msg) => msg.info.id >= rev.messageID)
       const diffs = yield* summary.computeDiff({ messages: range })
       yield* storage.write(["session_diff", input.sessionID], diffs).pipe(Effect.ignore)

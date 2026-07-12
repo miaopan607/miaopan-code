@@ -412,8 +412,8 @@ export const messages = {
   },
   legacy_session_revert: { "zh-CN": "还原消息", en: "Revert message" },
   legacy_session_revert_description: {
-    "zh-CN": "还原会话中的特定消息，撤销其影响并恢复之前状态。",
-    en: "Revert a specific message in a session, undoing its effects and restoring the previous state.",
+    "zh-CN": "还原会话中的特定消息，撤销其影响并恢复之前状态；将 revertFiles 设为 false 可保留文件改动。",
+    en: "Revert a specific message in a session, undoing its effects and restoring the previous state; set revertFiles to false to preserve file changes.",
   },
   legacy_part_delete: { "zh-CN": "删除消息部分", en: "Delete message part" },
   legacy_part_update: { "zh-CN": "更新消息部分", en: "Update message part" },
