@@ -25,7 +25,7 @@ import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { Spinner } from "../../component/spinner"
 import { createSyntaxStyleMemo, generateSubtleSyntax, selectedForeground, useTheme } from "../../context/theme"
 import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
-import { Prompt, type PromptRef } from "../../component/prompt"
+import { CodexStatus, Prompt, type PromptRef } from "../../component/prompt"
 import type {
   AssistantMessage,
   Part,
@@ -89,6 +89,7 @@ import { MIAOPAN_CODE_BASE_MODE, useBindings, useCommandShortcut, useMiaopanCode
 import { usePathFormatter } from "../../context/path-format"
 import { LocationProvider } from "../../context/location"
 import { stripPromptPartIDs } from "../../prompt/part"
+import { formatDuration } from "../../util/format"
 
 addDefaultParsers(parsers.parsers)
 
@@ -1704,6 +1705,8 @@ function AssistantMessage(props: {
   const clipboard = useClipboard()
   const toast = useToast()
   const renderer = useRenderer()
+  const dialog = useDialog()
+  const kv = useKV()
   const [copyHover, setCopyHover] = createSignal(false)
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
   const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
@@ -1711,6 +1714,49 @@ function AssistantMessage(props: {
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
   })
+
+  const sessionStatus = createMemo(() => sync.data.session_status[props.message.sessionID] ?? { type: "idle" })
+  const working = createMemo(() => props.last && !final() && !props.message.error && sessionStatus().type !== "idle")
+  const animationsEnabled = createMemo(() => kv.get("animations_enabled", true))
+  const [clock, setClock] = createSignal(Date.now())
+  const retry = createMemo(() => {
+    const value = sessionStatus()
+    if (value.type !== "retry") return
+    return value
+  })
+  const retryMessage = createMemo(() => {
+    const value = retry()
+    if (!value) return
+    if (value.message.includes("exceeded your current quota") && value.message.includes("gemini"))
+      return i18n.t("tui.gemini_quota")
+    if (value.message.length > 80) return value.message.slice(0, 80) + "..."
+    return value.message
+  })
+  const retryTruncated = createMemo(() => (retry()?.message.length ?? 0) > 120)
+  const retrySeconds = createMemo(() => {
+    const next = retry()?.next
+    if (next === undefined) return 0
+    return Math.max(0, Math.round((next - clock()) / 1000))
+  })
+
+  const retryText = createMemo(() => {
+    const value = retry()
+    if (!value) return
+    const message = retryMessage() ?? ""
+    const truncatedHint = retryTruncated() ? i18n.t("tui.retry_expand") : ""
+    const duration = formatDuration(retrySeconds())
+    const retryInfo = i18n.t("tui.retry_info", {
+      attempt: value.attempt,
+      duration: duration ? ` ${duration} ` : " ",
+    })
+    return message + truncatedHint + retryInfo
+  })
+
+  const handleRetryClick = () => {
+    const value = retry()
+    if (!value || !retryTruncated()) return
+    void DialogAlert.show(dialog, i18n.t("tui.retry_error"), value.message)
+  }
 
   const handleCopy = () => {
     if (renderer.getSelection()?.getSelectedText()) return
@@ -1726,11 +1772,9 @@ function AssistantMessage(props: {
       .catch(() => toast.show({ message: i18n.t("session.copy_failed"), variant: "error" }))
   }
 
-  const duration = createMemo(() => {
-    if (!final()) return 0
-    if (!props.message.time.completed) return 0
+  const turnStartedAt = createMemo(() => {
     const user = messages().find((x) => x.role === "user" && x.id === props.message.parentID)
-    if (!user || !user.time) return 0
+    if (!user?.time) return
     const continued = messages().some(
       (message) =>
         message.role === "assistant" &&
@@ -1739,11 +1783,29 @@ function AssistantMessage(props: {
         message.finish !== undefined &&
         !["tool-calls", "unknown"].includes(message.finish),
     )
-    return props.message.time.completed - (continued ? props.message.time.created : user.time.created)
+    return continued ? props.message.time.created : user.time.created
+  })
+
+  const duration = createMemo(() => {
+    if (!final()) return 0
+    if (!props.message.time.completed) return 0
+    const startedAt = turnStartedAt()
+    if (startedAt === undefined) return 0
+    return props.message.time.completed - startedAt
+  })
+  const workingStartedAt = createMemo(() => turnStartedAt() ?? props.message.time.created)
+  const workingElapsed = createMemo(() => Math.max(0, Math.floor((clock() - workingStartedAt()) / 1000)))
+
+  createEffect(() => {
+    if (!working()) return
+    setClock(Date.now())
+    const timer = setInterval(() => setClock(Date.now()), 1000)
+    onCleanup(() => clearInterval(timer))
   })
 
   const childShortcut = useCommandShortcut("session.child.first")
   const backgroundShortcut = useCommandShortcut("session.background")
+  const interruptShortcut = useCommandShortcut("session.interrupt")
   const displayParts = createMemo(() =>
     assistantDisplayParts(props.parts, {
       last: props.last,
@@ -1813,26 +1875,42 @@ function AssistantMessage(props: {
             justifyContent="space-between"
             marginTop={1}
           >
-            <text>
-              <span
-                style={{
-                  fg:
-                    props.message.error?.name === "MessageAbortedError"
-                      ? theme.textMuted
-                      : local.agent.color(props.message.agent),
-                }}
-              >
-                ▣{" "}
-              </span>{" "}
-              <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
-              <span style={{ fg: theme.textMuted }}> · {model()}</span>
-              <Show when={duration()}>
-                <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
-              </Show>
-              <Show when={props.message.error?.name === "MessageAbortedError"}>
-                <span style={{ fg: theme.textMuted }}> · {t(Locale.language(), "tui.interrupted")}</span>
-              </Show>
-            </text>
+            <Show
+              when={working()}
+              fallback={
+                <text>
+                  <span
+                    style={{
+                      fg:
+                        props.message.error?.name === "MessageAbortedError"
+                          ? theme.textMuted
+                          : local.agent.color(props.message.agent),
+                    }}
+                  >
+                    ▣{" "}
+                  </span>{" "}
+                  <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
+                  <span style={{ fg: theme.textMuted }}> · {model()}</span>
+                  <Show when={duration()}>
+                    <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
+                  </Show>
+                  <Show when={props.message.error?.name === "MessageAbortedError"}>
+                    <span style={{ fg: theme.textMuted }}> · {t(Locale.language(), "tui.interrupted")}</span>
+                  </Show>
+                </text>
+              }
+            >
+              <CodexStatus
+                elapsed={workingElapsed()}
+                model={model()}
+                color={local.agent.color(props.message.agent)}
+                animationsEnabled={animationsEnabled()}
+                interruptShortcut={interruptShortcut()}
+                interruptText={i18n.t("tui.to_interrupt")}
+                retryText={retryText()}
+                onRetryClick={handleRetryClick}
+              />
+            </Show>
             <Show when={props.message.time.completed}>
               <box onMouseOver={() => setCopyHover(true)} onMouseOut={() => setCopyHover(false)} onMouseUp={handleCopy}>
                 <text fg={copyHover() ? theme.text : theme.textMuted}>⎘ {i18n.t("tui.copy")}</text>
