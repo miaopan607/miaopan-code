@@ -5,6 +5,7 @@ import { createSimpleContext } from "./helper"
 export type QueuedPrompt = {
   id: string
   prompt: PromptInfo
+  editorParts: PromptInfo["parts"]
 }
 
 export function createPromptQueue() {
@@ -15,8 +16,12 @@ export function createPromptQueue() {
     items(sessionID: string) {
       return store[sessionID] ?? []
     },
-    enqueue(sessionID: string, prompt: PromptInfo) {
-      const item = { id: crypto.randomUUID(), prompt: structuredClone(unwrap(prompt)) }
+    enqueue(sessionID: string, prompt: PromptInfo, editorParts: PromptInfo["parts"] = []) {
+      const item = {
+        id: crypto.randomUUID(),
+        prompt: structuredClone(unwrap(prompt)),
+        editorParts: structuredClone(unwrap(editorParts)),
+      }
       setStore(
         produce((draft) => {
           draft[sessionID] = [...(draft[sessionID] ?? []), item]

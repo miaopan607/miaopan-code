@@ -64,7 +64,7 @@ import { usePromptWorkspace } from "./workspace"
 import { usePromptMove } from "./move"
 import { readLocalAttachment } from "./local-attachment"
 import { useI18n } from "../../context/i18n"
-import { usePromptQueue } from "../../context/prompt-queue"
+import { usePromptQueue, type QueuedPrompt } from "../../context/prompt-queue"
 import { DialogReview } from "../dialog-review"
 import { isRecord } from "../../util/record"
 
@@ -152,6 +152,38 @@ function formatEditorContext(selection: EditorSelection) {
   })
 
   return t(Locale.language(), "prompt.editor_context_reminder", { ranges: ranges.join("\n") })
+}
+
+function createEditorParts(selection: EditorSelection): PromptInfo["parts"] {
+  return [
+    {
+      type: "text",
+      text: formatEditorContext(selection),
+      synthetic: true,
+      metadata: {
+        kind: "editor_context",
+        source: selection.source ?? "editor",
+        filePath: selection.filePath,
+        ranges: selection.ranges,
+      },
+    },
+  ]
+}
+
+function isEditorContextPart(part: PromptInfo["parts"][number]) {
+  return part.type === "text" && part.synthetic === true && part.metadata?.kind === "editor_context"
+}
+
+function parsePromptCommand(input: string) {
+  if (!input.startsWith("/")) return
+  const firstLineEnd = input.indexOf("\n")
+  const firstLine = firstLineEnd === -1 ? input : input.slice(0, firstLineEnd)
+  const [name, ...firstLineArgs] = firstLine.split(" ")
+  const rest = firstLineEnd === -1 ? "" : input.slice(firstLineEnd + 1)
+  return {
+    name: name.slice(1),
+    arguments: firstLineArgs.join(" ") + (rest ? "\n" + rest : ""),
+  }
 }
 
 let stashed: { prompt: PromptInfo; cursor: number } | undefined
@@ -332,7 +364,24 @@ export function Prompt(props: PromptProps) {
       syncExtmarksWithPromptParts()
     }
     if (!store.prompt.input.trim()) return false
-    queue.enqueue(sessionID, { ...structuredClone(unwrap(store.prompt)), mode: store.mode })
+    const prompt = structuredClone(unwrap(store.prompt))
+    const retainedEditorParts = prompt.parts.filter(isEditorContextPart)
+    const editorSelection = editorContext()
+    const command = parsePromptCommand(prompt.input)
+    const acceptsEditorContext =
+      store.mode !== "shell" && !sync.data.command.some((item) => item.name === command?.name)
+    const editorParts =
+      retainedEditorParts.length > 0
+        ? retainedEditorParts
+        : acceptsEditorContext && editorSelection && editor.labelState() === "pending"
+          ? createEditorParts(editorSelection)
+          : []
+    queue.enqueue(
+      sessionID,
+      { ...prompt, mode: store.mode, parts: prompt.parts.filter((part) => !isEditorContextPart(part)) },
+      editorParts,
+    )
+    if (retainedEditorParts.length === 0 && editorParts.length > 0) editor.markSelectionSent()
     clearComposer()
     props.onSubmit?.()
     return true
@@ -345,7 +394,7 @@ export function Prompt(props: PromptProps) {
     if (!item) return
     setStore("mode", item.prompt.mode ?? "normal")
     input.setText(item.prompt.input)
-    setStore("prompt", item.prompt)
+    setStore("prompt", { ...item.prompt, parts: [...item.editorParts, ...item.prompt.parts] })
     restoreExtmarksFromParts(item.prompt.parts)
     input.gotoBufferEnd()
   }
@@ -1019,7 +1068,7 @@ export function Prompt(props: PromptProps) {
   })
 
   let submitting = false
-  async function submit(queuedSubmission = false) {
+  async function submit() {
     // Prevent overlapping invocations (e.g. a double-pressed Enter, or the
     // input's native onSubmit racing another dispatch). Without this guard,
     // a second call slips past the empty-input check before the first call
@@ -1027,16 +1076,16 @@ export function Prompt(props: PromptProps) {
     // ultimately reads the now-empty store — sending a phantom empty prompt
     // to a freshly created session.
     if (submitting) return false
-    if (!queuedSubmission && props.sessionID) queue.resume(props.sessionID)
+    if (props.sessionID) queue.resume(props.sessionID)
     submitting = true
     try {
-      return await submitInner(queuedSubmission)
+      return await submitInner()
     } finally {
       submitting = false
     }
   }
 
-  async function submitInner(queuedSubmission: boolean) {
+  async function submitInner() {
     workspace.clearNotice()
 
     // IME: double-defer may fire before onContentChange flushes the last
@@ -1144,23 +1193,19 @@ export function Prompt(props: PromptProps) {
 
     // Capture mode before it gets reset
     const currentMode = store.mode
+    const promptCommand = parsePromptCommand(inputText)
+    const command = sync.data.command.some((item) => item.name === promptCommand?.name) ? promptCommand : undefined
+    const retainedEditorParts = store.prompt.parts.filter(isEditorContextPart)
     const editorSelection = editorContext()
-    const editorParts =
-      editorSelection && editor.labelState() === "pending"
-        ? [
-            {
-              type: "text" as const,
-              text: formatEditorContext(editorSelection),
-              synthetic: true,
-              metadata: {
-                kind: "editor_context",
-                source: editorSelection.source ?? "editor",
-                filePath: editorSelection.filePath,
-                ranges: editorSelection.ranges,
-              },
-            },
-          ]
+    const liveEditorParts =
+      store.mode !== "shell" &&
+      !command &&
+      retainedEditorParts.length === 0 &&
+      editorSelection &&
+      editor.labelState() === "pending"
+        ? createEditorParts(editorSelection)
         : []
+    const editorParts = [...retainedEditorParts, ...liveEditorParts]
 
     if (store.mode === "shell") {
       move.startSubmit()
@@ -1174,22 +1219,12 @@ export function Prompt(props: PromptProps) {
         command: inputText,
       })
       setStore("mode", "normal")
-    } else if (
-      inputText.startsWith("/") &&
-      sync.data.command.some((x) => x.name === inputText.split("\n")[0].split(" ")[0].slice(1))
-    ) {
+    } else if (command) {
       move.startSubmit()
-      // Parse command from first line, preserve multi-line content in arguments
-      const firstLineEnd = inputText.indexOf("\n")
-      const firstLine = firstLineEnd === -1 ? inputText : inputText.slice(0, firstLineEnd)
-      const [command, ...firstLineArgs] = firstLine.split(" ")
-      const restOfInput = firstLineEnd === -1 ? "" : inputText.slice(firstLineEnd + 1)
-      const args = firstLineArgs.join(" ") + (restOfInput ? "\n" + restOfInput : "")
-
       void sdk.client.session.command({
         sessionID,
-        command: command.slice(1),
-        arguments: args,
+        command: command.name,
+        arguments: command.arguments,
         agent: agent.name,
         model: `${selectedModel.providerID}/${selectedModel.modelID}`,
         variant,
@@ -1205,34 +1240,19 @@ export function Prompt(props: PromptProps) {
         variant,
         parts: [...editorParts, { type: "text" as const, text: inputText }, ...nonTextParts],
       }
-      const sent = queuedSubmission
-        ? sdk.client.session.promptAsync(request, { throwOnError: true })
-        : sdk.client.session.prompt(request, { throwOnError: true })
-      if (queuedSubmission) {
-        try {
-          await sent
-        } catch (error) {
-          toast.show({
-            title: i18n.t("prompt.send_failed"),
-            message: errorMessage(error),
-            variant: "error",
-          })
-          return false
-        }
-      } else {
-        void sent.catch((error) => {
-          toast.show({
-            title: i18n.t("prompt.send_failed"),
-            message: errorMessage(error),
-            variant: "error",
-          })
+      void sdk.client.session.prompt(request, { throwOnError: true }).catch((error) => {
+        toast.show({
+          title: i18n.t("prompt.send_failed"),
+          message: errorMessage(error),
+          variant: "error",
         })
-      }
-      if (editorParts.length > 0) editor.markSelectionSent()
+      })
+      if (liveEditorParts.length > 0) editor.markSelectionSent()
     }
     history.append({
       ...store.prompt,
       mode: currentMode,
+      parts: store.prompt.parts.filter((part) => !isEditorContextPart(part)),
     })
     input.extmarks.clear()
     setStore("prompt", {
@@ -1257,6 +1277,82 @@ export function Prompt(props: PromptProps) {
     return true
   }
 
+  async function submitQueued(sessionID: string, item: QueuedPrompt) {
+    if (props.disabled || workspace.creating() || move.creating() || auto()?.visible) return false
+    const agent = local.agent.current()
+    const selectedModel = local.model.current()
+    if (!agent || !selectedModel) return false
+
+    const workspaceID = sync.session.get(sessionID)?.workspaceID
+    if (workspaceID && (project.workspace.status(workspaceID) ?? "error") !== "connected") return false
+
+    const inputText = expandTrackedPastedText(
+      item.prompt.input,
+      item.prompt.parts.flatMap((part) => {
+        if (part.type !== "text" || !part.source?.text) return []
+        return [{ start: part.source.text.start, end: part.source.text.end, text: part.text }]
+      }),
+    )
+    const parts = item.prompt.parts.filter((part) => part.type !== "text")
+    const variant = local.model.variant.current()
+    const promptCommand = parsePromptCommand(inputText)
+    const command = sync.data.command.some((item) => item.name === promptCommand?.name) ? promptCommand : undefined
+    move.startSubmit()
+
+    try {
+      if (item.prompt.mode === "shell") {
+        await sdk.client.session.shell(
+          {
+            sessionID,
+            agent: agent.name,
+            model: {
+              providerID: selectedModel.providerID,
+              modelID: selectedModel.modelID,
+            },
+            command: inputText,
+          },
+          { throwOnError: true },
+        )
+      } else if (command) {
+        await sdk.client.session.command(
+          {
+            sessionID,
+            command: command.name,
+            arguments: command.arguments,
+            agent: agent.name,
+            model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+            variant,
+            parts: parts.filter((part) => part.type === "file"),
+          },
+          { throwOnError: true },
+        )
+      } else {
+        await sdk.client.session.promptAsync(
+          {
+            sessionID,
+            ...selectedModel,
+            agent: agent.name,
+            model: selectedModel,
+            variant,
+            parts: [...item.editorParts, { type: "text", text: inputText }, ...parts],
+          },
+          { throwOnError: true },
+        )
+      }
+    } catch (error) {
+      toast.show({
+        title: i18n.t("prompt.send_failed"),
+        message: errorMessage(error),
+        variant: "error",
+      })
+      return false
+    }
+
+    history.append(item.prompt)
+    props.onSubmit?.()
+    return true
+  }
+
   let queuedTurnReady = false
   let queuedSubmitting = false
   createEffect(
@@ -1278,25 +1374,12 @@ export function Prompt(props: PromptProps) {
         if (!item) return
         queuedTurnReady = false
         queuedSubmitting = true
-        const draft = structuredClone(unwrap(store.prompt))
-        const mode = store.mode
-        const cursor = input.cursorOffset
-        setStore("mode", item.prompt.mode ?? "normal")
-        input.setText(item.prompt.input)
-        setStore("prompt", item.prompt)
-        restoreExtmarksFromParts(item.prompt.parts)
-        input.gotoBufferEnd()
 
-        void submit(true)
+        void submitQueued(sessionID, item)
           .then((handled) => {
             if (handled) queue.remove(sessionID, item.id)
           })
           .finally(() => {
-            setStore("mode", mode)
-            input.setText(draft.input)
-            setStore("prompt", draft)
-            restoreExtmarksFromParts(draft.parts)
-            input.cursorOffset = Math.min(cursor, input.plainText.length)
             queuedSubmitting = false
           })
       },

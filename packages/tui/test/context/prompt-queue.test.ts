@@ -18,10 +18,27 @@ describe("prompt queue", () => {
   test("pops the most recent entry for editing", () => {
     const queue = createPromptQueue()
     queue.enqueue("one", { input: "first", parts: [] })
-    queue.enqueue("one", { input: "second", mode: "shell", parts: [] })
+    queue.enqueue(
+      "one",
+      { input: "second", mode: "shell", parts: [] },
+      [{ type: "text", text: "editor context", synthetic: true }],
+    )
 
-    expect(queue.pop("one")?.prompt).toEqual({ input: "second", mode: "shell", parts: [] })
+    expect(queue.pop("one")).toMatchObject({
+      prompt: { input: "second", mode: "shell", parts: [] },
+      editorParts: [{ type: "text", text: "editor context", synthetic: true }],
+    })
     expect(queue.items("one").map((item) => item.prompt.input)).toEqual(["first"])
+  })
+
+  test("snapshots editor context independently from the caller", () => {
+    const queue = createPromptQueue()
+    const editorParts = [{ type: "text" as const, text: "original", synthetic: true }]
+    const item = queue.enqueue("one", { input: "queued", parts: [] }, editorParts)
+
+    editorParts[0].text = "changed"
+
+    expect(item.editorParts).toEqual([{ type: "text", text: "original", synthetic: true }])
   })
 
   test("pauses and resumes automatic delivery by session", () => {
