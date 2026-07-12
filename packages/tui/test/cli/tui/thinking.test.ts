@@ -52,6 +52,12 @@ describe("assistantDisplayParts", () => {
     time: { start: 1, end: 2 },
   } as Part
 
+  const streamingReasoning = {
+    ...reasoning,
+    id: "part_streaming_reasoning",
+    time: { start: 3 },
+  } as Part
+
   test("removes hidden reasoning without changing the following text part", () => {
     const text = {
       id: "part_text",
@@ -70,7 +76,7 @@ describe("assistantDisplayParts", () => {
         toolDisplay: "compact",
         showDetails: true,
       }).map((part) => part.type),
-    ).toEqual(["reasoning", "text"])
+    ).toEqual(["text"])
     expect(
       assistantDisplayParts(parts, {
         last: false,
@@ -107,7 +113,7 @@ describe("assistantDisplayParts", () => {
         toolDisplay: "compact",
         showDetails: true,
       }).map((part) => part.type),
-    ).toEqual(["reasoning", "compact-explore"])
+    ).toEqual(["compact-explore"])
     expect(
       assistantDisplayParts(parts, {
         last: false,
@@ -116,5 +122,40 @@ describe("assistantDisplayParts", () => {
         showDetails: true,
       }).map((part) => part.type),
     ).toEqual(["compact-explore"])
+  })
+
+  test("keeps only the last streaming reasoning in the current message", () => {
+    const parts = [reasoning, streamingReasoning]
+
+    expect(
+      assistantDisplayParts(parts, {
+        last: true,
+        thinkingMode: "hidden",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([streamingReasoning])
+  })
+
+  test("removes streaming reasoning from a message that is no longer last", () => {
+    expect(
+      assistantDisplayParts([streamingReasoning], {
+        last: false,
+        thinkingMode: "hidden",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([])
+  })
+
+  test.each(["collapsed", "expanded"] as const)("keeps reasoning in %s mode", (thinkingMode) => {
+    expect(
+      assistantDisplayParts([reasoning], {
+        last: false,
+        thinkingMode,
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([reasoning])
   })
 })

@@ -1785,7 +1785,10 @@ export function assistantDisplayParts(
 ) {
   const reasoning = input.last ? parts.findLast((part) => part.type === "reasoning") : undefined
   const visible = parts.filter(
-    (part) => input.thinkingMode !== "hidden" || part.type !== "reasoning" || part === reasoning,
+    (part) =>
+      input.thinkingMode !== "hidden" ||
+      part.type !== "reasoning" ||
+      (part === reasoning && part.time.end === undefined),
   )
   if (input.toolDisplay !== "compact") return visible
 
