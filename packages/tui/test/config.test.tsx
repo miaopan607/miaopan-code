@@ -86,6 +86,27 @@ test("resolves a session move keybind", () => {
   expect(config.keybinds.get("session.move")).toMatchObject([{ key: "ctrl+o" }])
 })
 
+test("resolves command palette favorite keybinds", () => {
+  const defaults = resolve({}, { terminalSuspend: true })
+  const overrides = resolve(
+    {
+      keybinds: {
+        command_palette_favorite_toggle: "alt+f",
+        command_palette_favorite_move_up: "alt+up",
+        command_palette_favorite_move_down: "alt+down",
+      },
+    },
+    { terminalSuspend: true },
+  )
+
+  expect(defaults.keybinds.get("command.palette.favorite")).toMatchObject([{ key: "ctrl+f" }])
+  expect(defaults.keybinds.get("command.palette.favorite_up")).toMatchObject([{ key: "[" }])
+  expect(defaults.keybinds.get("command.palette.favorite_down")).toMatchObject([{ key: "]" }])
+  expect(overrides.keybinds.get("command.palette.favorite")).toMatchObject([{ key: "alt+f" }])
+  expect(overrides.keybinds.get("command.palette.favorite_up")).toMatchObject([{ key: "alt+up" }])
+  expect(overrides.keybinds.get("command.palette.favorite_down")).toMatchObject([{ key: "alt+down" }])
+})
+
 test("resolves favorite model move keybinds", () => {
   const defaults = resolve({}, { terminalSuspend: true })
   const overrides = resolve(

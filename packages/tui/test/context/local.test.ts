@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test"
-import { parseModel, recentModels, reorderFavorite } from "../../src/context/local"
+import { parseModel, recentModels } from "../../src/context/local"
+import { canReorderFavorite, reorderFavorite } from "../../src/util/favorite"
+
+const sameModel = (left: { providerID: string; modelID: string }, right: { providerID: string; modelID: string }) =>
+  left.providerID === right.providerID && left.modelID === right.modelID
 
 test("parses model IDs containing slashes", () => {
   expect(parseModel("provider/family/model")).toEqual({
@@ -28,8 +32,16 @@ test("moves favorite models without mutating the input", () => {
     { providerID: "provider", modelID: "three" },
   ]
 
-  expect(reorderFavorite(favorite[1], favorite, -1, () => true)).toEqual([favorite[1], favorite[0], favorite[2]])
-  expect(reorderFavorite(favorite[1], favorite, 1, () => true)).toEqual([favorite[0], favorite[2], favorite[1]])
+  expect(reorderFavorite(favorite[1], favorite, -1, () => true, sameModel)).toEqual([
+    favorite[1],
+    favorite[0],
+    favorite[2],
+  ])
+  expect(reorderFavorite(favorite[1], favorite, 1, () => true, sameModel)).toEqual([
+    favorite[0],
+    favorite[2],
+    favorite[1],
+  ])
   expect(favorite.map((item) => item.modelID)).toEqual(["one", "two", "three"])
 })
 
@@ -39,9 +51,13 @@ test("does not move favorite models beyond visible boundaries", () => {
     { providerID: "provider", modelID: "two" },
   ]
 
-  expect(reorderFavorite(favorite[0], favorite, -1, () => true)).toBe(favorite)
-  expect(reorderFavorite(favorite[1], favorite, 1, () => true)).toBe(favorite)
-  expect(reorderFavorite({ providerID: "provider", modelID: "missing" }, favorite, -1, () => true)).toBe(favorite)
+  expect(reorderFavorite(favorite[0], favorite, -1, () => true, sameModel)).toBe(favorite)
+  expect(reorderFavorite(favorite[1], favorite, 1, () => true, sameModel)).toBe(favorite)
+  expect(canReorderFavorite(favorite[0], favorite, -1, () => true, sameModel)).toBe(false)
+  expect(canReorderFavorite(favorite[1], favorite, -1, () => true, sameModel)).toBe(true)
+  expect(reorderFavorite({ providerID: "provider", modelID: "missing" }, favorite, -1, () => true, sameModel)).toBe(
+    favorite,
+  )
 })
 
 test("moves across invalid favorites according to visible order", () => {
@@ -52,7 +68,11 @@ test("moves across invalid favorites according to visible order", () => {
   ]
   const isValid = (model: { providerID: string; modelID: string }) => model.modelID !== "removed"
 
-  expect(reorderFavorite(favorite[2], favorite, -1, isValid)).toEqual([favorite[2], favorite[1], favorite[0]])
-  expect(reorderFavorite(favorite[0], favorite, 1, isValid)).toEqual([favorite[2], favorite[1], favorite[0]])
-  expect(reorderFavorite(favorite[1], favorite, -1, isValid)).toBe(favorite)
+  expect(reorderFavorite(favorite[2], favorite, -1, isValid, sameModel)).toEqual([
+    favorite[2],
+    favorite[1],
+    favorite[0],
+  ])
+  expect(reorderFavorite(favorite[0], favorite, 1, isValid, sameModel)).toEqual([favorite[2], favorite[1], favorite[0]])
+  expect(reorderFavorite(favorite[1], favorite, -1, isValid, sameModel)).toBe(favorite)
 })

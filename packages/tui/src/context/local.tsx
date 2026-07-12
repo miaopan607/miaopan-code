@@ -15,6 +15,7 @@ import { useRoute } from "./route"
 import { usePermission } from "./permission"
 import { Locale } from "../util/locale"
 import { t } from "@miaopan-code/core/i18n"
+import { reorderFavorite } from "../util/favorite"
 
 export type LocalTheme = {
   secondary: RGBA
@@ -48,27 +49,6 @@ export function recentModels(
     })
     .slice(0, 10)
     .map((item) => ({ providerID: item.providerID, modelID: item.modelID }))
-}
-
-export function reorderFavorite(
-  model: { providerID: string; modelID: string },
-  favorite: { providerID: string; modelID: string }[],
-  direction: -1 | 1,
-  isValid: (model: { providerID: string; modelID: string }) => boolean,
-) {
-  if (!isValid(model)) return favorite
-  const index = favorite.findIndex((item) => item.providerID === model.providerID && item.modelID === model.modelID)
-  if (index === -1) return favorite
-  const target =
-    direction === -1
-      ? favorite.findLastIndex((item, itemIndex) => itemIndex < index && isValid(item))
-      : favorite.findIndex((item, itemIndex) => itemIndex > index && isValid(item))
-  if (target === -1) return favorite
-  return favorite.map((item, itemIndex) => {
-    if (itemIndex === index) return favorite[target]
-    if (itemIndex === target) return favorite[index]
-    return item
-  })
 }
 
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
@@ -383,7 +363,13 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           })
         },
         moveFavorite(model: { providerID: string; modelID: string }, direction: -1 | 1) {
-          const next = reorderFavorite(model, modelStore.favorite, direction, isModelValid)
+          const next = reorderFavorite(
+            model,
+            modelStore.favorite,
+            direction,
+            isModelValid,
+            (left, right) => left.providerID === right.providerID && left.modelID === right.modelID,
+          )
           if (next === modelStore.favorite) return
           setModelStore(
             "favorite",

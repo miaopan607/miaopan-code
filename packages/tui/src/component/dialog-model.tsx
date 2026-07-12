@@ -13,6 +13,7 @@ import { useI18n } from "../context/i18n"
 import { useSDK } from "../context/sdk"
 import { useProject } from "../context/project"
 import { useToast } from "../ui/toast"
+import { canReorderFavorite } from "../util/favorite"
 
 export function DialogModel(props: { providerID?: string }) {
   const local = useLocal()
@@ -194,12 +195,13 @@ export function DialogModel(props: { providerID?: string }) {
     if (!showExtra() || query().trim()) return true
     const model = option?.value as { providerID: string; modelID: string } | undefined
     if (!model) return true
-    const favorites = favoriteModels()
-    const index = favorites.findIndex(
-      (item) => item.providerID === model.providerID && item.modelID === model.modelID,
+    return !canReorderFavorite(
+      model,
+      favoriteModels(),
+      direction,
+      () => true,
+      (left, right) => left.providerID === right.providerID && left.modelID === right.modelID,
     )
-    if (index === -1) return true
-    return direction === -1 ? index === 0 : index === favorites.length - 1
   }
 
   return (

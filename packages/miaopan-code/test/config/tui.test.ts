@@ -485,6 +485,9 @@ it.instance("resolves keybind lookup from canonical keybinds", () =>
           "prompt.autocomplete.next": "ctrl+j",
           "dialog.prompt.submit": "ctrl+s",
           "dialog.mcp.toggle": "ctrl+t",
+          command_palette_favorite_toggle: "alt+f",
+          command_palette_favorite_move_up: "alt+up",
+          command_palette_favorite_move_down: "alt+down",
           model_favorite_toggle: "ctrl+f",
           model_favorite_move_up: "alt+up",
           model_favorite_move_down: "alt+down",
@@ -510,6 +513,9 @@ it.instance("resolves keybind lookup from canonical keybinds", () =>
       expect(config.keybinds.get("prompt.autocomplete.next")?.[0]?.key).toBe("ctrl+j")
       expect(config.keybinds.get("dialog.prompt.submit")?.[0]?.key).toBe("ctrl+s")
       expect(config.keybinds.get("dialog.mcp.toggle")?.[0]?.key).toBe("ctrl+t")
+      expect(config.keybinds.get("command.palette.favorite")?.[0]?.key).toBe("alt+f")
+      expect(config.keybinds.get("command.palette.favorite_up")?.[0]?.key).toBe("alt+up")
+      expect(config.keybinds.get("command.palette.favorite_down")?.[0]?.key).toBe("alt+down")
       expect(config.keybinds.get("model.dialog.favorite")?.[0]?.key).toBe("ctrl+f")
       expect(config.keybinds.get("model.dialog.favorite_up")?.[0]?.key).toBe("alt+up")
       expect(config.keybinds.get("model.dialog.favorite_down")?.[0]?.key).toBe("alt+down")
