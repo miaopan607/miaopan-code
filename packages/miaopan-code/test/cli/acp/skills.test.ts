@@ -6,7 +6,7 @@ import path from "node:path"
 import { cliIt } from "../../lib/cli-process"
 import { createAcpClient, initialize, newSession, verifierConfig, verifierSkill } from "./helpers"
 
-describe("miaopanCode acp skills subprocess", () => {
+describe("miaopan-code acp skills subprocess", () => {
   cliIt.live(
     "skill slash command appears through available_commands_update",
     ({ home, llm, miaopanCode }) =>

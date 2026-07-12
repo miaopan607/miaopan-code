@@ -4,7 +4,7 @@ import { Effect } from "effect"
 import { cliIt } from "../../lib/cli-process"
 import { createAcpClient, expectErrorCode, initialize } from "./helpers"
 
-describe("miaopanCode acp initialize/auth subprocess", () => {
+describe("miaopan-code acp initialize/auth subprocess", () => {
   cliIt.live(
     "initialize responds with capabilities",
     ({ miaopanCode }) =>

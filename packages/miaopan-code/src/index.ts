@@ -35,11 +35,11 @@ const language = UI.getLanguage()
 
 function show(out: string) {
   const text = out.trimStart()
-  if (!text.startsWith("miaopanCode ")) {
+  if (!text.startsWith("miaopan-code ")) {
     process.stderr.write(text + "\n")
     return
   }
-  process.stderr.write(out)
+  process.stderr.write(out.endsWith("\n") ? out : out + "\n")
 }
 
 const cli = yargs(args)

@@ -25,7 +25,7 @@ const archMap = {
 const platform = platformMap[os.platform()] ?? os.platform()
 const arch = archMap[os.arch()] ?? os.arch()
 const base = `@miaopan/code-${platform}-${arch}`
-const sourceBinary = platform === "windows" ? "miaopanCode.exe" : "miaopan-code"
+const sourceBinary = platform === "windows" ? "miaopan-code.exe" : "miaopan-code"
 const targetBinary = path.join(__dirname, "bin", "miaopan-code.exe")
 
 function supportsAvx2() {

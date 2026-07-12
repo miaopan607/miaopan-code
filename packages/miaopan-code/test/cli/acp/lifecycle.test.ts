@@ -10,7 +10,7 @@ import { cliIt } from "../../lib/cli-process"
 import { expectOk, selectConfigOption } from "./acp-test-client"
 import { createAcpClient, initialize, newSession, verifierConfig } from "./helpers"
 
-describe("miaopanCode acp lifecycle subprocess", () => {
+describe("miaopan-code acp lifecycle subprocess", () => {
   cliIt.live(
     "stdin EOF exits cleanly",
     ({ miaopanCode }) =>

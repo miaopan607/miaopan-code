@@ -290,7 +290,7 @@ describe("ACP service sessions", () => {
 
     expect(initialized.authMethods?.[0]).toMatchObject({
       name: "Login with miaopanCode",
-      description: "Run `miaopanCode auth login` in the terminal",
+      description: "Run `miaopan-code auth login` in the terminal",
       _meta: { "terminal-auth": { label: "MiaopanCode Login" } },
     })
     expect(session.configOptions?.map((option) => option.name)).toEqual(["Model", "Effort", "Session Mode"])

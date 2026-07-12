@@ -1,4 +1,4 @@
-// Subprocess integration tests for `miaopanCode run` (non-interactive mode).
+// Subprocess integration tests for `miaopan-code run` (non-interactive mode).
 // These exercise the real CLI binary against a TestLLMServer running in the
 // same process. See `test/lib/cli-process.ts` for the harness — each test uses
 // `miaopanCode.run(message, opts?)` to spawn `bun src/index.ts run ...` with
@@ -9,7 +9,7 @@ import { reply } from "../../lib/llm-server"
 import { cliIt } from "../../lib/cli-process"
 import { UI } from "../../../src/cli/ui"
 
-describe("miaopanCode run (non-interactive subprocess)", () => {
+describe("miaopan-code run (non-interactive subprocess)", () => {
   // Happy path: prompt completes, output reaches stdout, process exits 0.
   // If this fails, all the others likely will too — debug here first.
   cliIt.concurrent(

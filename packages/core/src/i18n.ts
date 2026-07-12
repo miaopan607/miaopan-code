@@ -1525,8 +1525,8 @@ export const messages = {
   "mcp.servers": { "zh-CN": "MCP 服务器", en: "MCP Servers" },
   "mcp.no_servers": { "zh-CN": "未配置 MCP 服务器", en: "No MCP servers configured" },
   "mcp.add_hint": {
-    "zh-CN": "使用以下命令添加服务器：miaopanCode mcp add",
-    en: "Add servers with: miaopanCode mcp add",
+    "zh-CN": "使用以下命令添加服务器：miaopan-code mcp add",
+    en: "Add servers with: miaopan-code mcp add",
   },
   "mcp.oauth_authentication": { "zh-CN": "MCP OAuth 身份验证", en: "MCP OAuth Authentication" },
   "mcp.no_oauth_servers": { "zh-CN": "未配置支持 OAuth 的 MCP 服务器", en: "No OAuth-capable MCP servers configured" },
@@ -1737,8 +1737,8 @@ export const messages = {
   "uninstall.thanks": { "zh-CN": "感谢使用 MiaopanCode！", en: "Thank you for using MiaopanCode!" },
   "mcp.auth_required": { "zh-CN": "需要 MCP 身份验证", en: "MCP Authentication Required" },
   "acp.auth_login": {
-    "zh-CN": "在终端运行 miaopanCode auth login",
-    en: "Run `miaopanCode auth login` in the terminal",
+    "zh-CN": "在终端运行 miaopan-code auth login",
+    en: "Run `miaopan-code auth login` in the terminal",
   },
   "command.setup_agents": { "zh-CN": "引导设置 AGENTS.md", en: "guided AGENTS.md setup" },
   "command.review": {
@@ -1932,48 +1932,48 @@ export const messages = {
     en: "Create a plugin to prevent MiaopanCode from reading sensitive files",
   },
   "tips.cli_run": {
-    "zh-CN": "使用 {highlight}miaopanCode run{/highlight} 执行非交互式脚本",
-    en: "Use {highlight}miaopanCode run{/highlight} for non-interactive scripting",
+    "zh-CN": "使用 {highlight}miaopan-code run{/highlight} 执行非交互式脚本",
+    en: "Use {highlight}miaopan-code run{/highlight} for non-interactive scripting",
   },
   "tips.cli_continue": {
-    "zh-CN": "使用 {highlight}miaopanCode --continue{/highlight} 恢复上一个会话",
-    en: "Use {highlight}miaopanCode --continue{/highlight} to resume the last session",
+    "zh-CN": "使用 {highlight}miaopan-code --continue{/highlight} 恢复上一个会话",
+    en: "Use {highlight}miaopan-code --continue{/highlight} to resume the last session",
   },
   "tips.cli_attach": {
-    "zh-CN": "使用 {highlight}miaopanCode run -f file.ts{/highlight} 通过 CLI 附加文件",
-    en: "Use {highlight}miaopanCode run -f file.ts{/highlight} to attach files via CLI",
+    "zh-CN": "使用 {highlight}miaopan-code run -f file.ts{/highlight} 通过 CLI 附加文件",
+    en: "Use {highlight}miaopan-code run -f file.ts{/highlight} to attach files via CLI",
   },
   "tips.cli_json": {
     "zh-CN": "在脚本中使用 {highlight}--format json{/highlight} 获取机器可读输出",
     en: "Use {highlight}--format json{/highlight} for machine-readable output in scripts",
   },
   "tips.cli_serve": {
-    "zh-CN": "运行 {highlight}miaopanCode serve{/highlight} 提供无头 API 访问",
-    en: "Run {highlight}miaopanCode serve{/highlight} for headless API access",
+    "zh-CN": "运行 {highlight}miaopan-code serve{/highlight} 提供无头 API 访问",
+    en: "Run {highlight}miaopan-code serve{/highlight} for headless API access",
   },
   "tips.cli_attach_server": {
-    "zh-CN": "使用 {highlight}miaopanCode run --attach{/highlight} 连接正在运行的服务器",
-    en: "Use {highlight}miaopanCode run --attach{/highlight} to connect to a running server",
+    "zh-CN": "使用 {highlight}miaopan-code run --attach{/highlight} 连接正在运行的服务器",
+    en: "Use {highlight}miaopan-code run --attach{/highlight} to connect to a running server",
   },
   "tips.cli_upgrade": {
-    "zh-CN": "运行 {highlight}miaopanCode upgrade{/highlight} 更新到最新版本",
-    en: "Run {highlight}miaopanCode upgrade{/highlight} to update to the latest version",
+    "zh-CN": "运行 {highlight}miaopan-code upgrade{/highlight} 更新到最新版本",
+    en: "Run {highlight}miaopan-code upgrade{/highlight} to update to the latest version",
   },
   "tips.cli_auth": {
-    "zh-CN": "运行 {highlight}miaopanCode auth list{/highlight} 查看已配置的提供商",
-    en: "Run {highlight}miaopanCode auth list{/highlight} to see all configured providers",
+    "zh-CN": "运行 {highlight}miaopan-code auth list{/highlight} 查看已配置的提供商",
+    en: "Run {highlight}miaopan-code auth list{/highlight} to see all configured providers",
   },
   "tips.cli_agent": {
-    "zh-CN": "运行 {highlight}miaopanCode agent create{/highlight} 引导创建代理",
-    en: "Run {highlight}miaopanCode agent create{/highlight} for guided agent creation",
+    "zh-CN": "运行 {highlight}miaopan-code agent create{/highlight} 引导创建代理",
+    en: "Run {highlight}miaopan-code agent create{/highlight} for guided agent creation",
   },
   "tips.github_trigger": {
     "zh-CN": "在 GitHub issue/PR 中使用 {highlight}/miaopanCode{/highlight} 触发 AI 操作",
     en: "Use {highlight}/miaopanCode{/highlight} in GitHub issues/PRs to trigger AI actions",
   },
   "tips.github_install": {
-    "zh-CN": "运行 {highlight}miaopanCode github install{/highlight} 设置 GitHub 工作流",
-    en: "Run {highlight}miaopanCode github install{/highlight} to set up the GitHub workflow",
+    "zh-CN": "运行 {highlight}miaopan-code github install{/highlight} 设置 GitHub 工作流",
+    en: "Run {highlight}miaopan-code github install{/highlight} to set up the GitHub workflow",
   },
   "tips.github_fix": {
     "zh-CN": "在 issue 中评论 {highlight}/miaopanCode fix this{/highlight} 自动创建 PR",
@@ -2052,8 +2052,8 @@ export const messages = {
     en: "Permission {highlight}external_directory{/highlight} protects files outside project",
   },
   "tips.debug_config": {
-    "zh-CN": "运行 {highlight}miaopanCode debug config{/highlight} 排查配置问题",
-    en: "Run {highlight}miaopanCode debug config{/highlight} to troubleshoot configuration",
+    "zh-CN": "运行 {highlight}miaopan-code debug config{/highlight} 排查配置问题",
+    en: "Run {highlight}miaopan-code debug config{/highlight} to troubleshoot configuration",
   },
   "tips.print_logs": {
     "zh-CN": "使用 {highlight}--print-logs{/highlight} 标志在 stderr 查看详细日志",
@@ -2133,8 +2133,8 @@ export const messages = {
   },
   "tips.through": { "zh-CN": "使用 {{first}} 到 {{last}}{{text}}", en: "Use {{first}} through {{last}} {{text}}" },
   "config.v1.server": {
-    "zh-CN": "miaopanCode serve 和 web 命令的服务器配置",
-    en: "Server configuration for miaopanCode serve and web commands",
+    "zh-CN": "miaopan-code serve 和 web 命令的服务器配置",
+    en: "Server configuration for miaopan-code serve and web commands",
   },
   "config.v1.command": {
     "zh-CN": "命令配置，参见 docs/commands",
@@ -2871,8 +2871,8 @@ export const messages = {
   },
   "error.did_you_mean": { "zh-CN": "你是否想使用：{{items}}", en: "Did you mean: {{items}}" },
   "error.model_list": {
-    "zh-CN": "请运行 `miaopanCode models` 查看可用模型",
-    en: "Try: `miaopanCode models` to list available models",
+    "zh-CN": "请运行 `miaopan-code models` 查看可用模型",
+    en: "Try: `miaopan-code models` to list available models",
   },
   "error.model_config": {
     "zh-CN": "或检查配置文件（miaopan-code.json）中的 provider/model 名称",
@@ -3043,8 +3043,8 @@ export const messages = {
   },
   "error.provider_unauthorized_proxy": {
     "zh-CN":
-      "未授权：网关或代理阻止了请求。身份验证令牌可能缺失或已过期——请运行 `miaopanCode auth login <your provider URL>` 重新进行身份验证。",
-    en: "Unauthorized: request was blocked by a gateway or proxy. Your authentication token may be missing or expired — try running `miaopanCode auth login <your provider URL>` to re-authenticate.",
+      "未授权：网关或代理阻止了请求。身份验证令牌可能缺失或已过期——请运行 `miaopan-code auth login <your provider URL>` 重新进行身份验证。",
+    en: "Unauthorized: request was blocked by a gateway or proxy. Your authentication token may be missing or expired — try running `miaopan-code auth login <your provider URL>` to re-authenticate.",
   },
   "error.provider_forbidden_proxy": {
     "zh-CN": "禁止访问：网关或代理阻止了请求。你可能无权访问此资源——请检查账号和提供商设置。",
@@ -3901,8 +3901,8 @@ export const messages = {
   "stats.output_tokens": { "zh-CN": "输出 Token", en: "Output Tokens" },
   "stats.cost": { "zh-CN": "费用", en: "Cost" },
   "error.models_hint": {
-    "zh-CN": "尝试：`miaopanCode models` 列出可用模型",
-    en: "Try: `miaopanCode models` to list available models",
+    "zh-CN": "尝试：`miaopan-code models` 列出可用模型",
+    en: "Try: `miaopan-code models` to list available models",
   },
   "error.config_provider_hint": {
     "zh-CN": "或检查配置文件（miaopan-code.json）中的提供商/模型名称",
@@ -5511,8 +5511,8 @@ export const messages = {
     en: "Successfully checked out PR #{{number}} as branch '{{branch}}'",
   },
   "mcp.command_placeholder": {
-    "zh-CN": "例如 miaopanCode x @modelcontextprotocol/server-filesystem",
-    en: "e.g., miaopanCode x @modelcontextprotocol/server-filesystem",
+    "zh-CN": "例如 npx -y @modelcontextprotocol/server-filesystem .",
+    en: "e.g., npx -y @modelcontextprotocol/server-filesystem .",
   },
   "mcp.url_placeholder": { "zh-CN": "例如 https://example.com/mcp", en: "e.g., https://example.com/mcp" },
   "uninstall.data": { "zh-CN": "数据", en: "Data" },
@@ -5871,18 +5871,18 @@ export const messages = {
     en: "{{items}} missing. Set with: {{exports}}",
   },
   "error.cloudflare_gateway_credentials": {
-    "zh-CN": "请通过环境变量设置，或运行 `miaopanCode auth cloudflare-ai-gateway`。",
-    en: "Set it via environment variable or run `miaopanCode auth cloudflare-ai-gateway`.",
+    "zh-CN": "请通过环境变量设置，或运行 `miaopan-code auth cloudflare-ai-gateway`。",
+    en: "Set it via environment variable or run `miaopan-code auth cloudflare-ai-gateway`.",
   },
   "error.cloudflare_gateway_token_required": {
     "zh-CN":
-      "Cloudflare AI Gateway 需要 CLOUDFLARE_API_TOKEN（或 CF_AIG_TOKEN）。请通过环境变量设置，或运行 `miaopanCode auth cloudflare-ai-gateway`。",
-    en: "CLOUDFLARE_API_TOKEN (or CF_AIG_TOKEN) is required for Cloudflare AI Gateway. Set it via environment variable or run `miaopanCode auth cloudflare-ai-gateway`.",
+      "Cloudflare AI Gateway 需要 CLOUDFLARE_API_TOKEN（或 CF_AIG_TOKEN）。请通过环境变量设置，或运行 `miaopan-code auth cloudflare-ai-gateway`。",
+    en: "CLOUDFLARE_API_TOKEN (or CF_AIG_TOKEN) is required for Cloudflare AI Gateway. Set it via environment variable or run `miaopan-code auth cloudflare-ai-gateway`.",
   },
   "error.snowflake_credentials": {
     "zh-CN":
-      "Snowflake Cortex：缺少凭据（{{missing}}）。请通过环境变量、miaopanCode auth 或提供商选项提供 bearer token（OAuth、JWT 或 PAT）。",
-    en: "Snowflake Cortex: missing credentials ({{missing}}). Provide a bearer token (OAuth, JWT, or PAT) via env var, miaopanCode auth, or provider options.",
+      "Snowflake Cortex：缺少凭据（{{missing}}）。请通过环境变量、miaopan-code auth 或提供商选项提供 bearer token（OAuth、JWT 或 PAT）。",
+    en: "Snowflake Cortex: missing credentials ({{missing}}). Provide a bearer token (OAuth, JWT, or PAT) via env var, miaopan-code auth, or provider options.",
   },
   "acp.session_not_found": { "zh-CN": "未找到会话：{{id}}", en: "session not found: {{id}}" },
   "acp.config_unknown": { "zh-CN": "未知配置选项：{{id}}", en: "unknown config option: {{id}}" },
@@ -5954,8 +5954,8 @@ export const messages = {
     en: "Failed to load remote config from {{remote}}: the server returned a login page instead of JSON.\nAuthentication is missing or has expired (the endpoint is likely behind an SSO or identity-aware proxy).",
   },
   "error.remote_auth_login": {
-    "zh-CN": "运行 `miaopanCode auth login {{url}}` 以重新进行身份验证。",
-    en: "Run `miaopanCode auth login {{url}}` to re-authenticate.",
+    "zh-CN": "运行 `miaopan-code auth login {{url}}` 以重新进行身份验证。",
+    en: "Run `miaopan-code auth login {{url}}` to re-authenticate.",
   },
   "error.config_invalid_path": {
     "zh-CN": "配置在 {{path}} 处无效",

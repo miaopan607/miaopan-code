@@ -420,6 +420,7 @@ export type SubtaskPart = {
     modelID: string
   }
   command?: string
+  taskID?: string
 }
 
 export type ReasoningPart = {
@@ -1660,7 +1661,7 @@ export type GlobalEvent = {
 export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR"
 
 /**
- * miaopanCode serve 命令的服务器配置
+ * miaopan-code serve 命令的服务器配置
  */
 export type ServerConfig = {
   port?: number
@@ -1943,6 +1944,7 @@ export type Config = {
   disabled_providers?: Array<string>
   enabled_providers?: Array<string>
   model?: string
+  review_mode?: "codex" | "opencode"
   small_model?: string
   default_agent?: string
   username?: string
@@ -2606,6 +2608,7 @@ export type SubtaskPartInput = {
     modelID: string
   }
   command?: string
+  taskID?: string
 }
 
 export type SessionBusyError = {

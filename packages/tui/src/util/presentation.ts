@@ -9,7 +9,7 @@ export function sessionEpilogue(input: { title: string; sessionID?: string }) {
   const weak = (text: string) => `${dim}${text.padEnd(10, " ")}${reset}`
   return [
     `  ${weak(t(Locale.language(), "tui.session_label"))}${bold}${input.title}${reset}`,
-    `  ${weak(t(Locale.language(), "tui.continue_label"))}${bold}miaopanCode -s ${input.sessionID}${reset}`,
+    `  ${weak(t(Locale.language(), "tui.continue_label"))}${bold}miaopan-code -s ${input.sessionID}${reset}`,
     "",
   ].join("\n")
 }

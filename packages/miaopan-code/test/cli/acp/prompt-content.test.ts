@@ -10,7 +10,7 @@ import { createAcpClient, initialize, newSession, verifierConfig } from "./helpe
 
 const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
 
-describe("miaopanCode acp prompt content subprocess", () => {
+describe("miaopan-code acp prompt content subprocess", () => {
   cliIt.live(
     "accepts embedded text resource image and file resource link prompt content",
     ({ home, llm, miaopanCode }) =>

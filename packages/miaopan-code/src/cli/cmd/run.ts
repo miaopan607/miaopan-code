@@ -1,13 +1,13 @@
 import type { PermissionV1 } from "@miaopan-code/core/v1/permission"
 import { FSUtil } from "@miaopan-code/core/fs-util"
-// CLI entry point for `miaopanCode run` and `miaopanCode --mini`.
+// CLI entry point for `miaopan-code run` and `miaopan-code --mini`.
 //
 // Handles three modes:
 //   1. Non-interactive (default): sends a single prompt, streams events to
 //      stdout, and exits when the session goes idle.
-//   2. Interactive local (`miaopanCode --mini`): boots the split-footer direct mode
+//   2. Interactive local (`miaopan-code --mini`): boots the split-footer direct mode
 //      with an in-process server (no external HTTP).
-//   3. Interactive attach (`miaopanCode --mini --attach`): connects to a running
+//   3. Interactive attach (`miaopan-code --mini --attach`): connects to a running
 //      miaopanCode server and runs interactive mode against it.
 //
 // Also supports `--command` for slash-command execution, `--format json` for

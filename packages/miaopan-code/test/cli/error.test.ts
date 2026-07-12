@@ -97,7 +97,7 @@ describe("cli.error", () => {
     const expected = [
       "未找到模型：anthropic/claude-sonet-4",
       "你是否想使用：claude-sonnet-4",
-      "尝试：`miaopanCode models` 列出可用模型",
+      "尝试：`miaopan-code models` 列出可用模型",
       "或检查配置文件（miaopan-code.json）中的提供商/模型名称",
     ].join("\n")
 

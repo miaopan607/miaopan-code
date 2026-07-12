@@ -324,7 +324,7 @@ const layer = Layer.effect(
                     title: t(language, "mcp.auth_required"),
                     message: t(language, "mcp.authentication_required", {
                       name: key,
-                      command: `miaopanCode mcp auth ${key}`,
+                      command: `miaopan-code mcp auth ${key}`,
                     }),
                     variant: "warning",
                     duration: 8000,

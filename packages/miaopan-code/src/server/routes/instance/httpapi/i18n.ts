@@ -511,8 +511,8 @@ const messages = {
   public_api_title: { "zh-CN": "miaopanCode API", en: "miaopanCode api" },
   public_schema_log_level: { "zh-CN": "日志级别", en: "Log level" },
   public_schema_server_config: {
-    "zh-CN": "miaopanCode serve 命令的服务器配置",
-    en: "Server configuration for miaopanCode serve command",
+    "zh-CN": "miaopan-code serve 命令的服务器配置",
+    en: "Server configuration for miaopan-code serve command",
   },
   public_schema_layout_config: {
     "zh-CN": "@deprecated 始终使用拉伸布局。",

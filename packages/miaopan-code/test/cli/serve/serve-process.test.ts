@@ -1,4 +1,4 @@
-// Subprocess integration tests for `miaopanCode serve`. Spawns the real CLI in
+// Subprocess integration tests for `miaopan-code serve`. Spawns the real CLI in
 // headless mode and exercises it over HTTP — this is the only test tier that
 // catches bugs spanning argv → server boot → routing → instance loading.
 //
@@ -10,7 +10,7 @@ import { Effect } from "effect"
 import { HttpClient } from "effect/unstable/http"
 import { cliIt } from "../../lib/cli-process"
 
-describe("miaopanCode serve (subprocess)", () => {
+describe("miaopan-code serve (subprocess)", () => {
   // Smoke test: server starts, binds a port, and /global/health responds.
   // If this fails, all other serve tests likely will too — debug here first.
   cliIt.live(

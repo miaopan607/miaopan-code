@@ -22,6 +22,15 @@ interface RemovalTargets {
   binary: string | null
 }
 
+const uninstallCommands = {
+  npm: ["npm", "uninstall", "-g", "@miaopan/code"],
+  pnpm: ["pnpm", "uninstall", "-g", "@miaopan/code"],
+  bun: ["bun", "remove", "-g", "@miaopan/code"],
+  yarn: ["yarn", "global", "remove", "@miaopan/code"],
+  choco: ["choco", "uninstall", "miaopan-code"],
+  scoop: ["scoop", "uninstall", "miaopan-code"],
+}
+
 export const UninstallCommand = {
   command: "uninstall",
   describe: UI.t("cli.uninstall"),
@@ -126,15 +135,7 @@ async function showRemovalSummary(targets: RemovalTargets, method: Installation.
   }
 
   if (method !== "curl" && method !== "unknown") {
-    const cmds: Record<string, string> = {
-      npm: "npm uninstall -g @miaopan/code",
-      pnpm: "pnpm uninstall -g @miaopan/code",
-      bun: "bun remove -g @miaopan/code",
-      yarn: "yarn global remove @miaopan/code",
-      choco: "choco uninstall miaopanCode",
-      scoop: "scoop uninstall miaopanCode",
-    }
-    prompts.log.info(`  ✓ ${UI.t("uninstall.package", { value: cmds[method] || method })}`)
+    prompts.log.info(`  ✓ ${UI.t("uninstall.package", { value: uninstallCommands[method].join(" ") })}`)
   }
 }
 
@@ -176,32 +177,19 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
   }
 
   if (method !== "curl" && method !== "unknown") {
-    const cmds: Record<string, string[]> = {
-      npm: ["npm", "uninstall", "-g", "@miaopan/code"],
-      pnpm: ["pnpm", "uninstall", "-g", "@miaopan/code"],
-      bun: ["bun", "remove", "-g", "@miaopan/code"],
-      yarn: ["yarn", "global", "remove", "@miaopan/code"],
-      choco: ["choco", "uninstall", "miaopan-code"],
-      scoop: ["scoop", "uninstall", "miaopan-code"],
-    }
-
-    const cmd = cmds[method]
-    if (cmd) {
-      spinner.start(UI.t("uninstall.running", { command: cmd.join(" ") }))
-      const result = await Process.run(method === "choco" ? ["choco", "uninstall", "miaopan-code", "-y", "-r"] : cmd, {
-        nothrow: true,
-      })
-      if (result.code !== 0) {
-        spinner.stop(UI.t("uninstall.package_failed", { code: result.code }), 1)
-        const text = `${result.stdout.toString("utf8")}\n${result.stderr.toString("utf8")}`
-        if (method === "choco" && text.includes("not running from an elevated command shell")) {
-          prompts.log.warn(UI.t("uninstall.elevated_hint", { command: cmd.join(" ") }))
-        } else {
-          prompts.log.warn(UI.t("uninstall.manual_hint", { command: cmd.join(" ") }))
-        }
+    const cmd = uninstallCommands[method]
+    spinner.start(UI.t("uninstall.running", { command: cmd.join(" ") }))
+    const result = await Process.run(method === "choco" ? [...cmd, "-y", "-r"] : cmd, { nothrow: true })
+    if (result.code !== 0) {
+      spinner.stop(UI.t("uninstall.package_failed", { code: result.code }), 1)
+      const text = `${result.stdout.toString("utf8")}\n${result.stderr.toString("utf8")}`
+      if (method === "choco" && text.includes("not running from an elevated command shell")) {
+        prompts.log.warn(UI.t("uninstall.elevated_hint", { command: cmd.join(" ") }))
       } else {
-        spinner.stop(UI.t("uninstall.package_removed"))
+        prompts.log.warn(UI.t("uninstall.manual_hint", { command: cmd.join(" ") }))
       }
+    } else {
+      spinner.stop(UI.t("uninstall.package_removed"))
     }
   }
 

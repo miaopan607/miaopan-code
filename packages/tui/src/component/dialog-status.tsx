@@ -88,7 +88,7 @@ export function DialogStatus() {
                       <Match when={(item.status as string) === "needs_auth"}>
                         {t(Locale.language(), "status.auth_command", {
                           status: tr("status.needs_auth"),
-                          command: `miaopanCode mcp auth ${key}`,
+                          command: `miaopan-code mcp auth ${key}`,
                         })}
                       </Match>
                       <Match when={(item.status as string) === "needs_client_registration" && item}>

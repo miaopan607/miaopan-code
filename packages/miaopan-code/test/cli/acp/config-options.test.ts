@@ -12,7 +12,7 @@ import {
   verifierConfig,
 } from "./helpers"
 
-describe("miaopanCode acp config option subprocess", () => {
+describe("miaopan-code acp config option subprocess", () => {
   cliIt.live(
     'model option is listed with category "model"',
     ({ home, llm, miaopanCode }) =>

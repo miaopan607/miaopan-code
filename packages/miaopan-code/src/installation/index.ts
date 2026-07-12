@@ -258,7 +258,7 @@ const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProcess.Serv
             upgradeResult = yield* run(["choco", "upgrade", "miaopan-code", `--version=${target}`, "-y"])
             break
           case "scoop":
-            upgradeResult = yield* run(["scoop", "install", `miaopanCode@${target}`])
+            upgradeResult = yield* run(["scoop", "install", `miaopan-code@${target}`])
             break
           default:
             return yield* new UpgradeFailedError({

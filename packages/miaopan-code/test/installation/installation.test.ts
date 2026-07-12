@@ -146,6 +146,22 @@ describe("installation", () => {
   })
 
   describe("upgrade", () => {
+    const scoopCalls: string[][] = []
+    testEffect(
+      testLayer(
+        () => jsonResponse({}),
+        (cmd, args) => {
+          if (cmd === "scoop") scoopCalls.push([cmd, ...args])
+          return ""
+        },
+      ),
+    ).effect("uses the canonical Scoop package name", () =>
+      Effect.gen(function* () {
+        yield* Installation.use.upgrade("scoop", "9.9.9")
+        expect(scoopCalls).toEqual([["scoop", "install", "miaopan-code@9.9.9"]])
+      }),
+    )
+
     testEffect(
       testLayer(
         () => jsonResponse({}),

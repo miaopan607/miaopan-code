@@ -772,7 +772,7 @@
         },
         "server": {
           "$ref": "#/$defs/ServerConfig",
-          "description": "Server configuration for miaopanCode serve and web commands"
+          "description": "Server configuration for miaopan-code serve and web commands"
         },
         "command": {
           "type": "object",

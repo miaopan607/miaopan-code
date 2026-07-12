@@ -3,7 +3,7 @@ import { Effect } from "effect"
 import path from "path"
 import { cliIt } from "../lib/cli-process"
 
-describe("miaopanCode mcp add (non-interactive subprocess)", () => {
+describe("miaopan-code mcp add (non-interactive subprocess)", () => {
   cliIt.concurrent(
     "adds a remote server with HTTP headers",
     ({ home, miaopanCode }) =>
