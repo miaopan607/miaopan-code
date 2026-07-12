@@ -5,6 +5,7 @@ import {
   createMemo,
   createSignal,
   For,
+  Index,
   Match,
   on,
   onCleanup,
@@ -14,7 +15,6 @@ import {
   untrack,
   useContext,
 } from "solid-js"
-import { Dynamic } from "solid-js/web"
 import path from "node:path"
 import { mkdir, writeFile } from "node:fs/promises"
 import { useRoute, useRouteData } from "../../context/route"
@@ -50,6 +50,7 @@ import { useI18n } from "../../context/i18n"
 import { openEditor } from "../../editor"
 import { useDialog } from "../../ui/dialog"
 import { DialogAlert } from "../../ui/dialog-alert"
+import { DialogSelect } from "../../ui/dialog-select"
 import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
 import type { PromptInfo } from "../../component/prompt/history"
@@ -77,7 +78,7 @@ import { sessionEpilogue } from "../../util/presentation"
 import { setPreLayoutSiblingMargin } from "../../util/layout"
 import { useTuiConfig } from "../../config"
 import { useClipboard } from "../../context/clipboard"
-import { nextThinkingMode, reasoningSummary, useThinkingMode, type ThinkingMode } from "../../context/thinking"
+import { reasoningSummary, useThinkingMode, type ThinkingMode } from "../../context/thinking"
 import { getScrollAcceleration } from "../../util/scroll"
 import { collapseToolOutput } from "../../util/collapse-tool-output"
 import { usePluginRuntime } from "../../plugin/runtime"
@@ -265,7 +266,7 @@ export function Session() {
   const [conceal, setConceal] = createSignal(true)
   const thinking = useThinkingMode()
   const thinkingMode = thinking.mode
-  const showThinking = createMemo(() => true)
+  const showThinking = createMemo(() => thinkingMode() !== "hidden")
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
   const [showDetails, setShowDetails] = kv.signal("tool_details_visibility", true)
   const [showAssistantMetadata, _setShowAssistantMetadata] = kv.signal("assistant_metadata_visibility", true)
@@ -832,11 +833,7 @@ export function Session() {
       },
     },
     {
-      title: (() => {
-        const next = nextThinkingMode(thinkingMode())
-        if (next === "hide") return i18n.t("session.collapse_thinking")
-        return i18n.t("session.expand_thinking")
-      })(),
+      title: i18n.t("session.thinking_display"),
       value: "session.toggle.thinking",
       category: i18n.t("tui.session"),
       slash: {
@@ -844,8 +841,21 @@ export function Session() {
         aliases: ["toggle-thinking"],
       },
       run: () => {
-        thinking.set(nextThinkingMode(thinkingMode()))
-        dialog.clear()
+        dialog.replace(() => (
+          <DialogSelect
+            title={i18n.t("session.thinking_display")}
+            current={thinkingMode()}
+            options={[
+              { title: i18n.t("session.collapse_thinking"), value: "collapsed" as const },
+              { title: i18n.t("session.expand_thinking"), value: "expanded" as const },
+              { title: i18n.t("session.hide_thinking"), value: "hidden" as const },
+            ]}
+            onSelect={(option) => {
+              thinking.set(option.value)
+              dialog.clear()
+            }}
+          />
+        ))
       },
     },
     {
@@ -1651,24 +1661,35 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
   const childShortcut = useCommandShortcut("session.child.first")
   const backgroundShortcut = useCommandShortcut("session.background")
+  const displayParts = createMemo(() => {
+    const reasoning = props.last ? props.parts.findLast((part) => part.type === "reasoning") : undefined
+    const visible = props.parts.filter(
+      (part) => ctx.thinkingMode() !== "hidden" || part.type !== "reasoning" || part === reasoning,
+    )
+    if (ctx.tui.tool_display !== "compact") return visible
+
+    return visible.reduce<DisplayPart[]>((result, part) => {
+      if (part.type !== "tool" || !["read", "glob", "grep", "webfetch", "websearch"].includes(toolDisplay(part.tool))) {
+        result.push(part)
+        return result
+      }
+      const previous = result.at(-1)
+      if (previous?.type === "compact-explore") {
+        previous.parts.push(part)
+        return result
+      }
+      result.push({ type: "compact-explore", parts: [part] })
+      return result
+    }, [])
+  })
 
   return (
     <>
-      <For each={props.parts}>
-        {(part, index) => {
-          const component = createMemo(() => PART_MAPPING[part.type as keyof typeof PART_MAPPING])
-          return (
-            <Show when={component()}>
-              <Dynamic
-                last={index() === props.parts.length - 1}
-                component={component()}
-                part={part as any}
-                message={props.message}
-              />
-            </Show>
-          )
-        }}
-      </For>
+      <Index each={displayParts()}>
+        {(part, index) => (
+          <AssistantPart part={part()} last={index === displayParts().length - 1} message={props.message} />
+        )}
+      </Index>
       <Show when={props.parts.some((x) => x.type === "tool" && x.tool === "task")}>
         <box paddingTop={1} paddingLeft={3}>
           <text fg={theme.text}>
@@ -1749,11 +1770,17 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   )
 }
 
-const PART_MAPPING = {
-  text: TextPart,
-  plan: PlanPart,
-  tool: ToolPart,
-  reasoning: ReasoningPart,
+type CompactExplorePart = { type: "compact-explore"; parts: ToolPart[] }
+type DisplayPart = Part | CompactExplorePart
+
+function AssistantPart(props: { part: DisplayPart; last: boolean; message: AssistantMessage }) {
+  if (props.part.type === "compact-explore") return <CompactExplore part={props.part} />
+  if (props.part.type === "text") return <TextPart last={props.last} part={props.part} message={props.message} />
+  if (props.part.type === "plan") return <PlanPart part={props.part} />
+  if (props.part.type === "tool") return <ToolPart last={props.last} part={props.part} message={props.message} />
+  if (props.part.type === "reasoning")
+    return <ReasoningPart last={props.last} part={props.part} message={props.message} />
+  return null
 }
 
 const INLINE_TOOL_ICON_WIDTH = 2
@@ -1761,8 +1788,6 @@ const INLINE_TOOL_ICON_WIDTH = 2
 function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: AssistantMessage }) {
   const { theme } = useTheme()
   const ctx = use()
-  // Collapsed by default in hide mode: a single line throughout, so the
-  // layout never shifts. Click to open the full markdown block, click to close.
   const [expanded, setExpanded] = createSignal(false)
 
   const content = createMemo(() => {
@@ -1772,7 +1797,8 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
   // Reasoning is finalized when the server sets `time.end` (see processor.ts).
   // Flips independently of the parent message completing.
   const isDone = createMemo(() => props.part.time.end !== undefined)
-  const inMinimal = createMemo(() => ctx.thinkingMode() === "hide")
+  const collapsed = createMemo(() => ctx.thinkingMode() === "collapsed")
+  const hidden = createMemo(() => ctx.thinkingMode() === "hidden")
   const duration = createMemo(() => {
     const end = props.part.time.end
     return end === undefined ? 0 : Math.max(0, end - props.part.time.start)
@@ -1781,12 +1807,12 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
   const syntax = createSyntaxStyleMemo(() => generateSubtleSyntax(theme))
 
   const toggle = () => {
-    if (!inMinimal()) return
+    if (!collapsed()) return
     setExpanded((prev) => !prev)
   }
 
   return (
-    <Show when={content()}>
+    <Show when={content() && (!hidden() || summary().title)}>
       <box
         ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
         paddingLeft={3}
@@ -1796,15 +1822,15 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
       >
         <box onMouseUp={toggle}>
           <ReasoningHeader
-            toggleable={inMinimal()}
-            open={!inMinimal() || expanded()}
+            toggleable={collapsed()}
+            open={ctx.thinkingMode() === "expanded" || expanded()}
             done={isDone()}
             title={summary().title}
             duration={isDone() ? Locale.duration(duration()) : undefined}
           />
         </box>
-        <Show when={(!inMinimal() || expanded()) && summary().body}>
-          <box paddingLeft={inMinimal() ? 2 : 0} marginTop={1}>
+        <Show when={!hidden() && (ctx.thinkingMode() === "expanded" || expanded()) && summary().body}>
+          <box paddingLeft={collapsed() ? 2 : 0} marginTop={1}>
             <code
               filetype="markdown"
               drawUnstyledText={false}
@@ -2013,6 +2039,94 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   )
 }
 
+type CompactExploreKind = "read" | "search" | "web"
+
+function CompactExplore(props: { part: CompactExplorePart }) {
+  const { theme } = useTheme()
+  const pathFormatter = usePathFormatter()
+  const renderer = useRenderer()
+  const [expanded, setExpanded] = createSignal(false)
+  const errors = createMemo(() =>
+    props.part.parts.flatMap((part) => (part.state.status === "error" ? [part.state.error] : [])),
+  )
+  const status = createMemo(() => {
+    if (props.part.parts.some((part) => part.state.status === "error")) return theme.error
+    if (props.part.parts.every((part) => part.state.status === "completed")) return theme.success
+    return theme.textMuted
+  })
+  const rows = createMemo(() => {
+    const groups = new Map<CompactExploreKind, string[]>()
+    props.part.parts.forEach((part) => {
+      const display = toolDisplay(part.tool)
+      const label =
+        display === "read"
+          ? path.basename(pathFormatter.format(stringValue(part.state.input.filePath)))
+          : display === "glob" || display === "grep"
+            ? stringValue(part.state.input.pattern)
+            : display === "webfetch"
+              ? stringValue(part.state.input.url)
+              : stringValue(part.state.input.query)
+      const key: CompactExploreKind =
+        display === "read" ? "read" : display === "webfetch" || display === "websearch" ? "web" : "search"
+      const labels = groups.get(key)
+      if (labels) labels.push(label ?? part.tool)
+      else groups.set(key, [label ?? part.tool])
+    })
+    return [...groups].map(([key, labels]) => ({
+      key,
+      labels: [...new Set(labels)].join(", "),
+    }))
+  })
+
+  return (
+    <InlineToolRow
+      icon="•"
+      iconColor={status()}
+      color={theme.textMuted}
+      complete={true}
+      pending=""
+      onMouseUp={
+        errors().length
+          ? () => {
+              if (renderer.getSelection()?.getSelectedText()) return
+              setExpanded((previous) => !previous)
+            }
+          : undefined
+      }
+      details={
+        <>
+          <For each={rows().slice(1)}>
+            {(row) => (
+              <text paddingLeft={INLINE_TOOL_ICON_WIDTH} fg={theme.textMuted}>
+                {compactExploreLabel(row.key)} {row.labels}
+              </text>
+            )}
+          </For>
+          <Show when={expanded()}>
+            <For each={errors()}>
+              {(error) => (
+                <text paddingLeft={INLINE_TOOL_ICON_WIDTH} fg={theme.error}>
+                  {error}
+                </text>
+              )}
+            </For>
+          </Show>
+        </>
+      }
+    >
+      {compactExploreLabel(rows()[0]?.key ?? "read")} {rows()[0]?.labels}
+    </InlineToolRow>
+  )
+}
+
+function compactExploreLabel(key: CompactExploreKind) {
+  return {
+    read: t(Locale.language(), "tui.compact_read"),
+    search: t(Locale.language(), "tui.compact_search"),
+    web: t(Locale.language(), "tui.compact_web"),
+  }[key]
+}
+
 type ToolProps = {
   input: Record<string, unknown>
   metadata: Record<string, unknown>
@@ -2032,12 +2146,23 @@ function GenericTool(props: ToolProps) {
     if (expanded() || !collapsed().overflow) return output()
     return collapsed().output
   })
+  const compactStatus = createMemo(() => {
+    if (props.part.state.status === "error") return theme.error
+    if (props.part.state.status === "completed") return theme.success
+    return theme.textMuted
+  })
 
   return (
     <Show
       when={props.output && ctx.showGenericToolOutput()}
       fallback={
-        <InlineTool icon="⚙" pending={t(Locale.language(), "tui.writing_command")} complete={true} part={props.part}>
+        <InlineTool
+          icon={ctx.tui.tool_display === "compact" ? "•" : "⚙"}
+          iconColor={ctx.tui.tool_display === "compact" ? compactStatus() : undefined}
+          pending={t(Locale.language(), "tui.writing_command")}
+          complete={props.part.state.status === "completed"}
+          part={props.part}
+        >
           {props.tool} {input(props.input)}
         </InlineTool>
       }
@@ -2072,6 +2197,7 @@ function InlineTool(props: {
   children: JSX.Element
   part: ToolPart
   onClick?: () => void
+  details?: JSX.Element
 }) {
   const { theme } = useTheme()
   const ctx = use()
@@ -2132,6 +2258,7 @@ function InlineTool(props: {
         }
         props.onClick?.()
       }}
+      details={props.details}
     >
       {props.children}
     </InlineToolRow>
@@ -2156,6 +2283,7 @@ export function InlineToolRow(props: {
   onMouseOver?: () => void
   onMouseOut?: () => void
   onMouseUp?: () => void
+  details?: JSX.Element
 }) {
   return (
     <box
@@ -2214,6 +2342,7 @@ export function InlineToolRow(props: {
           <text fg={props.errorColor}>{props.error}</text>
         </box>
       </Show>
+      {props.details}
     </box>
   )
 }
@@ -2310,6 +2439,25 @@ function Shell(props: ToolProps) {
 
   return (
     <Switch>
+      <Match when={ctx.tui.tool_display === "compact"}>
+        <InlineTool
+          icon="•"
+          iconColor={succeeded() === undefined ? theme.textMuted : succeeded() ? theme.success : theme.error}
+          pending={t(Locale.language(), "tui.writing_command")}
+          complete={stringValue(props.input.command)}
+          part={props.part}
+          onClick={output() ? () => setExpanded((prev) => !prev) : undefined}
+          details={
+            <Show when={expanded() && output()}>
+              <text paddingLeft={INLINE_TOOL_ICON_WIDTH} fg={theme.textMuted}>
+                {output()}
+              </text>
+            </Show>
+          }
+        >
+          $ {stringValue(props.input.command)}
+        </InlineTool>
+      </Match>
       <Match when={stringValue(props.metadata.output) !== undefined}>
         <BlockTool
           title={title()}

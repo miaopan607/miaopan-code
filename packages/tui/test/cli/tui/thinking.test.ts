@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { reasoningSummary } from "../../../src/context/thinking"
+import { isThinkingMode, reasoningSummary } from "../../../src/context/thinking"
+
+test("recognizes the three thinking display modes", () => {
+  expect(["collapsed", "expanded", "hidden"].every(isThinkingMode)).toBe(true)
+  expect(isThinkingMode("hide")).toBe(false)
+})
 
 describe("reasoningSummary", () => {
   test("extracts a leading summary title and leaves markdown body", () => {
