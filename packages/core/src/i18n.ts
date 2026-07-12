@@ -1255,6 +1255,8 @@ export const messages = {
   "tui.new_working_copy": { "zh-CN": "（新工作副本）", en: "(new working copy)" },
   "tui.agents": { "zh-CN": "代理", en: "agents" },
   "tui.commands": { "zh-CN": "命令", en: "commands" },
+  "tui.working": { "zh-CN": "工作中", en: "Working" },
+  "tui.to_interrupt": { "zh-CN": "中断", en: "to interrupt" },
   "tui.exit_shell": { "zh-CN": "退出 shell 模式", en: "exit shell mode" },
   "tui.auto": { "zh-CN": "自动", en: "auto" },
   "tui.code": { "zh-CN": "代码", en: "Code" },

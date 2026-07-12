@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { formatDuration } from "../../src/util/format"
+import { formatDuration, formatElapsedCompact } from "../../src/util/format"
 import { Locale } from "../../src/util/locale"
 import { t } from "@miaopan-code/core/i18n"
 
@@ -65,5 +65,22 @@ describe("util.format", () => {
     expect(formatDuration(1)).toBe(t("zh-CN", "locale.second", { value: 1 }))
     expect(formatDuration(61)).toBe(t("zh-CN", "locale.minute_second", { minutes: 1, seconds: 1 }))
     expect(formatDuration(86400)).toBe(t("zh-CN", "locale.approx_day"))
+  })
+
+  describe("formatElapsedCompact", () => {
+    test("formats Codex-style seconds, minutes, and hours", () => {
+      expect(formatElapsedCompact(0)).toBe("0s")
+      expect(formatElapsedCompact(59)).toBe("59s")
+      expect(formatElapsedCompact(60)).toBe("1m 00s")
+      expect(formatElapsedCompact(61)).toBe("1m 01s")
+      expect(formatElapsedCompact(3599)).toBe("59m 59s")
+      expect(formatElapsedCompact(3600)).toBe("1h 00m 00s")
+      expect(formatElapsedCompact(3661)).toBe("1h 01m 01s")
+    })
+
+    test("clamps negative and fractional values", () => {
+      expect(formatElapsedCompact(-1)).toBe("0s")
+      expect(formatElapsedCompact(1.9)).toBe("1s")
+    })
   })
 })

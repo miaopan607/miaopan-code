@@ -16,7 +16,7 @@ import { fileURLToPath } from "url"
 import { useLocal } from "../../context/local"
 import { Flag } from "@miaopan-code/core/flag/flag"
 import { tint, useTheme } from "../../context/theme"
-import { EmptyBorder, SplitBorder } from "../../ui/border"
+import { SplitBorder } from "../../ui/border"
 import { useTuiPaths, useTuiTerminalEnvironment } from "../../context/runtime"
 import { useClipboard } from "../../context/clipboard"
 import { Spinner } from "../spinner"
@@ -41,11 +41,9 @@ import type { AssistantMessage, FilePart, UserMessage } from "@miaopan/sdk/v2"
 import { Locale } from "../../util/locale"
 import { t } from "@miaopan-code/core/i18n"
 import { errorMessage } from "../../util/error"
-import { formatDuration } from "../../util/format"
-import { createColors, createFrames } from "../../ui/spinner"
+import { formatElapsedCompact } from "../../util/format"
 import { useDialog } from "../../ui/dialog"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
-import { DialogAlert } from "../../ui/dialog-alert"
 import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { createFadeIn } from "../../util/signal"
@@ -107,6 +105,7 @@ export type PromptRef = {
 }
 
 const DRAFT_RETENTION_MIN_CHARS = 20
+const CODEX_STATUS_FRAMES = ["•", "◦"]
 
 function randomIndex(count: number) {
   if (count <= 0) return 0
@@ -1576,34 +1575,59 @@ export function Prompt(props: PromptProps) {
     return i18n.t("prompt.ask_placeholder_dynamic", { example: list()[store.placeholder % list().length] })
   })
 
-  const spinnerDef = createMemo(() => {
-    const agent =
-      status().type !== "idle"
-        ? (local.agent.list().find((a) => a.name === lastUserMessage()?.agent) ?? local.agent.current())
-        : local.agent.current()
-    const color = agent ? local.agent.color(agent.name) : theme.border
-    return {
-      frames: createFrames({
-        color,
-        style: "blocks",
-        inactiveFactor: 0.6,
-        // enableFading: false,
-        minAlpha: 0.3,
-      }),
-      color: createColors({
-        color,
-        style: "blocks",
-        inactiveFactor: 0.6,
-        // enableFading: false,
-        minAlpha: 0.3,
-      }),
-    }
-  })
   const maxHeight = createMemo(() => tuiConfig.prompt?.max_height ?? Math.max(6, Math.floor(dimensions().height / 3)))
   const moveLabelWidth = createMemo(() => Math.max(12, Math.min(44, dimensions().width - 48)))
 
   return (
     <>
+      <Switch>
+        <Match when={workspace.notice()}>
+          {(notice) => (
+            <box paddingLeft={3}>
+              <text fg={theme.accent}>{notice()}</text>
+            </box>
+          )}
+        </Match>
+        <Match when={workspace.label()}>
+          {(label) => (
+            <box paddingLeft={3} flexDirection="row" gap={1}>
+              <Show when={workspace.creating()}>
+                <Spinner color={theme.accent} />
+              </Show>
+              <text fg={workspace.creating() ? theme.accent : theme.text}>
+                {(() => {
+                  const item = label()
+                  if (item.type === "new") {
+                    if (workspace.creating())
+                      return t(Locale.language(), "workspace.creating_type", {
+                        type: item.workspaceType,
+                        dots: ".".repeat(workspace.creatingDots()),
+                      })
+                    return <>{t(Locale.language(), "workspace.new_type", { type: item.workspaceType })}</>
+                  }
+                  return <>{t(Locale.language(), "workspace.current_name", { name: item.workspaceName })}</>
+                })()}
+              </text>
+            </box>
+          )}
+        </Match>
+        <Match when={move.progress()}>
+          {(progress) => (
+            <box paddingLeft={3}>
+              <Spinner color={theme.accent}>
+                {progress()}
+                <span style={{ fg: theme.textMuted }}>{".".repeat(move.creatingDots())}</span>
+              </Spinner>
+            </box>
+          )}
+        </Match>
+        <Match when={move.pendingNew()}>
+          <box paddingLeft={3}>
+            <text fg={theme.accent}>{t(Locale.language(), "tui.new_working_copy")}</text>
+          </box>
+        </Match>
+        <Match when={props.hint}>{props.hint}</Match>
+      </Switch>
       <box ref={(r: BoxRenderable) => (anchor = r)} visible={props.visible !== false} width="100%">
         <box
           width="100%"
@@ -1707,246 +1731,86 @@ export function Prompt(props: PromptProps) {
               cursorColor={props.disabled ? theme.backgroundElement : theme.text}
               syntaxStyle={syntax()}
             />
-            <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
-              <box flexDirection="row" gap={1}>
-                <Show when={local.agent.current()} fallback={<box height={1} />}>
-                  {(agent) => (
-                    <>
-                      <text fg={fadeColor(highlight(), agentMetaAlpha())}>
-                        {store.mode === "shell" ? i18n.t("prompt.shell_mode") : Locale.titlecase(agent().name)}
-                      </text>
-                      <Show when={store.mode === "normal" && local.permission.mode === "auto"}>
-                        <text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>
-                          {t(Locale.language(), "tui.auto")}
-                        </text>
-                      </Show>
-                      <Show when={store.mode === "normal"}>
-                        <box flexDirection="row" gap={1}>
-                          <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>·</text>
-                          <text
-                            flexShrink={0}
-                            fg={fadeColor(leader() ? theme.textMuted : theme.text, modelMetaAlpha())}
-                          >
-                            {local.model.parsed().model}
-                          </text>
-                          <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>{currentProviderLabel()}</text>
-                          <Show when={showVariant()}>
-                            <text fg={fadeColor(theme.textMuted, variantMetaAlpha())}>·</text>
-                            <text>
-                              <span style={{ fg: fadeColor(theme.warning, variantMetaAlpha()), bold: true }}>
-                                {local.model.variant.current()}
-                              </span>
-                            </text>
-                          </Show>
-                        </box>
-                      </Show>
-                    </>
-                  )}
-                </Show>
-              </box>
-              <Show when={hasRightContent()}>
-                <box flexDirection="row" gap={1} alignItems="center">
-                  {props.right}
-                </box>
-              </Show>
-            </box>
           </box>
         </box>
         <box
           height={1}
           border={["left"]}
           borderColor={borderHighlight()}
-          customBorderChars={{
-            ...EmptyBorder,
-            vertical: theme.backgroundElement.a !== 0 ? "╹" : " ",
-          }}
+          customBorderChars={SplitBorder.customBorderChars}
         >
-          <box
-            height={1}
-            border={["bottom"]}
-            borderColor={theme.backgroundElement}
-            customBorderChars={
-              theme.backgroundElement.a !== 0
-                ? {
-                    ...EmptyBorder,
-                    horizontal: "▀",
-                  }
-                : {
-                    ...EmptyBorder,
-                    horizontal: " ",
-                  }
-            }
-          />
+          <box width="100%" height={1} flexGrow={1} backgroundColor={theme.backgroundElement} />
         </box>
-        <box width="100%" flexDirection="row" justifyContent="space-between">
-          <Switch>
-            <Match when={status().type !== "idle"}>
-              <box
-                flexDirection="row"
-                gap={1}
-                flexGrow={1}
-                justifyContent={status().type === "retry" ? "space-between" : "flex-start"}
-              >
-                <box flexShrink={0} flexDirection="row" gap={1}>
-                  <box marginLeft={1}>
-                    <Show when={kv.get("animations_enabled", true)} fallback={<text fg={theme.textMuted}>[⋯]</text>}>
-                      <spinner color={spinnerDef().color} frames={spinnerDef().frames} interval={40} />
+      </box>
+      <box width="100%" paddingLeft={1} flexDirection="row" justifyContent="space-between" gap={1} flexShrink={0}>
+        <box flexDirection="row" gap={1} flexShrink={1}>
+          <Show when={local.agent.current()} fallback={<box height={1} />}>
+            {(agent) => (
+              <>
+                <text fg={fadeColor(highlight(), agentMetaAlpha())}>
+                  {store.mode === "shell" ? i18n.t("prompt.shell_mode") : Locale.titlecase(agent().name)}
+                </text>
+                <Show when={store.mode === "normal" && local.permission.mode === "auto"}>
+                  <text fg={fadeColor(theme.textMuted, agentMetaAlpha())}>{t(Locale.language(), "tui.auto")}</text>
+                </Show>
+                <Show when={store.mode === "normal"}>
+                  <box flexDirection="row" gap={1}>
+                    <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>·</text>
+                    <text flexShrink={0} fg={fadeColor(leader() ? theme.textMuted : theme.text, modelMetaAlpha())}>
+                      {local.model.parsed().model}
+                    </text>
+                    <text fg={fadeColor(theme.textMuted, modelMetaAlpha())}>{currentProviderLabel()}</text>
+                    <Show when={showVariant()}>
+                      <text fg={fadeColor(theme.textMuted, variantMetaAlpha())}>·</text>
+                      <text>
+                        <span style={{ fg: fadeColor(theme.warning, variantMetaAlpha()), bold: true }}>
+                          {local.model.variant.current()}
+                        </span>
+                      </text>
                     </Show>
                   </box>
-                  <box flexDirection="row" gap={1} flexShrink={0}>
-                    {(() => {
-                      const retry = createMemo(() => {
-                        const s = status()
-                        if (s.type !== "retry") return
-                        return s
-                      })
-                      const message = createMemo(() => {
-                        const r = retry()
-                        if (!r) return
-                        if (r.message.includes("exceeded your current quota") && r.message.includes("gemini"))
-                          return i18n.t("tui.gemini_quota")
-                        if (r.message.length > 80) return r.message.slice(0, 80) + "..."
-                        return r.message
-                      })
-                      const isTruncated = createMemo(() => {
-                        const r = retry()
-                        if (!r) return false
-                        return r.message.length > 120
-                      })
-                      const [seconds, setSeconds] = createSignal(0)
-                      onMount(() => {
-                        const timer = setInterval(() => {
-                          const next = retry()?.next
-                          if (next) setSeconds(Math.round((next - Date.now()) / 1000))
-                        }, 1000)
-
-                        onCleanup(() => {
-                          clearInterval(timer)
-                        })
-                      })
-                      const handleMessageClick = () => {
-                        const r = retry()
-                        if (!r) return
-                        if (isTruncated()) {
-                          void DialogAlert.show(dialog, i18n.t("tui.retry_error"), r.message)
-                        }
-                      }
-
-                      const retryText = () => {
-                        const r = retry()
-                        if (!r) return ""
-                        const baseMessage = message()
-                        const truncatedHint = isTruncated() ? i18n.t("tui.retry_expand") : ""
-                        const duration = formatDuration(seconds())
-                        const retryInfo = i18n.t("tui.retry_info", {
-                          attempt: r.attempt,
-                          duration: duration ? ` ${duration} ` : " ",
-                        })
-                        return baseMessage + truncatedHint + retryInfo
-                      }
-
-                      return (
-                        <Show when={retry()}>
-                          <box onMouseUp={handleMessageClick}>
-                            <text fg={theme.error}>{retryText()}</text>
-                          </box>
-                        </Show>
-                      )
-                    })()}
-                  </box>
-                </box>
-                <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
-                  esc{" "}
-                  <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
-                    {i18n.t(store.interrupt > 0 ? "prompt.interrupt_again" : "prompt.interrupt_short")}
-                  </span>
-                </text>
-              </box>
-            </Match>
-            <Match when={workspace.notice()}>
-              {(notice) => (
-                <box paddingLeft={3}>
-                  <text fg={theme.accent}>{notice()}</text>
-                </box>
-              )}
-            </Match>
-            <Match when={workspace.label()}>
-              {(label) => (
-                <box paddingLeft={3} flexDirection="row" gap={1}>
-                  <Show when={workspace.creating()}>
-                    <Spinner color={theme.accent} />
-                  </Show>
-                  <text fg={workspace.creating() ? theme.accent : theme.text}>
-                    {(() => {
-                      const item = label()
-                      if (item.type === "new") {
-                        if (workspace.creating())
-                          return t(Locale.language(), "workspace.creating_type", {
-                            type: item.workspaceType,
-                            dots: ".".repeat(workspace.creatingDots()),
-                          })
-                        return <>{t(Locale.language(), "workspace.new_type", { type: item.workspaceType })}</>
-                      }
-                      return <>{t(Locale.language(), "workspace.current_name", { name: item.workspaceName })}</>
-                    })()}
-                  </text>
-                </box>
-              )}
-            </Match>
-            <Match when={move.progress()}>
-              {(progress) => (
-                <box paddingLeft={3}>
-                  <Spinner color={theme.accent}>
-                    {progress()}
-                    <span style={{ fg: theme.textMuted }}>{".".repeat(move.creatingDots())}</span>
-                  </Spinner>
-                </box>
-              )}
-            </Match>
-            <Match when={move.pendingNew()}>
-              <box paddingLeft={3}>
-                <text fg={theme.accent}>{t(Locale.language(), "tui.new_working_copy")}</text>
-              </box>
-            </Match>
-            <Match when={true}>{props.hint ?? <text />}</Match>
-          </Switch>
-          <Show when={status().type !== "retry"}>
-            <box gap={2} flexDirection="row">
-              <Show when={editorContextLabelState() !== "none" ? editorFileLabelDisplay() : undefined}>
-                {(file) => (
-                  <text fg={editorContextLabelState() === "pending" ? theme.secondary : theme.textMuted}>{file()}</text>
-                )}
-              </Show>
+                </Show>
+              </>
+            )}
+          </Show>
+        </box>
+        <box gap={2} flexDirection="row" flexShrink={0} alignItems="center">
+          <Show when={hasRightContent()}>
+            <box flexDirection="row" gap={1} alignItems="center">
+              {props.right}
+            </box>
+          </Show>
+          <Show when={editorContextLabelState() !== "none" ? editorFileLabelDisplay() : undefined}>
+            {(file) => (
+              <text fg={editorContextLabelState() === "pending" ? theme.secondary : theme.textMuted}>{file()}</text>
+            )}
+          </Show>
+          <Switch>
+            <Match when={store.mode === "normal"}>
               <Switch>
-                <Match when={store.mode === "normal"}>
-                  <Switch>
-                    <Match when={usage()}>
-                      {(item) => (
-                        <text fg={theme.textMuted} wrapMode="none">
-                          {[item().context, item().cost].filter(Boolean).join(" · ")}
-                        </text>
-                      )}
-                    </Match>
-                    <Match when={true}>
-                      <text fg={theme.text}>
-                        {agentShortcut()}{" "}
-                        <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.agents")}</span>
-                      </text>
-                    </Match>
-                  </Switch>
-                  <text fg={theme.text}>
-                    {paletteShortcut()}{" "}
-                    <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.commands")}</span>
-                  </text>
+                <Match when={usage()}>
+                  {(item) => (
+                    <text fg={theme.textMuted} wrapMode="none">
+                      {[item().context, item().cost].filter(Boolean).join(" · ")}
+                    </text>
+                  )}
                 </Match>
-                <Match when={store.mode === "shell"}>
+                <Match when={true}>
                   <text fg={theme.text}>
-                    esc <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.exit_shell")}</span>
+                    {agentShortcut()} <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.agents")}</span>
                   </text>
                 </Match>
               </Switch>
-            </box>
-          </Show>
+              <text fg={theme.text}>
+                {paletteShortcut()} <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.commands")}</span>
+              </text>
+            </Match>
+            <Match when={store.mode === "shell"}>
+              <text fg={theme.text}>
+                esc <span style={{ fg: theme.textMuted }}>{t(Locale.language(), "tui.exit_shell")}</span>
+              </text>
+            </Match>
+          </Switch>
         </box>
       </box>
       <Autocomplete
@@ -1972,5 +1836,57 @@ export function Prompt(props: PromptProps) {
         promptPartTypeId={() => promptPartTypeId}
       />
     </>
+  )
+}
+
+export function CodexStatus(props: {
+  elapsed: number
+  model: string
+  color: RGBA
+  animationsEnabled: boolean
+  interruptShortcut: string
+  interruptText: string
+  retryText?: string
+  onRetryClick: () => void
+}) {
+  const { theme } = useTheme()
+
+  return (
+    <box flexDirection="row" gap={1} flexShrink={0}>
+      <Show when={props.animationsEnabled}>
+        <spinner frames={CODEX_STATUS_FRAMES} interval={600} color={props.color} />
+      </Show>
+      <text fg={theme.text}>
+        {t(Locale.language(), "tui.working")}
+        <span style={{ fg: theme.textMuted }}>
+          {" ("}
+          {formatElapsedCompact(props.elapsed)}
+          <Show when={props.model}>
+            {(model) => (
+              <>
+                {" · "}
+                {model()}
+              </>
+            )}
+          </Show>
+          <Show when={props.interruptShortcut}>
+            {(shortcut) => (
+              <>
+                {" · "}
+                {shortcut()} {props.interruptText}
+              </>
+            )}
+          </Show>
+          {")"}
+        </span>
+      </text>
+      <Show when={props.retryText}>
+        {(message) => (
+          <box onMouseUp={props.onRetryClick}>
+            <text fg={theme.error}>· {message()}</text>
+          </box>
+        )}
+      </Show>
+    </box>
   )
 }
