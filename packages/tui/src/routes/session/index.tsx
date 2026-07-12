@@ -1688,6 +1688,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
         result.push(part)
         return result
       }
+      if (toolDetailsHidden(ctx.showDetails(), part.tool, part.state)) return result
       const previous = result.at(-1)
       if (previous?.type === "compact-explore") {
         previous.parts.push(part)
@@ -1976,12 +1977,7 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   const ctx = use()
   const display = createMemo(() => toolDisplay(props.part.tool))
 
-  const shouldHide = createMemo(
-    () =>
-      !ctx.showDetails() &&
-      props.part.state.status === "completed" &&
-      !(props.part.tool === "bash" && shellCommandSucceeded(props.part.state) === false),
-  )
+  const shouldHide = createMemo(() => toolDetailsHidden(ctx.showDetails(), props.part.tool, props.part.state))
 
   const toolprops = {
     get metadata() {
@@ -2421,6 +2417,10 @@ export function shellCommandSucceeded(state: ToolPart["state"]) {
   const exit = state.metadata?.exit
   if (exit === 0) return true
   if (exit === null || numberValue(exit) !== undefined) return false
+}
+
+export function toolDetailsHidden(showDetails: boolean, tool: string, state: ToolPart["state"]) {
+  return !showDetails && state.status === "completed" && !(tool === "bash" && shellCommandSucceeded(state) === false)
 }
 
 function Shell(props: ToolProps) {

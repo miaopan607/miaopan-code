@@ -15,6 +15,7 @@ import {
   parseQuestions,
   parseTodos,
   shellCommandSucceeded,
+  toolDetailsHidden,
   alwaysSeparate,
   toolDisplay,
 } from "../../../src/routes/session"
@@ -260,6 +261,13 @@ describe("TUI inline tool wrapping", () => {
     expect(shellCommandSucceeded(shellState("completed"))).toBeUndefined()
     expect(shellCommandSucceeded(shellState("completed", Number.NaN))).toBeUndefined()
     expect(shellCommandSucceeded(shellState("error"))).toBe(false)
+  })
+
+  test("hides completed tool details while preserving active and failed commands", () => {
+    expect(toolDetailsHidden(false, "read", shellState("completed", 0))).toBe(true)
+    expect(toolDetailsHidden(false, "read", shellState("running"))).toBe(false)
+    expect(toolDetailsHidden(false, "bash", shellState("completed", 2))).toBe(false)
+    expect(toolDetailsHidden(true, "read", shellState("completed", 0))).toBe(false)
   })
 
   test("filters malformed nested tool wire data", () => {
