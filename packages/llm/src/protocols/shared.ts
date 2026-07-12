@@ -261,8 +261,9 @@ export const errorText = (error: unknown, language?: Language) => {
 
 /**
  * `framing` step for Server-Sent Events. Decodes UTF-8, runs the SSE channel
- * decoder, and drops empty / `[DONE]` keep-alive events so the downstream
- * `decodeChunk` sees one JSON string per element. The SSE channel emits a
+ * decoder, and drops empty keep-alive events. `[DONE]` is a real stream
+ * terminator: stop consuming the upstream body when it arrives so a provider
+ * or proxy that keeps the connection open cannot delay completion. The SSE channel emits a
  * `Retry` control event on its error channel; we drop it here (we don't
  * implement client-driven retries) so the public error channel stays
  * `LLMError`.
@@ -272,7 +273,8 @@ export const sseFraming = (bytes: Stream.Stream<Uint8Array, LLMError>): Stream.S
     Stream.decodeText(),
     Stream.pipeThroughChannel(Sse.decode()),
     Stream.catchTag("Retry", () => Stream.empty),
-    Stream.filter((event) => event.data.length > 0 && event.data !== "[DONE]"),
+    Stream.takeWhile((event) => event.data !== "[DONE]"),
+    Stream.filter((event) => event.data.length > 0),
     Stream.map((event) => event.data),
   )
 

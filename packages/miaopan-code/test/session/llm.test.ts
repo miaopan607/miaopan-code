@@ -14,7 +14,7 @@ import { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
 import { ModelsDev } from "@miaopan-code/core/models-dev"
 
-import { testEffect } from "../lib/effect"
+import { awaitWithTimeout, testEffect } from "../lib/effect"
 import type { Agent } from "../../src/agent/agent"
 import { MessageV2 } from "../../src/session/message-v2"
 import { SessionID, MessageID } from "../../src/session/schema"
@@ -668,7 +668,7 @@ afterAll(() => {
   void state.server?.stop()
 })
 
-function createChatStream(text: string) {
+function createChatStream(text: string, options: { close?: boolean; splitDone?: boolean } = {}) {
   const payload =
     [
       `data: ${JSON.stringify({
@@ -690,10 +690,12 @@ function createChatStream(text: string) {
     ].join("\n\n") + "\n\n"
 
   const encoder = new TextEncoder()
+  const doneIndex = payload.indexOf("[DONE]")
+  const chunks = options.splitDone ? [payload.slice(0, doneIndex + 3), payload.slice(doneIndex + 3)] : [payload]
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(encoder.encode(payload))
-      controller.close()
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk))
+      if (options.close !== false) controller.close()
     },
   })
 }
@@ -819,6 +821,65 @@ describe("session.llm.stream", () => {
 
         const reasoning = (body.reasoningEffort as string | undefined) ?? (body.reasoning_effort as string | undefined)
         expect(reasoning).toBe("high")
+      }),
+    {
+      config: () => ({
+        enabled_providers: [vivgridFixture.providerID],
+        provider: {
+          [vivgridFixture.providerID]: {
+            options: { apiKey: "test-key", baseURL: `${state.server!.url.origin}/v1` },
+          },
+        },
+      }),
+    },
+  )
+
+  it.instance(
+    "stops the AI SDK stream when the provider finish arrives before response close",
+    () =>
+      Effect.gen(function* () {
+        const fixture = loadFixture(vivgridFixture.providerID, vivgridFixture.modelID)
+        const request = waitRequest(
+          "/chat/completions",
+          new Response(createChatStream("Hello", { close: false, splitDone: true }), {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          }),
+        )
+        const resolved = yield* Provider.use.getModel(
+          ProviderV2.ID.make(vivgridFixture.providerID),
+          ModelV2.ID.make(fixture.model.id),
+        )
+        const sessionID = SessionID.make("session-test-stream-finish")
+        const agent = {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [{ permission: "*", pattern: "*", action: "allow" }],
+        } satisfies Agent.Info
+        const user = {
+          id: MessageID.make("msg_user-stream-finish"),
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: agent.name,
+          model: { providerID: ProviderV2.ID.make(vivgridFixture.providerID), modelID: resolved.id },
+        } satisfies SessionV1.User
+
+        yield* awaitWithTimeout(
+          drain({
+            user,
+            sessionID,
+            model: resolved,
+            agent,
+            system: ["You are a helpful assistant."],
+            messages: [{ role: "user", content: "Hello" }],
+            tools: {},
+          }),
+          "AI SDK stream did not stop after provider finish",
+          "1 second",
+        )
+        yield* Effect.promise(() => request)
       }),
     {
       config: () => ({

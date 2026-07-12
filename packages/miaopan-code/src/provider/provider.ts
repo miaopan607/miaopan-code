@@ -35,29 +35,33 @@ import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
-function wrapSSE(res: Response, ms: number, ctl: AbortController, language?: Language) {
-  if (typeof ms !== "number" || ms <= 0) return res
+function wrapSSE(res: Response, ms: number | undefined, ctl: AbortController | undefined, language?: Language) {
   if (!res.body) return res
   if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
 
   const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let sseTail = ""
   const body = new ReadableStream<Uint8Array>({
     async pull(ctrl) {
       const part = await new Promise<Awaited<ReturnType<typeof reader.read>>>((resolve, reject) => {
-        const id = setTimeout(() => {
-          const err = new ProviderError.ResponseStreamError(t(language, "error.aisdk_timeout"))
-          ctl.abort(err)
-          void reader.cancel(err)
-          reject(err)
-        }, ms)
+        const id =
+          typeof ms === "number" && ms > 0
+            ? setTimeout(() => {
+                const err = new ProviderError.ResponseStreamError(t(language, "error.aisdk_timeout"))
+                ctl?.abort(err)
+                void reader.cancel(err)
+                reject(err)
+              }, ms)
+            : undefined
 
         reader.read().then(
           (part) => {
-            clearTimeout(id)
+            if (id !== undefined) clearTimeout(id)
             resolve(part)
           },
           (err) => {
-            clearTimeout(id)
+            if (id !== undefined) clearTimeout(id)
             reject(err)
           },
         )
@@ -69,9 +73,14 @@ function wrapSSE(res: Response, ms: number, ctl: AbortController, language?: Lan
       }
 
       ctrl.enqueue(part.value)
+      sseTail = (sseTail + decoder.decode(part.value, { stream: true })).slice(-64)
+      if (/(?:^|\r?\n)data:\s*\[DONE\]/.test(sseTail)) {
+        await reader.cancel()
+        ctrl.close()
+      }
     },
     async cancel(reason) {
-      ctl.abort(reason)
+      ctl?.abort(reason)
       await reader.cancel(reason)
     },
   })
@@ -1788,7 +1797,6 @@ const layer = Layer.effect(
             timeout: false,
           }).finally(() => headerTimeoutCtl?.clear())
 
-          if (!chunkAbortCtl) return res
           return wrapSSE(res, chunkTimeout, chunkAbortCtl, s.language)
         }
 
