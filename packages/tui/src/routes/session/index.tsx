@@ -52,6 +52,7 @@ import { DialogAlert } from "../../ui/dialog-alert"
 import { DialogSelect } from "../../ui/dialog-select"
 import { TodoItem } from "../../component/todo-item"
 import { DialogMessage } from "./dialog-message"
+import { DialogPlanImplementation, planImplementationOptions } from "./dialog-plan-implementation"
 import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "../../ui/dialog-confirm"
 import { DialogTimeline } from "./dialog-timeline"
@@ -98,6 +99,12 @@ const GO_UPSELL_WINDOW = 86_400_000 // 24 hrs
 const GO_UPSELL_PROVIDERS = new Set(["opencode", "opencode-go"])
 
 export const alwaysSeparate = new WeakSet<BoxRenderable>()
+
+type Plan = Pick<PlanPartData, "id" | "messageID" | "text">
+
+export function isPlanSessionAvailable(input: { status: SessionStatus | undefined; blocked: boolean }) {
+  return !input.blocked && (input.status === undefined || input.status.type === "idle")
+}
 
 export function implementPlanInCurrentContext(input: {
   plan: { messageID: string } | undefined
@@ -269,7 +276,7 @@ export function Session() {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.question[x.id] ?? [])
   })
-  const [pendingPlan, setPendingPlan] = createSignal<{ messageID: string; text: string }>()
+  const [pendingPlan, setPendingPlan] = createSignal<Plan>()
   let handledPlanID: string | undefined
   const visible = createMemo(
     () => !session()?.parentID && permissions().length === 0 && questions().length === 0 && !pendingPlan(),
@@ -362,7 +369,7 @@ export function Session() {
     const part = evt.properties.part
     if (part.type !== "plan" || part.sessionID !== route.sessionID || part.time.end === undefined) return
     if (handledPlanID === part.messageID) return
-    setPendingPlan({ messageID: part.messageID, text: part.text })
+    setPendingPlan({ id: part.id, messageID: part.messageID, text: part.text })
   })
 
   let seeded = false
@@ -456,14 +463,32 @@ export function Session() {
 
   const local = useLocal()
 
+  function isPlanAvailable(plan: Plan) {
+    const assistant = messages().find((message) => message.id === plan.messageID)
+    if (assistant?.role !== "assistant" || assistant.agent !== "plan" || !assistant.time.completed) return false
+    return isPlanSessionAvailable({
+      status: sync.data.session_status[route.sessionID],
+      blocked: permissions().length > 0 || questions().length > 0,
+    })
+  }
+
+  function latestPlan() {
+    const message = messages().findLast((message) =>
+      (sync.data.part[message.id] ?? []).some((part) => part.type === "plan"),
+    )
+    return message ? sync.data.part[message.id]?.findLast((part) => part.type === "plan") : undefined
+  }
+
+  function isLatestPlan(plan: Plan) {
+    return latestPlan()?.id === plan.id
+  }
+
   const planQuestion = createMemo<QuestionRequest | undefined>(() => {
     const plan = pendingPlan()
     if (!plan) return
+    if (!isPlanAvailable(plan)) return
     const assistant = messages().find((message) => message.id === plan.messageID)
-    if (assistant?.role !== "assistant" || assistant.agent !== "plan" || !assistant.time.completed) return
-    if (messages().at(-1)?.id !== assistant.id) return
-    if (sync.data.session_status[route.sessionID]?.type !== "idle") return
-    if (permissions().length > 0 || questions().length > 0) return
+    if (!assistant || messages().at(-1)?.id !== assistant.id || !isLatestPlan(plan)) return
     return {
       id: `plan_${plan.messageID}`,
       sessionID: route.sessionID,
@@ -473,20 +498,10 @@ export function Session() {
           question: i18n.t("plan.implementation_title"),
           custom: false,
           multiple: false,
-          options: [
-            {
-              label: i18n.t("plan.implementation_current"),
-              description: i18n.t("plan.implementation_current_description"),
-            },
-            {
-              label: i18n.t("plan.implementation_fresh"),
-              description: i18n.t("plan.implementation_fresh_description"),
-            },
-            {
-              label: i18n.t("plan.implementation_stay"),
-              description: i18n.t("plan.implementation_stay_description"),
-            },
-          ],
+          options: planImplementationOptions(i18n).map((option) => ({
+            label: option.title,
+            description: option.description,
+          })),
         },
       ],
     }
@@ -494,12 +509,12 @@ export function Session() {
 
   function finishPlanPrompt(messageID: string) {
     handledPlanID = messageID
-    setPendingPlan()
+    if (pendingPlan()?.messageID === messageID) setPendingPlan()
   }
 
-  function implementPlan() {
+  function implementPlan(plan: Plan | undefined = pendingPlan()) {
     implementPlanInCurrentContext({
-      plan: pendingPlan(),
+      plan,
       prompt: () => prompt,
       finish: finishPlanPrompt,
       build: () => local.agent.set("build"),
@@ -507,8 +522,7 @@ export function Session() {
     })
   }
 
-  async function implementPlanFresh() {
-    const plan = pendingPlan()
+  async function implementPlanFresh(plan: Plan | undefined = pendingPlan()) {
     const model = local.model.current()
     const current = session()
     if (!plan || !model || !current) return
@@ -544,16 +558,38 @@ export function Session() {
 
   function answerPlanQuestion(answers: string[][]) {
     const answer = answers[0]?.[0]
-    if (answer === i18n.t("plan.implementation_current")) {
-      implementPlan()
-      return
-    }
-    if (answer === i18n.t("plan.implementation_fresh")) {
-      void implementPlanFresh().catch(toast.error)
-      return
-    }
     const plan = pendingPlan()
+    const implementation = planImplementationOptions(i18n).find((option) => option.title === answer)?.value
+    if (implementation === "current") {
+      implementPlan(plan)
+      return
+    }
+    if (implementation === "fresh") {
+      void implementPlanFresh(plan).catch(toast.error)
+      return
+    }
     if (plan) finishPlanPrompt(plan.messageID)
+  }
+
+  function openPlanImplementationDialog(plan: Plan) {
+    if (renderer.getSelection()?.getSelectedText()) return
+    if (!isPlanAvailable(plan)) return
+    dialog.replace(() => (
+      <DialogPlanImplementation
+        stale={!isLatestPlan(plan)}
+        onSelect={(implementation) => {
+          if (implementation === "current") {
+            implementPlan(plan)
+            return
+          }
+          if (implementation === "fresh") {
+            void implementPlanFresh(plan).catch(toast.error)
+            return
+          }
+          finishPlanPrompt(plan.messageID)
+        }}
+      />
+    ))
   }
 
   function enterChild(sessionID: string) {
@@ -1460,6 +1496,7 @@ export function Session() {
                           last={lastAssistant()?.id === message.id}
                           message={message as AssistantMessage}
                           parts={sync.data.part[message.id] ?? []}
+                          onPlanClick={openPlanImplementationDialog}
                         />
                       </Match>
                     </Switch>
@@ -1652,7 +1689,12 @@ function UserMessage(props: {
   )
 }
 
-function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
+function AssistantMessage(props: {
+  message: AssistantMessage
+  parts: Part[]
+  last: boolean
+  onPlanClick: (part: PlanPartData) => void
+}) {
   const ctx = use()
   const i18n = useI18n()
   const local = useLocal()
@@ -1714,7 +1756,12 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     <>
       <For each={displayParts()}>
         {(part, index) => (
-          <AssistantPart part={part} last={index() === displayParts().length - 1} message={props.message} />
+          <AssistantPart
+            part={part}
+            last={index() === displayParts().length - 1}
+            message={props.message}
+            onPlanClick={props.onPlanClick}
+          />
         )}
       </For>
       <Show when={props.parts.some((x) => x.type === "tool" && x.tool === "task")}>
@@ -1834,10 +1881,15 @@ export function assistantDisplayParts(
   }, [])
 }
 
-function AssistantPart(props: { part: DisplayPart; last: boolean; message: AssistantMessage }) {
+function AssistantPart(props: {
+  part: DisplayPart
+  last: boolean
+  message: AssistantMessage
+  onPlanClick: (part: PlanPartData) => void
+}) {
   if (props.part.type === "compact-explore") return <CompactExplore part={props.part} />
   if (props.part.type === "text") return <TextPart last={props.last} part={props.part} message={props.message} />
-  if (props.part.type === "plan") return <PlanPart part={props.part} />
+  if (props.part.type === "plan") return <PlanPart part={props.part} onClick={props.onPlanClick} />
   if (props.part.type === "tool") return <ToolPart last={props.last} part={props.part} message={props.message} />
   if (props.part.type === "reasoning")
     return <ReasoningPart last={props.last} part={props.part} message={props.message} />
@@ -1977,10 +2029,11 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   )
 }
 
-function PlanPart(props: { part: PlanPartData }) {
+function PlanPart(props: { part: PlanPartData; onClick: (part: PlanPartData) => void }) {
   const ctx = use()
   const i18n = useI18n()
   const { theme, syntax } = useTheme()
+  const [hover, setHover] = createSignal(false)
   return (
     <Show when={props.part.text.trim()}>
       <box
@@ -1988,28 +2041,35 @@ function PlanPart(props: { part: PlanPartData }) {
         border={["left"]}
         borderColor={theme.accent}
         backgroundColor={theme.backgroundPanel}
-        paddingLeft={2}
-        paddingRight={2}
-        paddingTop={1}
-        paddingBottom={1}
         marginTop={1}
         flexShrink={0}
         customBorderChars={SplitBorder.customBorderChars}
       >
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          {i18n.t("plan.proposed_title")}
-        </text>
-        <box paddingTop={1}>
-          <markdown
-            syntaxStyle={syntax()}
-            streaming={true}
-            internalBlockMode="top-level"
-            content={props.part.text.trim()}
-            tableOptions={{ style: "grid" }}
-            conceal={ctx.conceal()}
-            fg={theme.markdownText}
-            bg={theme.backgroundPanel}
-          />
+        <box
+          onMouseOver={() => setHover(true)}
+          onMouseOut={() => setHover(false)}
+          onMouseUp={() => props.onClick(props.part)}
+          paddingLeft={2}
+          paddingRight={2}
+          paddingTop={1}
+          paddingBottom={1}
+          backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
+          flexShrink={0}
+        >
+          <text fg={theme.text} attributes={TextAttributes.BOLD}>
+            {i18n.t("plan.proposed_title")}
+          </text>
+          <box paddingTop={1}>
+            <markdown
+              syntaxStyle={syntax()}
+              streaming={true}
+              internalBlockMode="top-level"
+              content={props.part.text.trim()}
+              tableOptions={{ style: "grid" }}
+              conceal={ctx.conceal()}
+              fg={theme.markdownText}
+            />
+          </box>
         </box>
       </box>
     </Show>

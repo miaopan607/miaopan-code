@@ -1,6 +1,20 @@
 import { describe, expect, test } from "bun:test"
 import type { PromptRef } from "../../../src/component/prompt"
-import { implementPlanInCurrentContext } from "../../../src/routes/session"
+import { implementPlanInCurrentContext, isPlanSessionAvailable } from "../../../src/routes/session"
+
+describe("isPlanSessionAvailable", () => {
+  test("treats an unknown status as temporarily idle", () => {
+    expect(isPlanSessionAvailable({ status: undefined, blocked: false })).toBe(true)
+  })
+
+  test("rejects an active status", () => {
+    expect(isPlanSessionAvailable({ status: { type: "busy" }, blocked: false })).toBe(false)
+  })
+
+  test("rejects blocked sessions even when idle", () => {
+    expect(isPlanSessionAvailable({ status: { type: "idle" }, blocked: true })).toBe(false)
+  })
+})
 
 describe("implementPlanInCurrentContext", () => {
   test("submits after the prompt remounts", () => {

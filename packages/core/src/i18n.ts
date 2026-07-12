@@ -5473,6 +5473,10 @@ export const messages = {
     "zh-CN": "继续与模型完善计划。",
     en: "Continue refining the plan with the model.",
   },
+  "plan.implementation_stale_warning": {
+    "zh-CN": "警告：这不是最新的计划，请确认内容仍然有效。",
+    en: "Warning: This is not the latest plan. Make sure it is still valid.",
+  },
   "plan.implement_message": { "zh-CN": "实施该计划。", en: "Implement the plan." },
   "plan.fresh_message": {
     "zh-CN":
