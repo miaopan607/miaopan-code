@@ -2119,6 +2119,7 @@ function CompactExplore(props: { part: CompactExplorePart }) {
       color={theme.textMuted}
       complete={true}
       pending=""
+      dense={true}
       onMouseUp={
         errors().length
           ? () => {
@@ -2131,9 +2132,14 @@ function CompactExplore(props: { part: CompactExplorePart }) {
         <>
           <For each={rows().slice(1)}>
             {(row) => (
-              <text paddingLeft={INLINE_TOOL_ICON_WIDTH} fg={theme.textMuted}>
-                {compactExploreLabel(row.key)} {row.labels}
-              </text>
+              <box flexDirection="row">
+                <text width={INLINE_TOOL_ICON_WIDTH} fg={status()}>
+                  •
+                </text>
+                <text flexGrow={1} fg={theme.textMuted}>
+                  {compactExploreLabel(row.key)} {row.labels}
+                </text>
+              </box>
             )}
           </For>
           <Show when={expanded()}>
@@ -2275,6 +2281,7 @@ function InlineTool(props: {
   failure?: string
   spinner?: boolean
   separate?: boolean
+  dense?: boolean
   children: JSX.Element
   part: ToolPart
   onClick?: () => void
@@ -2329,6 +2336,7 @@ function InlineTool(props: {
       failure={props.failure}
       spinner={props.spinner}
       separate={props.separate}
+      dense={props.dense ?? ctx.tui.tool_display === "compact"}
       onMouseOver={() => clickable() && setHover(true)}
       onMouseOut={() => setHover(false)}
       onMouseUp={() => {
@@ -2360,6 +2368,7 @@ export function InlineToolRow(props: {
   failure?: string
   spinner?: boolean
   separate?: boolean
+  dense?: boolean
   children: JSX.Element
   onMouseOver?: () => void
   onMouseOut?: () => void
@@ -2376,7 +2385,8 @@ export function InlineToolRow(props: {
         if (props.separate) alwaysSeparate.add(el)
         setPreLayoutSiblingMargin(el, (previous) => {
           return props.separate ||
-            (previous instanceof BoxRenderable && (previous.height > 1 || alwaysSeparate.has(previous)))
+            (previous instanceof BoxRenderable &&
+              (alwaysSeparate.has(previous) || (!props.dense && previous.height > 1)))
             ? 1
             : 0
         })
@@ -2498,6 +2508,15 @@ function Shell(props: ToolProps) {
   const pathFormatter = usePathFormatter()
   const ctx = use()
   const succeeded = createMemo(() => shellCommandSucceeded(props.part.state))
+  const command = createMemo(() => stringValue(props.input.command) ?? "")
+  const commandLabel = createMemo(() => t(Locale.language(), "tui.execute_command", { command: command() }))
+  const running = createMemo(() => props.part.state.status === "running")
+  const complete = createMemo(() => props.part.state.status === "completed" || props.part.state.status === "error")
+  const statusColor = createMemo(() => {
+    if (props.part.state.status === "error" || succeeded() === false) return theme.error
+    if (props.part.state.status === "completed") return theme.success
+    return theme.textMuted
+  })
   const output = createMemo(() => stripAnsi(stringValue(props.metadata.output)?.trim() ?? ""))
   const [expanded, setExpanded] = createSignal(false)
   const maxLines = 10
@@ -2527,9 +2546,10 @@ function Shell(props: ToolProps) {
       <Match when={ctx.tui.tool_display === "compact"}>
         <InlineTool
           icon="•"
-          iconColor={succeeded() === undefined ? theme.textMuted : succeeded() ? theme.success : theme.error}
+          iconColor={statusColor()}
           pending={t(Locale.language(), "tui.writing_command")}
-          complete={stringValue(props.input.command)}
+          complete={complete()}
+          spinner={running()}
           part={props.part}
           onClick={output() ? () => setExpanded((prev) => !prev) : undefined}
           details={
@@ -2540,7 +2560,7 @@ function Shell(props: ToolProps) {
             </Show>
           }
         >
-          $ {stringValue(props.input.command)}
+          {commandLabel()}
         </InlineTool>
       </Match>
       <Match when={stringValue(props.metadata.output) !== undefined}>
@@ -2551,19 +2571,19 @@ function Shell(props: ToolProps) {
         >
           <box gap={1}>
             <Switch>
-              <Match when={props.part.state.status === "running"}>
-                <Spinner color={theme.text}>{stringValue(props.input.command)}</Spinner>
+              <Match when={running()}>
+                <Spinner color={theme.text}>{commandLabel()}</Spinner>
               </Match>
-              <Match when={succeeded() !== undefined}>
+              <Match when={complete()}>
                 <box flexDirection="row" gap={1}>
-                  <text fg={succeeded() ? theme.success : theme.error} attributes={TextAttributes.BOLD}>
+                  <text fg={statusColor()} attributes={TextAttributes.BOLD}>
                     •
                   </text>
-                  <text fg={theme.text}>$ {stringValue(props.input.command)}</text>
+                  <text fg={theme.text}>{commandLabel()}</text>
                 </box>
               </Match>
               <Match when={true}>
-                <text fg={theme.text}>$ {stringValue(props.input.command)}</text>
+                <text fg={theme.text}>{commandLabel()}</text>
               </Match>
             </Switch>
             <Show when={output()}>
@@ -2579,13 +2599,14 @@ function Shell(props: ToolProps) {
       </Match>
       <Match when={true}>
         <InlineTool
-          icon={succeeded() === undefined ? "$" : "•"}
-          iconColor={succeeded() === undefined ? undefined : succeeded() ? theme.success : theme.error}
+          icon="•"
+          iconColor={statusColor()}
           pending={t(Locale.language(), "tui.writing_command")}
-          complete={stringValue(props.input.command)}
+          complete={complete()}
+          spinner={running()}
           part={props.part}
         >
-          {stringValue(props.input.command)}
+          {commandLabel()}
         </InlineTool>
       </Match>
     </Switch>

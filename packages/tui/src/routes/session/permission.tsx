@@ -283,7 +283,7 @@ export function PermissionPrompt(props: { request: PermissionRequest; directory?
                 body: (
                   <Show when={command}>
                     <box paddingLeft={1}>
-                      <text fg={theme.text}>{"$ " + command}</text>
+                      <text fg={theme.text}>{i18n.t("tui.execute_command", { command })}</text>
                     </box>
                   </Show>
                 ),

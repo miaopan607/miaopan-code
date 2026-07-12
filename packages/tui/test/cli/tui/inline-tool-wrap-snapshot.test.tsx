@@ -212,6 +212,19 @@ function FailedCompleteToolFixture() {
   )
 }
 
+function DenseRowsFixture() {
+  return (
+    <box flexDirection="column" width={40}>
+      <InlineToolRow icon="✱" complete={true} pending="" dense>
+        Grep a very long pattern that wraps before the next tool
+      </InlineToolRow>
+      <InlineToolRow icon="→" complete={true} pending="" dense>
+        Read src/index.ts
+      </InlineToolRow>
+    </box>
+  )
+}
+
 function shellState(status: ToolPart["state"]["status"], exit?: unknown) {
   const metadata = exit === undefined ? undefined : { exit }
   if (status === "pending") return { status, input: {}, raw: "" } as ToolPart["state"]
@@ -250,6 +263,12 @@ describe("TUI inline tool wrapping", () => {
     const frame = await renderFrame(() => <FailedCompleteToolFixture />, { width: 72, height: 3 })
     expect(frame).toContain("Read src/index.ts")
     expect(frame).not.toContain("Read failed")
+  })
+
+  test("does not add a blank line between dense rows after wrapping", async () => {
+    const frame = await renderFrame(() => <DenseRowsFixture />, { width: 40, height: 6 })
+    expect(frame).not.toContain("\n\n")
+    expect(frame).toContain("Read src/index.ts")
   })
 
   test("derives shell command success from tool state and exit metadata", () => {
