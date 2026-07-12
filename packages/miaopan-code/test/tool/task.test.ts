@@ -312,6 +312,48 @@ describe("tool.task", () => {
     }),
   )
 
+  it.instance("ask mode reapplies its edit restriction when resuming a task session", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "ask")
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Existing child",
+        permission: Permission.fromConfig({ edit: "allow" }),
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const execute = () =>
+        def.execute(
+          {
+            description: "inspect bug",
+            prompt: "look into the cache key path",
+            subagent_type: "general",
+            task_id: child.id,
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "ask",
+            abort: new AbortController().signal,
+            extra: { promptOps: stubOps() },
+            messages: [],
+            metadata: () => Effect.void,
+            ask: () => Effect.void,
+          },
+        )
+
+      yield* execute()
+      const permissionCount = (yield* sessions.get(child.id)).permission?.length ?? 0
+      yield* execute()
+      const resumed = yield* sessions.get(child.id)
+      expect(resumed.metadata?.collaboration_mode).toBe("ask")
+      expect(resumed.permission).toHaveLength(permissionCount)
+      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("deny")
+      expect(Permission.evaluate("create_goal", "*", resumed.permission ?? []).action).not.toBe("deny")
+    }),
+  )
+
   it.instance(
     "formats the built-in Codex review result before returning it",
     () =>

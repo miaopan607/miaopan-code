@@ -5,7 +5,7 @@ import { Permission } from "../permission"
 export function deriveSubagentSessionPermission(input: {
   parentSessionPermission: PermissionV1.Ruleset
   subagent: Agent.Info
-  planMode?: boolean
+  collaborationMode?: "plan" | "ask"
 }): PermissionV1.Ruleset {
   const canTask = input.subagent.permission.some((rule) => rule.permission === "task")
   const canTodo = input.subagent.permission.some((rule) => rule.permission === "todowrite")
@@ -13,7 +13,7 @@ export function deriveSubagentSessionPermission(input: {
     ...input.parentSessionPermission.filter(
       (rule) => rule.permission === "external_directory" || rule.action === "deny",
     ),
-    ...(input.planMode
+    ...(input.collaborationMode === "plan"
       ? Permission.fromConfig({
           question: "deny",
           request_user_input: "deny",
@@ -23,6 +23,7 @@ export function deriveSubagentSessionPermission(input: {
           edit: "deny",
         })
       : []),
+    ...(input.collaborationMode === "ask" ? Permission.fromConfig({ edit: "deny" }) : []),
     ...(canTodo ? [] : [{ permission: "todowrite" as const, pattern: "*" as const, action: "deny" as const }]),
     ...(canTask ? [] : [{ permission: "task" as const, pattern: "*" as const, action: "deny" as const }]),
   ]

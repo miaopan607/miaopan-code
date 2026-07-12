@@ -261,7 +261,7 @@ describe("tool.read env file permissions", () => {
     ["environment.ts", false],
   ]
 
-  for (const agentName of ["build", "plan"] as const) {
+  for (const agentName of ["build", "ask", "plan"] as const) {
     describe(`agent=${agentName}`, () => {
       for (const [filename, shouldAsk] of cases) {
         it.live(`${filename} asks=${shouldAsk}`, () =>

@@ -973,6 +973,9 @@
             "build": {
               "$ref": "#/$defs/AgentConfig"
             },
+            "ask": {
+              "$ref": "#/$defs/AgentConfig"
+            },
             "plan": {
               "$ref": "#/$defs/AgentConfig"
             }
@@ -989,6 +992,9 @@
               "$ref": "#/$defs/AgentConfig"
             },
             "build": {
+              "$ref": "#/$defs/AgentConfig"
+            },
+            "ask": {
               "$ref": "#/$defs/AgentConfig"
             },
             "general": {

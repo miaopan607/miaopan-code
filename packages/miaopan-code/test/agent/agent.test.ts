@@ -50,12 +50,18 @@ it.instance("returns default native agents when no config", () =>
     const agents = yield* load((svc) => svc.list())
     const names = agents.map((a) => a.name)
     expect(names).toContain("build")
+    expect(names).toContain("ask")
     expect(names).toContain("plan")
     expect(names).toContain("general")
     expect(names).toContain("explore")
     expect(names).toContain("compaction")
     expect(names).toContain("title")
     expect(names).toContain("summary")
+    expect(agents.filter((agent) => agent.mode === "primary" && !agent.hidden).map((agent) => agent.name)).toEqual([
+      "build",
+      "ask",
+      "plan",
+    ])
   }),
 )
 
@@ -68,6 +74,46 @@ it.instance("build agent has correct default properties", () =>
     expect(evalPerm(build, "edit")).toBe("allow")
     expect(evalPerm(build, "bash")).toBe("allow")
   }),
+)
+
+it.instance("ask agent matches build capabilities except for edits", () =>
+  Effect.gen(function* () {
+    const ask = yield* load((svc) => svc.get("ask"))
+    expect(ask).toBeDefined()
+    expect(ask?.mode).toBe("primary")
+    expect(ask?.native).toBe(true)
+    expect(evalPerm(ask, "edit")).toBe("deny")
+    expect(evalPerm(ask, "bash")).toBe("allow")
+    expect(evalPerm(ask, "question")).toBe("allow")
+    expect(evalPerm(ask, "todowrite")).toBe("allow")
+    expect(evalPerm(ask, "create_goal")).toBe("allow")
+    expect(evalPerm(ask, "update_goal")).toBe("allow")
+    expect(Permission.disabled(["edit", "write", "apply_patch"], ask!.permission)).toEqual(
+      new Set(["edit", "write", "apply_patch"]),
+    )
+    expect(ask!.permission.filter((rule) => rule.permission === "edit" && rule.action === "deny")).toHaveLength(1)
+  }),
+)
+
+it.instance(
+  "ask edit restriction cannot be overridden by agent config",
+  () =>
+    Effect.gen(function* () {
+      const ask = yield* load((svc) => svc.get("ask"))
+      expect(ask).toBeDefined()
+      expect(evalPerm(ask, "edit")).toBe("deny")
+    }),
+  {
+    config: {
+      agent: {
+        ask: {
+          permission: {
+            edit: "allow",
+          },
+        },
+      },
+    },
+  },
 )
 
 it.instance("plan agent denies all edits", () =>
@@ -748,6 +794,7 @@ it.instance(
     config: {
       agent: {
         build: { disable: true },
+        ask: { disable: true },
         plan: { disable: true },
       },
     },

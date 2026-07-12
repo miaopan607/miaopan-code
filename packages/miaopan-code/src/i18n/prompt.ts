@@ -19,6 +19,8 @@ import COMMAND_REVIEW_EN from "../command/template/review.txt"
 import COMMAND_REVIEW_ZH_CN from "../command/template/review.zh-CN.txt"
 import SESSION_ANTHROPIC_EN from "../session/prompt/anthropic.txt"
 import SESSION_ANTHROPIC_ZH_CN from "../session/prompt/anthropic.zh-CN.txt"
+import SESSION_ASK_MODE_EN from "../session/prompt/ask-mode.txt"
+import SESSION_ASK_MODE_ZH_CN from "../session/prompt/ask-mode.zh-CN.txt"
 import SESSION_BEAST_EN from "../session/prompt/beast.txt"
 import SESSION_BEAST_ZH_CN from "../session/prompt/beast.zh-CN.txt"
 import SESSION_BUILD_SWITCH_EN from "../session/prompt/build-switch.txt"
@@ -83,6 +85,7 @@ export const messages = {
   "command.codex_review": { "zh-CN": COMMAND_CODEX_REVIEW_ZH_CN, en: COMMAND_CODEX_REVIEW_EN },
   "command.review": { "zh-CN": COMMAND_REVIEW_ZH_CN, en: COMMAND_REVIEW_EN },
   "session.anthropic": { "zh-CN": SESSION_ANTHROPIC_ZH_CN, en: SESSION_ANTHROPIC_EN },
+  "session.ask_mode": { "zh-CN": SESSION_ASK_MODE_ZH_CN, en: SESSION_ASK_MODE_EN },
   "session.beast": { "zh-CN": SESSION_BEAST_ZH_CN, en: SESSION_BEAST_EN },
   "session.build_switch": { "zh-CN": SESSION_BUILD_SWITCH_ZH_CN, en: SESSION_BUILD_SWITCH_EN },
   "session.codex": { "zh-CN": SESSION_CODEX_ZH_CN, en: SESSION_CODEX_EN },

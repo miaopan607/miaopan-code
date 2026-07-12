@@ -100,6 +100,25 @@ afterEach(async () => {
 })
 
 describe("tool.registry", () => {
+  it.instance("ask uses build-style question tools instead of plan input tools", () =>
+    Effect.gen(function* () {
+      const registry = yield* ToolRegistry.Service
+      const agents = yield* Agent.Service
+      const ask = yield* agents.get("ask")
+      if (!ask) throw new Error("ask agent not found")
+
+      const tools = yield* registry.tools({
+        providerID: ProviderV2.ID.miaopanCode,
+        modelID: ModelV2.ID.make("test"),
+        agent: ask,
+      })
+      const ids = tools.map((tool) => tool.id)
+
+      expect(ids).toContain("question")
+      expect(ids).not.toContain("request_user_input")
+    }),
+  )
+
   it.instance("exposes persisted goal tools", () =>
     Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service

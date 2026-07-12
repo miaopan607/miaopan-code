@@ -132,6 +132,13 @@ const layer = Layer.effect(
         })
 
         const user = Permission.fromConfig(cfg.permission ?? {})
+        const build = Permission.merge(
+          defaults,
+          Permission.fromConfig({
+            question: "allow",
+          }),
+          user,
+        )
         const plan = Permission.fromConfig({
           request_user_input: "allow",
           question: "deny",
@@ -140,19 +147,16 @@ const layer = Layer.effect(
           update_goal: "deny",
           edit: { "*": "deny" },
         })
+        const ask = Permission.fromConfig({
+          edit: { "*": "deny" },
+        })
 
         const agents: Record<string, Info> = {
           build: {
             name: "build",
             description: t(cfg.language, "agent.build_description"),
             options: {},
-            permission: Permission.merge(
-              defaults,
-              Permission.fromConfig({
-                question: "allow",
-              }),
-              user,
-            ),
+            permission: build,
             mode: "primary",
             native: true,
           },
@@ -161,6 +165,14 @@ const layer = Layer.effect(
             description: t(cfg.language, "agent.plan_description"),
             options: {},
             permission: Permission.merge(defaults, user, plan),
+            mode: "primary",
+            native: true,
+          },
+          ask: {
+            name: "ask",
+            description: t(cfg.language, "agent.ask_description"),
+            options: {},
+            permission: build,
             mode: "primary",
             native: true,
           },
@@ -280,6 +292,9 @@ const layer = Layer.effect(
 
         if (agents.plan) {
           agents.plan.permission = Permission.merge(agents.plan.permission, plan)
+        }
+        if (agents.ask) {
+          agents.ask.permission = Permission.merge(agents.ask.permission, ask)
         }
 
         // Ensure Truncate.GLOB is allowed unless explicitly configured

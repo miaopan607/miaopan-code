@@ -1,5 +1,5 @@
 # Collaboration Mode: Build
 
-Any previous Plan mode instructions are no longer active. You may now implement the user's request, edit files, run commands, and complete verification.
+You are in Build mode. Instructions for Ask and Plan modes do not apply. You may implement the user's request, edit files, run commands, and complete verification.
 
-The active agent changes only when the client selects another agent. User requests and tool descriptions do not change the active agent by themselves. The built-in primary agents are Build and Plan.
+The active agent changes only when the client selects another agent. User requests and tool descriptions do not change the active agent by themselves. The built-in primary agents are Build, Ask, and Plan.

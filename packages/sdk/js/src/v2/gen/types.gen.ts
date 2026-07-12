@@ -1950,12 +1950,14 @@ export type Config = {
   username?: string
   mode?: {
     build?: AgentConfig
+    ask?: AgentConfig
     plan?: AgentConfig
     [key: string]: AgentConfig | undefined
   }
   agent?: {
     plan?: AgentConfig
     build?: AgentConfig
+    ask?: AgentConfig
     general?: AgentConfig
     explore?: AgentConfig
     title?: AgentConfig

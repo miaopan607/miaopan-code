@@ -278,7 +278,9 @@ file, `disable: true` in frontmatter.
 
 ### Built-in agents
 
-miaopan-code ships with `build`, `plan`, `general`, `explore`. Hidden internal agents:
+miaopan-code ships with `build`, `ask`, `plan`, `general`, `explore`. `ask` keeps
+`build`'s question-answering capabilities but cannot modify the workspace, while `plan`
+creates implementation-ready plans. Hidden internal agents:
 `compaction`, `title`, `summary`. To override a built-in's fields, define the
 same key in `agent: { <name>: { ... } }`.
 

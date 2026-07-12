@@ -22,10 +22,6 @@ function testAgent(input: {
   } satisfies Agent.Info
 }
 
-// `deriveSubagentSessionPermission` is imported from production. The test
-// exercises the actual helper that task.ts uses to build the subagent's
-// session permission, so any regression in that helper trips this test.
-
 it.instance("plan subagents inherit the parent mode edit ceiling", () =>
   Effect.gen(function* () {
     const planAgent = yield* Agent.use.get("plan")
@@ -43,11 +39,9 @@ it.instance("plan subagents inherit the parent mode edit ceiling", () =>
     const subagentSessionPermission = deriveSubagentSessionPermission({
       parentSessionPermission,
       subagent: generalAgent!,
-      planMode: true,
+      collaborationMode: "plan",
     })
 
-    // Mirror the runtime evaluation in session/prompt.ts (~line 410, 639):
-    //   ruleset: Permission.merge(agent.permission, session.permission ?? [])
     const effective = Permission.merge(generalAgent!.permission, subagentSessionPermission)
 
     expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("deny")
@@ -86,7 +80,7 @@ it.instance(
       const subagentSessionPermission = deriveSubagentSessionPermission({
         parentSessionPermission,
         subagent: my!,
-        planMode: true,
+        collaborationMode: "plan",
       })
       const effective = Permission.merge(my!.permission, subagentSessionPermission)
 
@@ -104,6 +98,44 @@ it.instance(
           mode: "subagent",
           permission: {
             edit: "allow",
+          },
+        },
+      },
+    },
+  },
+)
+
+it.instance(
+  "ask subagents inherit only the edit ceiling",
+  () =>
+    Effect.gen(function* () {
+      const ask = yield* Agent.use.get("ask")
+      const my = yield* Agent.use.get("my_subagent")
+      expect(ask).toBeDefined()
+      expect(my).toBeDefined()
+
+      const subagentSessionPermission = deriveSubagentSessionPermission({
+        parentSessionPermission: [],
+        subagent: my!,
+        collaborationMode: "ask",
+      })
+      const effective = Permission.merge(my!.permission, subagentSessionPermission)
+
+      expect(Permission.evaluate("edit", "/some/file.ts", ask!.permission).action).toBe("deny")
+      expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("deny")
+      expect(Permission.evaluate("todowrite", "*", effective).action).toBe("allow")
+      expect(Permission.evaluate("create_goal", "*", effective).action).toBe("allow")
+      expect(Permission.evaluate("update_goal", "*", effective).action).toBe("allow")
+    }),
+  {
+    config: {
+      agent: {
+        my_subagent: {
+          description: "A user-defined subagent",
+          mode: "subagent",
+          permission: {
+            edit: "allow",
+            todowrite: "allow",
           },
         },
       },

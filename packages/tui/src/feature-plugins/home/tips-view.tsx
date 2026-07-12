@@ -235,6 +235,7 @@ const TIPS: Tip[] = [
   (shortcuts, language) => press(shortcuts.inputNewline(), translate(language, "tips.newline"), language),
   (shortcuts, language) => press(shortcuts.inputClear(), translate(language, "tips.clear_input"), language),
   (shortcuts, language) => press(shortcuts.sessionInterrupt(), translate(language, "tips.interrupt"), language),
+  (_shortcuts, language) => translate(language, "tips.ask"),
   (_shortcuts, language) => translate(language, "tips.plan"),
   (_shortcuts, language) => translate(language, "tips.subagent"),
   (shortcuts, language) => {

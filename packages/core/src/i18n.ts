@@ -1826,8 +1826,12 @@ export const messages = {
     en: "Run {highlight}/compact{/highlight} to summarize long sessions near context limits",
   },
   "tips.plan": {
-    "zh-CN": "切换到 {highlight}Plan{/highlight} 代理以获取建议而不修改文件",
-    en: "Switch to {highlight}Plan{/highlight} agent for suggestions without making changes",
+    "zh-CN": "切换到 {highlight}Plan{/highlight} 代理，在实施前制定和完善方案",
+    en: "Switch to the {highlight}Plan{/highlight} agent to create and refine an implementation plan",
+  },
+  "tips.ask": {
+    "zh-CN": "切换到 {highlight}Ask{/highlight} 代理以分析和回答问题，而不修改工作区",
+    en: "Switch to the {highlight}Ask{/highlight} agent to analyze and answer questions without modifying the workspace",
   },
   "tips.subagent": {
     "zh-CN": "在提示中使用 {highlight}@agent-name{/highlight} 调用专用子代理",
@@ -2083,7 +2087,10 @@ export const messages = {
     "zh-CN": "使用 {highlight}/rename{/highlight} 重命名当前会话",
     en: "Use {highlight}/rename{/highlight} to rename the current session",
   },
-  "tips.cycle_agents": { "zh-CN": "在 Build 和 Plan 代理之间切换", en: "to cycle between Build and Plan agents" },
+  "tips.cycle_agents": {
+    "zh-CN": "在 Build、Ask 和 Plan 代理之间切换",
+    en: "to cycle between Build, Ask, and Plan agents",
+  },
   "tips.paste_prompt": {
     "zh-CN": "将剪贴板中的图像粘贴到提示中",
     en: "to paste images from your clipboard into the prompt",
@@ -2358,6 +2365,10 @@ export const messages = {
   "agent.build_description": {
     "zh-CN": "默认代理；根据配置的权限执行工具。",
     en: "The default agent. Executes tools based on configured permissions.",
+  },
+  "agent.ask_description": {
+    "zh-CN": "问答模式；可读取和分析工作区，但禁止修改。",
+    en: "Ask mode. Can read and analyze the workspace, but cannot modify it.",
   },
   "agent.plan_description": { "zh-CN": "规划模式；禁止所有编辑工具。", en: "Plan mode. Disallows all edit tools." },
   "agent.general_description": {

@@ -1122,3 +1122,40 @@ itProposedPlan.live("session.processor stores proposed plans as ordered plan par
     { config: cfg },
   ),
 )
+
+itProposedPlan.live("session.processor keeps ask responses as ordinary text", () =>
+  provideTmpdirInstance(
+    (dir) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+        const chat = yield* session.create({ agent: "ask" })
+        const parent = yield* user(chat.id, "answer a question")
+        const msg = { ...(yield* assistant(chat.id, parent.id, path.resolve(dir))), agent: "ask" }
+        yield* session.updateMessage(msg)
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const handle = yield* processors.create({ assistantMessage: msg, sessionID: chat.id, model: mdl })
+
+        yield* handle.process({
+          user: {
+            id: parent.id,
+            sessionID: chat.id,
+            role: "user",
+            time: parent.time,
+            agent: "ask",
+            model: { providerID: ref.providerID, modelID: ref.modelID },
+          } satisfies SessionV1.User,
+          sessionID: chat.id,
+          model: mdl,
+          agent: { ...agent(), name: "ask" },
+          system: [],
+          messages: [{ role: "user", content: "answer a question" }],
+          tools: {},
+        })
+
+        const parts = (yield* MessageV2.parts(msg.id)).filter((part) => part.type === "text" || part.type === "plan")
+        expect(parts.some((part) => part.type === "plan")).toBe(false)
+        expect(parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("")).toContain("<proposed_plan>")
+      }),
+    { config: cfg },
+  ),
+)

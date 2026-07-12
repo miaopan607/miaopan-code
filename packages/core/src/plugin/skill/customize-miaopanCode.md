@@ -278,7 +278,8 @@ hidden, color, steps, options, permission, disable, temperature, top_p`。所有
 
 ### 内置代理
 
-miaopan-code 随附 `build`、`plan`、`general`、`explore`。隐藏的内部代理包括：
+miaopan-code 随附 `build`、`ask`、`plan`、`general`、`explore`。其中 `ask` 保留
+`build` 的问答能力，但禁止修改工作区；`plan` 用于制定可实施方案。隐藏的内部代理包括：
 `compaction`、`title`、`summary`。要覆盖内置代理的字段，请在
 `agent: { <name>: { ... } }` 中定义相同的 key。
 

@@ -1,6 +1,7 @@
 import * as Tool from "./tool"
 import { ToolI18n } from "./i18n"
 import { ToolJsonSchema } from "./json-schema"
+import { PermissionV1 } from "@miaopan-code/core/v1/permission"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { BackgroundJob } from "@/background/job"
 import { Session } from "@/session/session"
@@ -25,6 +26,13 @@ export interface TaskPromptOps {
 }
 
 const id = "task"
+
+function hasPermission(ruleset: PermissionV1.Ruleset, rule: PermissionV1.Rule) {
+  return ruleset.some(
+    (item) =>
+      item.permission === rule.permission && item.pattern === rule.pattern && item.action === rule.action,
+  )
+}
 
 const baseParameterFields = (language?: Language) => ({
   description: Schema.String.annotate({ description: t(language, "tool.param.task_description") }),
@@ -110,11 +118,16 @@ export const TaskTool = Tool.define(
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
       const parent = yield* sessions.get(ctx.sessionID)
-      const planMode = parent.agent === "plan" || parent.metadata?.collaboration_mode === "plan"
+      const collaborationMode =
+        parent.agent === "plan" || parent.agent === "ask"
+          ? parent.agent
+          : parent.metadata?.collaboration_mode === "plan" || parent.metadata?.collaboration_mode === "ask"
+            ? parent.metadata.collaboration_mode
+            : undefined
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,
-        planMode,
+        collaborationMode,
       })
       const primaryToolDenies =
         cfg.experimental?.primary_tools?.map((permission) => ({
@@ -124,23 +137,21 @@ export const TaskTool = Tool.define(
         })) ?? []
       const childSessionPermission = [
         ...childPermission,
-        ...primaryToolDenies.filter(
-          (deny) =>
-            !childPermission.some(
-              (rule) =>
-                rule.permission === deny.permission && rule.pattern === deny.pattern && rule.action === deny.action,
-            ),
-        ),
+        ...primaryToolDenies.filter((deny) => !hasPermission(childPermission, deny)),
       ]
-      if (session && planMode) {
-        yield* sessions.setPermission({
-          sessionID: session.id,
-          permission: Permission.merge(session.permission ?? [], childSessionPermission),
-        })
-        if (session.metadata?.collaboration_mode !== "plan") {
+      if (session && collaborationMode) {
+        const permission = session.permission ?? []
+        const additions = childSessionPermission.filter((rule) => !hasPermission(permission, rule))
+        if (additions.length > 0) {
+          yield* sessions.setPermission({
+            sessionID: session.id,
+            permission: Permission.merge(permission, additions),
+          })
+        }
+        if (session.metadata?.collaboration_mode !== collaborationMode) {
           yield* sessions.setMetadata({
             sessionID: session.id,
-            metadata: { ...session.metadata, collaboration_mode: "plan" },
+            metadata: { ...session.metadata, collaboration_mode: collaborationMode },
           })
         }
       }
@@ -150,7 +161,7 @@ export const TaskTool = Tool.define(
           parentID: ctx.sessionID,
           title: params.description + ToolI18n.text(ctx, "tool.task.subagent_suffix", { name: next.name }),
           agent: next.name,
-          metadata: planMode ? { collaboration_mode: "plan" } : undefined,
+          metadata: collaborationMode ? { collaboration_mode: collaborationMode } : undefined,
           permission: childSessionPermission,
         }))
 

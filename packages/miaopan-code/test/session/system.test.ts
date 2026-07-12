@@ -43,6 +43,11 @@ const build: Agent.Info = {
   options: {},
 }
 
+const ask: Agent.Info = {
+  ...build,
+  name: "ask",
+}
+
 const it = testEffect(
   LayerNode.compile(SystemPrompt.node, [
     [
@@ -89,6 +94,19 @@ describe("session.system", () => {
       "Meta Muse Spark",
     )
   })
+
+  it.instance("uses the ask prompt for ask agents and delegated ask sessions", () =>
+    Effect.gen(function* () {
+      const prompt = yield* SystemPrompt.Service
+      const direct = yield* prompt.collaboration(ask)
+      const delegated = yield* prompt.collaboration({ ...build, name: "general" }, "ask")
+
+      expect(direct).toContain("协作模式：Ask")
+      expect(direct).toContain("不要实施修改")
+      expect(direct).not.toContain("<proposed_plan>")
+      expect(delegated).toBe(direct)
+    }),
+  )
 
   it.instance("skills output is sorted by name and stable across calls", () =>
     Effect.gen(function* () {
