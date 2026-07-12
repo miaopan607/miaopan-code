@@ -30,6 +30,13 @@ test("可将已有 key 渲染结果切换到目标语言", () => {
   expect(localizeKnownText("en", "unmanaged provider text")).toBe("unmanaged provider text")
 })
 
+test("快捷键提示会插入实际配置的键位", () => {
+  expect(t("zh-CN", "prompt.queue_edit_hint", { key: "Shift+Tab" })).toBe("按 Shift+Tab 编辑最后一条排队消息")
+  expect(t("en", "prompt.queue_edit_hint", { key: "Shift+Tab" })).toBe(
+    "Press Shift+Tab to edit the last queued message",
+  )
+})
+
 test("每个 i18n key 都包含中文和英文资源", () => {
   for (const [key, message] of Object.entries(messages)) {
     expect(typeof message["zh-CN"]).toBe("string")

@@ -2667,7 +2667,10 @@ export const messages = {
   "prompt.submit": { "zh-CN": "提交提示", en: "Submit prompt" },
   "prompt.queue": { "zh-CN": "排队到当前整轮结束后发送", en: "Queue until the current turn finishes" },
   "prompt.queued_followups": { "zh-CN": "整轮结束后发送", en: "Send after the current turn" },
-  "prompt.queue_edit_hint": { "zh-CN": "{key} 取回最后一条排队消息", en: "{key} edit the last queued message" },
+  "prompt.queue_edit_hint": {
+    "zh-CN": "按 {{key}} 编辑最后一条排队消息",
+    en: "Press {{key}} to edit the last queued message",
+  },
   "run.prompt_steer_unavailable": {
     "zh-CN": "当前输入不能接入正在运行的模型轮次",
     en: "This input cannot steer the active model turn",
