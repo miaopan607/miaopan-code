@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import type { Part } from "@miaopan/sdk/v2"
+import type { Part, ToolPart } from "@miaopan/sdk/v2"
 import { isThinkingMode, reasoningSummary } from "../../../src/context/thinking"
-import { assistantDisplayParts } from "../../../src/routes/session"
+import { assistantDisplayParts, compactToolRows, toolUsesCompactDisplay } from "../../../src/routes/session"
 
 test("recognizes the three thinking display modes", () => {
   expect(["collapsed", "expanded", "hidden"].every(isThinkingMode)).toBe(true)
@@ -43,6 +43,24 @@ describe("reasoningSummary", () => {
 })
 
 describe("assistantDisplayParts", () => {
+  const tool = (name: string, input: Record<string, unknown>, metadata: Record<string, unknown> = {}) =>
+    ({
+      id: `part_${name}`,
+      sessionID: "session",
+      messageID: "message",
+      type: "tool",
+      callID: `call_${name}`,
+      tool: name,
+      state: {
+        status: "completed",
+        input,
+        output: "done",
+        title: name,
+        metadata,
+        time: { start: 1, end: 2 },
+      },
+    }) as ToolPart
+
   const reasoning = {
     id: "part_reasoning",
     sessionID: "session",
@@ -157,5 +175,136 @@ describe("assistantDisplayParts", () => {
         showDetails: true,
       }),
     ).toEqual([reasoning])
+  })
+
+  test("groups editing tools that have no diff or file content", () => {
+    const write = tool("write", { filePath: "/repo/new.ts" })
+    const edit = tool("edit", { filePath: "/repo/existing.ts" })
+    const move = tool(
+      "apply_patch",
+      {},
+      {
+        files: [
+          {
+            type: "move",
+            relativePath: "renamed.ts",
+            filePath: "/repo/original.ts",
+            movePath: "/repo/renamed.ts",
+            patch: "",
+            deletions: 0,
+          },
+          {
+            type: "delete",
+            relativePath: "obsolete.ts",
+            filePath: "/repo/obsolete.ts",
+            patch: "-obsolete",
+            deletions: 1,
+          },
+        ],
+        diagnostics: {},
+      },
+    )
+
+    const result = assistantDisplayParts([write, edit, move], {
+      last: true,
+      thinkingMode: "collapsed",
+      toolDisplay: "compact",
+      showDetails: true,
+    })
+
+    expect(result).toEqual([{ type: "compact-explore", parts: [write, edit, move] }])
+  })
+
+  test("keeps editing tools with diff or file content out of compact groups", () => {
+    const write = tool("write", { filePath: "/repo/new.ts", content: "export {}" }, { diagnostics: {} })
+    const edit = tool("edit", { filePath: "/repo/existing.ts" }, { diff: "-old\n+new", diagnostics: {} })
+    const patch = tool(
+      "apply_patch",
+      {},
+      {
+        files: [
+          {
+            type: "update",
+            relativePath: "existing.ts",
+            filePath: "/repo/existing.ts",
+            patch: "-old\n+new",
+            deletions: 1,
+          },
+        ],
+        diagnostics: {},
+      },
+    )
+
+    expect([write, edit, patch].map(toolUsesCompactDisplay)).toEqual([false, false, false])
+    expect(
+      assistantDisplayParts([write, edit, patch], {
+        last: true,
+        thinkingMode: "collapsed",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([write, edit, patch])
+  })
+
+  test("keeps apply_patch diagnostics visible even without a diff", () => {
+    const move = tool(
+      "apply_patch",
+      {},
+      {
+        files: [
+          {
+            type: "move",
+            relativePath: "renamed.ts",
+            filePath: "/repo/original.ts",
+            movePath: "/repo/renamed.ts",
+            patch: "",
+            deletions: 0,
+          },
+        ],
+        diagnostics: {
+          "/repo/renamed.ts": [{ severity: 1, message: "broken", range: { start: { line: 0, character: 0 } } }],
+        },
+      },
+    )
+
+    expect(toolUsesCompactDisplay(move)).toBe(false)
+  })
+
+  test("formats both paths in compact move rows", () => {
+    const move = tool(
+      "apply_patch",
+      {},
+      {
+        files: [
+          {
+            type: "move",
+            relativePath: "root/.config/miaopan-code/tui.jsonc",
+            filePath: "/root/.config/miaopan-code/tui.json",
+            movePath: "/root/.config/miaopan-code/tui.jsonc",
+            patch: "",
+            deletions: 0,
+          },
+        ],
+      },
+    )
+
+    expect(compactToolRows([move], (value) => value?.replace(/^\/root/, "~") ?? "")).toEqual([
+      {
+        key: "move",
+        labels: "~/.config/miaopan-code/tui.json → ~/.config/miaopan-code/tui.jsonc",
+      },
+    ])
+  })
+
+  test("does not compact editing tools in detailed mode", () => {
+    const edit = tool("edit", { filePath: "/repo/existing.ts" })
+    expect(
+      assistantDisplayParts([edit], {
+        last: true,
+        thinkingMode: "collapsed",
+        toolDisplay: "detailed",
+        showDetails: true,
+      }),
+    ).toEqual([edit])
   })
 })

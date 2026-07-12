@@ -1819,7 +1819,7 @@ export function assistantDisplayParts(
   if (input.toolDisplay !== "compact") return visible
 
   return visible.reduce<DisplayPart[]>((result, part) => {
-    if (part.type !== "tool" || !["read", "glob", "grep", "webfetch", "websearch"].includes(toolDisplay(part.tool))) {
+    if (part.type !== "tool" || !toolUsesCompactDisplay(part)) {
       result.push(part)
       return result
     }
@@ -2095,7 +2095,7 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   )
 }
 
-type CompactExploreKind = "read" | "search" | "web"
+type CompactExploreKind = "read" | "search" | "web" | "write" | "edit" | "create" | "delete" | "move" | "patch"
 
 function CompactExplore(props: { part: CompactExplorePart }) {
   const { theme } = useTheme()
@@ -2110,29 +2110,7 @@ function CompactExplore(props: { part: CompactExplorePart }) {
     if (props.part.parts.every((part) => part.state.status === "completed")) return theme.success
     return theme.textMuted
   })
-  const rows = createMemo(() => {
-    const groups = new Map<CompactExploreKind, string[]>()
-    props.part.parts.forEach((part) => {
-      const display = toolDisplay(part.tool)
-      const label =
-        display === "read"
-          ? path.basename(pathFormatter.format(stringValue(part.state.input.filePath)))
-          : display === "glob" || display === "grep"
-            ? stringValue(part.state.input.pattern)
-            : display === "webfetch"
-              ? stringValue(part.state.input.url)
-              : stringValue(part.state.input.query)
-      const key: CompactExploreKind =
-        display === "read" ? "read" : display === "webfetch" || display === "websearch" ? "web" : "search"
-      const labels = groups.get(key)
-      if (labels) labels.push(label ?? part.tool)
-      else groups.set(key, [label ?? part.tool])
-    })
-    return [...groups].map(([key, labels]) => ({
-      key,
-      labels: [...new Set(labels)].join(", "),
-    }))
-  })
+  const rows = createMemo(() => compactToolRows(props.part.parts, (value) => pathFormatter.format(value)))
 
   return (
     <InlineToolRow
@@ -2180,7 +2158,54 @@ function compactExploreLabel(key: CompactExploreKind) {
     read: t(Locale.language(), "tui.compact_read"),
     search: t(Locale.language(), "tui.compact_search"),
     web: t(Locale.language(), "tui.compact_web"),
+    write: t(Locale.language(), "tui.compact_write"),
+    edit: t(Locale.language(), "tui.compact_edit"),
+    create: t(Locale.language(), "tui.compact_create"),
+    delete: t(Locale.language(), "tui.compact_delete"),
+    move: t(Locale.language(), "tui.compact_move"),
+    patch: t(Locale.language(), "tui.compact_patch"),
   }[key]
+}
+
+export function compactToolRows(parts: ToolPart[], formatPath: (value: string | undefined) => string) {
+  const entries = parts.flatMap((part): { key: CompactExploreKind; label: string }[] => {
+    const display = toolDisplay(part.tool)
+    if (display === "read") {
+      return [{ key: "read", label: path.basename(formatPath(stringValue(part.state.input.filePath))) }]
+    }
+    if (display === "glob" || display === "grep") {
+      return [{ key: "search", label: stringValue(part.state.input.pattern) ?? part.tool }]
+    }
+    if (display === "webfetch") {
+      return [{ key: "web", label: stringValue(part.state.input.url) ?? part.tool }]
+    }
+    if (display === "websearch") {
+      return [{ key: "web", label: stringValue(part.state.input.query) ?? part.tool }]
+    }
+    if (display === "write" || display === "edit") {
+      return [{ key: display, label: formatPath(stringValue(part.state.input.filePath)) }]
+    }
+
+    const files = parseApplyPatchFiles(toolMetadata(part).files)
+    if (!files.length) return [{ key: "patch", label: part.tool }]
+    return files.map((file) => {
+      const key: CompactExploreKind =
+        file.type === "add" ? "create" : file.type === "delete" ? "delete" : file.type === "move" ? "move" : "edit"
+      const source = formatPath(file.filePath)
+      const target = formatPath(file.movePath ?? file.relativePath)
+      return { key, label: file.type === "move" ? `${source} → ${target}` : source }
+    })
+  })
+  const groups = entries.reduce((result, entry) => {
+    const labels = result.get(entry.key)
+    if (labels) labels.push(entry.label)
+    else result.set(entry.key, [entry.label])
+    return result
+  }, new Map<CompactExploreKind, string[]>())
+  return [...groups].map(([key, labels]) => ({
+    key,
+    labels: [...new Set(labels)].join(", "),
+  }))
 }
 
 type ToolProps = {
@@ -2905,10 +2930,13 @@ function Edit(props: ToolProps) {
   const ft = createMemo(() => filetype(stringValue(props.input.filePath)))
 
   const diffContent = createMemo(() => stringValue(props.metadata.diff) ?? "")
+  const hasDiagnostics = createMemo(
+    () => parseDiagnostics(props.metadata.diagnostics, stringValue(props.input.filePath) ?? "").length > 0,
+  )
 
   return (
     <Switch>
-      <Match when={stringValue(props.metadata.diff) !== undefined}>
+      <Match when={diffContent().trim() || hasDiagnostics()}>
         <BlockTool
           title={`← ${t(Locale.language(), "tui.edit_file", { path: pathFormatter.format(stringValue(props.input.filePath)) })}`}
           part={props.part}
@@ -2991,11 +3019,14 @@ function ApplyPatch(props: ToolProps) {
     )
   }
 
-  function title(file: { type: string; relativePath: string; filePath: string; deletions: number }) {
+  function title(file: { type: string; relativePath: string; filePath: string; deletions: number; movePath?: string }) {
     if (file.type === "delete") return `# ${t(Locale.language(), "tui.deleted_file", { path: file.relativePath })}`
     if (file.type === "add") return `# ${t(Locale.language(), "tui.created_file", { path: file.relativePath })}`
     if (file.type === "move")
-      return `# ${t(Locale.language(), "tui.moved_file", { path: pathFormatter.format(file.filePath), target: file.relativePath })}`
+      return `# ${t(Locale.language(), "tui.moved_file", {
+        path: pathFormatter.format(file.filePath),
+        target: pathFormatter.format(file.movePath ?? file.relativePath),
+      })}`
     return `← ${t(Locale.language(), "tui.patched_file", { path: file.relativePath })}`
   }
 
@@ -3181,6 +3212,28 @@ const toolDisplays = new Set([
 
 export function toolDisplay(tool: string) {
   return toolDisplays.has(tool) ? tool : "generic"
+}
+
+function toolMetadata(part: ToolPart) {
+  return part.state.status === "pending" ? {} : (part.state.metadata ?? {})
+}
+
+export function toolUsesCompactDisplay(part: ToolPart) {
+  const display = toolDisplay(part.tool)
+  if (["read", "glob", "grep", "webfetch", "websearch"].includes(display)) return true
+  const metadata = toolMetadata(part)
+  if (display === "write") return metadata.diagnostics === undefined
+  if (display === "edit") {
+    const filePath = stringValue(part.state.input.filePath) ?? ""
+    return !stringValue(metadata.diff)?.trim() && parseDiagnostics(metadata.diagnostics, filePath).length === 0
+  }
+  if (display !== "apply_patch") return false
+
+  return parseApplyPatchFiles(metadata.files).every((file) => {
+    if (file.type !== "delete" && file.patch.trim()) return false
+    const target = file.movePath ?? file.filePath
+    return parseDiagnostics(metadata.diagnostics, target).length === 0
+  })
 }
 
 function recordValue(value: unknown): Record<string, unknown> | undefined {
