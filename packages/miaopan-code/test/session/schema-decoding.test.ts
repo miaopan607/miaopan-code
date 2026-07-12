@@ -236,11 +236,11 @@ describe("SessionStatus.Info", () => {
       message: "transient",
       action: {
         reason: "free_tier_limit",
-        provider: "miaopan-code",
+        provider: "opencode",
         title: "Free limit reached",
-        message: "Subscribe to MiaopanCode Go.",
+        message: "Subscribe to OpenCode Go.",
         label: "subscribe",
-        link: "https://github.com/miaopan607/miaopan-code/go",
+        link: "https://opencode.ai/go",
       },
       next: 500,
     }

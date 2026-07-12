@@ -72,4 +72,21 @@ describe("Auth", () => {
       expect(after["anthropic"]).toBeUndefined()
     }),
   )
+
+  it.instance("legacy MiaopanCode provider keys migrate to OpenCode keys", () =>
+    Effect.gen(function* () {
+      const auth = yield* Auth.Service
+      yield* auth.set("miaopan-code", { type: "api", key: "zen-key" })
+      yield* auth.set("miaopan-code-go", { type: "api", key: "go-key" })
+
+      const data = yield* auth.all()
+      expect(data.opencode).toEqual({ type: "api", key: "zen-key" })
+      expect(data["opencode-go"]).toEqual({ type: "api", key: "go-key" })
+      expect(data["miaopan-code"]).toBeUndefined()
+      expect(data["miaopan-code-go"]).toBeUndefined()
+
+      yield* auth.remove("miaopan-code")
+      expect((yield* auth.all()).opencode).toBeUndefined()
+    }),
+  )
 })

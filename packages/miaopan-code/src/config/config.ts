@@ -36,6 +36,7 @@ import { ConfigPlugin } from "./plugin"
 import { ConfigVariable } from "./variable"
 import { Npm } from "@miaopan-code/core/npm"
 import { withTransientReadRetry } from "@/util/effect-http-client"
+import { ProviderV2 } from "@miaopan-code/core/provider"
 
 const configLanguage = () => resolveLanguage(process.env.MIAOPAN_CODE_LANGUAGE)
 const message = (key: MessageKey, parameters?: MessageParameters) => t(configLanguage(), key, parameters)
@@ -496,21 +497,22 @@ const layer = Layer.effect(
           yield* Effect.logDebug(message("log.config_content_loaded"))
         }
 
-        const activeAccount = Option.getOrUndefined(
-          yield* accountSvc.active().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+        const activeOrg = Option.getOrUndefined(
+          yield* accountSvc.activeOrg().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
         )
-        if (activeAccount?.active_org_id) {
-          const accountID = activeAccount.id
-          const orgID = activeAccount.active_org_id
-          const url = activeAccount.url
+        if (activeOrg) {
+          const accountID = activeOrg.account.id
+          const orgID = activeOrg.org.id
+          const url = activeOrg.account.url
+          activeOrgName = activeOrg.org.name
           yield* Effect.gen(function* () {
             const [configOpt, tokenOpt] = yield* Effect.all(
               [accountSvc.config(accountID, orgID), accountSvc.token(accountID)],
               { concurrency: 2 },
             )
             if (Option.isSome(tokenOpt)) {
-              process.env["MIAOPAN_CODE_CONSOLE_TOKEN"] = tokenOpt.value
-              yield* env.set("MIAOPAN_CODE_CONSOLE_TOKEN", tokenOpt.value)
+              process.env["OPENCODE_CONSOLE_TOKEN"] = tokenOpt.value
+              yield* env.set("OPENCODE_CONSOLE_TOKEN", tokenOpt.value)
             }
 
             if (Option.isSome(configOpt)) {
@@ -519,6 +521,7 @@ const layer = Layer.effect(
                 dir: path.dirname(source),
                 source,
               })
+              if (next.provider) next.provider = ProviderV2.normalizeRecord(next.provider)
               for (const providerID of Object.keys(next.provider ?? {})) {
                 consoleManagedProviders.add(providerID)
               }

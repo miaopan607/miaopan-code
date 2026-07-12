@@ -5,6 +5,7 @@ import { NonNegativeInt } from "@miaopan-code/core/schema"
 import { Global } from "@miaopan-code/core/global"
 import { FSUtil } from "@miaopan-code/core/fs-util"
 import { t, type Language } from "@miaopan-code/core/i18n"
+import { ProviderV2 } from "@miaopan-code/core/provider"
 
 export const OAUTH_DUMMY_KEY = "miaopanCode-oauth-dummy-key"
 
@@ -59,20 +60,26 @@ const layer = Layer.effect(
     const all = Effect.fn("Auth.all")(function* () {
       if (process.env.MIAOPAN_CODE_AUTH_CONTENT) {
         try {
-          return JSON.parse(process.env.MIAOPAN_CODE_AUTH_CONTENT)
-        } catch (err) {}
+          return ProviderV2.normalizeRecord(
+            Record.filterMap(JSON.parse(process.env.MIAOPAN_CODE_AUTH_CONTENT), (value) =>
+              Result.fromOption(decode(value), () => undefined),
+            ),
+          )
+        } catch {}
       }
 
       const data = (yield* fsys.readJson(file).pipe(Effect.orElseSucceed(() => ({})))) as Record<string, unknown>
-      return Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined))
+      return ProviderV2.normalizeRecord(
+        Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined)),
+      )
     })
 
     const get = Effect.fn("Auth.get")(function* (providerID: string) {
-      return (yield* all())[providerID]
+      return (yield* all())[ProviderV2.canonicalID(providerID)]
     })
 
     const set = Effect.fn("Auth.set")(function* (key: string, info: Info, language?: Language) {
-      const norm = key.replace(/\/+$/, "")
+      const norm = ProviderV2.canonicalID(key.replace(/\/+$/, ""))
       const data = yield* all()
       if (norm !== key) delete data[key]
       delete data[norm + "/"]
@@ -82,7 +89,7 @@ const layer = Layer.effect(
     })
 
     const remove = Effect.fn("Auth.remove")(function* (key: string, language?: Language) {
-      const norm = key.replace(/\/+$/, "")
+      const norm = ProviderV2.canonicalID(key.replace(/\/+$/, ""))
       const data = yield* all()
       delete data[key]
       delete data[norm]

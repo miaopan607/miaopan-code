@@ -78,7 +78,7 @@ const providerLayer = (flags: Partial<RuntimeFlags.Info> = {}) =>
 const list = Provider.use.list()
 
 const paid = (providers: Record<string, { models: Record<string, { cost: { input: number } }> }>) => {
-  const item = providers[ProviderV2.ID.make("miaopan-code")]
+  const item = providers[ProviderV2.ID.opencode]
   expect(item).toBeDefined()
   return Object.values(item.models).filter((model) => model.cost.input > 0).length
 }
@@ -342,6 +342,41 @@ test("parseModel handles model IDs with slashes", () => {
   const result = Provider.parseModel("openrouter/anthropic/claude-3-opus")
   expect(String(result.providerID)).toBe("openrouter")
   expect(String(result.modelID)).toBe("anthropic/claude-3-opus")
+})
+
+test("normalizes legacy OpenCode provider aliases without duplicate providers", () => {
+  const input: Record<string, ModelsDev.Provider> = {
+    "miaopan-code": {
+      id: "miaopan-code",
+      name: "MiaopanCode Zen",
+      env: ["MIAOPAN_CODE_API_KEY"],
+      api: "https://github.com/miaopan607/miaopan-code/zen/v1",
+      models: {},
+    },
+    "miaopan-code-go": {
+      id: "miaopan-code-go",
+      name: "MiaopanCode Go",
+      env: ["MIAOPAN_CODE_API_KEY"],
+      api: "https://github.com/miaopan607/miaopan-code/zen/go/v1",
+      models: {},
+    },
+  }
+
+  const normalized = Provider.normalizeModelsDevProviders(input)
+  expect(normalized.opencode).toMatchObject({
+    id: "opencode",
+    env: ["OPENCODE_API_KEY"],
+    name: "OpenCode Zen",
+    api: "https://opencode.ai/zen/v1",
+  })
+  expect(normalized["opencode-go"]).toMatchObject({
+    id: "opencode-go",
+    env: ["OPENCODE_API_KEY"],
+    name: "OpenCode Go",
+    api: "https://opencode.ai/zen/go/v1",
+  })
+  expect(normalized["miaopan-code"]).toBeUndefined()
+  expect(normalized["miaopan-code-go"]).toBeUndefined()
 })
 
 it.instance("defaultModel returns first available model when no config set", () =>
@@ -1149,9 +1184,9 @@ it.instance("ModelNotFoundError for provider includes suggestions", () =>
 
 it.instance("ModelNotFoundError suggests catalog models for unloaded providers", () =>
   Effect.gen(function* () {
-    yield* remove("MIAOPAN_CODE_API_KEY")
+    yield* remove("OPENCODE_API_KEY")
     const error = yield* Provider.use
-      .getModel(ProviderV2.ID.miaopanCode, ModelV2.ID.make("claude-haiku-fake-model"))
+      .getModel(ProviderV2.ID.opencode, ModelV2.ID.make("claude-haiku-fake-model"))
       .pipe(Effect.flip)
     if (!Provider.ModelNotFoundError.isInstance(error)) throw error
     expect(error.suggestions ?? []).toContain("claude-haiku-4-5")
@@ -1915,11 +1950,11 @@ it.instance(
   }),
 )
 
-it.effect("miaopanCode loader keeps paid models when config apiKey is present", () =>
+it.effect("OpenCode loader keeps paid models when config apiKey is present", () =>
   Effect.gen(function* () {
     const noneDir = yield* tmpdirScoped()
     const keyedDir = yield* tmpdirScoped({
-      config: { provider: { "miaopan-code": { options: { apiKey: "test-key" } } } },
+      config: { provider: { opencode: { options: { apiKey: "test-key" } } } },
     })
 
     const listIn = (directory: string) =>
@@ -1936,7 +1971,7 @@ it.effect("miaopanCode loader keeps paid models when config apiKey is present", 
   }).pipe(provideMultiInstance),
 )
 
-it.effect("miaopanCode loader keeps paid models when auth exists", () =>
+it.effect("OpenCode loader reads legacy miaopan-code auth as opencode", () =>
   Effect.gen(function* () {
     const noneDir = yield* tmpdirScoped()
     const keyedDir = yield* tmpdirScoped()

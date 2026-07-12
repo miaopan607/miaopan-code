@@ -20,8 +20,8 @@ import { t } from "@miaopan-code/core/i18n"
 import { Locale } from "../util/locale"
 
 const PROVIDER_PRIORITY: Record<string, number> = {
-  miaopanCode: 0,
-  "miaopanCode-go": 1,
+  opencode: 0,
+  "opencode-go": 1,
   openai: 2,
   "github-copilot": 3,
   anthropic: 4,
@@ -63,10 +63,10 @@ export function providerOptions(list: { id: string; name: string }[]): ProviderO
         value: provider.id,
         providerID: provider.id,
         description: {
-          miaopanCode: tr("provider.recommended"),
+          opencode: tr("provider.recommended"),
           anthropic: tr("provider.api_key_hint"),
           openai: tr("provider.plus_or_api"),
-          "miaopanCode-go": tr("provider.low_cost"),
+          "opencode-go": tr("provider.low_cost"),
         }[provider.id],
         category: provider.id in PROVIDER_PRIORITY ? tr("provider.popular") : tr("provider.providers"),
       })),
@@ -372,21 +372,19 @@ function ApiMethod(props: ApiMethodProps) {
       placeholder={i18n.t("provider.api_key")}
       description={() =>
         ({
-          miaopanCode: (
+          opencode: (
             <box gap={1}>
               <text fg={theme.textMuted}>{i18n.t("provider.zen_description")}</text>
               <text fg={theme.text}>
-                {i18n.t("provider.get_key")}{" "}
-                <span style={{ fg: theme.primary }}>https://github.com/miaopan607/miaopan-code/zen</span>
+                {i18n.t("provider.get_key")} <span style={{ fg: theme.primary }}>https://opencode.ai/zen</span>
               </text>
             </box>
           ),
-          "miaopanCode-go": (
+          "opencode-go": (
             <box gap={1}>
               <text fg={theme.textMuted}>{i18n.t("provider.go_description")}</text>
               <text fg={theme.text}>
-                {i18n.t("provider.enable_go")}{" "}
-                <span style={{ fg: theme.primary }}>https://github.com/miaopan607/miaopan-code/go</span>
+                {i18n.t("provider.enable_go")} <span style={{ fg: theme.primary }}>https://opencode.ai/go</span>
               </text>
             </box>
           ),

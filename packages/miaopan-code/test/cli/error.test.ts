@@ -57,12 +57,12 @@ describe("cli.error", () => {
     const error = new AccountTransportError({
       language: "zh-CN",
       method: "POST",
-      url: "https://console.miaopanCode.ai/auth/device/code",
+      url: "https://console.opencode.ai/auth/device/code",
     })
 
     const formatted = FormatError(error)
 
-    expect(formatted).toContain("无法访问 POST https://console.miaopanCode.ai/auth/device/code。")
+    expect(formatted).toContain("无法访问 POST https://console.opencode.ai/auth/device/code。")
     expect(formatted).toContain("此操作在服务器返回 HTTP 响应之前失败。")
     expect(formatted).toContain("请检查网络、代理或 VPN 配置后重试。")
   })
@@ -71,12 +71,12 @@ describe("cli.error", () => {
     const error = new AccountTransportError({
       language: "en",
       method: "POST",
-      url: "https://console.miaopanCode.ai/auth/device/code",
+      url: "https://console.opencode.ai/auth/device/code",
     })
 
     const formatted = FormatError(error)
 
-    expect(formatted).toContain("Could not reach POST https://console.miaopanCode.ai/auth/device/code.")
+    expect(formatted).toContain("Could not reach POST https://console.opencode.ai/auth/device/code.")
     expect(formatted).toContain("This failed before the server returned an HTTP response.")
     expect(formatted).toContain("Check your network, proxy, or VPN configuration and try again.")
   })

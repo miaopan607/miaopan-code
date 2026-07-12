@@ -361,7 +361,7 @@ describe("session.llm-native.request", () => {
     const compatible = LLMNative.model({
       model: {
         ...baseModel,
-        providerID: ProviderV2.ID.make("miaopan-code"),
+        providerID: ProviderV2.ID.make("opencode"),
         api: { ...baseModel.api, url: "https://ai.example.test/v1", npm: "@ai-sdk/openai-compatible" },
       },
       apiKey: "test-key",
@@ -418,8 +418,8 @@ describe("session.llm-native.request", () => {
     })
     expect(
       LLMNativeRuntime.status({
-        model: { ...baseModel, providerID: ProviderV2.ID.make("miaopan-code") },
-        provider: { ...providerInfo, id: ProviderV2.ID.make("miaopan-code") },
+        model: { ...baseModel, providerID: ProviderV2.ID.make("opencode") },
+        provider: { ...providerInfo, id: ProviderV2.ID.make("opencode") },
         auth: undefined,
       }),
     ).toMatchObject({
@@ -430,10 +430,10 @@ describe("session.llm-native.request", () => {
       LLMNativeRuntime.status({
         model: {
           ...baseModel,
-          providerID: ProviderV2.ID.make("miaopan-code"),
+          providerID: ProviderV2.ID.make("opencode"),
           api: { ...baseModel.api, npm: "@ai-sdk/openai-compatible" },
         },
-        provider: { ...providerInfo, id: ProviderV2.ID.make("miaopan-code") },
+        provider: { ...providerInfo, id: ProviderV2.ID.make("opencode") },
         auth: undefined,
       }),
     ).toMatchObject({
@@ -499,13 +499,13 @@ describe("session.llm-native.request", () => {
     ).toMatchObject({ type: "supported", apiKey: "test-anthropic-key" })
   })
 
-  test("prefers console provider api key over stored miaopanCode auth", () => {
+  test("prefers console provider api key over stored OpenCode auth", () => {
     expect(
       LLMNativeRuntime.status({
-        model: { ...baseModel, providerID: ProviderV2.ID.make("miaopan-code") },
+        model: { ...baseModel, providerID: ProviderV2.ID.make("opencode") },
         provider: {
           ...providerInfo,
-          id: ProviderV2.ID.make("miaopan-code"),
+          id: ProviderV2.ID.make("opencode"),
           options: { apiKey: "console-token" },
           key: "zen-token",
         },

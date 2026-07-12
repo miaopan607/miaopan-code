@@ -17,6 +17,7 @@ import { Process } from "@/util/process"
 import { errorMessage } from "@/util/error"
 import { text } from "node:stream/consumers"
 import { Effect, Option } from "effect"
+import { ProviderV2 } from "@miaopan-code/core/provider"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
@@ -267,7 +268,8 @@ export const ProvidersListCommand = effectCmd({
     const displayPath = authPath.startsWith(homedir) ? authPath.replace(homedir, "~") : authPath
     yield* Prompt.intro(`${UI.t("provider.credentials")} ${UI.Style.TEXT_DIM}${displayPath}`)
     const results = Object.entries(yield* Effect.orDie(authSvc.all()))
-    const database = yield* modelsDev.get()
+    const { Provider } = yield* Effect.promise(() => import("@/provider/provider"))
+    const database = Provider.normalizeModelsDevProviders(yield* modelsDev.get())
 
     for (const [providerID, result] of results) {
       const name = database[providerID]?.name || providerID
@@ -364,10 +366,13 @@ export const ProvidersLoginCommand = effectCmd({
 
     const config = yield* cfgSvc.get()
 
-    const disabled = new Set(config.disabled_providers ?? [])
-    const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
+    const { Provider } = yield* Effect.promise(() => import("@/provider/provider"))
+    const disabled = new Set<string>((config.disabled_providers ?? []).map(ProviderV2.canonicalID))
+    const enabled = config.enabled_providers
+      ? new Set<string>(config.enabled_providers.map(ProviderV2.canonicalID))
+      : undefined
 
-    const allProviders = yield* modelsDev.get()
+    const allProviders = Provider.normalizeModelsDevProviders(yield* modelsDev.get())
     const providers: Record<string, (typeof allProviders)[string]> = {}
     for (const [key, value] of Object.entries(allProviders)) {
       if ((enabled ? enabled.has(key) : true) && !disabled.has(key)) providers[key] = value
@@ -375,13 +380,14 @@ export const ProvidersLoginCommand = effectCmd({
     const hooks = yield* pluginSvc.list()
 
     const priority: Record<string, number> = {
-      miaopanCode: 0,
-      openai: 1,
-      "github-copilot": 2,
-      google: 3,
-      anthropic: 4,
-      openrouter: 5,
-      vercel: 6,
+      opencode: 0,
+      "opencode-go": 1,
+      openai: 2,
+      "github-copilot": 3,
+      google: 4,
+      anthropic: 5,
+      openrouter: 6,
+      vercel: 7,
     }
     const pluginProviders = resolvePluginProviders({
       hooks,
@@ -461,8 +467,8 @@ export const ProvidersLoginCommand = effectCmd({
       yield* Prompt.log.info(UI.t("provider.bedrock_priority"))
     }
 
-    if (provider === "miaopan-code") {
-      yield* Prompt.log.info(UI.t("provider.create_miaopan_key"))
+    if (provider === "opencode") {
+      yield* Prompt.log.info(UI.t("provider.create_opencode_key"))
     }
 
     if (provider === "vercel") {
@@ -505,7 +511,8 @@ export const ProvidersLogoutCommand = effectCmd({
       yield* Prompt.log.error(UI.t("provider.no_credentials"))
       return
     }
-    const database = yield* modelsDev.get()
+    const { Provider } = yield* Effect.promise(() => import("@/provider/provider"))
+    const database = Provider.normalizeModelsDevProviders(yield* modelsDev.get())
     const options = credentials.map(([key, value]) => ({
       label: (database[key]?.name || key) + UI.Style.TEXT_DIM + " (" + value.type + ")",
       value: key,

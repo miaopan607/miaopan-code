@@ -54,7 +54,7 @@ function statusWithFetch(
   fetch: typeof globalThis.fetch | undefined,
 ): RuntimeStatus {
   const providerID = input.model.providerID
-  if (providerID !== "openai" && providerID !== "anthropic" && !providerID.startsWith("miaopan-code"))
+  if (providerID !== "openai" && providerID !== "anthropic" && !providerID.startsWith("opencode"))
     return { type: "unsupported", reason: t(input.language, "error.native_provider_unsupported") }
   const npm = input.model.api.npm
   if (npm !== "@ai-sdk/openai" && npm !== "@ai-sdk/openai-compatible" && npm !== "@ai-sdk/anthropic")

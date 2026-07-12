@@ -5,8 +5,8 @@ import { defaultConsoleUrl, formatAccountLabel, formatOrgLine } from "../../src/
 import { UI } from "../../src/cli/ui"
 
 describe("console account display", () => {
-  test("uses console.miaopanCode.ai as the default login URL", () => {
-    expect(defaultConsoleUrl).toBe("https://console.miaopanCode.ai")
+  test("uses console.opencode.ai as the default login URL", () => {
+    expect(defaultConsoleUrl).toBe("https://console.opencode.ai")
   })
 
   test("includes the account url in account labels", () => {

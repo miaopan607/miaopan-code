@@ -268,13 +268,13 @@ describe("session.retry.retryable", () => {
       }).toObject(),
     )
 
-    expect(SessionRetry.retryable(error, "miaopan-code")).toEqual({
+    expect(SessionRetry.retryable(error, "opencode")).toEqual({
       message: SessionRetry.GO_UPSELL_MESSAGE,
       action: {
         reason: "free_tier_limit",
-        provider: "miaopan-code",
+        provider: "opencode",
         title: "已达到免费额度",
-        message: "订阅 MiaopanCode Go 即可稳定访问优秀的开源模型，起价为每月 5 美元。",
+        message: "订阅 OpenCode Go 即可稳定访问优秀的开源模型，起价为每月 5 美元。",
         label: "订阅",
         link: SessionRetry.GO_UPSELL_URL,
       },
@@ -304,16 +304,16 @@ describe("session.retry.retryable", () => {
       }).toObject(),
     )
 
-    expect(SessionRetry.retryable(error, "miaopanCode-go")).toEqual({
+    expect(SessionRetry.retryable(error, "opencode-go")).toEqual({
       message:
-        "已达到 5 hour 用量限制，将在 5 小时 23 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量 - https://github.com/miaopan607/miaopan-code/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
+        "已达到 5 hour 用量限制，将在 5 小时 23 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量 - https://opencode.ai/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
       action: {
         reason: "account_rate_limit",
-        provider: "miaopanCode-go",
+        provider: "opencode-go",
         title: "已达到 Go 额度",
         message: "已达到 5 hour 用量限制，将在 5 小时 23 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量",
         label: "打开设置",
-        link: "https://github.com/miaopan607/miaopan-code/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
+        link: "https://opencode.ai/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
       },
     })
   })
@@ -340,7 +340,7 @@ describe("session.retry.retryable", () => {
       }).toObject(),
     )
 
-    expect(SessionRetry.retryable(error, "miaopanCode-go")?.action?.message).toBe(
+    expect(SessionRetry.retryable(error, "opencode-go")?.action?.message).toBe(
       "已达到用量限制，将在 15 分钟后重置。若要立即继续使用此模型，请启用可用余额中的用量",
     )
   })

@@ -110,7 +110,10 @@ const layer = configLayer()
 const it = testEffect(layer)
 const configIt = (options?: Parameters<typeof configLayer>[0]) => testEffect(configLayer(options))
 
-const schemaConfig = (config: object) => ({ $schema: "https://github.com/miaopan607/miaopan-code/config.json", ...config })
+const schemaConfig = (config: object) => ({
+  $schema: "https://github.com/miaopan607/miaopan-code/config.json",
+  ...config,
+})
 
 const provideCurrentInstance = <A, E, R>(effect: Effect.Effect<A, E, R>, ctx: InstanceContext) =>
   effect.pipe(Effect.provideService(InstanceRef, ctx))
@@ -131,7 +134,7 @@ const clear = (wait = false) => Effect.runPromise(clearEffect(wait))
 // Get managed config directory from environment (set in preload.ts)
 const managedConfigDir = process.env.MIAOPAN_CODE_TEST_MANAGED_CONFIG_DIR!
 const originalTestToken = process.env.TEST_TOKEN
-const originalConsoleToken = process.env.MIAOPAN_CODE_CONSOLE_TOKEN
+const originalConsoleToken = process.env.OPENCODE_CONSOLE_TOKEN
 
 beforeEach(async () => {
   await clear(true)
@@ -141,8 +144,8 @@ afterEach(async () => {
   await fs.rm(managedConfigDir, { force: true, recursive: true }).catch(() => {})
   if (originalTestToken === undefined) delete process.env.TEST_TOKEN
   else process.env.TEST_TOKEN = originalTestToken
-  if (originalConsoleToken === undefined) delete process.env.MIAOPAN_CODE_CONSOLE_TOKEN
-  else process.env.MIAOPAN_CODE_CONSOLE_TOKEN = originalConsoleToken
+  if (originalConsoleToken === undefined) delete process.env.OPENCODE_CONSOLE_TOKEN
+  else process.env.OPENCODE_CONSOLE_TOKEN = originalConsoleToken
   await clear(true)
 })
 
@@ -314,7 +317,9 @@ it.effect("creates global jsonc config with schema when no global configs exist"
       yield* Config.use.get().pipe(provideInstanceEffect(dir))
 
       const content = yield* FSUtil.use.readFileString(path.join(dir, "miaopan-code.jsonc"))
-      expect(content).toContain('"$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"')
+      expect(content).toContain(
+        '"$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"',
+      )
     }).pipe(Effect.provide(testInstanceStoreLayer), Effect.provide(LayerNode.compile(CrossSpawnSpawner.node))),
   ),
 )
@@ -583,7 +588,7 @@ const accountTokenIt = configIt({
     config: () =>
       Effect.succeed(
         Option.some({
-          provider: { "miaopan-code": { options: { apiKey: "{env:MIAOPAN_CODE_CONSOLE_TOKEN}" } } },
+          provider: { opencode: { options: { apiKey: "{env:OPENCODE_CONSOLE_TOKEN}" } } },
         }),
       ),
     token: () => Effect.succeed(Option.some(AccessToken.make("st_test_token"))),
@@ -592,8 +597,10 @@ const accountTokenIt = configIt({
 
 accountTokenIt.instance("resolves env templates in account config with account token", () =>
   Effect.gen(function* () {
-    const config = yield* Config.use.get()
-    expect(config.provider?.["miaopan-code"]?.options?.apiKey).toBe("st_test_token")
+    const service = yield* Config.Service
+    const config = yield* service.get()
+    expect(config.provider?.opencode?.options?.apiKey).toBe("st_test_token")
+    expect((yield* service.getConsoleState()).activeOrgName).toBe("Example Org")
   }),
 )
 
@@ -2043,7 +2050,9 @@ test("parseManagedPlist handles empty config", async () => {
   const config = ConfigParse.schema(
     ConfigV1.Info,
     ConfigParse.jsonc(
-      await ConfigManaged.parseManagedPlist(JSON.stringify({ $schema: "https://github.com/miaopan607/miaopan-code/config.json" })),
+      await ConfigManaged.parseManagedPlist(
+        JSON.stringify({ $schema: "https://github.com/miaopan607/miaopan-code/config.json" }),
+      ),
       "test:mobileconfig",
     ),
     "test:mobileconfig",
