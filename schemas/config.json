@@ -10,7 +10,7 @@
         "WARN",
         "ERROR"
       ],
-      "description": "Log level"
+      "description": "日志级别"
     },
     "ServerConfig": {
       "type": "object",
@@ -19,26 +19,26 @@
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Port to listen on"
+          "description": "监听端口"
         },
         "hostname": {
           "type": "string",
-          "description": "Hostname to listen on"
+          "description": "监听主机名"
         },
         "mdns": {
           "type": "boolean",
-          "description": "Enable mDNS service discovery"
+          "description": "启用 mDNS 服务发现"
         },
         "mdnsDomain": {
           "type": "string",
-          "description": "Custom domain name for mDNS service (default: miaopanCode.local)"
+          "description": "mDNS 自定义域名（默认：miaopanCode.local）"
         },
         "cors": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Additional domains to allow for CORS"
+          "description": "允许用于 CORS 的附加域名"
         }
       },
       "additionalProperties": false
@@ -175,7 +175,7 @@
         },
         "variant": {
           "type": "string",
-          "description": "Default model variant for this agent (applies only when using the agent's configured model)."
+          "description": "格式为 provider/model 的模型，例如 anthropic/claude-2"
         },
         "temperature": {
           "type": "number"
@@ -191,14 +191,14 @@
           "additionalProperties": {
             "type": "boolean"
           },
-          "description": "@deprecated Use 'permission' field instead"
+          "description": "已弃用：请使用 agent 字段"
         },
         "disable": {
           "type": "boolean"
         },
         "description": {
           "type": "string",
-          "description": "Description of when to use the agent"
+          "description": "代理配置，参见 docs/agents"
         },
         "mode": {
           "type": "string",
@@ -210,7 +210,7 @@
         },
         "hidden": {
           "type": "boolean",
-          "description": "Hide this subagent from the @ autocomplete menu (default: false, only applies to mode: subagent)"
+          "description": "仅主代理可用的工具"
         },
         "options": {
           "type": "object"
@@ -234,19 +234,19 @@
               ]
             }
           ],
-          "description": "Hex color code (e.g., #FF5733) or theme color (e.g., primary)"
+          "description": "代理配置，参见 docs/agents"
         },
         "steps": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Maximum number of agentic iterations before forcing text-only response"
+          "description": "压缩后逐字保留的最近轮次 Token 最大数量"
         },
         "maxSteps": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "@deprecated Use 'steps' field instead."
+          "description": "已弃用：请使用 agent 字段"
         },
         "permission": {
           "$ref": "#/$defs/PermissionConfig"
@@ -297,11 +297,11 @@
             },
             "enterpriseUrl": {
               "type": "string",
-              "description": "GitHub Enterprise URL for copilot authentication"
+              "description": "企业 URL"
             },
             "setCacheKey": {
               "type": "boolean",
-              "description": "Enable promptCacheKey for this provider (default false)"
+              "description": "为 AI SDK 调用启用 OpenTelemetry span（使用 experimental_telemetry 标志）"
             },
             "timeout": {
               "anyOf": [
@@ -317,7 +317,7 @@
                   ]
                 }
               ],
-              "description": "Timeout in milliseconds for full requests to this provider. Set to false to disable timeout."
+              "description": "模型上下文协议（MCP）请求的超时时间（毫秒）"
             },
             "headerTimeout": {
               "anyOf": [
@@ -333,13 +333,13 @@
                   ]
                 }
               ],
-              "description": "Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout."
+              "description": "等待提供商响应标头的超时时间（毫秒）；设为 false 可禁用"
             },
             "chunkTimeout": {
               "exclusiveMinimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted."
+              "description": "此提供商流式 SSE 分块之间的超时时间（毫秒）"
             }
           }
         },
@@ -539,11 +539,11 @@
                   "properties": {
                     "disabled": {
                       "type": "boolean",
-                      "description": "Disable this variant for the model"
+                      "description": "禁用自动加载的提供商"
                     }
                   }
                 },
-                "description": "Variant-specific configuration"
+                "description": "自定义提供商配置和模型覆盖项"
               }
             },
             "additionalProperties": false
@@ -560,35 +560,35 @@
           "enum": [
             "local"
           ],
-          "description": "Type of MCP server connection"
+          "description": "MCP 服务器连接类型"
         },
         "command": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Command and arguments to run the MCP server"
+          "description": "运行 MCP 服务器的命令和参数"
         },
         "cwd": {
           "type": "string",
-          "description": "Working directory for the MCP server process. Relative paths resolve from the workspace directory."
+          "description": "MCP 服务器进程的工作目录；相对路径相对于工作区目录"
         },
         "environment": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Environment variables to set when running the MCP server"
+          "description": "运行 MCP 服务器时设置的环境变量"
         },
         "enabled": {
           "type": "boolean",
-          "description": "Enable or disable the MCP server on startup"
+          "description": "启动时启用或禁用 MCP 服务器"
         },
         "timeout": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified."
+          "description": "MCP 服务器请求超时时间（毫秒），未指定时默认为 5000（5 秒）"
         }
       },
       "required": [
@@ -602,25 +602,25 @@
       "properties": {
         "clientId": {
           "type": "string",
-          "description": "OAuth client ID. If not provided, dynamic client registration (RFC 7591) will be attempted."
+          "description": "OAuth 客户端 ID；未提供时将尝试动态客户端注册（RFC 7591）"
         },
         "clientSecret": {
           "type": "string",
-          "description": "OAuth client secret (if required by the authorization server)"
+          "description": "OAuth 客户端密钥（授权服务器需要时）"
         },
         "scope": {
           "type": "string",
-          "description": "OAuth scopes to request during authorization"
+          "description": "授权期间请求的 OAuth 作用域"
         },
         "callbackPort": {
           "minimum": 1,
           "maximum": 65535,
           "type": "integer",
-          "description": "Port for the local OAuth callback server (default: 19876). Shorthand for redirectUri when only the port needs changing. Ignored if redirectUri is set."
+          "description": "本地 OAuth 回调服务器端口（默认：19876）"
         },
         "redirectUri": {
           "type": "string",
-          "description": "OAuth redirect URI (default: http://127.0.0.1:19876/mcp/oauth/callback)."
+          "description": "OAuth 重定向 URI（默认：http://127.0.0.1:19876/mcp/oauth/callback）"
         }
       },
       "additionalProperties": false
@@ -633,22 +633,22 @@
           "enum": [
             "remote"
           ],
-          "description": "Type of MCP server connection"
+          "description": "MCP 服务器连接类型"
         },
         "url": {
           "type": "string",
-          "description": "URL of the remote MCP server"
+          "description": "远程 MCP 服务器 URL"
         },
         "enabled": {
           "type": "boolean",
-          "description": "Enable or disable the MCP server on startup"
+          "description": "启动时启用或禁用 MCP 服务器"
         },
         "headers": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Headers to send with the request"
+          "description": "随请求发送的标头"
         },
         "oauth": {
           "anyOf": [
@@ -662,13 +662,13 @@
               ]
             }
           ],
-          "description": "OAuth authentication configuration for the MCP server. Set to false to disable OAuth auto-detection."
+          "description": "MCP 服务器的 OAuth 身份验证配置；设为 false 可禁用 OAuth 自动检测"
         },
         "timeout": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Timeout in ms for MCP server requests. Defaults to 5000 (5 seconds) if not specified."
+          "description": "MCP 服务器请求超时时间（毫秒），未指定时默认为 5000（5 秒）"
         }
       },
       "required": [
@@ -689,25 +689,25 @@
       "properties": {
         "auto_resize": {
           "type": "boolean",
-          "description": "Resize images before sending them to the model when they exceed configured limits (default: true)"
+          "description": "图像超过配置限制时在发送给模型前调整大小（默认：true）"
         },
         "max_width": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Maximum image width before resizing or rejecting the attachment (default: 2000)"
+          "description": "调整大小或拒绝附件前的最大图像宽度（默认：2000）"
         },
         "max_height": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Maximum image height before resizing or rejecting the attachment (default: 2000)"
+          "description": "调整大小或拒绝附件前的最大图像高度（默认：2000）"
         },
         "max_base64_bytes": {
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Maximum base64 payload bytes for an image attachment (default: 5242880)"
+          "description": "图像附件的最大 base64 负载字节数（默认：5242880）"
         }
       },
       "additionalProperties": false
@@ -717,7 +717,7 @@
       "properties": {
         "image": {
           "$ref": "#/$defs/ImageAttachmentConfig",
-          "description": "Image attachment configuration"
+          "description": "图像附件配置"
         }
       },
       "additionalProperties": false
@@ -765,19 +765,27 @@
       "properties": {
         "$schema": {
           "type": "string",
-          "description": "JSON schema reference for configuration validation"
+          "description": "用于配置验证的 JSON Schema 引用"
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "zh-CN",
+            "en"
+          ],
+          "description": "界面、内建工具和模型提示使用的语言；默认为 zh-CN"
         },
         "shell": {
           "type": "string",
-          "description": "Default shell to use for terminal and bash tool"
+          "description": "终端和 shell 工具执行时使用的默认 shell"
         },
         "logLevel": {
           "$ref": "#/$defs/LogLevel",
-          "description": "Log level"
+          "description": "日志级别"
         },
         "server": {
           "$ref": "#/$defs/ServerConfig",
-          "description": "Server configuration for miaopan-code serve and web commands"
+          "description": "miaopan-code serve 和 web 命令的服务器配置"
         },
         "command": {
           "type": "object",
@@ -809,7 +817,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Command configuration, see https://github.com/miaopan607/miaopan-code/docs/commands"
+          "description": "命令配置，参见 docs/commands"
         },
         "skills": {
           "type": "object",
@@ -819,18 +827,18 @@
               "items": {
                 "type": "string"
               },
-              "description": "Additional paths to skill folders"
+              "description": "技能文件夹的附加路径"
             },
             "urls": {
               "type": "array",
               "items": {
                 "type": "string"
               },
-              "description": "URLs to fetch skills from (e.g., https://example.com/.well-known/skills/)"
+              "description": "用于获取技能的 URL（例如 https://example.com/.well-known/skills/）"
             }
           },
           "additionalProperties": false,
-          "description": "Additional skill folder paths"
+          "description": "附加技能文件夹路径"
         },
         "references": {
           "type": "object",
@@ -847,7 +855,7 @@
               }
             ]
           },
-          "description": "Named git or local directory references"
+          "description": "命名的 Git 或本地目录引用"
         },
         "reference": {
           "type": "object",
@@ -864,7 +872,7 @@
               }
             ]
           },
-          "description": "@deprecated Use 'references' field instead. Named git or local directory references"
+          "description": "已弃用：请使用 references 字段。命名的 Git 或本地目录引用"
         },
         "watcher": {
           "type": "object",
@@ -880,7 +888,7 @@
         },
         "snapshot": {
           "type": "boolean",
-          "description": "Enable or disable snapshot tracking. When false, filesystem snapshots are not recorded and undoing or reverting will not undo/redo file changes. Defaults to true."
+          "description": "启用或禁用快照跟踪；禁用时不记录文件系统快照"
         },
         "plugin": {
           "type": "array",
@@ -912,11 +920,11 @@
             "auto",
             "disabled"
           ],
-          "description": "Control sharing behavior:'manual' allows manual sharing via commands, 'auto' enables automatic sharing, 'disabled' disables all sharing"
+          "description": "控制分享行为：manual 手动分享，auto 自动分享，disabled 禁用分享"
         },
         "autoshare": {
           "type": "boolean",
-          "description": "@deprecated Use 'share' field instead. Share newly created sessions automatically"
+          "description": "自动分享新创建的会话"
         },
         "autoupdate": {
           "anyOf": [
@@ -930,25 +938,25 @@
               ]
             }
           ],
-          "description": "Automatically update to the latest version. Set to true to auto-update, false to disable, or 'notify' to show update notifications"
+          "description": "自动更新到最新版本；true 自动更新，false 禁用，notify 显示更新通知"
         },
         "disabled_providers": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Disable providers that are loaded automatically"
+          "description": "禁用自动加载的提供商"
         },
         "enabled_providers": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "When set, ONLY these providers will be enabled. All other providers will be ignored"
+          "description": "设置后仅启用这些提供商，其他提供商将被忽略"
         },
         "model": {
           "type": "string",
-          "description": "Model to use in the format of provider/model, eg anthropic/claude-2",
+          "description": "格式为 provider/model 的模型，例如 anthropic/claude-2",
           "$ref": "https://models.dev/model-schema.json#/$defs/Model"
         },
         "review_mode": {
@@ -961,16 +969,16 @@
         },
         "small_model": {
           "type": "string",
-          "description": "Small model to use for tasks like title generation in the format of provider/model",
+          "description": "用于标题生成等任务的小模型，格式为 provider/model",
           "$ref": "https://models.dev/model-schema.json#/$defs/Model"
         },
         "default_agent": {
           "type": "string",
-          "description": "Default agent to use when none is specified. Must be a primary agent. Falls back to 'build' if not set or if the specified agent is invalid."
+          "description": "未指定时使用的默认代理，必须是主代理"
         },
         "username": {
           "type": "string",
-          "description": "Custom username to display in conversations instead of system username"
+          "description": "对话中显示的自定义用户名（替代系统用户名）"
         },
         "mode": {
           "type": "object",
@@ -988,7 +996,7 @@
           "additionalProperties": {
             "$ref": "#/$defs/AgentConfig"
           },
-          "description": "@deprecated Use `agent` field instead."
+          "description": "已弃用：请使用 agent 字段"
         },
         "agent": {
           "type": "object",
@@ -1021,14 +1029,14 @@
           "additionalProperties": {
             "$ref": "#/$defs/AgentConfig"
           },
-          "description": "Agent configuration, see https://github.com/miaopan607/miaopan-code/docs/agents"
+          "description": "代理配置，参见 docs/agents"
         },
         "provider": {
           "type": "object",
           "additionalProperties": {
             "$ref": "#/$defs/ProviderConfig"
           },
-          "description": "Custom provider configurations and model overrides"
+          "description": "自定义提供商配置和模型覆盖项"
         },
         "mcp": {
           "type": "object",
@@ -1058,7 +1066,7 @@
               }
             ]
           },
-          "description": "MCP (Model Context Protocol) server configurations"
+          "description": "MCP（Model Context Protocol）服务器配置"
         },
         "formatter": {
           "anyOf": [
@@ -1096,7 +1104,7 @@
               }
             }
           ],
-          "description": "Enable or configure formatters. Omit or set to false to disable, true to enable built-ins, or an object to enable built-ins with overrides."
+          "description": "启用或配置格式化程序"
         },
         "lsp": {
           "anyOf": [
@@ -1159,18 +1167,18 @@
               }
             }
           ],
-          "description": "Enable or configure LSP servers. Omit or set to false to disable, true to enable built-ins, or an object to enable built-ins with overrides."
+          "description": "启用或配置 LSP 服务器"
         },
         "instructions": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Additional instruction files or patterns to include"
+          "description": "要包含的附加指令文件或模式"
         },
         "layout": {
           "$ref": "#/$defs/LayoutConfig",
-          "description": "@deprecated Always uses stretch layout."
+          "description": "已弃用：始终使用 stretch 布局"
         },
         "permission": {
           "$ref": "#/$defs/PermissionConfig"
@@ -1183,14 +1191,14 @@
         },
         "attachment": {
           "$ref": "#/$defs/AttachmentConfig",
-          "description": "Attachment processing configuration, including image size limits and resizing behavior"
+          "description": "附件处理配置，包括图像大小限制和调整行为"
         },
         "enterprise": {
           "type": "object",
           "properties": {
             "url": {
               "type": "string",
-              "description": "Enterprise URL"
+              "description": "企业 URL"
             }
           },
           "additionalProperties": false
@@ -1202,50 +1210,50 @@
               "exclusiveMinimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Maximum lines of tool output before it is truncated and saved to disk (default: 2000)"
+              "description": "工具输出截断并保存到磁盘前的最大行数（默认：2000）"
             },
             "max_bytes": {
               "exclusiveMinimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Maximum bytes of tool output before it is truncated and saved to disk (default: 51200)"
+              "description": "工具输出截断并保存到磁盘前的最大字节数（默认：51200）"
             }
           },
           "additionalProperties": false,
-          "description": "Thresholds for truncating tool output. When output exceeds either limit, the full text is written to the truncation directory and a preview is returned."
+          "description": "工具输出截断阈值，超出限制时保存完整文本并返回预览"
         },
         "compaction": {
           "type": "object",
           "properties": {
             "auto": {
               "type": "boolean",
-              "description": "Enable automatic compaction when context is full (default: true)"
+              "description": "上下文已满时启用自动压缩（默认：true）"
             },
             "prune": {
               "type": "boolean",
-              "description": "Enable pruning of old tool outputs (default: false)"
+              "description": "启用旧工具输出清理（默认：false）"
             },
             "tail_turns": {
               "minimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Number of recent user turns, including their following assistant/tool responses, to keep verbatim during compaction (default: 2)"
+              "description": "压缩期间逐字保留的最近用户轮次数（默认：2）"
             },
             "preserve_recent_tokens": {
               "minimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Maximum number of tokens from recent turns to preserve verbatim after compaction"
+              "description": "压缩后逐字保留的最近轮次 Token 最大数量"
             },
             "preserve_brief_history": {
               "type": "boolean",
-              "description": "Preserve each turn's original user input, final assistant output, and modified files alongside the model summary after compaction (default: false)"
+              "description": "压缩后在模型摘要之外保留每轮用户原始输入、助手最终输出和修改文件列表（默认：false）"
             },
             "reserved": {
               "minimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Token buffer for compaction. Leaves enough window to avoid overflow during compaction."
+              "description": "压缩 Token 缓冲区，为避免溢出预留足够窗口"
             }
           },
           "additionalProperties": false
@@ -1258,35 +1266,35 @@
             },
             "batch_tool": {
               "type": "boolean",
-              "description": "Enable the batch tool"
+              "description": "启用批处理工具"
             },
             "openTelemetry": {
               "type": "boolean",
-              "description": "Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)"
+              "description": "为 AI SDK 调用启用 OpenTelemetry span（使用 experimental_telemetry 标志）"
             },
             "primary_tools": {
               "type": "array",
               "items": {
                 "type": "string"
               },
-              "description": "Tools that should only be available to primary agents."
+              "description": "仅主代理可用的工具"
             },
             "continue_loop_on_deny": {
               "type": "boolean",
-              "description": "Continue the agent loop when a tool call is denied"
+              "description": "工具调用被拒绝时继续代理循环"
             },
             "mcp_timeout": {
               "exclusiveMinimum": 0,
               "type": "integer",
               "maximum": 9007199254740991,
-              "description": "Timeout in milliseconds for model context protocol (MCP) requests"
+              "description": "模型上下文协议（MCP）请求的超时时间（毫秒）"
             },
             "policies": {
               "type": "array",
               "items": {
                 "$ref": "#/$defs/ConfigV2.Experimental.Policy"
               },
-              "description": "Policy statements applied to supported resources, such as provider access"
+              "description": "应用于受支持资源（例如提供商访问）的策略声明"
             }
           },
           "additionalProperties": false
