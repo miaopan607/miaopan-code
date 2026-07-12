@@ -7,6 +7,69 @@ import { ModelV2 } from "@miaopan-code/core/model"
 import { jsonSchema } from "ai"
 import { t } from "@miaopan-code/core/i18n"
 
+describe("LLMRequestPrep.codex", () => {
+  test("builds Codex-shaped OpenAI request options and headers", () => {
+    const messages = [{ role: "user" as const, content: "Hello" }]
+    const result = LLMRequestPrep.codex({
+      prepared: {
+        system: ["System one", "System two"],
+        messages: [{ role: "system", content: "System one\nSystem two" }, ...messages],
+        tools: {},
+        params: {
+          options: {
+            store: true,
+            parallelToolCalls: false,
+            include: ["file_search_call.results"],
+          },
+        },
+        messageTransformOptions: {},
+        headers: {
+          originator: "custom",
+          "User-Agent": "custom-agent",
+          authorization: "Bearer test",
+        },
+      },
+      messages,
+      sessionID: "session-123",
+    })
+
+    expect(result.messages).toBe(messages)
+    expect(result.options).toMatchObject({
+      store: false,
+      instructions: "System one\nSystem two",
+      parallelToolCalls: false,
+      promptCacheKey: "session-123",
+      include: ["file_search_call.results", "reasoning.encrypted_content"],
+    })
+    expect(result.headers).toMatchObject({
+      originator: "codex_cli_rs",
+      authorization: "Bearer test",
+      "session-id": "session-123",
+      "thread-id": "session-123",
+      "x-client-request-id": "session-123",
+    })
+    expect(result.headers["User-Agent"]).toStartWith("codex_cli_rs/")
+  })
+
+  test("defaults parallel tool calls and de-duplicates encrypted reasoning", () => {
+    const result = LLMRequestPrep.codex({
+      prepared: {
+        system: [],
+        messages: [],
+        tools: {},
+        params: { options: { include: ["reasoning.encrypted_content"] } },
+        messageTransformOptions: {},
+        headers: {},
+      },
+      messages: [],
+      sessionID: "session-123",
+    })
+
+    expect(result.options.parallelToolCalls).toBe(true)
+    expect(result.options.include).toEqual(["reasoning.encrypted_content"])
+  })
+})
+
 describe("ProviderTransform.options - setCacheKey", () => {
   const sessionID = "test-session-123"
 

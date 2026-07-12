@@ -582,6 +582,23 @@ function App(props: { onSnapshot?: () => Promise<string[]>; pluginHost: TuiPlugi
         },
       },
       {
+        name: "session.toggle.oai",
+        title: kv.get("oai", false) ? i18n.t("session.oai_disable") : i18n.t("session.oai_enable"),
+        desc: i18n.t("session.oai_description"),
+        category: i18n.t("tui.session"),
+        suggested: route.data.type === "session",
+        slashName: "oai",
+        run: () => {
+          const enabled = !kv.get("oai", false)
+          kv.set("oai", enabled)
+          toast.show({
+            message: i18n.t(enabled ? "session.oai_enabled" : "session.oai_disabled"),
+            variant: "success",
+          })
+          dialog.clear()
+        },
+      },
+      {
         name: COMMAND_PALETTE_COMMAND,
         title: i18n.t("tui.command_palette"),
         category: i18n.t("tui.system"),
