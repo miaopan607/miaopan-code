@@ -1,77 +1,32 @@
 #!/usr/bin/env node
 
-const childProcess = require("child_process")
-const fs = require("fs")
-const path = require("path")
-const os = require("os")
+import childProcess from "node:child_process"
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
+import { createRequire } from "node:module"
 
-const forwardedSignals = ["SIGINT", "SIGTERM", "SIGHUP"]
-
-function run(target) {
-  const child = childProcess.spawn(target, process.argv.slice(2), {
-    stdio: "inherit",
-  })
-
-  child.on("error", (error) => {
-    console.error(error.message)
-    process.exit(1)
-  })
-
-  const forwarders = {}
-  for (const signal of forwardedSignals) {
-    forwarders[signal] = () => {
-      try {
-        child.kill(signal)
-      } catch {
-        // The child may have already exited.
-      }
-    }
-    process.on(signal, forwarders[signal])
-  }
-
-  child.on("exit", (code, signal) => {
-    for (const forwardedSignal of forwardedSignals) {
-      process.removeListener(forwardedSignal, forwarders[forwardedSignal])
-    }
-
-    if (signal) {
-      process.kill(process.pid, signal)
-      return
-    }
-
-    process.exit(typeof code === "number" ? code : 0)
-  })
-}
-
-const envPath = process.env.MIAOPAN_CODE_BIN_PATH
-
-const scriptPath = fs.realpathSync(__filename)
-const scriptDir = path.dirname(scriptPath)
-
-//
-const cached = path.join(scriptDir, ".miaopan-code")
-
-const platformMap = {
-  darwin: "darwin",
-  linux: "linux",
-  win32: "windows",
-}
-const archMap = {
-  x64: "x64",
-  arm64: "arm64",
-  arm: "arm",
-}
-
-let platform = platformMap[os.platform()]
-if (!platform) {
-  platform = os.platform()
-}
-let arch = archMap[os.arch()]
-if (!arch) {
-  arch = os.arch()
-}
-const base = "miaopan-code-" + platform + "-" + arch
+const require = createRequire(import.meta.url)
+const platform = os.platform() === "win32" ? "windows" : os.platform()
+const arch = os.arch()
+const base = `@miaopan/code-${platform}-${arch}`
 const binary = platform === "windows" ? "miaopan-code.exe" : "miaopan-code"
+const language = process.env.MIAOPAN_CODE_LANGUAGE === "en" ? "en" : "zh-CN"
+const messages = {
+  "launcher.binary_missing": {
+    "zh-CN":
+      "未找到适用于当前平台的 miaopan-code CLI 包。请重新安装 @miaopan/code，且不要禁用 optionalDependencies；也可以手动安装以下任一平台包：{{packages}}。",
+    en: "The miaopan-code CLI package for this platform is missing. Reinstall @miaopan/code without disabling optionalDependencies, or manually install one of: {{packages}}.",
+  },
+  "launcher.spawn_failed": {
+    "zh-CN": "无法启动 miaopan-code：{{error}}",
+    en: "Failed to start miaopan-code: {{error}}",
+  },
+}
+
+function message(key, parameters) {
+  return messages[key][language].replace(/{{(\w+)}}/g, (_, name) => String(parameters[name] ?? ""))
+}
 
 function supportsAvx2() {
   if (arch !== "x64") return false
@@ -90,110 +45,115 @@ function supportsAvx2() {
         encoding: "utf8",
         timeout: 1500,
       })
-      if (result.status !== 0) return false
-      return (result.stdout || "").trim() === "1"
+      return result.status === 0 && (result.stdout || "").trim() === "1"
     } catch {
       return false
     }
   }
 
-  if (platform === "windows") {
-    const cmd =
-      '(Add-Type -MemberDefinition "[DllImport(""kernel32.dll"")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)'
+  if (platform !== "windows") return false
 
-    for (const exe of ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]) {
-      try {
-        const result = childProcess.spawnSync(exe, ["-NoProfile", "-NonInteractive", "-Command", cmd], {
-          encoding: "utf8",
-          timeout: 3000,
-          windowsHide: true,
-        })
-        if (result.status !== 0) continue
-        const out = (result.stdout || "").trim().toLowerCase()
-        if (out === "true" || out === "1") return true
-        if (out === "false" || out === "0") return false
-      } catch {
-        continue
-      }
+  const command =
+    '(Add-Type -MemberDefinition "[DllImport(""kernel32.dll"")] public static extern bool IsProcessorFeaturePresent(int ProcessorFeature);" -Name Kernel32 -Namespace Win32 -PassThru)::IsProcessorFeaturePresent(40)'
+
+  for (const executable of ["powershell.exe", "pwsh.exe", "pwsh", "powershell"]) {
+    try {
+      const result = childProcess.spawnSync(executable, ["-NoProfile", "-NonInteractive", "-Command", command], {
+        encoding: "utf8",
+        timeout: 3000,
+        windowsHide: true,
+      })
+      if (result.status !== 0) continue
+      const output = (result.stdout || "").trim().toLowerCase()
+      if (output === "true" || output === "1") return true
+      if (output === "false" || output === "0") return false
+    } catch {
+      continue
     }
-
-    return false
   }
 
   return false
 }
 
-const names = (() => {
-  const avx2 = supportsAvx2()
-  const baseline = arch === "x64" && !avx2
+function isMusl() {
+  if (platform !== "linux") return false
+  if (fs.existsSync("/etc/alpine-release")) return true
+
+  try {
+    const result = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" })
+    return `${result.stdout || ""}${result.stderr || ""}`.toLowerCase().includes("musl")
+  } catch {
+    return false
+  }
+}
+
+function packageNames() {
+  const baseline = arch === "x64" && !supportsAvx2()
 
   if (platform === "linux") {
-    const musl = (() => {
-      try {
-        if (fs.existsSync("/etc/alpine-release")) return true
-      } catch {
-        // ignore
-      }
-
-      try {
-        const result = childProcess.spawnSync("ldd", ["--version"], { encoding: "utf8" })
-        const text = ((result.stdout || "") + (result.stderr || "")).toLowerCase()
-        if (text.includes("musl")) return true
-      } catch {
-        // ignore
-      }
-
-      return false
-    })()
-
-    if (musl) {
-      if (arch === "x64") {
-        if (baseline) return [`${base}-baseline-musl`, `${base}-musl`, `${base}-baseline`, base]
-        return [`${base}-musl`, `${base}-baseline-musl`, base, `${base}-baseline`]
-      }
+    if (isMusl()) {
+      if (arch === "x64")
+        return baseline
+          ? [`${base}-baseline-musl`, `${base}-musl`, `${base}-baseline`, base]
+          : [`${base}-musl`, `${base}-baseline-musl`, base, `${base}-baseline`]
       return [`${base}-musl`, base]
     }
 
-    if (arch === "x64") {
-      if (baseline) return [`${base}-baseline`, base, `${base}-baseline-musl`, `${base}-musl`]
-      return [base, `${base}-baseline`, `${base}-musl`, `${base}-baseline-musl`]
-    }
+    if (arch === "x64")
+      return baseline
+        ? [`${base}-baseline`, base, `${base}-baseline-musl`, `${base}-musl`]
+        : [base, `${base}-baseline`, `${base}-musl`, `${base}-baseline-musl`]
     return [base, `${base}-musl`]
   }
 
-  if (arch === "x64") {
-    if (baseline) return [`${base}-baseline`, base]
-    return [base, `${base}-baseline`]
-  }
+  if (arch === "x64") return baseline ? [`${base}-baseline`, base] : [base, `${base}-baseline`]
   return [base]
-})()
+}
 
-function findBinary(startDir) {
-  let current = startDir
-  for (;;) {
-    const modules = path.join(current, "node_modules")
-    if (fs.existsSync(modules)) {
-      for (const name of names) {
-        const candidate = path.join(modules, name, "bin", binary)
-        if (fs.existsSync(candidate)) return candidate
+function findBinary(names) {
+  return names.reduce((resolved, name) => {
+    if (resolved) return resolved
+    try {
+      const packageJson = require.resolve(`${name}/package.json`)
+      const candidate = path.join(path.dirname(packageJson), "bin", binary)
+      return fs.existsSync(candidate) ? candidate : undefined
+    } catch {
+      return undefined
+    }
+  }, undefined)
+}
+
+function run(target) {
+  const child = childProcess.spawn(target, process.argv.slice(2), { stdio: "inherit" })
+
+  child.on("error", (error) => {
+    console.error(message("launcher.spawn_failed", { error: error.message }))
+    process.exit(1)
+  })
+
+  const forwarders = ["SIGINT", "SIGTERM", "SIGHUP"].map((signal) => {
+    const forward = () => {
+      try {
+        child.kill(signal)
+      } catch {
+        // The child may already have exited.
       }
     }
-    const parent = path.dirname(current)
-    if (parent === current) {
-      return
-    }
-    current = parent
-  }
+    process.on(signal, forward)
+    return { signal, forward }
+  })
+
+  child.on("exit", (code, signal) => {
+    forwarders.forEach((item) => process.removeListener(item.signal, item.forward))
+    if (signal) return process.kill(process.pid, signal)
+    process.exit(typeof code === "number" ? code : 1)
+  })
 }
 
-const resolved = envPath || (fs.existsSync(cached) ? cached : findBinary(scriptDir))
+const names = packageNames()
+const resolved = process.env.MIAOPAN_CODE_BIN_PATH || findBinary(names)
 if (!resolved) {
-  console.error(
-    "It seems that your package manager failed to install the right version of the miaopan-code CLI for your platform. You can try manually installing " +
-      names.map((n) => `\"${n}\"`).join(" or ") +
-      " package",
-  )
+  console.error(message("launcher.binary_missing", { packages: names.join(", ") }))
   process.exit(1)
 }
-
 run(resolved)
