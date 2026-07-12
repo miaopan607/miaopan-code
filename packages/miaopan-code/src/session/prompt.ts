@@ -461,6 +461,7 @@ const layer = Layer.effect(
         time: { created: Date.now() },
         agent: lastUser.agent,
         model: lastUser.model,
+        oai: lastUser.oai,
       }
       yield* sessions.updateMessage(summaryUserMsg)
       yield* sessions.updatePart({
@@ -708,6 +709,7 @@ const layer = Layer.effect(
         },
         system: input.system,
         format: input.format,
+        oai: input.oai,
       }
 
       const current = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
@@ -1228,7 +1230,13 @@ const layer = Layer.effect(
             lastFinished.summary !== true &&
             (yield* compaction.isOverflow({ tokens: lastFinished.tokens, model }))
           ) {
-            yield* compaction.create({ sessionID, agent: lastUser.agent, model: lastUser.model, auto: true })
+            yield* compaction.create({
+              sessionID,
+              agent: lastUser.agent,
+              model: lastUser.model,
+              auto: true,
+              oai: lastUser.oai,
+            })
             continue
           }
 
@@ -1411,6 +1419,7 @@ const layer = Layer.effect(
                 model: lastUser.model,
                 auto: true,
                 overflow: !handle.message.finish,
+                oai: lastUser.oai,
               })
             }
             return "continue" as const
@@ -1585,6 +1594,7 @@ const layer = Layer.effect(
         agent: userAgent,
         parts,
         variant: input.variant,
+        oai: input.oai,
       })
       yield* events.publish(Command.Event.Executed, {
         name: input.command,
@@ -1625,6 +1635,7 @@ export const PromptInput = Schema.Struct({
   format: Schema.optional(SessionV1.Format),
   system: Schema.optional(Schema.String),
   variant: Schema.optional(Schema.String),
+  oai: Schema.optional(Schema.Boolean),
   parts: Schema.Array(
     Schema.Union([
       SessionV1.TextPartInput,
@@ -1657,6 +1668,7 @@ export const CommandInput = Schema.Struct({
   arguments: Schema.String,
   command: Schema.String,
   variant: Schema.optional(Schema.String),
+  oai: Schema.optional(Schema.Boolean),
   // Inlined (no identifier annotation) to keep the original SDK output — the
   // PromptInput call site below references FilePartInput by ref via the
   // Schema export in message-v2.ts.

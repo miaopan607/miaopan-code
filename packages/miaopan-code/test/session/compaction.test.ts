@@ -600,6 +600,30 @@ describe("session.compaction.create", () => {
     ),
   )
 
+  it.live(
+    "preserves OAI mode on a compaction user message",
+    provideTmpdirInstance(() =>
+      Effect.gen(function* () {
+        const compact = yield* SessionCompaction.Service
+        const ssn = yield* SessionNs.Service
+        const info = yield* ssn.create({})
+
+        yield* compact.create({
+          sessionID: info.id,
+          agent: "build",
+          model: ref,
+          auto: false,
+          oai: true,
+        })
+
+        const msgs = yield* ssn.messages({ sessionID: info.id })
+        expect(msgs).toHaveLength(1)
+        expect(msgs[0].info).toMatchObject({ role: "user", oai: true })
+        expect(msgs[0].parts).toEqual([expect.objectContaining({ type: "compaction", auto: false })])
+      }),
+    ),
+  )
+
   it.live.skip(
     "projects a compaction message to v2 (v2 projector disabled)",
     provideTmpdirInstance(() =>

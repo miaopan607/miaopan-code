@@ -276,6 +276,17 @@ const live: Layer.Layer<
         "llm.provider": input.model.providerID,
         "llm.model": input.model.id,
       })
+      const codex =
+        input.user.oai === true &&
+        input.model.api.npm === "@ai-sdk/openai" &&
+        !(input.model.providerID === "openai" && info?.type === "oauth")
+          ? LLMRequestPrep.codex({
+              prepared,
+              messages: input.messages,
+              sessionID: input.sessionID,
+            })
+          : undefined
+      const options = codex?.options ?? prepared.params.options
       // Default runtime path: AI SDK owns provider execution and tool dispatch;
       // LLMAISDK.toLLMEvents below normalizes fullStream parts for the processor.
       return {
@@ -316,15 +327,15 @@ const live: Layer.Layer<
           temperature: prepared.params.temperature,
           topP: prepared.params.topP,
           topK: prepared.params.topK,
-          providerOptions: ProviderTransform.providerOptions(input.model, prepared.params.options),
+          providerOptions: ProviderTransform.providerOptions(input.model, options),
           activeTools: Object.keys(prepared.tools).filter((x) => x !== "invalid"),
           tools: prepared.tools,
           toolChoice: input.toolChoice,
           maxOutputTokens: prepared.params.maxOutputTokens,
           abortSignal: input.abort,
-          headers: prepared.headers,
+          headers: codex?.headers ?? prepared.headers,
           maxRetries: input.retries ?? 0,
-          messages: prepared.messages,
+          messages: codex?.messages ?? prepared.messages,
           model: wrapLanguageModel({
             model: language,
             middleware: [
@@ -336,7 +347,7 @@ const live: Layer.Layer<
                     args.params.prompt = ProviderTransform.message(
                       args.params.prompt,
                       input.model,
-                      prepared.messageTransformOptions,
+                      options,
                       cfg.language,
                     )
                   }

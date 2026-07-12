@@ -17,6 +17,8 @@ import { mergeDeep } from "remeda"
 import { t, type Language } from "@miaopan-code/core/i18n"
 
 const USER_AGENT = `miaopan-code/${InstallationVersion}`
+const CODEX_ORIGINATOR = "codex_cli_rs"
+const CODEX_USER_AGENT = `${CODEX_ORIGINATOR}/${InstallationVersion}`
 
 type PrepareInput = {
   readonly user: SessionV1.User
@@ -50,6 +52,35 @@ export type Prepared = {
   }
   readonly messageTransformOptions: Record<string, any>
   readonly headers: Record<string, string>
+}
+
+export function codex(input: {
+  readonly prepared: Prepared
+  readonly messages: ModelMessage[]
+  readonly sessionID: string
+}) {
+  const include = Array.isArray(input.prepared.params.options.include)
+    ? input.prepared.params.options.include.filter((item): item is string => typeof item === "string")
+    : []
+  return {
+    messages: input.messages,
+    options: {
+      ...input.prepared.params.options,
+      store: false,
+      instructions: input.prepared.system.join("\n"),
+      parallelToolCalls: input.prepared.params.options.parallelToolCalls ?? true,
+      promptCacheKey: input.sessionID,
+      include: [...new Set([...include, "reasoning.encrypted_content"])],
+    },
+    headers: {
+      ...input.prepared.headers,
+      originator: CODEX_ORIGINATOR,
+      "User-Agent": CODEX_USER_AGENT,
+      "session-id": input.sessionID,
+      "thread-id": input.sessionID,
+      "x-client-request-id": input.sessionID,
+    },
+  }
 }
 
 const mergeOptions = (target: Record<string, any>, source: Record<string, any> | undefined): Record<string, any> =>

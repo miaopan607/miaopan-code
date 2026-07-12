@@ -259,6 +259,7 @@ export type UserMessage = {
   tools?: {
     [key: string]: boolean
   }
+  oai?: boolean
 }
 
 export type ProviderAuthError = {
@@ -9857,6 +9858,7 @@ export type SessionPromptData = {
     format?: OutputFormat
     system?: string
     variant?: string
+    oai?: boolean
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
@@ -10204,6 +10206,7 @@ export type SessionPromptAsyncData = {
     format?: OutputFormat
     system?: string
     variant?: string
+    oai?: boolean
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
   }
   path: {
@@ -10280,6 +10283,7 @@ export type SessionCommandData = {
     arguments: string
     command: string
     variant?: string
+    oai?: boolean
     parts?: Array<{
       id?: string
       type: "file"

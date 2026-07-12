@@ -983,12 +983,25 @@ export function Prompt(props: PromptProps) {
       syncExtmarksWithPromptParts()
     }
     if (props.disabled) return false
-    if (workspace.creating() || move.creating()) return false
     if (auto()?.visible) return false
     if (!store.prompt.input) return false
+    const trimmed = store.prompt.input.trim()
+    if (store.mode !== "shell" && trimmed.toLowerCase() === "/oai") {
+      keymap.dispatchCommand("session.toggle.oai")
+      input.extmarks.clear()
+      setStore("prompt", {
+        input: "",
+        parts: [],
+      })
+      setStore("extmarkToPartIndex", new Map())
+      props.onSubmit?.()
+      input.clear()
+      return true
+    }
+
+    if (workspace.creating() || move.creating()) return false
     const agent = local.agent.current()
     if (!agent) return false
-    const trimmed = store.prompt.input.trim()
     if (trimmed === "exit" || trimmed === "quit" || trimmed === ":q") {
       void exit()
       return true
@@ -1130,6 +1143,7 @@ export function Prompt(props: PromptProps) {
         model: `${selectedModel.providerID}/${selectedModel.modelID}`,
         variant,
         parts: nonTextParts.filter((x) => x.type === "file"),
+        ...(kv.get("oai", false) ? { oai: true } : {}),
       })
     } else {
       move.startSubmit()
@@ -1141,6 +1155,7 @@ export function Prompt(props: PromptProps) {
             agent: agent.name,
             model: selectedModel,
             variant,
+            ...(kv.get("oai", false) ? { oai: true } : {}),
             parts: [
               ...editorParts,
               {

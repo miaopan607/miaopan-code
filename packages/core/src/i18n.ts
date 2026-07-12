@@ -2598,6 +2598,14 @@ export const messages = {
   "session.compact": { "zh-CN": "压缩会话", en: "Compact session" },
   "session.continue": { "zh-CN": "继续当前任务", en: "Continue current task" },
   "session.continue_empty": { "zh-CN": "当前会话没有可继续的任务", en: "This session has no task to continue" },
+  "session.oai_enable": { "zh-CN": "启用 Codex 请求模拟", en: "Enable Codex request emulation" },
+  "session.oai_disable": { "zh-CN": "停用 Codex 请求模拟", en: "Disable Codex request emulation" },
+  "session.oai_description": {
+    "zh-CN": "使用 @ai-sdk/openai 时模拟 Codex 请求",
+    en: "Emulate Codex requests when using @ai-sdk/openai",
+  },
+  "session.oai_enabled": { "zh-CN": "已启用 Codex 请求模拟", en: "Codex request emulation enabled" },
+  "session.oai_disabled": { "zh-CN": "已停用 Codex 请求模拟", en: "Codex request emulation disabled" },
   "session.connect_to_summarize": {
     "zh-CN": "请连接提供商以汇总此会话",
     en: "Connect a provider to summarize this session",

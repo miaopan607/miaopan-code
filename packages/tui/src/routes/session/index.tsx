@@ -504,6 +504,7 @@ export function Session() {
         agent: "build",
         model,
         variant: local.model.variant.current(),
+        ...(kv.get("oai", false) ? { oai: true } : {}),
         parts: [{ type: "text", text: i18n.t("plan.fresh_message", { plan: plan.text }) }],
       },
       { throwOnError: true },

@@ -218,6 +218,7 @@ export interface Interface {
     model: { providerID: ProviderV2.ID; modelID: ModelV2.ID }
     auto: boolean
     overflow?: boolean
+    oai?: boolean
   }) => Effect.Effect<void>
 }
 
@@ -528,6 +529,7 @@ const layer = Layer.effect(
             format: original.format,
             tools: original.tools,
             system: original.system,
+            oai: original.oai,
           })
           for (const part of replay.parts) {
             if (part.type === "compaction") continue
@@ -579,6 +581,7 @@ const layer = Layer.effect(
               time: { created: Date.now() },
               agent: userMessage.agent,
               model: userMessage.model,
+              oai: userMessage.oai,
             })
             const text =
               (input.overflow ? t(cfg.language, "prompt.compaction_media_removed_notice") : "") +
@@ -616,6 +619,7 @@ const layer = Layer.effect(
       model: { providerID: ProviderV2.ID; modelID: ModelV2.ID }
       auto: boolean
       overflow?: boolean
+      oai?: boolean
     }) {
       const msg = yield* session.updateMessage({
         id: MessageID.ascending(),
@@ -624,6 +628,7 @@ const layer = Layer.effect(
         sessionID: input.sessionID,
         agent: input.agent,
         time: { created: Date.now() },
+        oai: input.oai,
       })
       yield* session.updatePart({
         id: PartID.ascending(),
