@@ -105,6 +105,33 @@ describe("assistantDisplayParts", () => {
     ).toEqual([text])
   })
 
+  test("hides synthetic assistant text parts", () => {
+    const synthetic = {
+      id: "part_synthetic",
+      sessionID: "session",
+      messageID: "message",
+      type: "text",
+      text: "<brief-conversation-history>history</brief-conversation-history>",
+      synthetic: true,
+    } as Part
+    const text = {
+      id: "part_text",
+      sessionID: "session",
+      messageID: "message",
+      type: "text",
+      text: "Done",
+    } as Part
+
+    expect(
+      assistantDisplayParts([synthetic, text], {
+        last: false,
+        thinkingMode: "expanded",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([text])
+  })
+
   test("removes hidden reasoning without changing the following compact tool group", () => {
     const tool = {
       id: "part_tool",
