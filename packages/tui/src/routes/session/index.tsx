@@ -3307,32 +3307,57 @@ export function RequestUserInput(props: ToolProps) {
   const questions = createMemo(() => parseRequestUserInputQuestions(props.input.questions))
   const answers = createMemo(() => parseRequestUserInputAnswers(props.metadata.answers))
   const count = createMemo(() => questions().length)
+  const answered = createMemo(
+    () => questions().filter((question) => (answers()?.[question.id]?.length ?? 0) > 0).length,
+  )
 
   return (
     <Switch>
       <Match when={answers()}>
-        <BlockTool title={`# ${t(Locale.language(), "tool.title.questions", { count: count() })}`} part={props.part}>
-          <box gap={1}>
-            <For each={questions()}>
-              {(q) => {
-                const value = createMemo(() => splitQuestionAnswer(answers()?.[q.id] ?? []))
-                return (
-                  <box flexDirection="column">
-                    <text fg={theme.textMuted}>{q.question}</text>
-                    <text fg={theme.text}>
-                      {value().answers.length > 0 ? value().answers.join(", ") : t(Locale.language(), "tui.no_answer")}
-                    </text>
-                    <Show when={value().notes.length > 0}>
-                      <text fg={theme.textMuted}>
-                        {t(Locale.language(), "question.note_label")}: {value().notes.join("\n")}
+        <InlineToolRow
+          icon="•"
+          iconColor={theme.textMuted}
+          color={theme.textMuted}
+          complete={props.part.state.status === "completed"}
+          pending={t(Locale.language(), "tool.asking_questions")}
+          dense={true}
+          details={
+            <box flexDirection="column">
+              <For each={questions()}>
+                {(q) => {
+                  const value = createMemo(() => splitQuestionAnswer(answers()?.[q.id] ?? []))
+                  const missing = createMemo(() => (answers()?.[q.id]?.length ?? 0) === 0)
+                  return (
+                    <box flexDirection="column">
+                      <text wrapMode="word" fg={theme.textMuted}>
+                        • {q.question}
+                        <Show when={missing()}>
+                          <span style={{ fg: theme.textMuted }}> {t(Locale.language(), "tui.no_answer")}</span>
+                        </Show>
                       </text>
-                    </Show>
-                  </box>
-                )
-              }}
-            </For>
-          </box>
-        </BlockTool>
+                      <For each={value().answers}>
+                        {(answer) => (
+                          <text paddingLeft={2} wrapMode="word" fg={theme.textMuted}>
+                            {t(Locale.language(), "question.answer_label")}: {answer}
+                          </text>
+                        )}
+                      </For>
+                      <For each={value().notes}>
+                        {(note) => (
+                          <text paddingLeft={2} wrapMode="word" fg={theme.textMuted}>
+                            {t(Locale.language(), "question.note_label")}: {note}
+                          </text>
+                        )}
+                      </For>
+                    </box>
+                  )
+                }}
+              </For>
+            </box>
+          }
+        >
+          {t(Locale.language(), "tool.questions_answered", { answered: answered(), total: count() })}
+        </InlineToolRow>
       </Match>
       <Match when={true}>
         <InlineTool
