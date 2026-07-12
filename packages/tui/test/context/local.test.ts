@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { parseModel, recentModels } from "../../src/context/local"
+import { getFirstValidModel, parseModel, recentModels } from "../../src/context/local"
 import { canReorderFavorite, reorderFavorite } from "../../src/util/favorite"
 
 const sameModel = (left: { providerID: string; modelID: string }, right: { providerID: string; modelID: string }) =>
@@ -10,6 +10,51 @@ test("parses model IDs containing slashes", () => {
     providerID: "provider",
     modelID: "family/model",
   })
+})
+
+test("keeps the manually selected model when the agent changes", () => {
+  const selected = { providerID: "provider", modelID: "selected" }
+  const configured = { providerID: "provider", modelID: "configured" }
+  const fallback = { providerID: "provider", modelID: "fallback" }
+
+  expect(
+    getFirstValidModel(
+      () => true,
+      () => selected,
+      () => configured,
+      () => fallback,
+    ),
+  ).toBe(selected)
+})
+
+test("uses the agent model when no model was manually selected", () => {
+  const configured = { providerID: "provider", modelID: "configured" }
+  const fallback = { providerID: "provider", modelID: "fallback" }
+
+  expect(
+    getFirstValidModel(
+      () => true,
+      () => undefined,
+      () => configured,
+      () => fallback,
+    ),
+  ).toBe(configured)
+})
+
+test("falls back when the manually selected model is invalid", () => {
+  const selected = { providerID: "provider", modelID: "invalid" }
+  const configured = { providerID: "provider", modelID: "configured" }
+  const fallback = { providerID: "provider", modelID: "fallback" }
+  const isValid = (model: { providerID: string; modelID: string }) => model.modelID !== "invalid"
+
+  expect(
+    getFirstValidModel(
+      isValid,
+      () => selected,
+      () => configured,
+      () => fallback,
+    ),
+  ).toBe(configured)
 })
 
 test("moves a model to the front, deduplicates, and limits recents", () => {
