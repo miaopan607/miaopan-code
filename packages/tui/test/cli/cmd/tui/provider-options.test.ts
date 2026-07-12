@@ -27,6 +27,18 @@ describe("providerOptions", () => {
     ).toEqual(["openai", "anthropic", "aws", "mistral", "custom-z", "__miaopan_code_custom_provider__"])
   })
 
+  test("puts OpenCode Zen and Go first with their service descriptions", () => {
+    const options = providerOptions([
+      { id: "openai", name: "OpenAI" },
+      { id: "opencode-go", name: "OpenCode Go" },
+      { id: "opencode", name: "OpenCode Zen" },
+    ])
+
+    expect(options.slice(0, 3).map((option) => option.value)).toEqual(["opencode", "opencode-go", "openai"])
+    expect(options[0]?.description).toBe(t("zh-CN", "provider.recommended"))
+    expect(options[1]?.description).toBe(t("zh-CN", "provider.low_cost"))
+  })
+
   test("does not collide with a configured provider named other", () => {
     const values = providerOptions([{ id: "other", name: "Other Provider" }]).map((option) => option.value)
     expect(new Set(values).size).toBe(values.length)

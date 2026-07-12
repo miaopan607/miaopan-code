@@ -1457,7 +1457,7 @@ describe("ProviderTransform.schema - openai supported schema subset", () => {
   })
 
   test.each([
-    ["miaopan-code", "@ai-sdk/openai"],
+    ["opencode", "@ai-sdk/openai"],
     ["custom-openai-compatible", "@ai-sdk/openai"],
     ["azure", "@ai-sdk/azure"],
   ])("sanitizes %s models using %s", (providerID, npm) => {
@@ -1807,7 +1807,12 @@ describe("ProviderTransform.message - surrogate sanitization", () => {
         content: [
           { type: "text", text: text("assistant text") },
           { type: "reasoning", text: text("assistant reasoning") },
-          { type: "tool-call", toolCallId: "call-1", toolName: "Read", input: { filePath: ".miaopanCode/tool/emoji.ts" } },
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "Read",
+            input: { filePath: ".miaopanCode/tool/emoji.ts" },
+          },
           {
             type: "tool-result",
             toolCallId: "call-2",
@@ -2531,12 +2536,12 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
   })
 
   test("preserves metadata using providerID key when store is false", () => {
-    const miaopanCodeModel = {
+    const opencodeModel = {
       ...openaiModel,
-      providerID: "miaopan-code",
+      providerID: "opencode",
       api: {
-        id: "miaopanCode-test",
-        url: "https://api.miaopanCode.ai",
+        id: "opencode-test",
+        url: "https://api.opencode.ai",
         npm: "@ai-sdk/openai-compatible",
       },
     }
@@ -2548,7 +2553,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
             type: "text",
             text: "Hello",
             providerOptions: {
-              miaopanCode: {
+              opencode: {
                 itemId: "msg_123",
                 otherOption: "value",
               },
@@ -2558,19 +2563,19 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
       },
     ] as any[]
 
-    const result = ProviderTransform.message(msgs, miaopanCodeModel, { store: false }) as any[]
+    const result = ProviderTransform.message(msgs, opencodeModel, { store: false }) as any[]
 
-    expect(result[0].content[0].providerOptions?.miaopanCode?.itemId).toBe("msg_123")
-    expect(result[0].content[0].providerOptions?.miaopanCode?.otherOption).toBe("value")
+    expect(result[0].content[0].providerOptions?.opencode?.itemId).toBe("msg_123")
+    expect(result[0].content[0].providerOptions?.opencode?.otherOption).toBe("value")
   })
 
   test("preserves itemId across all providerOptions keys", () => {
-    const miaopanCodeModel = {
+    const opencodeModel = {
       ...openaiModel,
-      providerID: "miaopan-code",
+      providerID: "opencode",
       api: {
-        id: "miaopanCode-test",
-        url: "https://api.miaopanCode.ai",
+        id: "opencode-test",
+        url: "https://api.opencode.ai",
         npm: "@ai-sdk/openai-compatible",
       },
     }
@@ -2579,7 +2584,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
         role: "assistant",
         providerOptions: {
           openai: { itemId: "msg_root" },
-          miaopanCode: { itemId: "msg_miaopan_code" },
+          opencode: { itemId: "msg_opencode" },
           extra: { itemId: "msg_extra" },
         },
         content: [
@@ -2588,7 +2593,7 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
             text: "Hello",
             providerOptions: {
               openai: { itemId: "msg_openai_part" },
-              miaopanCode: { itemId: "msg_miaopan_code_part" },
+              opencode: { itemId: "msg_opencode_part" },
               extra: { itemId: "msg_extra_part" },
             },
           },
@@ -2596,13 +2601,13 @@ describe("ProviderTransform.message - strip openai metadata when store=false", (
       },
     ] as any[]
 
-    const result = ProviderTransform.message(msgs, miaopanCodeModel, { store: false }) as any[]
+    const result = ProviderTransform.message(msgs, opencodeModel, { store: false }) as any[]
 
     expect(result[0].providerOptions?.openai?.itemId).toBe("msg_root")
-    expect(result[0].providerOptions?.miaopanCode?.itemId).toBe("msg_miaopan_code")
+    expect(result[0].providerOptions?.opencode?.itemId).toBe("msg_opencode")
     expect(result[0].providerOptions?.extra?.itemId).toBe("msg_extra")
     expect(result[0].content[0].providerOptions?.openai?.itemId).toBe("msg_openai_part")
-    expect(result[0].content[0].providerOptions?.miaopanCode?.itemId).toBe("msg_miaopan_code_part")
+    expect(result[0].content[0].providerOptions?.opencode?.itemId).toBe("msg_opencode_part")
     expect(result[0].content[0].providerOptions?.extra?.itemId).toBe("msg_extra_part")
   })
 

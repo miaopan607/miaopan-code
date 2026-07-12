@@ -28000,13 +28000,13 @@
       }
     }
   },
-  "miaopan-code-go": {
-    "id": "miaopan-code-go",
-    "env": ["MIAOPAN_CODE_API_KEY"],
+  "opencode-go": {
+    "id": "opencode-go",
+    "env": ["OPENCODE_API_KEY"],
     "npm": "@ai-sdk/openai-compatible",
-    "api": "https://github.com/miaopan607/miaopan-code/zen/go/v1",
-    "name": "miaopan-code Go",
-    "doc": "https://github.com/miaopan607/miaopan-code/docs/zen",
+    "api": "https://opencode.ai/zen/go/v1",
+    "name": "OpenCode Go",
+    "doc": "https://opencode.ai/docs/zen",
     "models": {
       "minimax-m2.7": {
         "id": "minimax-m2.7",
@@ -57810,13 +57810,13 @@
       }
     }
   },
-  "miaopan-code": {
-    "id": "miaopan-code",
-    "env": ["MIAOPAN_CODE_API_KEY"],
+  "opencode": {
+    "id": "opencode",
+    "env": ["OPENCODE_API_KEY"],
     "npm": "@ai-sdk/openai-compatible",
-    "api": "https://github.com/miaopan607/miaopan-code/zen/v1",
-    "name": "miaopan-code Zen",
-    "doc": "https://github.com/miaopan607/miaopan-code/docs/zen",
+    "api": "https://opencode.ai/zen/v1",
+    "name": "OpenCode Zen",
+    "doc": "https://opencode.ai/docs/zen",
     "models": {
       "minimax-m2.7": {
         "id": "minimax-m2.7",

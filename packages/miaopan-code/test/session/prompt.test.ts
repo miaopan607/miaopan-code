@@ -2010,7 +2010,9 @@ unix(
 
       expect(tool.state.metadata.truncated).toBe(true)
       expect(typeof tool.state.metadata.outputPath).toBe("string")
-      expect(tool.state.output).toContain(t("zh-CN", "tool.shell.output_saved", { file: "__FILE__" }).split("__FILE__")[0])
+      expect(tool.state.output).toContain(
+        t("zh-CN", "tool.shell.output_saved", { file: "__FILE__" }).split("__FILE__")[0],
+      )
       expect(tool.state.output).not.toContain(t("zh-CN", "error.tool_execution_aborted"))
     }),
   { git: true },
@@ -2193,7 +2195,9 @@ noLLMServer.instance(
         (part) =>
           part.type === "text" &&
           part.synthetic &&
-          part.text.includes(t("zh-CN", "error.read_tool_failed", { path: "__PATH__", error: "" }).split("__PATH__")[0]),
+          part.text.includes(
+            t("zh-CN", "error.read_tool_failed", { path: "__PATH__", error: "" }).split("__PATH__")[0],
+          ),
       )
       expect(hasFailure).toBe(true)
 
@@ -2236,7 +2240,9 @@ noLLMServer.instance(
       const text = stored.parts.filter((part) => part.type === "text").map((part) => part.text)
 
       expect(text[0]?.startsWith(t("zh-CN", "prompt.called_read_tool", { input: "" }).split("失败")[0])).toBe(true)
-      expect(text[1]?.includes(t("zh-CN", "error.read_tool_failed", { path: "__PATH__", error: "" }).split("__PATH__")[0])).toBe(true)
+      expect(
+        text[1]?.includes(t("zh-CN", "error.read_tool_failed", { path: "__PATH__", error: "" }).split("__PATH__")[0]),
+      ).toBe(true)
       expect(text[2]).toBe("after-file")
 
       yield* sessions.remove(session.id)
@@ -2359,7 +2365,7 @@ noLLMServer.instance(
       const other = yield* prompt.prompt({
         sessionID: session.id,
         agent: "build",
-        model: { providerID: ProviderV2.ID.make("miaopan-code"), modelID: ModelV2.ID.make("kimi-k2.5-free") },
+        model: { providerID: ProviderV2.ID.make("opencode"), modelID: ModelV2.ID.make("kimi-k2.5-free") },
         noReply: true,
         parts: [{ type: "text", text: "hello" }],
       })

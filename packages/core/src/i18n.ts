@@ -1754,8 +1754,8 @@ export const messages = {
   "session.free_limit": { "zh-CN": "已达到免费额度", en: "Free limit reached" },
   "session.go_limit": { "zh-CN": "已达到 Go 额度", en: "Go limit reached" },
   "session.go_upsell_message": {
-    "zh-CN": "订阅 MiaopanCode Go 即可稳定访问优秀的开源模型，起价为每月 5 美元。",
-    en: "Subscribe to MiaopanCode Go for reliable access to the best open-source models, starting at $5/month.",
+    "zh-CN": "订阅 OpenCode Go 即可稳定访问优秀的开源模型，起价为每月 5 美元。",
+    en: "Subscribe to OpenCode Go for reliable access to the best open-source models, starting at $5/month.",
   },
   "session.go_upsell_short": { "zh-CN": "免费用量已超限，请订阅 Go", en: "Free usage exceeded, subscribe to Go" },
   "session.subscribe": { "zh-CN": "订阅", en: "subscribe" },
@@ -2072,8 +2072,8 @@ export const messages = {
     en: "Run {highlight}docker run -it --rm ghcr.io/miaopan607/miaopan-code{/highlight} in a container",
   },
   "tips.zen": {
-    "zh-CN": "将 {highlight}/connect{/highlight} 与 MiaopanCode Zen 配合使用，获取精选且经过测试的模型",
-    en: "Use {highlight}/connect{/highlight} with MiaopanCode Zen for curated, tested models",
+    "zh-CN": "将 {highlight}/connect{/highlight} 与 OpenCode Zen 配合使用，获取精选且经过测试的模型",
+    en: "Use {highlight}/connect{/highlight} with OpenCode Zen for curated, tested models",
   },
   "tips.agents_commit": {
     "zh-CN": "将项目的 {highlight}AGENTS.md{/highlight} 提交到 Git 以便团队共享",
@@ -3397,7 +3397,7 @@ export const messages = {
   "provider.authorization_waiting": { "zh-CN": "正在等待授权……", en: "Waiting for authorization..." },
   "provider.copy_short": { "zh-CN": "复制", en: "copy" },
   "provider.get_key": { "zh-CN": "请访问以下地址获取密钥：", en: "Go to" },
-  "provider.enable_go": { "zh-CN": "请访问以下地址并启用 MiaopanCode Go：", en: "Go to" },
+  "provider.enable_go": { "zh-CN": "请访问以下地址并启用 OpenCode Go：", en: "Go to" },
   "provider.connect": { "zh-CN": "连接提供商", en: "Connect a provider" },
   "provider.copy_code": { "zh-CN": "复制提供商代码", en: "Copy provider code" },
   "provider.oauth_failed": {
@@ -3406,12 +3406,12 @@ export const messages = {
   },
   "provider.authorization_code": { "zh-CN": "授权代码", en: "Authorization code" },
   "provider.zen_description": {
-    "zh-CN": "MiaopanCode Zen 通过单个 API 密钥，以最低价格提供所有优秀的编程模型。",
-    en: "MiaopanCode Zen gives you access to all the best coding models at the cheapest prices with a single API key.",
+    "zh-CN": "OpenCode Zen 通过单个 API 密钥，以最低价格提供所有优秀的编程模型。",
+    en: "OpenCode Zen gives you access to all the best coding models at the cheapest prices with a single API key.",
   },
   "provider.go_description": {
-    "zh-CN": "MiaopanCode Go 是每月 10 美元的订阅服务，提供稳定访问热门开放编程模型的能力，并拥有慷慨的用量限制。",
-    en: "MiaopanCode Go is a $10 per month subscription that provides reliable access to popular open coding models with generous usage limits.",
+    "zh-CN": "OpenCode Go 是每月 10 美元的订阅服务，提供稳定访问热门开放编程模型的能力，并拥有慷慨的用量限制。",
+    en: "OpenCode Go is a $10 per month subscription that provides reliable access to popular open coding models with generous usage limits.",
   },
   "provider.failed_metadata": {
     "zh-CN": "从 {{url}} 加载身份验证提供商元数据失败：",
@@ -3429,9 +3429,9 @@ export const messages = {
       "Amazon Bedrock 身份验证优先级：\n  1. Bearer 令牌（AWS_BEARER_TOKEN_BEDROCK 或 /connect）\n  2. AWS 凭据链（配置文件、访问密钥、IAM 角色、EKS IRSA）\n\n通过 miaopan-code.json 选项（profile、region、endpoint）或 AWS 环境变量（AWS_PROFILE、AWS_REGION、AWS_ACCESS_KEY_ID、AWS_WEB_IDENTITY_TOKEN_FILE）进行配置。",
     en: "Amazon Bedrock authentication priority:\n  1. Bearer token (AWS_BEARER_TOKEN_BEDROCK or /connect)\n  2. AWS credential chain (profile, access keys, IAM roles, EKS IRSA)\n\nConfigure via miaopan-code.json options (profile, region, endpoint) or\nAWS environment variables (AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_WEB_IDENTITY_TOKEN_FILE).",
   },
-  "provider.create_miaopan_key": {
-    "zh-CN": "请在 https://github.com/miaopan607/miaopan-code/auth 创建 API 密钥",
-    en: "Create an api key at https://github.com/miaopan607/miaopan-code/auth",
+  "provider.create_opencode_key": {
+    "zh-CN": "请在 https://opencode.ai/auth 创建 API 密钥",
+    en: "Create an api key at https://opencode.ai/auth",
   },
   "provider.create_vercel_key": {
     "zh-CN": "你可以在 https://vercel.link/ai-gateway-token 创建 API 密钥",

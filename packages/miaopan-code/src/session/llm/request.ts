@@ -176,7 +176,7 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     })
   }
 
-  const miaopanCodeProjectID = input.model.providerID.startsWith("miaopan-code")
+  const opencodeProjectID = input.model.providerID.startsWith("opencode")
     ? (yield* InstanceState.context).project.id
     : undefined
 
@@ -187,12 +187,12 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     params,
     messageTransformOptions: options,
     headers: {
-      ...(input.model.providerID.startsWith("miaopan-code")
+      ...(input.model.providerID.startsWith("opencode")
         ? {
-            ...(miaopanCodeProjectID ? { "x-miaopanCode-project": miaopanCodeProjectID } : {}),
-            "x-miaopanCode-session": input.sessionID,
-            "x-miaopanCode-request": input.user.id,
-            "x-miaopanCode-client": input.flags.client,
+            ...(opencodeProjectID ? { "x-opencode-project": opencodeProjectID } : {}),
+            "x-opencode-session": input.sessionID,
+            "x-opencode-request": input.user.id,
+            "x-opencode-client": input.flags.client,
             "User-Agent": USER_AGENT,
           }
         : {

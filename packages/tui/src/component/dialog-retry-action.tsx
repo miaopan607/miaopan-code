@@ -8,7 +8,7 @@ import { BgPulse } from "./bg-pulse"
 import { useBindings } from "../keymap"
 import { useI18n } from "../context/i18n"
 
-const GO_URL = "https://github.com/miaopan607/miaopan-code/go"
+const GO_URL = "https://opencode.ai/go"
 const PAD_X = 3
 const PAD_TOP_OUTER = 1
 const FOREGROUND_ALPHA = 186

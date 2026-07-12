@@ -9,7 +9,7 @@ import { t, type Language } from "@miaopan-code/core/i18n"
 export type Err = ReturnType<NamedError["toObject"]>
 
 export const GO_UPSELL_MESSAGE = t(undefined, "session.go_upsell_short")
-export const GO_UPSELL_URL = "https://github.com/miaopan607/miaopan-code/go"
+export const GO_UPSELL_URL = "https://opencode.ai/go"
 export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
 
 export type Retryable = {
@@ -113,7 +113,7 @@ export function retryable(error: Err, provider: string, language?: Language) {
         reset: resetIn,
       })
 
-      const link = `https://github.com/miaopan607/miaopan-code/workspace/${workspace}/go`
+      const link = `https://opencode.ai/workspace/${workspace}/go`
       return {
         message: `${message} - ${link}`,
         action: {

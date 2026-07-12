@@ -151,7 +151,7 @@ describe("tool.registry", () => {
       const agents = yield* Agent.Service
       const ids = yield* registry.ids()
       const tools = yield* registry.tools({
-        providerID: ProviderV2.ID.miaopanCode,
+        providerID: ProviderV2.ID.opencode,
         modelID: ModelV2.ID.make("test"),
         agent: yield* agents.defaultInfo(),
       })
@@ -168,7 +168,7 @@ describe("tool.registry", () => {
       const registry = yield* ToolRegistry.Service
       const agents = yield* Agent.Service
       const tools = yield* registry.tools({
-        providerID: ProviderV2.ID.miaopanCode,
+        providerID: ProviderV2.ID.opencode,
         modelID: ModelV2.ID.make("test"),
         agent: yield* agents.defaultInfo(),
       })
@@ -184,7 +184,7 @@ describe("tool.registry", () => {
       const build = yield* agent.get("build")
       if (!build) throw new Error("build agent not found")
       const task = (yield* registry.tools({
-        providerID: ProviderV2.ID.miaopanCode,
+        providerID: ProviderV2.ID.opencode,
         modelID: ModelV2.ID.make("test"),
         agent: build,
       })).find((tool) => tool.id === "task")
@@ -362,7 +362,7 @@ describe("tool.registry", () => {
 
       const agents = yield* Agent.Service
       const promptTools = yield* registry.tools({
-        providerID: ProviderV2.ID.miaopanCode,
+        providerID: ProviderV2.ID.opencode,
         modelID: ModelV2.ID.make("test"),
         agent: yield* agents.defaultInfo(),
       })
@@ -388,10 +388,14 @@ describe("tool.registry", () => {
         yield* Effect.promise(() => fs.mkdir(path.join(plugin, "dist"), { recursive: true }))
         yield* Effect.promise(() => fs.mkdir(customTools, { recursive: true }))
         yield* Effect.promise(() =>
-          fs.cp(path.dirname(fileURLToPath(import.meta.resolve("zod"))), path.join(miaopanCode, "node_modules", "zod"), {
-            dereference: true,
-            recursive: true,
-          }),
+          fs.cp(
+            path.dirname(fileURLToPath(import.meta.resolve("zod"))),
+            path.join(miaopanCode, "node_modules", "zod"),
+            {
+              dereference: true,
+              recursive: true,
+            },
+          ),
         )
         yield* Effect.promise(() =>
           Bun.write(

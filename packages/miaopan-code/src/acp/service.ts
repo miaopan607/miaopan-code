@@ -831,12 +831,11 @@ function defaultModelFromConfig(
   if (configured && providers[configured.providerID]?.models[configured.modelID]) return configured
 
   // First-session ACP startup must not scan historical sessions just to infer
-  // a default. Configured model, miaopanCode provider, then sorted best model keep
+  // a default. Configured model, OpenCode provider, then sorted best model keep
   // the protocol response deterministic without extra session/message reads.
-  const miaopanCodeProvider = providers[ProviderV2.ID.make("miaopan-code")]
-  const miaopanCodeModel = miaopanCodeProvider ? Provider.sort(Object.values(miaopanCodeProvider.models))[0] : undefined
-  if (miaopanCodeProvider && miaopanCodeModel)
-    return { providerID: miaopanCodeProvider.id, modelID: miaopanCodeModel.id }
+  const opencodeProvider = providers[ProviderV2.ID.opencode]
+  const opencodeModel = opencodeProvider ? Provider.sort(Object.values(opencodeProvider.models))[0] : undefined
+  if (opencodeProvider && opencodeModel) return { providerID: opencodeProvider.id, modelID: opencodeModel.id }
 
   const best = Provider.sort(Object.values(providers).flatMap((provider) => Object.values(provider.models)))[0]
   if (best) return { providerID: best.providerID, modelID: best.id }

@@ -60,7 +60,7 @@ import { McpCatalog } from "@/mcp/catalog"
 import { SessionGoal } from "@miaopan-code/core/session/goal"
 
 export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false, parallel: false }) {
-  return providerID === ProviderV2.ID.miaopanCode || flags.exa || flags.parallel
+  return providerID === ProviderV2.ID.opencode || flags.exa || flags.parallel
 }
 
 type TaskDef = Tool.InferDef<typeof TaskTool>

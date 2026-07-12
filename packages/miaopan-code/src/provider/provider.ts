@@ -177,16 +177,15 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           },
         },
       }),
-    [ProviderV2.ID.miaopanCode]: Effect.fnUntraced(function* (input: Info) {
+    [ProviderV2.ID.opencode]: Effect.fnUntraced(function* (input: Info) {
       const env = yield* dep.env()
-      const hasKey = iife(() => {
-        if (input.env.some((item) => env[item])) return true
-        return false
-      })
+      const hasKey = input.env.some((item) => Boolean(env[item]))
+      const authenticated = hasKey || Boolean(yield* dep.auth(input.id))
+      const config = authenticated ? undefined : yield* dep.config()
       const ok =
-        hasKey ||
-        Boolean(yield* dep.auth(input.id)) ||
-        Boolean((yield* dep.config()).provider?.["miaopan-code"]?.options?.apiKey)
+        authenticated ||
+        Boolean(config?.provider?.opencode?.options?.apiKey) ||
+        Boolean(config?.provider?.["miaopan-code"]?.options?.apiKey)
 
       if (!ok) {
         for (const [key, value] of Object.entries(input.models)) {
@@ -1270,19 +1269,26 @@ function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model
   }
 }
 
-function normalizeModelsDevProviders(input: Record<string, ModelsDev.Provider>) {
-  const legacy = input.opencode
-  if (!legacy) return input
-
-  const providers = Object.fromEntries(Object.entries(input).filter(([id]) => id !== "opencode"))
-  if (providers[ProviderV2.ID.miaopanCode]) return providers
-  return {
-    ...providers,
-    [ProviderV2.ID.miaopanCode]: {
+export function normalizeModelsDevProviders(input: Record<string, ModelsDev.Provider>) {
+  if (!("miaopan-code" in input) && !("miaopan-code-go" in input)) return input
+  const providers = { ...input }
+  for (const [alias, providerID] of [
+    ["miaopan-code", ProviderV2.ID.opencode],
+    ["miaopan-code-go", ProviderV2.ID.opencodeGo],
+  ] as const) {
+    const legacy = providers[alias]
+    delete providers[alias]
+    if (providers[providerID] || !legacy) continue
+    const isGo = providerID === ProviderV2.ID.opencodeGo
+    providers[providerID] = {
       ...legacy,
-      id: ProviderV2.ID.miaopanCode,
-    },
+      id: providerID,
+      env: legacy.env.map((item) => (item === "MIAOPAN_CODE_API_KEY" ? "OPENCODE_API_KEY" : item)),
+      api: isGo ? "https://opencode.ai/zen/go/v1" : "https://opencode.ai/zen/v1",
+      name: isGo ? "OpenCode Go" : "OpenCode Zen",
+    }
   }
+  return providers
 }
 
 export function fromModelsDevProvider(provider: ModelsDev.Provider): Info {
@@ -1403,9 +1409,9 @@ const layer = Layer.effect(
         const plugins = yield* plugin.list()
 
         // now read config providers - includes any modifications from plugin config() hook
-        const configProviders = Object.entries(cfg.provider ?? {})
-        const disabled = new Set(cfg.disabled_providers ?? [])
-        const enabled = cfg.enabled_providers ? new Set(cfg.enabled_providers) : null
+        const configProviders = Object.entries(ProviderV2.normalizeRecord(cfg.provider ?? {}))
+        const disabled = new Set((cfg.disabled_providers ?? []).map(ProviderV2.canonicalID))
+        const enabled = cfg.enabled_providers ? new Set(cfg.enabled_providers.map(ProviderV2.canonicalID)) : null
 
         function isProviderAllowed(providerID: ProviderV2.ID): boolean {
           if (enabled && !enabled.has(providerID)) return false
@@ -1930,7 +1936,7 @@ const layer = Layer.effect(
         return undefined
       }
 
-      const priority = providerID.startsWith("miaopan-code")
+      const priority = providerID.startsWith("opencode")
         ? ["gpt-nano"]
         : providerID.startsWith("github-copilot")
           ? ["gpt-mini", ...smallModelFamilyPriority]
@@ -1979,7 +1985,7 @@ const layer = Layer.effect(
             if (!isRecord(item)) return []
             if (typeof item.providerID !== "string") return []
             if (typeof item.modelID !== "string") return []
-            return [{ providerID: ProviderV2.ID.make(item.providerID), modelID: ModelV2.ID.make(item.modelID) }]
+            return [{ providerID: ProviderV2.canonicalID(item.providerID), modelID: ModelV2.ID.make(item.modelID) }]
           })
         }),
         Effect.catch(() => Effect.succeed([] as { providerID: ProviderV2.ID; modelID: ModelV2.ID }[])),
@@ -1991,7 +1997,7 @@ const layer = Layer.effect(
         return { providerID: entry.providerID, modelID: entry.modelID }
       }
 
-      const configured = Object.keys(cfg.provider ?? {})
+      const configured = Object.keys(cfg.provider ?? {}).map(ProviderV2.canonicalID)
       const provider = Object.values(s.providers).find((p) => configured.length === 0 || configured.includes(p.id))
       if (!provider) return yield* new NoProvidersError({ language: resolveLanguage(cfg.language) })
       const [model] = sort(Object.values(provider.models))
@@ -2020,7 +2026,7 @@ export function sort<T extends { id: string }>(models: T[]) {
 export function parseModel(model: string) {
   const [providerID, ...rest] = model.split("/")
   return {
-    providerID: ProviderV2.ID.make(providerID),
+    providerID: ProviderV2.canonicalID(providerID),
     modelID: ModelV2.ID.make(rest.join("/")),
   }
 }
