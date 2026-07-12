@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { createSignal, For, Show } from "solid-js"
 import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core"
+import type { ToolPart } from "@miaopan/sdk/v2"
 import { testRender, type JSX } from "@opentui/solid"
 import {
   formatCompletedSubagentDetail,
@@ -13,6 +14,7 @@ import {
   parseQuestionAnswers,
   parseQuestions,
   parseTodos,
+  shellCommandSucceeded,
   alwaysSeparate,
   toolDisplay,
 } from "../../../src/routes/session"
@@ -209,6 +211,15 @@ function FailedCompleteToolFixture() {
   )
 }
 
+function shellState(status: ToolPart["state"]["status"], exit?: unknown) {
+  const metadata = exit === undefined ? undefined : { exit }
+  if (status === "pending") return { status, input: {}, raw: "" } as ToolPart["state"]
+  if (status === "running") return { status, input: {}, time: { start: 1 }, metadata } as ToolPart["state"]
+  if (status === "completed")
+    return { status, input: {}, output: "", title: "", time: { start: 1, end: 2 }, metadata } as ToolPart["state"]
+  return { status, input: {}, error: "failed", time: { start: 1, end: 2 }, metadata } as ToolPart["state"]
+}
+
 async function renderFrame(component: () => JSX.Element, options: { width: number; height: number }) {
   testSetup = await testRender(component, options)
   await testSetup.renderOnce()
@@ -238,6 +249,17 @@ describe("TUI inline tool wrapping", () => {
     const frame = await renderFrame(() => <FailedCompleteToolFixture />, { width: 72, height: 3 })
     expect(frame).toContain("Read src/index.ts")
     expect(frame).not.toContain("Read failed")
+  })
+
+  test("derives shell command success from tool state and exit metadata", () => {
+    expect(shellCommandSucceeded(shellState("pending"))).toBeUndefined()
+    expect(shellCommandSucceeded(shellState("running"))).toBeUndefined()
+    expect(shellCommandSucceeded(shellState("completed", 0))).toBe(true)
+    expect(shellCommandSucceeded(shellState("completed", 2))).toBe(false)
+    expect(shellCommandSucceeded(shellState("completed", null))).toBe(false)
+    expect(shellCommandSucceeded(shellState("completed"))).toBeUndefined()
+    expect(shellCommandSucceeded(shellState("completed", Number.NaN))).toBeUndefined()
+    expect(shellCommandSucceeded(shellState("error"))).toBe(false)
   })
 
   test("filters malformed nested tool wire data", () => {

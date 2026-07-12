@@ -1934,12 +1934,12 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   const ctx = use()
   const display = createMemo(() => toolDisplay(props.part.tool))
 
-  // Hide tool if showDetails is false and tool completed successfully
-  const shouldHide = createMemo(() => {
-    if (ctx.showDetails()) return false
-    if (props.part.state.status !== "completed") return false
-    return true
-  })
+  const shouldHide = createMemo(
+    () =>
+      !ctx.showDetails() &&
+      props.part.state.status === "completed" &&
+      !(props.part.tool === "bash" && shellCommandSucceeded(props.part.state) === false),
+  )
 
   const toolprops = {
     get metadata() {
@@ -2269,11 +2269,20 @@ function BlockTool(props: {
   )
 }
 
+export function shellCommandSucceeded(state: ToolPart["state"]) {
+  if (state.status === "error") return false
+  if (state.status !== "completed") return
+
+  const exit = state.metadata?.exit
+  if (exit === 0) return true
+  if (exit === null || numberValue(exit) !== undefined) return false
+}
+
 function Shell(props: ToolProps) {
   const { theme } = useTheme()
   const pathFormatter = usePathFormatter()
   const ctx = use()
-  const isRunning = createMemo(() => props.part.state.status === "running")
+  const succeeded = createMemo(() => shellCommandSucceeded(props.part.state))
   const output = createMemo(() => stripAnsi(stringValue(props.metadata.output)?.trim() ?? ""))
   const [expanded, setExpanded] = createSignal(false)
   const maxLines = 10
@@ -2307,9 +2316,22 @@ function Shell(props: ToolProps) {
           onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
         >
           <box gap={1}>
-            <Show when={isRunning()} fallback={<text fg={theme.text}>$ {stringValue(props.input.command)}</text>}>
-              <Spinner color={theme.text}>{stringValue(props.input.command)}</Spinner>
-            </Show>
+            <Switch>
+              <Match when={props.part.state.status === "running"}>
+                <Spinner color={theme.text}>{stringValue(props.input.command)}</Spinner>
+              </Match>
+              <Match when={succeeded() !== undefined}>
+                <box flexDirection="row" gap={1}>
+                  <text fg={succeeded() ? theme.success : theme.error} attributes={TextAttributes.BOLD}>
+                    •
+                  </text>
+                  <text fg={theme.text}>$ {stringValue(props.input.command)}</text>
+                </box>
+              </Match>
+              <Match when={true}>
+                <text fg={theme.text}>$ {stringValue(props.input.command)}</text>
+              </Match>
+            </Switch>
             <Show when={output()}>
               <text fg={theme.text}>{limited()}</text>
             </Show>
@@ -2323,7 +2345,8 @@ function Shell(props: ToolProps) {
       </Match>
       <Match when={true}>
         <InlineTool
-          icon="$"
+          icon={succeeded() === undefined ? "$" : "•"}
+          iconColor={succeeded() === undefined ? undefined : succeeded() ? theme.success : theme.error}
           pending={t(Locale.language(), "tui.writing_command")}
           complete={stringValue(props.input.command)}
           part={props.part}
