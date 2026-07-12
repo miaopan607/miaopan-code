@@ -7,6 +7,7 @@
 // State transitions:
 //   questionSelect  → picks an option (single: submits, multi: toggles/advances)
 //   questionSave    → saves custom text input
+//   questionSaveNoteAndCommit → saves optional notes and commits the current question
 //   questionMove    → arrow key navigation through options
 //   questionSetTab  → tab navigation between questions
 //   questionSubmit  → builds the final QuestionReply with all answers
@@ -17,13 +18,17 @@ import type { QuestionInfo, QuestionRequest } from "@miaopan/sdk/v2"
 import type { QuestionReject, QuestionReply } from "./types"
 import { UI } from "../../ui"
 
+export const QUESTION_NOTE_PREFIX = "user_note: "
+
 export type QuestionBodyState = {
   requestID: string
   tab: number
   answers: string[][]
   custom: string[]
+  notes: string[]
   selected: number
   editing: boolean
+  noteEditing: boolean
   submitting: boolean
 }
 
@@ -38,8 +43,10 @@ export function createQuestionBodyState(requestID: string): QuestionBodyState {
     tab: 0,
     answers: [],
     custom: [],
+    notes: [],
     selected: 0,
     editing: false,
+    noteEditing: false,
     submitting: false,
   }
 }
@@ -76,6 +83,10 @@ export function questionInput(state: QuestionBodyState): string {
   return state.custom[state.tab] ?? ""
 }
 
+export function questionNote(state: QuestionBodyState): string {
+  return state.notes[state.tab] ?? ""
+}
+
 export function questionPicked(state: QuestionBodyState): boolean {
   const value = questionInput(state)
   if (!value) {
@@ -104,7 +115,7 @@ export function questionTotal(request: QuestionRequest, state: QuestionBodyState
 }
 
 export function questionAnswers(state: QuestionBodyState, count: number): string[][] {
-  return Array.from({ length: count }, (_, idx) => state.answers[idx] ?? [])
+  return Array.from({ length: count }, (_, idx) => answerWithNote(state.answers[idx] ?? [], state.notes[idx] ?? ""))
 }
 
 export function questionSetTab(state: QuestionBodyState, tab: number): QuestionBodyState {
@@ -113,6 +124,7 @@ export function questionSetTab(state: QuestionBodyState, tab: number): QuestionB
     tab,
     selected: 0,
     editing: false,
+    noteEditing: false,
   }
 }
 
@@ -127,6 +139,13 @@ export function questionSetEditing(state: QuestionBodyState, editing: boolean): 
   return {
     ...state,
     editing,
+  }
+}
+
+export function questionSetNoteEditing(state: QuestionBodyState, noteEditing: boolean): QuestionBodyState {
+  return {
+    ...state,
+    noteEditing,
   }
 }
 
@@ -153,6 +172,55 @@ export function questionStoreCustom(state: QuestionBodyState, tab: number, text:
     ...state,
     custom,
   }
+}
+
+export function questionStoreNote(state: QuestionBodyState, tab: number, text: string): QuestionBodyState {
+  const notes = [...state.notes]
+  notes[tab] = text
+  return {
+    ...state,
+    notes,
+  }
+}
+
+function answerWithNote(answer: ReadonlyArray<string>, note: string) {
+  const value = note.trim()
+  if (!value) return [...answer]
+  return [...answer, `${QUESTION_NOTE_PREFIX}${value}`]
+}
+
+function questionAnswersForTab(state: QuestionBodyState, tab: number) {
+  return answerWithNote(state.answers[tab] ?? [], state.notes[tab] ?? "")
+}
+
+function questionCommit(state: QuestionBodyState, request: QuestionRequest): QuestionStep {
+  if (questionSingle(request)) {
+    return {
+      state,
+      reply: {
+        requestID: request.id,
+        answers: [questionAnswersForTab(state, state.tab)],
+      },
+    }
+  }
+
+  return {
+    state: questionSetTab(state, state.tab + 1),
+  }
+}
+
+export function questionSaveNoteAndCommit(
+  state: QuestionBodyState,
+  request: QuestionRequest,
+  text: string,
+): QuestionStep {
+  const next = questionSaveNote(state, text)
+  const info = questionInfo(request, next)
+  if (questionSingle(request) && (next.answers[next.tab]?.length ?? 0) === 0 && (info?.options.length ?? 0) > 0) {
+    return questionSelect(next, request)
+  }
+
+  return questionCommit(next, request)
 }
 
 function questionPick(
@@ -183,7 +251,7 @@ function questionPick(
       state: next,
       reply: {
         requestID: request.id,
-        answers: [[answer]],
+        answers: [questionAnswersForTab(next, state.tab)],
       },
     }
   }
@@ -225,6 +293,10 @@ export function questionSelect(state: QuestionBodyState, request: QuestionReques
 
   if (questionOther(request, state)) {
     if (!info.multiple) {
+      if (questionInput(state) && questionPicked(state)) {
+        return questionCommit(state, request)
+      }
+
       return {
         state: questionSetEditing(state, true),
       }
@@ -303,7 +375,30 @@ export function questionSave(state: QuestionBodyState, request: QuestionRequest)
     }
   }
 
-  return questionPick(state, request, value, true)
+  const next = questionStoreCustom(storeAnswers(state, state.tab, [value]), state.tab, value)
+  return {
+    state: questionSetEditing(next, false),
+  }
+}
+
+export function questionSaveNote(state: QuestionBodyState, text: string): QuestionBodyState {
+  return questionSetNoteEditing(questionStoreNote(state, state.tab, text.trim()), false)
+}
+
+export function splitQuestionAnswer(answer: ReadonlyArray<string>) {
+  const answers: string[] = []
+  const notes: string[] = []
+
+  for (const value of answer) {
+    if (value.startsWith(QUESTION_NOTE_PREFIX)) {
+      const note = value.slice(QUESTION_NOTE_PREFIX.length).trim()
+      if (note) notes.push(note)
+      continue
+    }
+    answers.push(value)
+  }
+
+  return { answers, notes }
 }
 
 export function questionSubmit(request: QuestionRequest, state: QuestionBodyState): QuestionReply {

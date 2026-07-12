@@ -148,6 +148,7 @@ export type ToolQuestionSnapshot = {
   items: Array<{
     question: string
     answer: string
+    note?: string
   }>
   tail: string
 }

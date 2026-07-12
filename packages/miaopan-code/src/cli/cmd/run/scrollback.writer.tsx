@@ -6,6 +6,7 @@ import { entryColor, entryLook, entrySyntax } from "./scrollback.shared"
 import { toolFiletype, toolStructuredFinal } from "./tool"
 import { RUN_THEME_FALLBACK, transparent, type RunTheme } from "./theme"
 import type { EntryLayout, RunEntryBody, ScrollbackOptions, StreamCommit } from "./types"
+import { UI } from "../../ui"
 
 function todoText(item: { status: string; content: string }): string {
   if (item.status === "completed") {
@@ -275,6 +276,11 @@ export function RunEntryContent(props: {
                 <text width="100%" wrapMode="word" fg={theme().block.text}>
                   {item.answer}
                 </text>
+                {item.note ? (
+                  <text width="100%" wrapMode="word" fg={theme().block.muted}>
+                    {UI.t("question.note_label")}: {item.note}
+                  </text>
+                ) : null}
               </box>
             ))}
             {question_snapshot()!.tail ? (

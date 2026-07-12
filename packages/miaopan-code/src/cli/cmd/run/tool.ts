@@ -35,6 +35,7 @@ import type { WriteTool } from "@/tool/write"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import * as Locale from "@/util/locale"
 import { UI } from "../../ui"
+import { splitQuestionAnswer } from "./question.shared"
 import type { RunEntryBody, StreamCommit, ToolSnapshot } from "./types"
 
 export type ToolView = {
@@ -600,9 +601,11 @@ function snapQuestion(p: ToolProps<typeof QuestionTool>): ToolSnapshot {
   const answers = list<unknown[]>(p.frame.meta.answers)
   const items = list<{ question?: string }>(p.frame.input.questions).map((item, i) => {
     const answer = list<string>(answers[i]).filter((entry) => typeof entry === "string")
+    const value = splitQuestionAnswer(answer)
     return {
       question: item.question || UI.t("cli.run.question_label", { index: i + 1 }),
-      answer: answer.length > 0 ? answer.join(", ") : UI.t("cli.run.no_answer"),
+      answer: value.answers.length > 0 ? value.answers.join(", ") : UI.t("cli.run.no_answer"),
+      ...(value.notes.length > 0 ? { note: value.notes.join("\n") } : {}),
     }
   })
 

@@ -70,6 +70,7 @@ import { useEpilogue } from "../../context/epilogue"
 import { normalizePath } from "../../util/path"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
+import { splitQuestionAnswer } from "./question.shared"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import * as Model from "../../util/model"
 import { formatTranscript } from "../../util/transcript"
@@ -3119,23 +3120,28 @@ function Question(props: ToolProps) {
   const answers = createMemo(() => parseQuestionAnswers(props.metadata.answers))
   const count = createMemo(() => questions().length)
 
-  function format(answer?: ReadonlyArray<string>) {
-    if (!answer?.length) return t(Locale.language(), "tui.no_answer")
-    return answer.join(", ")
-  }
-
   return (
     <Switch>
       <Match when={answers()}>
         <BlockTool title={`# ${t(Locale.language(), "tool.title.questions", { count: count() })}`} part={props.part}>
           <box gap={1}>
             <For each={questions()}>
-              {(q, i) => (
-                <box flexDirection="column">
-                  <text fg={theme.textMuted}>{q.question}</text>
-                  <text fg={theme.text}>{format(answers()?.[i()])}</text>
-                </box>
-              )}
+              {(q, i) => {
+                const value = createMemo(() => splitQuestionAnswer(answers()?.[i()] ?? []))
+                return (
+                  <box flexDirection="column">
+                    <text fg={theme.textMuted}>{q.question}</text>
+                    <text fg={theme.text}>
+                      {value().answers.length > 0 ? value().answers.join(", ") : t(Locale.language(), "tui.no_answer")}
+                    </text>
+                    <Show when={value().notes.length > 0}>
+                      <text fg={theme.textMuted}>
+                        {t(Locale.language(), "question.note_label")}: {value().notes.join("\n")}
+                      </text>
+                    </Show>
+                  </box>
+                )
+              }}
             </For>
           </box>
         </BlockTool>
