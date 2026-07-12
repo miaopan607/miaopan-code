@@ -10,6 +10,7 @@ import {
 } from "../keymap"
 import { useTuiConfig } from "../config"
 import { useI18n } from "../context/i18n"
+import { localizeKnownText } from "@miaopan-code/core/i18n"
 
 type PaletteCommandEntry = ReturnType<OpenTuiKeymap["getCommandEntries"]>[number]
 
@@ -48,18 +49,27 @@ export function CommandPaletteDialog() {
     }))
   })
   const options = createMemo(() =>
-    entries().map((entry) => ({
-      title: typeof entry.command.title === "string" ? entry.command.title : entry.command.name,
-      description: typeof entry.command.desc === "string" ? entry.command.desc : undefined,
-      category: typeof entry.command.category === "string" ? entry.command.category : undefined,
-      footer: formatKeyBindings(entry.bindings, config),
-      value: entry.command.name,
-      suggested: isSuggestedPaletteCommand(entry),
-      onSelect: (dialog: DialogContext) => {
-        dialog.clear()
-        keymap.dispatchCommand(entry.command.name)
-      },
-    })),
+    entries().map((entry) => {
+      const title = typeof entry.command.title === "string" ? entry.command.title : entry.command.name
+      const description = typeof entry.command.desc === "string" ? entry.command.desc : undefined
+      const category = typeof entry.command.category === "string" ? entry.command.category : undefined
+      return {
+        title,
+        description,
+        category,
+        keywords: [description, title, category]
+          .filter((value) => value !== undefined)
+          .map((value) => localizeKnownText("en", value))
+          .join(" "),
+        footer: formatKeyBindings(entry.bindings, config),
+        value: entry.command.name,
+        suggested: isSuggestedPaletteCommand(entry),
+        onSelect: (dialog: DialogContext) => {
+          dialog.clear()
+          keymap.dispatchCommand(entry.command.name)
+        },
+      }
+    }),
   )
 
   let ref: DialogSelectRef<string>
