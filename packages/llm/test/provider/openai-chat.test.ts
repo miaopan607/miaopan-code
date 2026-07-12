@@ -526,6 +526,41 @@ describe("OpenAI Chat route", () => {
     }),
   )
 
+  it.live("stops at the SSE terminator before the response body closes", () =>
+    Effect.gen(function* () {
+      const body = sseEvents(
+        deltaChunk({ role: "assistant", content: "Hello" }),
+        deltaChunk({}, "stop"),
+        usageChunk({ prompt_tokens: 5, completion_tokens: 1, total_tokens: 6 }),
+      )
+      const encoder = new TextEncoder()
+      const response = dynamicResponse((input) =>
+        Effect.succeed(
+          input.respond(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(encoder.encode(body))
+              },
+            }),
+            { headers: { "content-type": "text/event-stream" } },
+          ),
+        ),
+      )
+
+      const result = yield* LLMClient.generate(request).pipe(
+        Effect.provide(response),
+        Effect.timeoutOrElse({
+          duration: "1 second",
+          orElse: () => Effect.die("SSE terminator did not stop the response stream"),
+        }),
+      )
+
+      expect(result.text).toBe("Hello")
+      expect(result.usage).toMatchObject({ inputTokens: 5, outputTokens: 1, totalTokens: 6 })
+      expect(result.events.filter((event) => event.type === "finish")).toHaveLength(1)
+    }),
+  )
+
   it.effect("parses OpenAI-compatible reasoning content deltas", () =>
     Effect.gen(function* () {
       const body = sseEvents(

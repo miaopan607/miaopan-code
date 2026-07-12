@@ -7,7 +7,7 @@ import { serviceUse } from "@miaopan-code/core/effect/service-use"
 import { Context, Effect, Layer } from "effect"
 import * as Stream from "effect/Stream"
 import { streamText, wrapLanguageModel, type ModelMessage, type Tool } from "ai"
-import type { LLMEvent } from "@miaopan-code/llm"
+import { LLMEvent } from "@miaopan-code/llm"
 import { LLMClient } from "@miaopan-code/llm/route"
 import type { LLMClientService } from "@miaopan-code/llm/route"
 import { t } from "@miaopan-code/core/i18n"
@@ -390,6 +390,7 @@ const live: Layer.Layer<
             ).pipe(
               Stream.mapEffect((event) => LLMAISDK.toLLMEvents(state, event)),
               Stream.flatMap((events) => Stream.fromIterable(events)),
+              Stream.takeUntil(LLMEvent.is.finish),
             )
           }),
         ),

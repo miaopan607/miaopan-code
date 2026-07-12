@@ -11,7 +11,7 @@ import type { Protocol } from "./protocol"
 import { applyCachePolicy } from "../cache-policy"
 import { t, type Language } from "../i18n"
 import * as ProviderShared from "../protocols/shared"
-import type { LLMError, LLMEvent, PreparedRequestOf, ProtocolID, ProviderOptions } from "../schema"
+import { LLMEvent, type LLMError, type PreparedRequestOf, type ProtocolID, type ProviderOptions } from "../schema"
 import {
   GenerationOptions,
   HttpOptions,
@@ -378,7 +378,9 @@ const streamRequestWith = (runtime: TransportRuntime) => (request: LLMRequest) =
   Stream.unwrap(
     Effect.gen(function* () {
       const compiled = yield* compile(request)
-      return compiled.route.streamPrepared(compiled.prepared, compiled.request, runtime)
+      return compiled.route
+        .streamPrepared(compiled.prepared, compiled.request, runtime)
+        .pipe(Stream.takeUntil(LLMEvent.is.finish))
     }),
   )
 
