@@ -149,6 +149,29 @@ describe("plugin.codex", () => {
     await enabled.dispose?.()
   })
 
+  test("keeps later GPT major versions in the OAuth model catalog", async () => {
+    const hooks = await CodexAuthPlugin({} as never)
+    const model = (id: string) => ({
+      id,
+      api: { id },
+      cost: { input: 1, output: 1, cache: { read: 1, write: 1 } },
+      limit: { context: 1, output: 1 },
+    })
+    const models = await hooks.provider!.models!(
+      {
+        models: {
+          "gpt-5.4": model("gpt-5.4"),
+          "gpt-5.10": model("gpt-5.10"),
+          "gpt-6.0": model("gpt-6.0"),
+          "gpt-4.1": model("gpt-4.1"),
+        },
+      } as never,
+      { auth: { type: "oauth" } } as never,
+    )
+
+    expect(Object.keys(models)).toEqual(["gpt-5.4", "gpt-5.10", "gpt-6.0"])
+  })
+
   test("deduplicates concurrent Codex token refreshes", async () => {
     let auth = {
       type: "oauth" as const,

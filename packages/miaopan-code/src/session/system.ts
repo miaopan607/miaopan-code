@@ -17,12 +17,14 @@ import { PermissionV1 } from "@miaopan-code/core/v1/permission"
 import { Config } from "@/config/config"
 import { t } from "@miaopan-code/core/i18n"
 import { PromptI18n, type PromptKey } from "@/i18n/prompt"
+import { isGpt56Plus } from "@/provider/model-id"
 
 export function provider(model: Provider.Model, language: Language = "zh-CN") {
   const text = (key: PromptKey) => [PromptI18n.text(language, key)]
   if (model.api.id.includes("muse-spark")) return text("session.meta")
   if (model.api.id.includes("gpt-4") || model.api.id.includes("o1") || model.api.id.includes("o3"))
     return text("session.beast")
+  if (isGpt56Plus(model)) return text("session.gpt_5_6_plus")
   if (model.api.id.includes("gpt")) {
     if (model.api.id.includes("codex")) {
       return text("session.codex")
@@ -34,6 +36,10 @@ export function provider(model: Provider.Model, language: Language = "zh-CN") {
   if (model.api.id.toLowerCase().includes("trinity")) return text("session.trinity")
   if (model.api.id.toLowerCase().includes("kimi")) return text("session.kimi")
   return text("session.default")
+}
+
+export function ultra(language: Language = "zh-CN") {
+  return `<multi_agent_mode>\n${PromptI18n.text(language, "session.ultra_mode")}\n</multi_agent_mode>`
 }
 
 export interface Interface {

@@ -362,6 +362,39 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
     expect(result.include).toEqual(["reasoning.encrypted_content"])
   })
 
+  test("GPT-5.6 Sol defaults to low without a reasoning summary", () => {
+    const model = createGpt5Model("gpt-5.6-sol")
+    const result = ProviderTransform.options({ model, sessionID, providerOptions: {} })
+    expect(result.reasoningEffort).toBe("low")
+    expect(result.reasoningSummary).toBeUndefined()
+    expect(result.include).toEqual(["reasoning.encrypted_content"])
+    expect(result.textVerbosity).toBe("low")
+  })
+
+  test("other GPT-5.6+ models default to medium without a reasoning summary", () => {
+    const model = createGpt5Model("gpt-5.10-terra")
+    const result = ProviderTransform.options({ model, sessionID, providerOptions: {} })
+    expect(result.reasoningEffort).toBe("medium")
+    expect(result.reasoningSummary).toBeUndefined()
+  })
+
+  test("configured aliases preserve Codex and Chat exclusions", () => {
+    const codex = {
+      ...createGpt5Model("company-coder"),
+      id: "openai/gpt-5.10-codex-next",
+    }
+    const chat = {
+      ...createGpt5Model("company-chat"),
+      id: "openai/gpt-5.6-chat",
+    }
+    const codexOptions = ProviderTransform.options({ model: codex, sessionID, providerOptions: {} })
+    const chatOptions = ProviderTransform.options({ model: chat, sessionID, providerOptions: {} })
+    expect(codexOptions.reasoningEffort).toBe("medium")
+    expect(codexOptions.textVerbosity).toBeUndefined()
+    expect(chatOptions.reasoningEffort).toBeUndefined()
+    expect(chatOptions.textVerbosity).toBeUndefined()
+  })
+
   test("Bedrock Mantle gpt-5.5 uses OpenAI Responses defaults", () => {
     const model = {
       ...createGpt5Model("openai.gpt-5.5"),
@@ -457,6 +490,46 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
     expect(result.params.options.reasoningSummary).toBeUndefined()
     expect(result.params.options.include).toBeUndefined()
     expect(result.tools.lookup.strict).toBe(false)
+  })
+
+  test("Ultra injects proactive delegation and strips internal variant metadata", async () => {
+    const model = createGpt5Model("gpt-5.6-sol")
+    model.variants = ProviderTransform.variants(model)
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: "msg_user-ultra",
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID: "openai", modelID: "gpt-5.6-sol", variant: "ultra" },
+        } as any,
+        sessionID,
+        model,
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        } as any,
+        system: [],
+        messages: [{ role: "user", content: "Hello" }],
+        tools: {},
+        provider: { id: "openai", options: {} } as any,
+        auth: undefined,
+        plugin: {
+          trigger: (_name: string, _input: unknown, output: unknown) => Effect.succeed(output),
+          list: () => Effect.succeed([]),
+          init: () => Effect.void,
+        } as any,
+        flags: { outputTokenMax: 32_000, client: "test" } as any,
+        isWorkflow: false,
+      }),
+    )
+    expect(result.params.options.reasoningEffort).toBe("max")
+    expect(result.params.options.$miaopanCode).toBeUndefined()
+    expect(result.system.join("\n")).toContain("主动多代理委派模式已启用")
   })
 
   test("gpt-5.1 should have textVerbosity set to low", () => {
@@ -3035,6 +3108,51 @@ describe("ProviderTransform.variants", () => {
     })
     const result = ProviderTransform.variants(model)
     expect(result).toEqual({})
+  })
+
+  test("GPT-5.6+ exposes max and product Ultra for OpenAI providers", () => {
+    const result = ProviderTransform.variants(
+      createMockModel({ id: "gpt-5.6-sol", api: { id: "gpt-5.6-sol", npm: "@ai-sdk/openai" } }),
+    )
+    expect(Object.keys(result)).toEqual(["low", "medium", "high", "xhigh", "max", "ultra"])
+    expect(result.max).toEqual({
+      reasoningEffort: "max",
+      include: ["reasoning.encrypted_content"],
+    })
+    expect(result.ultra).toEqual({
+      reasoningEffort: "max",
+      include: ["reasoning.encrypted_content"],
+      $miaopanCode: { mode: "ultra" },
+    })
+  })
+
+  test("GPT-5.10 aliases use the API ID and provider-specific effort shape", () => {
+    const result = ProviderTransform.variants(
+      createMockModel({
+        id: "company-coder",
+        api: { id: "openai/gpt-5.10-terra", npm: "@openrouter/ai-sdk-provider" },
+      }),
+    )
+    expect(result.max).toEqual({ reasoning: { effort: "max" } })
+    expect(result.ultra).toEqual({ reasoning: { effort: "max" }, $miaopanCode: { mode: "ultra" } })
+  })
+
+  test("GPT-5.6+ uses a generic max mapping for unknown provider packages", () => {
+    const result = ProviderTransform.variants(
+      createMockModel({ id: "gpt-5.6-luna", api: { id: "gpt-5.6-luna", npm: "custom-provider" } }),
+    )
+    expect(result.ultra).toEqual({ reasoningEffort: "max", $miaopanCode: { mode: "ultra" } })
+  })
+
+  test("GPT-5.6+ exposes Ultra even when a custom catalog omits the reasoning capability", () => {
+    const result = ProviderTransform.variants(
+      createMockModel({
+        id: "gpt-5.6-terra",
+        api: { id: "gpt-5.6-terra", npm: "@ai-sdk/openai-compatible" },
+        capabilities: { reasoning: false },
+      }),
+    )
+    expect(result.ultra).toEqual({ reasoningEffort: "max", $miaopanCode: { mode: "ultra" } })
   })
 
   test("deepseek returns empty object", () => {

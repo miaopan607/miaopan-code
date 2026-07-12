@@ -1530,7 +1530,7 @@ const layer = Layer.effect(
               release_date: model.release_date ?? existingModel?.release_date ?? "",
               variants: {},
             }
-            const merged = mergeDeep(ProviderTransform.variants(parsedModel), model.variants ?? {})
+            const merged = model.variants ?? ProviderTransform.variants(parsedModel)
             parsedModel.variants = mapValues(
               pickBy(merged, (v) => !v.disabled),
               (v) => omit(v, ["disabled"]),
@@ -1658,17 +1658,14 @@ const layer = Layer.effect(
             )
               delete provider.models[modelID]
 
-            if (!model.variants || Object.keys(model.variants).length === 0) {
-              model.variants = mapValues(ProviderTransform.variants(model), (v) => v)
-            }
-
             const configVariants = configProvider?.models?.[modelID]?.variants
-            if (configVariants && model.variants) {
-              const merged = mergeDeep(model.variants, configVariants)
+            if (configVariants) {
               model.variants = mapValues(
-                pickBy(merged, (v) => !v.disabled),
+                pickBy(configVariants, (v) => !v.disabled),
                 (v) => omit(v, ["disabled"]),
               )
+            } else if (!model.variants || Object.keys(model.variants).length === 0) {
+              model.variants = ProviderTransform.variants(model)
             }
           }
 
