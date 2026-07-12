@@ -29,22 +29,34 @@ const makeQuestion = (language?: Language) =>
     question: Schema.String.check(Schema.isMinLength(1)).annotate({
       description: t(language, "request_user_input.question"),
     }),
-    options: Schema.Array(makeOption(language)).check(Schema.isLengthBetween(2, 3)).annotate({
-      description: t(language, "request_user_input.options"),
-    }),
+    options: Schema.Array(makeOption(language))
+      .check(Schema.isLengthBetween(2, 3))
+      .annotate({
+        description: t(language, "request_user_input.options"),
+      }),
   })
+
+const makeQuestions = (language?: Language) =>
+  Schema.Array(makeQuestion(language))
+    .check(Schema.isLengthBetween(1, 3))
+    .annotate({
+      description: t(language, "request_user_input.questions"),
+    })
 
 export const makeParameters = (language?: Language) =>
   Schema.Struct({
-    questions: Schema.Array(makeQuestion(language)).check(Schema.isLengthBetween(1, 3)).annotate({
-      description: t(language, "request_user_input.questions"),
-    }),
+    questions: makeQuestions(language),
     autoResolutionMs: Schema.optional(
       Schema.Int.check(
         Schema.isGreaterThanOrEqualTo(MIN_AUTO_RESOLUTION_MS),
         Schema.isLessThanOrEqualTo(MAX_AUTO_RESOLUTION_MS),
       ).annotate({ description: t(language, "request_user_input.auto_resolution") }),
     ),
+  })
+
+export const makeParametersWithoutAutoResolution = (language?: Language) =>
+  Schema.Struct({
+    questions: makeQuestions(language),
   })
 
 export const Parameters = makeParameters()

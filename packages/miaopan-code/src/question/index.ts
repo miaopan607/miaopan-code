@@ -98,7 +98,9 @@ const layer = Layer.effect(
       tool?: Tool
     }) {
       const pending = (yield* InstanceState.get(state)).pending
-      const language = (yield* config.get()).language === "en" ? "en" : "zh-CN"
+      const cfg = yield* config.get()
+      const language = cfg.language === "en" ? "en" : "zh-CN"
+      const autoResolutionMs = cfg.question?.auto_resolution === false ? undefined : input.autoResolutionMs
       const id = QuestionID.ascending()
       yield* Effect.logInfo(t(language, "log.question_asking"), { id, questions: input.questions.length })
 
@@ -113,11 +115,11 @@ const layer = Layer.effect(
       yield* events.publish(Event.Asked, info)
 
       return yield* Effect.ensuring(
-        input.autoResolutionMs === undefined
+        autoResolutionMs === undefined
           ? Deferred.await(deferred)
           : Effect.raceFirst(
               Deferred.await(deferred),
-              Effect.sleep(input.autoResolutionMs).pipe(
+              Effect.sleep(autoResolutionMs).pipe(
                 Effect.andThen(
                   Effect.gen(function* () {
                     const answers = input.questions.map(() => [] as string[])

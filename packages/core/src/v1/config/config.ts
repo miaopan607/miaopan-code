@@ -127,6 +127,13 @@ export const Info = Schema.Struct({
   instructions: Schema.optional(Schema.mutable(Schema.Array(Schema.String))).annotate({
     description: zh("config.v1.instructions"),
   }),
+  question: Schema.optional(
+    Schema.Struct({
+      auto_resolution: Schema.optional(Schema.Boolean).annotate({
+        description: zh("config.v1.question_auto_resolution"),
+      }),
+    }),
+  ),
   layout: Schema.optional(ConfigLayoutV1.Layout).annotate({ description: zh("config.v1.layout") }),
   permission: Schema.optional(ConfigPermissionV1.Info),
   tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),

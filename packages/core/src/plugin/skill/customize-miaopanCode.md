@@ -138,6 +138,8 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
   "formatter": false,
   "lsp": false,
 
+  "question": { "auto_resolution": false },
+
   "experimental": {
     "primary_tools": ["edit"],
     "mcp_timeout": 30000
@@ -159,6 +161,7 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
 - `plugin` 是字符串或 `[name, options]` 元组组成的数组，而不是对象。
 - `mcp[name].command` 是字符串数组，绝不是单个字符串。`type` 是必填项。
 - `permission` 可以是字符串操作，也可以是以工具名称为 key 的对象。
+- `question.auto_resolution` 默认为 `true`。设为 `false` 后，提问将一直等待用户回答，模型也不会看到自动处理参数。
 
 ## 技能
 

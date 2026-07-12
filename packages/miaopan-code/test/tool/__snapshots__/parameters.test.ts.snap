@@ -470,7 +470,7 @@ exports[`tool parameters JSON Schema (wire shape) request_user_input 1`] = `
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "autoResolutionMs": {
-      "description": "可选自动处理等待时间，范围为 60000 至 240000 毫秒",
+      "description": "仅用于有帮助但不阻塞的问题；必须获得明确回答时省略。范围为 60000 至 240000 毫秒",
       "maximum": 240000,
       "minimum": 60000,
       "type": "integer",

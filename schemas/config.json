@@ -1176,6 +1176,16 @@
           },
           "description": "要包含的附加指令文件或模式"
         },
+        "question": {
+          "type": "object",
+          "properties": {
+            "auto_resolution": {
+              "type": "boolean",
+              "description": "Allow question tools to submit empty answers automatically after the requested wait (default: true)"
+            }
+          },
+          "additionalProperties": false
+        },
         "layout": {
           "$ref": "#/$defs/LayoutConfig",
           "description": "已弃用：始终使用 stretch 布局"

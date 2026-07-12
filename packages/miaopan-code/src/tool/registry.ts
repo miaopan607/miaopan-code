@@ -4,7 +4,7 @@ import { Ripgrep } from "@miaopan-code/core/ripgrep"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 import { Session } from "@/session/session"
 import { QuestionTool } from "./question"
-import { RequestUserInputTool } from "./request-user-input"
+import { makeParametersWithoutAutoResolution, RequestUserInputTool } from "./request-user-input"
 import { ShellTool } from "./shell"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
@@ -295,6 +295,9 @@ const layer = Layer.effect(
     })
 
     const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (input) {
+      const cfg = input.agent.name === "plan" ? yield* config.get() : undefined
+      const requestUserInputParameters =
+        cfg?.question?.auto_resolution === false ? makeParametersWithoutAutoResolution(cfg.language) : undefined
       const filtered = (yield* all()).filter((tool) => {
         if (tool.id === RequestUserInputTool.id) return input.agent.name === "plan"
         if (tool.id === QuestionTool.id) return input.agent.name !== "plan"
@@ -318,16 +321,19 @@ const layer = Layer.effect(
       return yield* Effect.forEach(
         visible,
         Effect.fnUntraced(function* (tool: Tool.Def) {
+          const parameters =
+            tool.id === RequestUserInputTool.id && requestUserInputParameters
+              ? requestUserInputParameters
+              : tool.parameters
+          const jsonSchema = parameters === tool.parameters ? tool.jsonSchema : undefined
           const output = {
             description: tool.description,
-            parameters: tool.parameters,
-            jsonSchema: tool.jsonSchema,
+            parameters,
+            jsonSchema,
           }
           yield* plugin.trigger("tool.definition", { toolID: tool.id }, output)
-          const jsonSchema =
-            output.parameters === tool.parameters || output.jsonSchema !== tool.jsonSchema
-              ? output.jsonSchema
-              : undefined
+          const outputJsonSchema =
+            output.parameters === parameters || output.jsonSchema !== jsonSchema ? output.jsonSchema : undefined
           return {
             id: tool.id,
             description: [
@@ -338,7 +344,7 @@ const layer = Layer.effect(
               .filter(Boolean)
               .join("\n"),
             parameters: output.parameters,
-            jsonSchema,
+            jsonSchema: outputJsonSchema,
             execute: tool.execute,
             formatValidationError: tool.formatValidationError,
           }

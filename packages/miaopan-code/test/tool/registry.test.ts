@@ -94,6 +94,17 @@ const withEmptyCodeMode = testEffect(
   ]),
 )
 const withBrokenPlugin = testEffect(LayerNode.compile(root, [...replacements, [Plugin.node, brokenPluginLayer]]))
+const withoutQuestionAutoResolution = testEffect(
+  LayerNode.compile(root, [
+    [
+      Config.node,
+      TestConfig.layer({
+        get: () => Effect.succeed({ question: { auto_resolution: false } }),
+      }),
+    ],
+    [RuntimeFlags.node, RuntimeFlags.layer()],
+  ]),
+)
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -116,6 +127,29 @@ describe("tool.registry", () => {
 
       expect(ids).toContain("question")
       expect(ids).not.toContain("request_user_input")
+    }),
+  )
+
+  withoutQuestionAutoResolution.instance("hides auto resolution from the plan tool schema when disabled", () =>
+    Effect.gen(function* () {
+      const registry = yield* ToolRegistry.Service
+      const agents = yield* Agent.Service
+      const plan = yield* agents.get("plan")
+      if (!plan) throw new Error("plan agent not found")
+
+      const requestUserInput = (yield* registry.tools({
+        providerID: ProviderV2.ID.opencode,
+        modelID: ModelV2.ID.make("test"),
+        agent: plan,
+      })).find((tool) => tool.id === "request_user_input")
+      if (!requestUserInput) throw new Error("request_user_input tool not found")
+
+      const schema = ToolJsonSchema.fromTool(requestUserInput)
+      if (typeof schema === "boolean") throw new Error("request_user_input schema must be an object")
+      const properties = schema.properties as Record<string, unknown> | undefined
+      expect(properties?.questions).toBeDefined()
+      expect(properties?.autoResolutionMs).toBeUndefined()
+      expect(requestUserInput.description).not.toContain("autoResolutionMs")
     }),
   )
 
