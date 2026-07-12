@@ -33625,6 +33625,11 @@
       "enum": ["auto", "stacked"],
       "description": "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"
     },
+    "tool_display": {
+      "type": "string",
+      "enum": ["compact", "detailed"],
+      "description": "Tool call display style"
+    },
     "mouse": {
       "type": "boolean",
       "description": "Enable or disable mouse capture (default: true)"

@@ -32,6 +32,10 @@ export const ScrollAcceleration = Schema.Struct({
 export const DiffStyle = Schema.Literals(["auto", "stacked"]).annotate({
   description: t(Locale.language(), "tui.config.diff_style"),
 })
+export const ToolDisplay = Schema.Literals(["compact", "detailed"]).annotate({
+  description: t(Locale.language(), "tui.config.tool_display"),
+})
+export type ToolDisplay = Schema.Schema.Type<typeof ToolDisplay>
 
 export const AttentionSounds = Schema.Record(AttentionSoundName, Schema.optionalKey(Schema.String))
 export type AttentionSoundPaths = Schema.Schema.Type<typeof AttentionSounds>
@@ -64,11 +68,12 @@ export const Info = Schema.Struct({
   scroll_speed: Schema.optional(ScrollSpeed).annotate({ description: t(Locale.language(), "tui.config.scroll_speed") }),
   scroll_acceleration: Schema.optional(ScrollAcceleration),
   diff_style: Schema.optional(DiffStyle),
+  tool_display: Schema.optional(ToolDisplay),
   mouse: Schema.optional(Schema.Boolean).annotate({ description: t(Locale.language(), "tui.config.mouse") }),
 })
 export type Info = Schema.Schema.Type<typeof Info>
 
-export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "mouse"> & {
+export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "mouse" | "tool_display"> & {
   attention: {
     enabled: boolean
     notifications: boolean
@@ -80,6 +85,7 @@ export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | 
   keybinds: TuiKeybind.BindingLookupView
   leader_timeout: number
   mouse: boolean
+  tool_display: ToolDisplay
 }
 
 export const ResolveOptions = Schema.Struct({
@@ -115,6 +121,7 @@ export function resolve(input: Info, options: ResolveOptions): Resolved {
     }),
     leader_timeout: input.leader_timeout ?? LeaderTimeoutDefault,
     mouse: input.mouse ?? true,
+    tool_display: input.tool_display ?? "compact",
   }
 }
 
