@@ -51,6 +51,19 @@ export function recentModels(
     .map((item) => ({ providerID: item.providerID, modelID: item.modelID }))
 }
 
+type ModelRef = { providerID: string; modelID: string }
+
+export function getFirstValidModel(
+  isModelValid: (model: ModelRef) => boolean,
+  ...modelFns: (() => ModelRef | undefined)[]
+) {
+  for (const modelFn of modelFns) {
+    const model = modelFn()
+    if (!model) continue
+    if (isModelValid(model)) return model
+  }
+}
+
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
   name: "Local",
   init: () => {
@@ -64,17 +77,9 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const event = useEvent()
     const permission = usePermission()
 
-    function isModelValid(model: { providerID: string; modelID: string }) {
+    function isModelValid(model: ModelRef) {
       const provider = sync.data.provider.find((item) => item.id === model.providerID)
       return !!provider?.models[model.modelID]
-    }
-
-    function getFirstValidModel(...modelFns: (() => { providerID: string; modelID: string } | undefined)[]) {
-      for (const modelFn of modelFns) {
-        const model = modelFn()
-        if (!model) continue
-        if (isModelValid(model)) return model
-      }
     }
 
     function createAgent() {
@@ -140,13 +145,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     function createModel() {
       const [modelStore, setModelStore] = createStore<{
         ready: boolean
-        model: Record<
-          string,
-          {
-            providerID: string
-            modelID: string
-          }
-        >
+        model: ModelRef | undefined
         recent: {
           providerID: string
           modelID: string
@@ -158,7 +157,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         variant: Record<string, string | undefined>
       }>({
         ready: false,
-        model: {},
+        model: undefined,
         recent: [],
         favorite: [],
         variant: {},
@@ -240,7 +239,8 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         const a = agent.current()
         return (
           getFirstValidModel(
-            () => a && modelStore.model[a.name],
+            isModelValid,
+            () => modelStore.model,
             () => a && a.model,
             fallbackModel,
           ) ?? undefined
@@ -286,9 +286,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           if (next >= recent.length) next = 0
           const val = recent[next]
           if (!val) return
-          const a = agent.current()
-          if (!a) return
-          setModelStore("model", a.name, { ...val })
+          setModelStore("model", { ...val })
         },
         cycleFavorite(direction: 1 | -1) {
           const favorites = modelStore.favorite.filter((item) => isModelValid(item))
@@ -314,13 +312,11 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           }
           const next = favorites[index]
           if (!next) return
-          const a = agent.current()
-          if (!a) return
-          setModelStore("model", a.name, { ...next })
+          setModelStore("model", { ...next })
           setModelStore("recent", recentModels(next, modelStore.recent))
           save()
         },
-        set(model: { providerID: string; modelID: string }, options?: { recent?: boolean }) {
+        set(model: ModelRef, options?: { recent?: boolean }) {
           batch(() => {
             if (!isModelValid(model)) {
               toast.show({
@@ -330,16 +326,14 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
               })
               return
             }
-            const a = agent.current()
-            if (!a) return
-            setModelStore("model", a.name, model)
+            setModelStore("model", model)
             if (options?.recent) {
               setModelStore("recent", recentModels(model, modelStore.recent))
               save()
             }
           })
         },
-        toggleFavorite(model: { providerID: string; modelID: string }) {
+        toggleFavorite(model: ModelRef) {
           batch(() => {
             if (!isModelValid(model)) {
               toast.show({
@@ -362,7 +356,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             save()
           })
         },
-        moveFavorite(model: { providerID: string; modelID: string }, direction: -1 | 1) {
+        moveFavorite(model: ModelRef, direction: -1 | 1) {
           const next = reorderFavorite(
             model,
             modelStore.favorite,
