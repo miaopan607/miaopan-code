@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import type { Part } from "@miaopan/sdk/v2"
 import { isThinkingMode, reasoningSummary } from "../../../src/context/thinking"
+import { assistantDisplayParts } from "../../../src/routes/session"
 
 test("recognizes the three thinking display modes", () => {
   expect(["collapsed", "expanded", "hidden"].every(isThinkingMode)).toBe(true)
@@ -37,5 +39,82 @@ describe("reasoningSummary", () => {
 
   test("leaves content without a leading title in its body", () => {
     expect(reasoningSummary("Details only.")).toEqual({ title: null, body: "Details only." })
+  })
+})
+
+describe("assistantDisplayParts", () => {
+  const reasoning = {
+    id: "part_reasoning",
+    sessionID: "session",
+    messageID: "message",
+    type: "reasoning",
+    text: "Inspecting",
+    time: { start: 1, end: 2 },
+  } as Part
+
+  test("removes hidden reasoning without changing the following text part", () => {
+    const text = {
+      id: "part_text",
+      sessionID: "session",
+      messageID: "message",
+      type: "text",
+      text: "Done",
+      time: { start: 3, end: 4 },
+    } as Part
+    const parts = [reasoning, text]
+
+    expect(
+      assistantDisplayParts(parts, {
+        last: true,
+        thinkingMode: "hidden",
+        toolDisplay: "compact",
+        showDetails: true,
+      }).map((part) => part.type),
+    ).toEqual(["reasoning", "text"])
+    expect(
+      assistantDisplayParts(parts, {
+        last: false,
+        thinkingMode: "hidden",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([text])
+  })
+
+  test("removes hidden reasoning without changing the following compact tool group", () => {
+    const tool = {
+      id: "part_tool",
+      sessionID: "session",
+      messageID: "message",
+      type: "tool",
+      callID: "call",
+      tool: "read",
+      state: {
+        status: "completed",
+        input: { filePath: "src/index.ts" },
+        output: "content",
+        title: "src/index.ts",
+        metadata: {},
+        time: { start: 3, end: 4 },
+      },
+    } as Part
+    const parts = [reasoning, tool]
+
+    expect(
+      assistantDisplayParts(parts, {
+        last: true,
+        thinkingMode: "hidden",
+        toolDisplay: "compact",
+        showDetails: true,
+      }).map((part) => part.type),
+    ).toEqual(["reasoning", "compact-explore"])
+    expect(
+      assistantDisplayParts(parts, {
+        last: false,
+        thinkingMode: "hidden",
+        toolDisplay: "compact",
+        showDetails: true,
+      }).map((part) => part.type),
+    ).toEqual(["compact-explore"])
   })
 })

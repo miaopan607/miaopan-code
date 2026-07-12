@@ -5,7 +5,6 @@ import {
   createMemo,
   createSignal,
   For,
-  Index,
   Match,
   on,
   onCleanup,
@@ -1676,36 +1675,22 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
   const childShortcut = useCommandShortcut("session.child.first")
   const backgroundShortcut = useCommandShortcut("session.background")
-  const displayParts = createMemo(() => {
-    const reasoning = props.last ? props.parts.findLast((part) => part.type === "reasoning") : undefined
-    const visible = props.parts.filter(
-      (part) => ctx.thinkingMode() !== "hidden" || part.type !== "reasoning" || part === reasoning,
-    )
-    if (ctx.tui.tool_display !== "compact") return visible
-
-    return visible.reduce<DisplayPart[]>((result, part) => {
-      if (part.type !== "tool" || !["read", "glob", "grep", "webfetch", "websearch"].includes(toolDisplay(part.tool))) {
-        result.push(part)
-        return result
-      }
-      if (toolDetailsHidden(ctx.showDetails(), part.tool, part.state)) return result
-      const previous = result.at(-1)
-      if (previous?.type === "compact-explore") {
-        previous.parts.push(part)
-        return result
-      }
-      result.push({ type: "compact-explore", parts: [part] })
-      return result
-    }, [])
-  })
+  const displayParts = createMemo(() =>
+    assistantDisplayParts(props.parts, {
+      last: props.last,
+      thinkingMode: ctx.thinkingMode(),
+      toolDisplay: ctx.tui.tool_display,
+      showDetails: ctx.showDetails(),
+    }),
+  )
 
   return (
     <>
-      <Index each={displayParts()}>
+      <For each={displayParts()}>
         {(part, index) => (
-          <AssistantPart part={part()} last={index === displayParts().length - 1} message={props.message} />
+          <AssistantPart part={part} last={index() === displayParts().length - 1} message={props.message} />
         )}
-      </Index>
+      </For>
       <Show when={props.parts.some((x) => x.type === "tool" && x.tool === "task")}>
         <box paddingTop={1} paddingLeft={3}>
           <text fg={theme.text}>
@@ -1788,6 +1773,37 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
 
 type CompactExplorePart = { type: "compact-explore"; parts: ToolPart[] }
 type DisplayPart = Part | CompactExplorePart
+
+export function assistantDisplayParts(
+  parts: Part[],
+  input: {
+    last: boolean
+    thinkingMode: ThinkingMode
+    toolDisplay: "compact" | "detailed"
+    showDetails: boolean
+  },
+) {
+  const reasoning = input.last ? parts.findLast((part) => part.type === "reasoning") : undefined
+  const visible = parts.filter(
+    (part) => input.thinkingMode !== "hidden" || part.type !== "reasoning" || part === reasoning,
+  )
+  if (input.toolDisplay !== "compact") return visible
+
+  return visible.reduce<DisplayPart[]>((result, part) => {
+    if (part.type !== "tool" || !["read", "glob", "grep", "webfetch", "websearch"].includes(toolDisplay(part.tool))) {
+      result.push(part)
+      return result
+    }
+    if (toolDetailsHidden(input.showDetails, part.tool, part.state)) return result
+    const previous = result.at(-1)
+    if (previous?.type === "compact-explore") {
+      previous.parts.push(part)
+      return result
+    }
+    result.push({ type: "compact-explore", parts: [part] })
+    return result
+  }, [])
+}
 
 function AssistantPart(props: { part: DisplayPart; last: boolean; message: AssistantMessage }) {
   if (props.part.type === "compact-explore") return <CompactExplore part={props.part} />
