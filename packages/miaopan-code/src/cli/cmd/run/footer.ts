@@ -55,6 +55,7 @@ import type {
   RunDiffStyle,
   RunInput,
   RunPrompt,
+  RunPromptDelivery,
   RunProvider,
   RunResource,
   RunTuiConfig,
@@ -168,7 +169,7 @@ function eventPatch(next: FooterEvent): FooterPatch | undefined {
 export class RunFooter implements FooterApi {
   private closed = false
   private destroyed = false
-  private prompts = new Set<(input: RunPrompt) => void>()
+  private prompts = new Set<(input: RunPrompt, delivery: RunPromptDelivery) => void>()
   private queuedRemoves = new Set<(messageID: string) => boolean | Promise<boolean>>()
   private closes = new Set<() => void>()
   // Microtask-coalesced commit queue. Flushed on next microtask or on close/destroy.
@@ -362,7 +363,7 @@ export class RunFooter implements FooterApi {
     return this.destroyed || this.renderer.isDestroyed
   }
 
-  public onPrompt(fn: (input: RunPrompt) => void): () => void {
+  public onPrompt(fn: (input: RunPrompt, delivery: RunPromptDelivery) => void): () => void {
     this.prompts.add(fn)
     return () => {
       this.prompts.delete(fn)
@@ -747,7 +748,7 @@ export class RunFooter implements FooterApi {
     }
   }
 
-  private handlePrompt = (input: RunPrompt): boolean => {
+  private handlePrompt = (input: RunPrompt, delivery: RunPromptDelivery = "steer"): boolean => {
     if (this.isClosed) {
       return false
     }
@@ -762,7 +763,7 @@ export class RunFooter implements FooterApi {
     }
 
     for (const fn of [...this.prompts]) {
-      fn(input)
+      fn(input, delivery)
     }
 
     return true

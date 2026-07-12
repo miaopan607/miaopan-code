@@ -102,6 +102,7 @@ export type SessionTurnInput = {
 
 export type SessionTransport = {
   runPromptTurn(input: SessionTurnInput): Promise<void>
+  steerPrompt(input: SessionTurnInput): Promise<void>
   selectSubagent(sessionID: string | undefined): void
   replayOnResize(input: SessionResizeReplayInput): Promise<boolean>
   close(): Promise<void>
@@ -126,6 +127,7 @@ type State = {
 
 type TransportService = {
   readonly runPromptTurn: (input: SessionTurnInput) => Effect.Effect<void, unknown>
+  readonly steerPrompt: (input: SessionTurnInput) => Effect.Effect<void, unknown>
   readonly selectSubagent: (sessionID: string | undefined) => Effect.Effect<void>
   readonly replayOnResize: (input: SessionResizeReplayInput) => Effect.Effect<boolean>
   readonly close: () => Effect.Effect<void>
@@ -1410,6 +1412,30 @@ function createLayer(input: StreamInput) {
           return
         })
 
+        const steerPrompt = Effect.fn("RunStreamTransport.steerPrompt")(function* (next: SessionTurnInput) {
+          if (closed || next.signal?.aborted || input.footer.isClosed) return
+          if (state.fault) return yield* Effect.fail(state.fault)
+          if (next.prompt.mode === "shell" || next.prompt.command) {
+            return yield* Effect.fail(new Error(UI.t("run.prompt_steer_unavailable")))
+          }
+
+          const req = {
+            sessionID: input.sessionID,
+            messageID: next.prompt.messageID,
+            agent: next.agent,
+            model: next.model,
+            variant: next.variant,
+            parts: [
+              ...(next.includeFiles ? next.files : []),
+              { type: "text" as const, text: next.prompt.text },
+              ...next.prompt.parts,
+            ],
+          }
+          input.trace?.write("send.steer", req)
+          yield* Effect.promise(() => input.sdk.session.promptAsync(req, { signal: next.signal }))
+          input.trace?.write("send.steer.ok", { sessionID: input.sessionID })
+        })
+
         const selectSubagent = Effect.fn("RunStreamTransport.selectSubagent")((sessionID: string | undefined) =>
           Effect.sync(() => {
             if (closed) {
@@ -1432,6 +1458,7 @@ function createLayer(input: StreamInput) {
 
         return Service.of({
           runPromptTurn,
+          steerPrompt,
           selectSubagent,
           replayOnResize,
           close,
@@ -1456,6 +1483,7 @@ export async function createSessionTransport(input: StreamInput): Promise<Sessio
 
   return {
     runPromptTurn: (next) => runtime.runPromise((svc) => svc.runPromptTurn(next)),
+    steerPrompt: (next) => runtime.runPromise((svc) => svc.steerPrompt(next)),
     selectSubagent: (sessionID) => runtime.runSync((svc) => svc.selectSubagent(sessionID)),
     replayOnResize: (next) => runtime.runPromise((svc) => svc.replayOnResize(next)),
     close: () => runtime.runPromise((svc) => svc.close()),

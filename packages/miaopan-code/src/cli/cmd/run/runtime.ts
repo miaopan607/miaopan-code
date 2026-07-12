@@ -642,6 +642,33 @@ async function runInteractiveRuntime(input: RunRuntimeInput, deps: RunRuntimeDep
             }
           }
         : undefined,
+      steer: async (prompt) => {
+        await state.switching?.catch(() => {})
+        try {
+          const next = await ensureStream()
+          await next.handle.steerPrompt({
+            agent: state.agent,
+            model: state.model,
+            variant: state.activeVariant,
+            prompt,
+            files: input.files,
+            includeFiles: false,
+          })
+        } catch (error) {
+          const text =
+            (await state.stream?.then((item) => item.mod).catch(() => undefined))?.formatUnknownError(error) ??
+            (error instanceof Error ? error.message : String(error))
+          const commit = {
+            kind: "error",
+            text,
+            phase: "start",
+            source: "system",
+            messageID: prompt.messageID,
+          } as const
+          rememberLocal(commit)
+          footer.append(commit)
+        }
+      },
       run: async (prompt, signal) => {
         if (state.demo && (await state.demo.prompt(prompt, signal))) {
           return

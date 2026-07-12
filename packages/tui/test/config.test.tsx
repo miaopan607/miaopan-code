@@ -107,6 +107,14 @@ test("resolves command palette favorite keybinds", () => {
   expect(overrides.keybinds.get("command.palette.favorite_down")).toMatchObject([{ key: "alt+down" }])
 })
 
+test("resolves the configurable queued prompt keybind", () => {
+  const defaults = resolve({}, { terminalSuspend: true })
+  const overrides = resolve({ keybinds: { prompt_queue: "ctrl+shift+q" } }, { terminalSuspend: true })
+
+  expect(defaults.keybinds.get("prompt.queue")).toMatchObject([{ key: "shift+tab" }])
+  expect(overrides.keybinds.get("prompt.queue")).toMatchObject([{ key: "ctrl+shift+q" }])
+})
+
 test("resolves favorite model move keybinds", () => {
   const defaults = resolve({}, { terminalSuspend: true })
   const overrides = resolve(

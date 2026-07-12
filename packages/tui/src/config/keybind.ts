@@ -164,6 +164,7 @@ export const Definitions = {
   display_thinking: keybind("none", "i18n:keybind.display_thinking"),
 
   prompt_submit: keybind("none", "i18n:prompt.submit"),
+  prompt_queue: keybind("shift+tab", "i18n:prompt.queue"),
   prompt_editor_context_clear: keybind("none", "i18n:keybind.prompt_editor_context_clear"),
   prompt_skills: keybind("none", "i18n:keybind.prompt_skills"),
   prompt_stash: keybind("none", "i18n:prompt.stash"),
@@ -377,6 +378,7 @@ export const CommandMap = {
   tool_details: "session.toggle.actions",
   display_thinking: "session.toggle.thinking",
   prompt_submit: "prompt.submit",
+  prompt_queue: "prompt.queue",
   prompt_editor_context_clear: "prompt.editor_context.clear",
   prompt_skills: "prompt.skills",
   prompt_stash: "prompt.stash",

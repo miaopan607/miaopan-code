@@ -9,7 +9,7 @@ import {
   type Renderable,
 } from "@opentui/core"
 import type { CommandContext } from "@opentui/keymap"
-import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match } from "solid-js"
+import { createEffect, createMemo, onMount, createSignal, onCleanup, on, Show, Switch, Match, For } from "solid-js"
 import { registerMiaopanCodeSpinner } from "../register-spinner"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -64,6 +64,7 @@ import { usePromptWorkspace } from "./workspace"
 import { usePromptMove } from "./move"
 import { readLocalAttachment } from "./local-attachment"
 import { useI18n } from "../../context/i18n"
+import { usePromptQueue } from "../../context/prompt-queue"
 import { DialogReview } from "../dialog-review"
 import { isRecord } from "../../util/record"
 
@@ -175,10 +176,12 @@ export function Prompt(props: PromptProps) {
   const dialog = useDialog()
   const toast = useToast()
   const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" })
+  const queue = usePromptQueue()
   const history = usePromptHistory()
   const stash = usePromptStash()
   const keymap = useMiaopanCodeKeymap()
   const agentShortcut = useCommandShortcut("agent.cycle")
+  const queuedShortcut = useCommandShortcut("session.queued_prompts")
   const paletteShortcut = useCommandShortcut("command.palette.show")
   const renderer = useRenderer()
   const exit = useExit()
@@ -312,6 +315,41 @@ export function Prompt(props: PromptProps) {
     interrupt: 0,
   })
 
+  const queued = createMemo(() => (props.sessionID ? queue.items(props.sessionID) : []))
+
+  function clearComposer() {
+    input.clear()
+    input.extmarks.clear()
+    setStore("prompt", { input: "", parts: [] })
+    setStore("extmarkToPartIndex", new Map())
+  }
+
+  function queueCurrent() {
+    const sessionID = props.sessionID
+    if (!sessionID || status().type === "idle") return false
+    if (input && !input.isDestroyed && input.plainText !== store.prompt.input) {
+      setStore("prompt", "input", input.plainText)
+      syncExtmarksWithPromptParts()
+    }
+    if (!store.prompt.input.trim()) return false
+    queue.enqueue(sessionID, { ...structuredClone(unwrap(store.prompt)), mode: store.mode })
+    clearComposer()
+    props.onSubmit?.()
+    return true
+  }
+
+  function editLastQueued() {
+    const sessionID = props.sessionID
+    if (!sessionID) return
+    const item = queue.pop(sessionID)
+    if (!item) return
+    setStore("mode", item.prompt.mode ?? "normal")
+    input.setText(item.prompt.input)
+    setStore("prompt", item.prompt)
+    restoreExtmarksFromParts(item.prompt.parts)
+    input.gotoBufferEnd()
+  }
+
   createEffect(
     on(
       () => props.sessionID,
@@ -372,6 +410,28 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
+        title: i18n.t("prompt.queue"),
+        name: "prompt.queue",
+        category: "Prompt",
+        hidden: true,
+        enabled: status().type !== "idle" && Boolean(store.prompt.input.trim()),
+        run: () => {
+          if (!input.focused || auto()?.visible) return
+          if (!queueCurrent()) return
+          dialog.clear()
+        },
+      },
+      {
+        title: i18n.t("cli.run.queued_prompts"),
+        name: "session.queued_prompts",
+        category: i18n.t("tui.session"),
+        enabled: queued().length > 0,
+        run: () => {
+          editLastQueued()
+          dialog.clear()
+        },
+      },
+      {
         title: i18n.t("prompt.remove_context"),
         name: "prompt.editor_context.clear",
         category: "Prompt",
@@ -426,6 +486,7 @@ export function Prompt(props: PromptProps) {
           }, 5000)
 
           if (store.interrupt >= 2) {
+            queue.pause(props.sessionID)
             void sdk.client.session.abort({
               sessionID: props.sessionID,
             })
@@ -581,6 +642,7 @@ export function Prompt(props: PromptProps) {
     mode: MIAOPAN_CODE_BASE_MODE,
     bindings: tuiConfig.keybinds.gather("prompt.palette", [
       "prompt.submit",
+      "prompt.queue",
       "prompt.editor",
       "prompt.editor_context.clear",
       "prompt.stash",
@@ -588,6 +650,7 @@ export function Prompt(props: PromptProps) {
       "prompt.stash.list",
       "prompt.skills",
       "session.interrupt",
+      "session.queued_prompts",
       "workspace.set",
       "session.move",
     ]),
@@ -956,7 +1019,7 @@ export function Prompt(props: PromptProps) {
   })
 
   let submitting = false
-  async function submit() {
+  async function submit(queuedSubmission = false) {
     // Prevent overlapping invocations (e.g. a double-pressed Enter, or the
     // input's native onSubmit racing another dispatch). Without this guard,
     // a second call slips past the empty-input check before the first call
@@ -964,15 +1027,16 @@ export function Prompt(props: PromptProps) {
     // ultimately reads the now-empty store — sending a phantom empty prompt
     // to a freshly created session.
     if (submitting) return false
+    if (!queuedSubmission && props.sessionID) queue.resume(props.sessionID)
     submitting = true
     try {
-      return await submitInner()
+      return await submitInner(queuedSubmission)
     } finally {
       submitting = false
     }
   }
 
-  async function submitInner() {
+  async function submitInner(queuedSubmission: boolean) {
     workspace.clearNotice()
 
     // IME: double-defer may fire before onContentChange flushes the last
@@ -1133,32 +1197,37 @@ export function Prompt(props: PromptProps) {
       })
     } else {
       move.startSubmit()
-      sdk.client.session
-        .prompt(
-          {
-            sessionID,
-            ...selectedModel,
-            agent: agent.name,
-            model: selectedModel,
-            variant,
-            parts: [
-              ...editorParts,
-              {
-                type: "text",
-                text: inputText,
-              },
-              ...nonTextParts,
-            ],
-          },
-          { throwOnError: true },
-        )
-        .catch((error) => {
+      const request = {
+        sessionID,
+        ...selectedModel,
+        agent: agent.name,
+        model: selectedModel,
+        variant,
+        parts: [...editorParts, { type: "text" as const, text: inputText }, ...nonTextParts],
+      }
+      const sent = queuedSubmission
+        ? sdk.client.session.promptAsync(request, { throwOnError: true })
+        : sdk.client.session.prompt(request, { throwOnError: true })
+      if (queuedSubmission) {
+        try {
+          await sent
+        } catch (error) {
+          toast.show({
+            title: i18n.t("prompt.send_failed"),
+            message: errorMessage(error),
+            variant: "error",
+          })
+          return false
+        }
+      } else {
+        void sent.catch((error) => {
           toast.show({
             title: i18n.t("prompt.send_failed"),
             message: errorMessage(error),
             variant: "error",
           })
         })
+      }
       if (editorParts.length > 0) editor.markSelectionSent()
     }
     history.append({
@@ -1187,6 +1256,52 @@ export function Prompt(props: PromptProps) {
     if (finishMoveProgress) move.finishSubmit()
     return true
   }
+
+  let queuedTurnReady = false
+  let queuedSubmitting = false
+  createEffect(
+    on(
+      () => [props.sessionID, status().type, queued()[0]?.id] as const,
+      ([sessionID, sessionStatus, queuedID], previous) => {
+        if (!sessionID || !queuedID) {
+          queuedTurnReady = false
+          return
+        }
+        if (sessionStatus !== "idle") {
+          queuedTurnReady = true
+          return
+        }
+        if (previous?.[0] !== sessionID) queuedTurnReady = true
+        if (!queuedTurnReady || queuedSubmitting || queue.isPaused(sessionID)) return
+
+        const item = queue.items(sessionID).find((entry) => entry.id === queuedID)
+        if (!item) return
+        queuedTurnReady = false
+        queuedSubmitting = true
+        const draft = structuredClone(unwrap(store.prompt))
+        const mode = store.mode
+        const cursor = input.cursorOffset
+        setStore("mode", item.prompt.mode ?? "normal")
+        input.setText(item.prompt.input)
+        setStore("prompt", item.prompt)
+        restoreExtmarksFromParts(item.prompt.parts)
+        input.gotoBufferEnd()
+
+        void submit(true)
+          .then((handled) => {
+            if (handled) queue.remove(sessionID, item.id)
+          })
+          .finally(() => {
+            setStore("mode", mode)
+            input.setText(draft.input)
+            setStore("prompt", draft)
+            restoreExtmarksFromParts(draft.parts)
+            input.cursorOffset = Math.min(cursor, input.plainText.length)
+            queuedSubmitting = false
+          })
+      },
+    ),
+  )
 
   function pasteText(text: string, virtualText: string) {
     const currentOffset = input.cursorOffset
@@ -1408,6 +1523,17 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
             width="100%"
           >
+            <Show when={queued().length > 0}>
+              <box paddingBottom={1} gap={1}>
+                <text fg={theme.textMuted}>{i18n.t("prompt.queued_followups")}</text>
+                <For each={queued().slice(0, 3)}>
+                  {(item) => <text fg={theme.textMuted}>↳ {item.prompt.input.replaceAll("\n", " ")}</text>}
+                </For>
+                <Show when={queuedShortcut()}>
+                  {(key) => <text fg={theme.textMuted}>{i18n.t("prompt.queue_edit_hint", { key: key() })}</text>}
+                </Show>
+              </box>
+            </Show>
             <textarea
               width="100%"
               placeholder={placeholderText()}
