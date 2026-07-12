@@ -25,6 +25,7 @@ import { useRoute } from "../../context/route"
 import { useProject } from "../../context/project"
 import { useSync } from "../../context/sync"
 import { useEvent } from "../../context/event"
+import { usePromptRef, type SubmittedPrompt } from "../../context/prompt"
 import { editorSelectionKey, useEditorContext, type EditorSelection } from "../../context/editor"
 import { normalizePromptContent, openEditor } from "../../editor"
 import { useExit } from "../../context/exit"
@@ -204,6 +205,7 @@ export function Prompt(props: PromptProps) {
   const route = useRoute()
   const project = useProject()
   const sync = useSync()
+  const promptRef = usePromptRef()
   const tuiConfig = useTuiConfig()
   const dialog = useDialog()
   const toast = useToast()
@@ -399,6 +401,15 @@ export function Prompt(props: PromptProps) {
     input.gotoBufferEnd()
   }
 
+  function restoreSubmittedPrompt(submitted: SubmittedPrompt) {
+    const parts = [...submitted.editorParts, ...submitted.prompt.parts]
+    input.setText(submitted.prompt.input)
+    setStore("mode", submitted.prompt.mode ?? "normal")
+    setStore("prompt", { ...submitted.prompt, parts })
+    restoreExtmarksFromParts(parts)
+    input.gotoBufferEnd()
+  }
+
   createEffect(
     on(
       () => props.sessionID,
@@ -517,7 +528,7 @@ export function Prompt(props: PromptProps) {
         name: "session.interrupt",
         category: i18n.t("tui.session"),
         hidden: true,
-        enabled: status().type !== "idle",
+        enabled: status().type !== "idle" || Boolean(props.sessionID && promptRef.submitted.get(props.sessionID)),
         run: () => {
           if (auto()?.visible) return
           if (!input.focused) return
@@ -527,6 +538,19 @@ export function Prompt(props: PromptProps) {
             return
           }
           if (!props.sessionID) return
+
+          const submitted = promptRef.submitted.get(props.sessionID)
+          const hasDraft = input.plainText.length > 0 || store.prompt.parts.length > 0
+          if (submitted && !hasDraft) {
+            const prompt = promptRef.submitted.consume(props.sessionID)
+            if (!prompt) return
+            queue.pause(props.sessionID)
+            restoreSubmittedPrompt(prompt)
+            setStore("interrupt", 0)
+            void sdk.client.session.abort({ sessionID: props.sessionID }).catch(() => {})
+            dialog.clear()
+            return
+          }
 
           setStore("interrupt", store.interrupt + 1)
 
@@ -1219,31 +1243,41 @@ export function Prompt(props: PromptProps) {
         ? createEditorParts(editorSelection)
         : []
     const editorParts = [...retainedEditorParts, ...liveEditorParts]
+    const submittedPrompt: PromptInfo = {
+      ...store.prompt,
+      mode: currentMode,
+      parts: store.prompt.parts.filter((part) => !isEditorContextPart(part)),
+    }
+    promptRef.submitted.remember(sessionID, submittedPrompt, editorParts)
 
     if (store.mode === "shell") {
       move.startSubmit()
-      void sdk.client.session.shell({
-        sessionID,
-        agent: agent.name,
-        model: {
-          providerID: selectedModel.providerID,
-          modelID: selectedModel.modelID,
-        },
-        command: inputText,
-      })
+      void sdk.client.session
+        .shell({
+          sessionID,
+          agent: agent.name,
+          model: {
+            providerID: selectedModel.providerID,
+            modelID: selectedModel.modelID,
+          },
+          command: inputText,
+        })
+        .catch(() => promptRef.submitted.clear(sessionID))
       setStore("mode", "normal")
     } else if (command) {
       move.startSubmit()
-      void sdk.client.session.command({
-        sessionID,
-        command: command.name,
-        arguments: command.arguments,
-        agent: agent.name,
-        model: `${selectedModel.providerID}/${selectedModel.modelID}`,
-        variant,
-        parts: nonTextParts.filter((x) => x.type === "file"),
-        ...(kv.get("oai", false) ? { oai: true } : {}),
-      })
+      void sdk.client.session
+        .command({
+          sessionID,
+          command: command.name,
+          arguments: command.arguments,
+          agent: agent.name,
+          model: `${selectedModel.providerID}/${selectedModel.modelID}`,
+          variant,
+          parts: nonTextParts.filter((x) => x.type === "file"),
+          ...(kv.get("oai", false) ? { oai: true } : {}),
+        })
+        .catch(() => promptRef.submitted.clear(sessionID))
     } else {
       move.startSubmit()
       const request = {
@@ -1256,6 +1290,7 @@ export function Prompt(props: PromptProps) {
         parts: [...editorParts, { type: "text" as const, text: inputText }, ...nonTextParts],
       }
       void sdk.client.session.prompt(request, { throwOnError: true }).catch((error) => {
+        promptRef.submitted.clear(sessionID)
         toast.show({
           title: i18n.t("prompt.send_failed"),
           message: errorMessage(error),
@@ -1264,11 +1299,7 @@ export function Prompt(props: PromptProps) {
       })
       if (liveEditorParts.length > 0) editor.markSelectionSent()
     }
-    history.append({
-      ...store.prompt,
-      mode: currentMode,
-      parts: store.prompt.parts.filter((part) => !isEditorContextPart(part)),
-    })
+    history.append(submittedPrompt)
     input.extmarks.clear()
     setStore("prompt", {
       input: "",
