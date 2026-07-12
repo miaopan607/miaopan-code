@@ -1501,15 +1501,14 @@ it.instance("model variants are generated for reasoning models", () =>
 )
 
 it.instance(
-  "model variants can be disabled via config",
+  "explicit model variants replace generated variants and filter disabled entries",
   Effect.gen(function* () {
     yield* set("ANTHROPIC_API_KEY", "test-api-key")
     const providers = yield* list
     const model = providers[ProviderV2.ID.anthropic].models["claude-sonnet-4-20250514"]
     expect(model.variants).toBeDefined()
     expect(model.variants!["high"]).toBeUndefined()
-    // max variant should still exist
-    expect(model.variants!["max"]).toBeDefined()
+    expect(model.variants).toEqual({})
   }),
   {
     config: {
@@ -1530,6 +1529,7 @@ it.instance(
     const model = providers[ProviderV2.ID.anthropic].models["claude-sonnet-4-20250514"]
     expect(model.variants!["high"]).toBeDefined()
     expect(model.variants!["high"].thinking.budgetTokens).toBe(20000)
+    expect(model.variants!["max"]).toBeUndefined()
   }),
   {
     config: {
@@ -1596,15 +1596,15 @@ it.instance(
 )
 
 it.instance(
-  "variant config merges with generated variants",
+  "variant config does not inherit generated provider options",
   Effect.gen(function* () {
     yield* set("ANTHROPIC_API_KEY", "test-api-key")
     const providers = yield* list
     const model = providers[ProviderV2.ID.anthropic].models["claude-sonnet-4-20250514"]
     expect(model.variants!["high"]).toBeDefined()
-    // Should have both the generated thinking config and the custom option
-    expect(model.variants!["high"].thinking).toBeDefined()
+    expect(model.variants!["high"].thinking).toBeUndefined()
     expect(model.variants!["high"].extraOption).toBe("custom-value")
+    expect(Object.keys(model.variants!)).toEqual(["high"])
   }),
   {
     config: {
@@ -1627,8 +1627,7 @@ it.instance(
     const model = providers[ProviderV2.ID.openai].models["gpt-5"]
     expect(model.variants).toBeDefined()
     expect(model.variants!["high"]).toBeUndefined()
-    // Other variants should still exist
-    expect(model.variants!["medium"]).toBeDefined()
+    expect(Object.keys(model.variants!)).toEqual([])
   }),
   {
     config: {
@@ -1676,6 +1675,47 @@ it.instance(
                 medium: { reasoningEffort: "medium" },
                 high: { reasoningEffort: "high", disabled: true },
                 custom: { reasoningEffort: "custom", budgetTokens: 5000 },
+              },
+            },
+          },
+          options: { apiKey: "test-key" },
+        },
+      },
+    },
+  },
+)
+
+it.instance(
+  "custom GPT-5.6 model variants replace automatic efforts",
+  Effect.gen(function* () {
+    const providers = yield* list
+    const model = providers[ProviderV2.ID.make("custom-gpt")].models["company-sol"]
+    expect(model.api.id).toBe("gpt-5.6-sol")
+    expect(model.variants).toEqual({
+      careful: {
+        reasoningEffort: "max",
+        $miaopanCode: { mode: "ultra" },
+      },
+    })
+  }),
+  {
+    config: {
+      provider: {
+        "custom-gpt": {
+          name: "Custom GPT Provider",
+          npm: "@ai-sdk/openai-compatible",
+          env: [],
+          models: {
+            "company-sol": {
+              id: "gpt-5.6-sol",
+              name: "Company Sol",
+              reasoning: true,
+              limit: { context: 372000, output: 128000 },
+              variants: {
+                careful: {
+                  reasoningEffort: "max",
+                  $miaopanCode: { mode: "ultra" },
+                },
               },
             },
           },

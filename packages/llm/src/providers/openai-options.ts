@@ -46,10 +46,12 @@ export const gpt5DefaultOptions = (
   options: { readonly textVerbosity?: boolean } = {},
 ): ProviderOptions | undefined => {
   const id = modelID.toLowerCase()
-  if (!id.includes("gpt-5") || id.includes("gpt-5-chat") || id.includes("gpt-5-pro")) return undefined
+  if (!id.includes("gpt-5") || id.includes("-chat") || id.includes("-pro")) return undefined
+  const minor = Number(/(?:^|[/.])gpt-5[.-](\d+)(?:[.-]|$)/.exec(id)?.[1])
+  const gpt56Plus = Number.isFinite(minor) && minor >= 6
   return openAIProviderOptions({
-    reasoningEffort: "medium",
-    reasoningSummary: "auto",
+    reasoningEffort: gpt56Plus && id.includes("sol") ? "low" : "medium",
+    reasoningSummary: gpt56Plus ? undefined : "auto",
     // GPT-5 reasoning models are configured stateless (`store: false`) by
     // `openAIDefaultOptions` below, so the only way a follow-up turn can
     // carry reasoning state is via the encrypted reasoning include. Without
@@ -57,7 +59,7 @@ export const gpt5DefaultOptions = (
     // they cannot replay statelessly.
     include: ["reasoning.encrypted_content"],
     textVerbosity:
-      options.textVerbosity === true && id.includes("gpt-5.") && !id.includes("codex") && !id.includes("-chat")
+      options.textVerbosity === true && (gpt56Plus || id.includes("gpt-5.")) && !id.includes("codex")
         ? "low"
         : undefined,
   })

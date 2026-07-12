@@ -5,6 +5,8 @@ import type * as Provider from "./provider"
 import type * as ModelsDev from "@miaopan-code/core/models-dev"
 import { iife } from "@/util/iife"
 import { t, type Language } from "@miaopan-code/core/i18n"
+import { gpt5MinorVersion, isGpt56Plus } from "./model-id"
+import { ProviderVariant } from "./variant"
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
@@ -22,6 +24,12 @@ export const OUTPUT_TOKEN_MAX = 32_000
 // needed for stateless multi-turn reasoning (store: false). Hoisted so every
 // branch that requests it stays in lockstep.
 const INCLUDE_ENCRYPTED_REASONING = ["reasoning.encrypted_content"] as const
+const OPENAI_RESPONSES_PACKAGES = [
+  "@ai-sdk/openai",
+  "@ai-sdk/azure",
+  "@ai-sdk/github-copilot",
+  "@ai-sdk/amazon-bedrock/mantle",
+]
 
 export function sanitizeSurrogates(content: string) {
   return content.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "\uFFFD")
@@ -467,13 +475,7 @@ export function message(
   }
 
   // Strip Responses item IDs before serialization, following Codex and keeping signed request bodies immutable.
-  if (
-    options.store !== true &&
-    key &&
-    ["@ai-sdk/openai", "@ai-sdk/azure", "@ai-sdk/amazon-bedrock/mantle", "@ai-sdk/github-copilot"].includes(
-      model.api.npm,
-    )
-  ) {
+  if (options.store !== true && key && OPENAI_RESPONSES_PACKAGES.includes(model.api.npm)) {
     msgs = mapProviderOptions(msgs, (options) => {
       if (!options?.[key] || !("itemId" in options[key])) return options
       const metadata = { ...options[key] }
@@ -532,6 +534,7 @@ const OPENAI_GPT5_PRO_2_PLUS_EFFORTS = ["medium", "high", "xhigh"]
 const OPENAI_GPT5_CHAT_EFFORTS = ["medium"]
 const OPENAI_GPT5_CODEX_XHIGH_EFFORTS = [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
 const OPENAI_GPT5_CODEX_3_PLUS_EFFORTS = ["none", ...OPENAI_GPT5_CODEX_XHIGH_EFFORTS]
+const OPENAI_GPT5_6_PLUS_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 
 // OpenAI rolled out the `none` reasoning_effort tier on this date (Responses API).
 // Models released before it 400 on `reasoning_effort: "none"`, so we only expose
@@ -545,17 +548,12 @@ const OPENAI_XHIGH_EFFORT_RELEASE_DATE = "2025-12-04"
 //   "gpt-5", "gpt-5-nano", "gpt-5.4", "openai/gpt-5.4-codex".
 // Anchored to start-of-string or "/" so it doesn't false-match "gpt-50" or "gpt-5o".
 const GPT5_FAMILY_RE = /(?:^|\/)gpt-5(?:[.-]|$)/
-const GPT5_VERSION_RE = /(?:^|\/)gpt-5[.-](\d+)(?:[.-]|$)/
 const GPT5_PRO_RE = /(?:^|\/)gpt-5[.-]?pro(?:[.-]|$)/
 const GPT5_VERSIONED_PRO_RE = /(?:^|\/)gpt-5[.-]\d+[.-]pro(?:[.-]|$)/
 
-function gpt5Version(apiId: string) {
-  return Number(GPT5_VERSION_RE.exec(apiId)?.[1]) || undefined
-}
-
 function versionedGpt5ReasoningEfforts(apiId: string) {
   if (GPT5_VERSIONED_PRO_RE.test(apiId)) return OPENAI_GPT5_PRO_2_PLUS_EFFORTS
-  const version = gpt5Version(apiId)
+  const version = gpt5MinorVersion(apiId)
   if (version === undefined) return undefined
   if (version === 1) return OPENAI_GPT5_1_EFFORTS
   return OPENAI_GPT5_2_PLUS_EFFORTS
@@ -563,7 +561,7 @@ function versionedGpt5ReasoningEfforts(apiId: string) {
 
 function gpt5CodexReasoningEfforts(apiId: string) {
   if (!GPT5_FAMILY_RE.test(apiId) || !apiId.includes("codex")) return undefined
-  const version = gpt5Version(apiId)
+  const version = gpt5MinorVersion(apiId)
   if (version !== undefined && version >= 3) return OPENAI_GPT5_CODEX_3_PLUS_EFFORTS
   if (apiId.includes("codex-max") || (version !== undefined && version >= 2)) return OPENAI_GPT5_CODEX_XHIGH_EFFORTS
   return WIDELY_SUPPORTED_EFFORTS
@@ -571,7 +569,7 @@ function gpt5CodexReasoningEfforts(apiId: string) {
 
 function gpt5ChatReasoningEfforts(apiId: string) {
   if (!GPT5_FAMILY_RE.test(apiId) || !apiId.includes("-chat")) return undefined
-  return gpt5Version(apiId) === undefined ? [] : OPENAI_GPT5_CHAT_EFFORTS
+  return gpt5MinorVersion(apiId) === undefined ? [] : OPENAI_GPT5_CHAT_EFFORTS
 }
 
 // Computes the reasoning_effort tiers an OpenAI (or OpenAI-compatible upstream
@@ -677,7 +675,27 @@ function googleThinkingVariants(model: Provider.Model): Record<string, Record<st
   )
 }
 
+function gpt56PlusVariants(model: Provider.Model) {
+  const includeEncryptedReasoning = OPENAI_RESPONSES_PACKAGES.includes(model.api.npm)
+  const variant = (effort: string) => {
+    if (model.api.npm === "@openrouter/ai-sdk-provider") return { reasoning: { effort } }
+    if (model.api.npm === "@jerome-benoit/sap-ai-provider-v2") {
+      return { modelParams: { reasoning_effort: effort } }
+    }
+    return {
+      reasoningEffort: effort,
+      ...(includeEncryptedReasoning ? { include: INCLUDE_ENCRYPTED_REASONING } : {}),
+    }
+  }
+  const variants = Object.fromEntries(OPENAI_GPT5_6_PLUS_EFFORTS.map((effort) => [effort, variant(effort)]))
+  return {
+    ...variants,
+    ultra: ProviderVariant.ultra(variants.max),
+  }
+}
+
 export function variants(model: Provider.Model): Record<string, Record<string, any>> {
+  if (isGpt56Plus(model)) return gpt56PlusVariants(model)
   if (!model.capabilities.reasoning) return {}
 
   const id = model.id.toLowerCase()
@@ -1105,12 +1123,7 @@ export function options(input: {
   }
 
   // openai and providers using openai package should set store to false by default.
-  if (
-    input.model.providerID === "openai" ||
-    input.model.api.npm === "@ai-sdk/openai" ||
-    input.model.api.npm === "@ai-sdk/github-copilot" ||
-    input.model.api.npm === "@ai-sdk/amazon-bedrock/mantle"
-  ) {
+  if (input.model.providerID === "openai" || OPENAI_RESPONSES_PACKAGES.includes(input.model.api.npm)) {
     result["store"] = false
   }
 
@@ -1173,6 +1186,12 @@ export function options(input: {
   }
 
   const modelId = input.model.api.id.toLowerCase()
+  const modelIds = [modelId, input.model.id.toLowerCase()]
+  const gpt56Plus = isGpt56Plus(input.model)
+  const gpt5 = modelIds.some((id) => id.includes("gpt-5"))
+  const gpt5Chat = modelIds.some((id) => id.includes("-chat"))
+  const gpt5Pro = modelIds.some((id) => id.includes("-pro"))
+  const gpt5Codex = modelIds.some((id) => id.includes("codex"))
 
   // MiniMax's Anthropic interface defaults thinking off, unlike Chat Completions.
   if (modelId.includes("minimax-m3") && input.model.api.npm === "@ai-sdk/anthropic") {
@@ -1209,15 +1228,10 @@ export function options(input: {
     return result
   }
 
-  if (input.model.api.id.includes("gpt-5") && !input.model.api.id.includes("gpt-5-chat")) {
-    if (!input.model.api.id.includes("gpt-5-pro")) {
-      result["reasoningEffort"] = "medium"
-      if (
-        input.model.api.npm === "@ai-sdk/openai" ||
-        input.model.api.npm === "@ai-sdk/azure" ||
-        input.model.api.npm === "@ai-sdk/github-copilot" ||
-        input.model.api.npm === "@ai-sdk/amazon-bedrock/mantle"
-      ) {
+  if ((gpt5 || gpt56Plus) && !gpt5Chat) {
+    if (!gpt5Pro) {
+      result["reasoningEffort"] = gpt56Plus && modelIds.some((id) => id.includes("sol")) ? "low" : "medium"
+      if (!gpt56Plus && OPENAI_RESPONSES_PACKAGES.includes(input.model.api.npm)) {
         result["reasoningSummary"] = "auto"
       }
       if (input.model.api.npm === "@ai-sdk/openai" || input.model.api.npm === "@ai-sdk/amazon-bedrock/mantle") {
@@ -1227,12 +1241,7 @@ export function options(input: {
 
     // Only set textVerbosity for non-chat gpt-5.x models
     // Chat models (e.g. gpt-5.2-chat-latest) only support "medium" verbosity
-    if (
-      input.model.api.id.includes("gpt-5.") &&
-      !input.model.api.id.includes("codex") &&
-      !input.model.api.id.includes("-chat") &&
-      input.model.providerID !== "azure"
-    ) {
+    if ((input.model.api.id.includes("gpt-5.") || gpt56Plus) && !gpt5Codex && input.model.providerID !== "azure") {
       result["textVerbosity"] = "low"
     }
 

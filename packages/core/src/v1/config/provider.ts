@@ -67,6 +67,11 @@ export const Model = Schema.Struct({
       Schema.StructWithRest(
         Schema.Struct({
           disabled: Schema.optional(Schema.Boolean).annotate({ description: zh("config.v1.disabled_providers") }),
+          $miaopanCode: Schema.optional(
+            Schema.Struct({
+              mode: Schema.Literal("ultra"),
+            }),
+          ),
         }),
         [Schema.Record(Schema.String, Schema.Any)],
       ),

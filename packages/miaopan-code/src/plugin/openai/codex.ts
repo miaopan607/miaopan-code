@@ -8,6 +8,7 @@ import { OpenAIWebSocketPool } from "./ws-pool"
 import { OauthCallbackPage } from "@miaopan-code/core/oauth/page"
 import { t, type Language } from "@miaopan-code/core/i18n"
 import { pluginLanguage } from "../language"
+import { gptVersion } from "../../provider/model-id"
 
 const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 const ISSUER = "https://auth.openai.com"
@@ -301,8 +302,8 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
             .filter(([, model]) => {
               if (ALLOWED_MODELS.has(model.api.id)) return true
               if (DISALLOWED_MODELS.has(model.api.id)) return false
-              const match = model.api.id.match(/^gpt-(\d+\.\d+)/)
-              return match ? parseFloat(match[1]) > 5.4 : false
+              const version = gptVersion(model.api.id)
+              return version !== undefined && (version.major > 5 || (version.major === 5 && version.minor > 4))
             })
             .map(([modelID, model]) => [
               modelID,

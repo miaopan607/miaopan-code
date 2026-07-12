@@ -15,6 +15,7 @@ import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
 import type { Plugin } from "@/plugin"
 import { mergeDeep } from "remeda"
 import { t, type Language } from "@miaopan-code/core/i18n"
+import { ProviderVariant } from "@/provider/variant"
 
 const USER_AGENT = `miaopan-code/${InstallationVersion}`
 
@@ -57,11 +58,17 @@ const mergeOptions = (target: Record<string, any>, source: Record<string, any> |
 
 export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: PrepareInput) {
   const isOpenaiOauth = input.provider.id === "openai" && input.auth?.type === "oauth"
+  const variant = ProviderVariant.resolve(
+    !input.small && input.model.variants && input.user.model.variant
+      ? input.model.variants[input.user.model.variant]
+      : undefined,
+  )
   const system = [
     [
       ...(input.agent.prompt ? [input.agent.prompt] : SystemPrompt.provider(input.model, input.language)),
       ...input.system,
       ...(input.user.system ? [input.user.system] : []),
+      ...(variant.mode === "ultra" ? [SystemPrompt.ultra(input.language)] : []),
     ]
       .filter((x) => x)
       .join("\n"),
@@ -79,10 +86,6 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     system.push(header, rest.join("\n"))
   }
 
-  const variant =
-    !input.small && input.model.variants && input.user.model.variant
-      ? input.model.variants[input.user.model.variant]
-      : {}
   const base = input.small
     ? ProviderTransform.smallOptions(input.model)
     : ProviderTransform.options({
@@ -90,7 +93,10 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
         sessionID: input.sessionID,
         providerOptions: input.provider.options,
       })
-  const options = mergeOptions(mergeOptions(mergeOptions(base, input.model.options), input.agent.options), variant)
+  const options = mergeOptions(
+    mergeOptions(mergeOptions(base, input.model.options), input.agent.options),
+    variant.options,
+  )
   if (
     input.model.api.npm === "@ai-sdk/azure" &&
     (input.provider.options.useCompletionUrls || input.model.options.useCompletionUrls || options.useCompletionUrls)

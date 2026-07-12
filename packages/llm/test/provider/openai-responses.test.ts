@@ -571,6 +571,34 @@ describe("OpenAI Responses route", () => {
     }),
   )
 
+  it.effect("sends max reasoning effort to Responses", () =>
+    Effect.gen(function* () {
+      const prepared = yield* LLMClient.prepare<OpenAIResponses.OpenAIResponsesBody>(
+        LLM.request({
+          model: OpenAI.configure({ baseURL: "https://api.openai.test/v1/", apiKey: "test" }).model("gpt-5.6-sol"),
+          prompt: "think deeply",
+          providerOptions: { openai: { reasoningEffort: "max" } },
+        }),
+      )
+
+      expect(prepared.body.reasoning).toEqual({ effort: "max" })
+    }),
+  )
+
+  it.effect("keeps low verbosity for hyphenated GPT-5.6 model IDs", () =>
+    Effect.gen(function* () {
+      const prepared = yield* LLMClient.prepare<OpenAIResponses.OpenAIResponsesBody>(
+        LLM.request({
+          model: OpenAI.configure({ baseURL: "https://api.openai.test/v1/", apiKey: "test" }).model("gpt-5-6-luna"),
+          prompt: "hello",
+        }),
+      )
+
+      expect(prepared.body.text).toEqual({ verbosity: "low" })
+      expect(prepared.body.reasoning).toEqual({ effort: "medium" })
+    }),
+  )
+
   it.effect("accepts the full ResponseIncludable union", () =>
     Effect.gen(function* () {
       const prepared = yield* LLMClient.prepare<OpenAIResponses.OpenAIResponsesBody>(

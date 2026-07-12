@@ -95,6 +95,33 @@ describe("session.system", () => {
     )
   })
 
+  for (const id of ["gpt-5.6-sol", "openai/gpt-5.6-terra", "gpt-5-6-luna", "gpt-5.10-codex-next"]) {
+    test(`selects the GPT-5.6+ prompt for ${id}`, () => {
+      const model = { id, api: { id } } as Provider.Model
+      expect(SystemPrompt.provider(model)[0]).toContain("授权边界")
+      expect(SystemPrompt.provider(model, "en")[0]).toContain("Authorization boundaries")
+    })
+  }
+
+  test("keeps GPT-5.5 on the general GPT prompt", () => {
+    const prompt = SystemPrompt.provider({ id: "gpt-5.5", api: { id: "gpt-5.5" } } as Provider.Model)[0]
+    expect(prompt).not.toContain("授权边界")
+    expect(prompt).toContain("自主性与坚持")
+  })
+
+  test("uses the configured model ID when the API ID is an alias", () => {
+    const prompt = SystemPrompt.provider({
+      id: "openai/gpt-5.6-sol",
+      api: { id: "company-coder" },
+    } as Provider.Model)[0]
+    expect(prompt).toContain("授权边界")
+  })
+
+  test("renders the Ultra mode in both languages", () => {
+    expect(SystemPrompt.ultra()).toContain("主动多代理委派模式已启用")
+    expect(SystemPrompt.ultra("en")).toContain("Proactive multi-agent delegation is active")
+  })
+
   it.instance("uses the ask prompt for ask agents and delegated ask sessions", () =>
     Effect.gen(function* () {
       const prompt = yield* SystemPrompt.Service

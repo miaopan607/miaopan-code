@@ -35,6 +35,8 @@ import SESSION_GEMINI_EN from "../session/prompt/gemini.txt"
 import SESSION_GEMINI_ZH_CN from "../session/prompt/gemini.zh-CN.txt"
 import SESSION_GPT_EN from "../session/prompt/gpt.txt"
 import SESSION_GPT_ZH_CN from "../session/prompt/gpt.zh-CN.txt"
+import SESSION_GPT_5_6_PLUS_EN from "../session/prompt/gpt-5-6-plus.txt"
+import SESSION_GPT_5_6_PLUS_ZH_CN from "../session/prompt/gpt-5-6-plus.zh-CN.txt"
 import SESSION_KIMI_EN from "../session/prompt/kimi.txt"
 import SESSION_KIMI_ZH_CN from "../session/prompt/kimi.zh-CN.txt"
 import SESSION_META_EN from "../session/prompt/meta.txt"
@@ -43,6 +45,8 @@ import SESSION_PLAN_MODE_EN from "../session/prompt/plan-mode.txt"
 import SESSION_PLAN_MODE_ZH_CN from "../session/prompt/plan-mode.zh-CN.txt"
 import SESSION_TRINITY_EN from "../session/prompt/trinity.txt"
 import SESSION_TRINITY_ZH_CN from "../session/prompt/trinity.zh-CN.txt"
+import SESSION_ULTRA_MODE_EN from "../session/prompt/ultra-mode.txt"
+import SESSION_ULTRA_MODE_ZH_CN from "../session/prompt/ultra-mode.zh-CN.txt"
 import TOOL_APPLY_PATCH_EN from "../tool/apply_patch.txt"
 import TOOL_APPLY_PATCH_ZH_CN from "../tool/apply_patch.zh-CN.txt"
 import TOOL_EDIT_EN from "../tool/edit.txt"
@@ -93,10 +97,12 @@ export const messages = {
   "session.default": { "zh-CN": SESSION_DEFAULT_ZH_CN, en: SESSION_DEFAULT_EN },
   "session.gemini": { "zh-CN": SESSION_GEMINI_ZH_CN, en: SESSION_GEMINI_EN },
   "session.gpt": { "zh-CN": SESSION_GPT_ZH_CN, en: SESSION_GPT_EN },
+  "session.gpt_5_6_plus": { "zh-CN": SESSION_GPT_5_6_PLUS_ZH_CN, en: SESSION_GPT_5_6_PLUS_EN },
   "session.kimi": { "zh-CN": SESSION_KIMI_ZH_CN, en: SESSION_KIMI_EN },
   "session.meta": { "zh-CN": SESSION_META_ZH_CN, en: SESSION_META_EN },
   "session.plan_mode": { "zh-CN": SESSION_PLAN_MODE_ZH_CN, en: SESSION_PLAN_MODE_EN },
   "session.trinity": { "zh-CN": SESSION_TRINITY_ZH_CN, en: SESSION_TRINITY_EN },
+  "session.ultra_mode": { "zh-CN": SESSION_ULTRA_MODE_ZH_CN, en: SESSION_ULTRA_MODE_EN },
   "tool.apply_patch": { "zh-CN": TOOL_APPLY_PATCH_ZH_CN, en: TOOL_APPLY_PATCH_EN },
   "tool.edit": { "zh-CN": TOOL_EDIT_ZH_CN, en: TOOL_EDIT_EN },
   "tool.glob": { "zh-CN": TOOL_GLOB_ZH_CN, en: TOOL_GLOB_EN },

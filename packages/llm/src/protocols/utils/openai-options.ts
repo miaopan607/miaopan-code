@@ -2,9 +2,7 @@ import { Schema } from "effect"
 import type { LLMRequest, ReasoningEffort, TextVerbosity as TextVerbosityValue } from "../../schema"
 import { ReasoningEfforts, TextVerbosity } from "../../schema"
 
-export const OpenAIReasoningEfforts = ReasoningEfforts.filter(
-  (effort): effort is Exclude<ReasoningEffort, "max"> => effort !== "max",
-)
+export const OpenAIReasoningEfforts = ReasoningEfforts
 export type OpenAIReasoningEffort = (typeof OpenAIReasoningEfforts)[number]
 
 // Mirrors OpenAI's `ResponseIncludable` union from the official SDK. Keep this
@@ -23,7 +21,6 @@ export type OpenAIResponseIncludable = (typeof OpenAIResponseIncludables)[number
 export const OpenAIServiceTiers = ["auto", "default", "flex", "priority"] as const
 export type OpenAIServiceTier = (typeof OpenAIServiceTiers)[number]
 
-const REASONING_EFFORTS = new Set<string>(ReasoningEfforts)
 const OPENAI_REASONING_EFFORTS = new Set<string>(OpenAIReasoningEfforts)
 const TEXT_VERBOSITY = new Set<string>(["low", "medium", "high"])
 const INCLUDABLES = new Set<string>(OpenAIResponseIncludables)
@@ -33,9 +30,6 @@ export const OpenAIReasoningEffort = Schema.Literals(OpenAIReasoningEfforts)
 export const OpenAITextVerbosity = TextVerbosity
 export const OpenAIResponseIncludable = Schema.Literals(OpenAIResponseIncludables)
 export const OpenAIServiceTier = Schema.Literals(OpenAIServiceTiers)
-
-const isAnyReasoningEffort = (effort: unknown): effort is ReasoningEffort =>
-  typeof effort === "string" && REASONING_EFFORTS.has(effort)
 
 export const isReasoningEffort = (effort: unknown): effort is OpenAIReasoningEffort =>
   typeof effort === "string" && OPENAI_REASONING_EFFORTS.has(effort)
@@ -52,7 +46,7 @@ export const store = (request: LLMRequest): boolean | undefined => {
 
 export const reasoningEffort = (request: LLMRequest): ReasoningEffort | undefined => {
   const value = options(request)?.reasoningEffort
-  return isAnyReasoningEffort(value) ? value : undefined
+  return isReasoningEffort(value) ? value : undefined
 }
 
 export const reasoningSummary = (request: LLMRequest): "auto" | undefined =>
