@@ -231,7 +231,7 @@ describe("session.message-v2.toModelMessage", () => {
     ])
   })
 
-  test("includes synthetic text parts", async () => {
+  test("includes synthetic text parts before summary text", async () => {
     const messageID = "m-user"
 
     const input: SessionV1.WithParts[] = [
@@ -247,10 +247,15 @@ describe("session.message-v2.toModelMessage", () => {
         ] as SessionV1.Part[],
       },
       {
-        info: assistantInfo("m-assistant", messageID),
+        info: { ...assistantInfo("m-assistant", messageID), summary: true },
         parts: [
           {
             ...basePart("m-assistant", "a1"),
+            type: "text",
+            text: "summary",
+          },
+          {
+            ...basePart("m-assistant", "a2"),
             type: "text",
             text: "assistant",
             synthetic: true,
@@ -266,7 +271,10 @@ describe("session.message-v2.toModelMessage", () => {
       },
       {
         role: "assistant",
-        content: [{ type: "text", text: "assistant" }],
+        content: [
+          { type: "text", text: "assistant" },
+          { type: "text", text: "summary" },
+        ],
       },
     ])
   })

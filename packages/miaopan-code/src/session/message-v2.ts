@@ -55,6 +55,18 @@ export function isSyntheticAttachmentPrompt(text: string) {
   return Language.some((language) => text === syntheticAttachmentPrompt(language))
 }
 
+function orderSummaryParts(message: WithParts) {
+  if (message.info.role !== "assistant" || message.info.summary !== true) return message.parts
+
+  const synthetic = message.parts.filter((part) => part.type === "text" && part.synthetic === true)
+  const parts = message.parts.filter((part) => part.type !== "text" || part.synthetic !== true)
+  const firstText = parts.findIndex((part) => part.type === "text")
+  if (synthetic.length === 0 || firstText === -1) return message.parts
+
+  // Keep reasoning and tool order intact while moving history before summary text.
+  return [...parts.slice(0, firstText), ...synthetic, ...parts.slice(firstText)]
+}
+
 function truncateToolOutput(text: string, maxChars?: number, language?: Language) {
   if (!maxChars || text.length <= maxChars) return text
   const omitted = text.length - maxChars
@@ -286,7 +298,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
         if (part.type !== "reasoning") return false
         return part.metadata?.anthropic?.signature != null
       })
-      for (const part of msg.parts) {
+      for (const part of orderSummaryParts(msg)) {
         if (part.type === "text") {
           const text = part.text === "" && hasSignedReasoning ? " " : part.text
           assistantMessage.parts.push({
