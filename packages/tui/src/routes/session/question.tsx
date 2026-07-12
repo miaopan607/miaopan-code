@@ -9,6 +9,7 @@ import { SplitBorder } from "../../ui/border"
 import { useTuiConfig } from "../../config"
 import { useBindings, useMiaopanCodeModeStack } from "../../keymap"
 import { useI18n } from "../../context/i18n"
+import { appendQuestionNote } from "./question.shared"
 
 const QUESTION_MODE = "question"
 
@@ -33,8 +34,10 @@ export function QuestionPrompt(props: {
     tab: 0,
     answers: [] as QuestionAnswer[],
     custom: [] as string[],
+    notes: [] as string[],
     selected: 0,
     editing: false,
+    noteEditing: false,
   })
 
   let textarea: TextareaRenderable | undefined
@@ -45,6 +48,7 @@ export function QuestionPrompt(props: {
   const custom = createMemo(() => question()?.custom !== false)
   const other = createMemo(() => custom() && store.selected === options().length)
   const input = createMemo(() => store.custom[store.tab] ?? "")
+  const note = createMemo(() => store.notes[store.tab] ?? "")
   const multi = createMemo(() => question()?.multiple === true)
   const customPicked = createMemo(() => {
     const value = input()
@@ -65,7 +69,7 @@ export function QuestionPrompt(props: {
   }
 
   function submit() {
-    reply(questions().map((_, i) => store.answers[i] ?? []))
+    reply(questions().map((_, i) => appendQuestionNote(store.answers[i] ?? [], store.notes[i] ?? "")))
   }
 
   function reject() {
@@ -79,7 +83,7 @@ export function QuestionPrompt(props: {
     })
   }
 
-  function pick(answer: string, custom: boolean = false) {
+  function pick(answer: string, custom: boolean = false, submitAnswer = true) {
     const answers = [...store.answers]
     answers[store.tab] = [answer]
     setStore("answers", answers)
@@ -88,12 +92,41 @@ export function QuestionPrompt(props: {
       inputs[store.tab] = answer
       setStore("custom", inputs)
     }
-    if (single()) {
-      reply([[answer]])
+    if (single() && submitAnswer) {
+      reply([appendQuestionNote([answer], store.notes[store.tab] ?? "")])
       return
     }
+    if (!single() && submitAnswer) {
+      setStore("tab", store.tab + 1)
+      setStore("selected", 0)
+    }
+  }
+
+  function saveNoteAndCommit() {
+    const text = textarea?.plainText?.trim() ?? note()
+    setStore("notes", store.tab, text)
+    setStore("noteEditing", false)
+
+    if (single()) {
+      const answer = store.answers[store.tab] ?? []
+      if (answer.length > 0 || options().length === 0) {
+        reply([appendQuestionNote(answer, text)])
+        return
+      }
+
+      const option = options()[store.selected]
+      if (option) {
+        reply([appendQuestionNote([option.label], text)])
+      }
+      return
+    }
+
     setStore("tab", store.tab + 1)
     setStore("selected", 0)
+  }
+
+  function openNotes() {
+    setStore("noteEditing", true)
   }
 
   function toggle(answer: string) {
@@ -114,11 +147,16 @@ export function QuestionPrompt(props: {
   function selectTab(index: number) {
     setStore("tab", index)
     setStore("selected", 0)
+    setStore("noteEditing", false)
   }
 
   function selectOption() {
     if (other()) {
       if (!multi()) {
+        if (input() && customPicked()) {
+          submit()
+          return
+        }
         setStore("editing", true)
         return
       }
@@ -213,10 +251,40 @@ export function QuestionPrompt(props: {
             return
           }
 
-          pick(text, true)
+          pick(text, true, false)
           setStore("editing", false)
         },
       },
+    ],
+  }))
+
+  useBindings(() => ({
+    mode: QUESTION_MODE,
+    enabled: store.noteEditing && !confirm(),
+    commands: [],
+    bindings: [
+      {
+        key: "escape",
+        desc: i18n.t("question.cancel_notes"),
+        group: i18n.t("tui.category_question"),
+        cmd: () => setStore("noteEditing", false),
+      },
+      {
+        key: "return",
+        desc: i18n.t("question.save_notes"),
+        group: i18n.t("tui.category_question"),
+        cmd: () => saveNoteAndCommit(),
+      },
+      ...(options().length > 0
+        ? [
+            {
+              key: "tab",
+              desc: i18n.t("question.cancel_notes"),
+              group: i18n.t("tui.category_question"),
+              cmd: () => setStore("noteEditing", false),
+            },
+          ]
+        : []),
     ],
   }))
 
@@ -227,7 +295,7 @@ export function QuestionPrompt(props: {
 
     return {
       mode: QUESTION_MODE,
-      enabled: !store.editing,
+      enabled: !store.editing && !store.noteEditing,
       commands: [
         {
           name: "app.exit",
@@ -265,9 +333,14 @@ export function QuestionPrompt(props: {
         },
         {
           key: "tab",
-          desc: i18n.t("question.next"),
+          desc: i18n.t("question.add_notes"),
           group: i18n.t("tui.category_question"),
           cmd: ({ event }: { event: { shift: boolean } }) => {
+            const hasAnswer = (store.answers[store.tab]?.length ?? 0) > 0 || Boolean(note())
+            if (!confirm() && (single() || hasAnswer)) {
+              openNotes()
+              return
+            }
             selectTab((store.tab + (event.shift ? -1 : 1) + tabs()) % tabs())
           },
         },
@@ -353,7 +426,7 @@ export function QuestionPrompt(props: {
               {(q, index) => {
                 const isActive = () => index() === store.tab
                 const isAnswered = () => {
-                  return (store.answers[index()]?.length ?? 0) > 0
+                  return (store.answers[index()]?.length ?? 0) > 0 || Boolean(store.notes[index()]?.trim())
                 }
                 return (
                   <box
@@ -509,6 +582,31 @@ export function QuestionPrompt(props: {
                   </Show>
                 </box>
               </Show>
+              <Show when={store.noteEditing || note()}>
+                <box paddingLeft={3} flexDirection="column">
+                  <text />
+                  <Show when={store.noteEditing} fallback={<text fg={theme.textMuted}>{note()}</text>}>
+                    <textarea
+                      ref={(val: TextareaRenderable) => {
+                        textarea = val
+                        val.traits = { status: "NOTE" }
+                        queueMicrotask(() => {
+                          val.focus()
+                          val.gotoLineEnd()
+                        })
+                      }}
+                      initialValue={note()}
+                      placeholder={i18n.t("question.notes_placeholder")}
+                      placeholderColor={theme.textMuted}
+                      minHeight={1}
+                      maxHeight={6}
+                      textColor={theme.text}
+                      focusedTextColor={theme.text}
+                      cursorColor={theme.primary}
+                    />
+                  </Show>
+                </box>
+              </Show>
             </box>
           </box>
         </Show>
@@ -519,16 +617,22 @@ export function QuestionPrompt(props: {
           </box>
           <For each={questions()}>
             {(q, index) => {
-              const value = () => store.answers[index()]?.join(", ") ?? ""
-              const answered = () => Boolean(value())
+              const answer = () => store.answers[index()] ?? []
+              const note = () => store.notes[index()]?.trim() ?? ""
+              const answered = () => answer().length > 0 || Boolean(note())
               return (
                 <box paddingLeft={1}>
                   <text>
                     <span style={{ fg: theme.textMuted }}>{q.header}:</span>{" "}
                     <span style={{ fg: answered() ? theme.text : theme.error }}>
-                      {answered() ? value() : `(${i18n.t("question.not_answered")})`}
+                      {answered() ? answer().join(", ") : `(${i18n.t("question.not_answered")})`}
                     </span>
                   </text>
+                  <Show when={note()}>
+                    <text fg={theme.textMuted}>
+                      {i18n.t("question.note_label")}: {note()}
+                    </text>
+                  </Show>
                 </box>
               )
             }}
@@ -545,32 +649,50 @@ export function QuestionPrompt(props: {
         justifyContent="space-between"
       >
         <box flexDirection="row" gap={2}>
-          <Show when={!single()}>
+          <Show
+            when={store.noteEditing}
+            fallback={
+              <>
+                <Show when={!single() && !(store.answers[store.tab]?.length ?? 0) && !note()}>
+                  <text fg={theme.text}>
+                    {"⇆"} <span style={{ fg: theme.textMuted }}>{i18n.t("question.tab")}</span>
+                  </text>
+                </Show>
+                <Show when={!confirm() && (single() || Boolean(store.answers[store.tab]?.length) || Boolean(note()))}>
+                  <text fg={theme.text}>
+                    tab <span style={{ fg: theme.textMuted }}>{i18n.t("question.add_notes")}</span>
+                  </text>
+                </Show>
+                <Show when={!confirm()}>
+                  <text fg={theme.text}>
+                    {"↑↓"} <span style={{ fg: theme.textMuted }}>{i18n.t("select.select_item")}</span>
+                  </text>
+                </Show>
+                <text fg={theme.text}>
+                  enter{" "}
+                  <span style={{ fg: theme.textMuted }}>
+                    {confirm()
+                      ? i18n.t("question.submit")
+                      : multi()
+                        ? i18n.t("question.toggle")
+                        : single()
+                          ? i18n.t("question.submit")
+                          : i18n.t("question.confirm")}
+                  </span>
+                </text>
+                <text fg={theme.text}>
+                  esc <span style={{ fg: theme.textMuted }}>{i18n.t("question.dismiss")}</span>
+                </text>
+              </>
+            }
+          >
             <text fg={theme.text}>
-              {"⇆"} <span style={{ fg: theme.textMuted }}>{i18n.t("question.tab")}</span>
+              enter <span style={{ fg: theme.textMuted }}>{i18n.t("question.save_notes")}</span>
+            </text>
+            <text fg={theme.text}>
+              esc <span style={{ fg: theme.textMuted }}>{i18n.t("question.cancel_notes")}</span>
             </text>
           </Show>
-          <Show when={!confirm()}>
-            <text fg={theme.text}>
-              {"↑↓"} <span style={{ fg: theme.textMuted }}>{i18n.t("select.select_item")}</span>
-            </text>
-          </Show>
-          <text fg={theme.text}>
-            enter{" "}
-            <span style={{ fg: theme.textMuted }}>
-              {confirm()
-                ? i18n.t("question.submit")
-                : multi()
-                  ? i18n.t("question.toggle")
-                  : single()
-                    ? i18n.t("question.submit")
-                    : i18n.t("question.confirm")}
-            </span>
-          </text>
-
-          <text fg={theme.text}>
-            esc <span style={{ fg: theme.textMuted }}>{i18n.t("question.dismiss")}</span>
-          </text>
         </box>
       </box>
     </box>

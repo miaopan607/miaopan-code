@@ -21,16 +21,20 @@ import { UI } from "../../ui"
 import {
   createQuestionBodyState,
   questionConfirm,
+  questionAnswers,
   questionCustom,
   questionInfo,
   questionInput,
   questionMove,
+  questionNote,
   questionOther,
   questionPicked,
   questionReject,
   questionSave,
+  questionSaveNoteAndCommit,
   questionSelect,
   questionSetEditing,
+  questionSetNoteEditing,
   questionSetSelected,
   questionSetSubmitting,
   questionSetTab,
@@ -40,6 +44,7 @@ import {
   questionSync,
   questionTabs,
   questionTotal,
+  splitQuestionAnswer,
 } from "./question.shared"
 import { footerWidthPolicy } from "./footer.width"
 import type { RunFooterTheme } from "./theme"
@@ -57,6 +62,8 @@ export function RunQuestionBody(props: {
   const confirm = createMemo(() => questionConfirm(props.request, state()))
   const info = createMemo(() => questionInfo(props.request, state()))
   const input = createMemo(() => questionInput(state()))
+  const note = createMemo(() => questionNote(state()))
+  const answers = createMemo(() => questionAnswers(state(), props.request.questions.length))
   const other = createMemo(() => questionOther(props.request, state()))
   const picked = createMemo(() => questionPicked(state()))
   const disabled = createMemo(() => state().submitting)
@@ -124,6 +131,23 @@ export function RunQuestionBody(props: {
     void beginReply(next.reply)
   }
 
+  const saveNoteAndCommit = () => {
+    const text = area?.plainText ?? note()
+    const cur = state()
+    const next = questionSaveNoteAndCommit(cur, props.request, text)
+    if (next.state !== cur) {
+      setState(next.state)
+    }
+
+    if (next.reply) {
+      void beginReply(next.reply)
+    }
+  }
+
+  const openNotes = () => {
+    setState((prev) => questionSetNoteEditing(prev, true))
+  }
+
   const choose = (selected: number) => {
     const base = state()
     const cur = questionSetSelected(base, selected)
@@ -182,6 +206,26 @@ export function RunQuestionBody(props: {
       return
     }
 
+    if (cur.noteEditing) {
+      if (event.name === "escape") {
+        setState((prev) => questionSetNoteEditing(prev, false))
+        event.preventDefault()
+        return
+      }
+
+      if (event.name === "tab" && (info()?.options.length ?? 0) > 0) {
+        setState((prev) => questionSetNoteEditing(prev, false))
+        event.preventDefault()
+        return
+      }
+
+      if (event.name === "return") {
+        saveNoteAndCommit()
+        event.preventDefault()
+      }
+      return
+    }
+
     if (!single() && (event.name === "left" || event.name === "h")) {
       setTab((cur.tab - 1 + questionTabs(props.request)) % questionTabs(props.request))
       event.preventDefault()
@@ -194,7 +238,15 @@ export function RunQuestionBody(props: {
       return
     }
 
-    if (!single() && event.name === "tab") {
+    if (event.name === "tab") {
+      const hasAnswer = (cur.answers[cur.tab]?.length ?? 0) > 0
+      if (single() || hasAnswer) {
+        openNotes()
+        event.preventDefault()
+        return
+      }
+
+      if (single()) return
       const dir = event.shift ? -1 : 1
       setTab((cur.tab + dir + questionTabs(props.request)) % questionTabs(props.request))
       event.preventDefault()
@@ -249,17 +301,18 @@ export function RunQuestionBody(props: {
   })
 
   createEffect(() => {
-    if (!state().editing || !area || area.isDestroyed) {
+    if ((!state().editing && !state().noteEditing) || !area || area.isDestroyed) {
       return
     }
 
-    if (area.plainText !== input()) {
-      area.setText(input())
-      area.cursorOffset = input().length
+    const value = state().noteEditing ? note() : input()
+    if (area.plainText !== value) {
+      area.setText(value)
+      area.cursorOffset = value.length
     }
 
     queueMicrotask(() => {
-      if (!area || area.isDestroyed || !state().editing) {
+      if (!area || area.isDestroyed || (!state().editing && !state().noteEditing)) {
         return
       }
 
@@ -285,7 +338,8 @@ export function RunQuestionBody(props: {
             <For each={props.request.questions}>
               {(item, index) => {
                 const active = () => state().tab === index()
-                const answered = () => (state().answers[index()]?.length ?? 0) > 0
+                const answered = () =>
+                  (state().answers[index()]?.length ?? 0) > 0 || Boolean(state().notes[index()]?.trim())
                 return (
                   <box
                     paddingLeft={1}
@@ -335,16 +389,21 @@ export function RunQuestionBody(props: {
                   </box>
                   <For each={props.request.questions}>
                     {(item, index) => {
-                      const value = () => state().answers[index()]?.join(", ") ?? ""
-                      const answered = () => Boolean(value())
+                      const value = () => splitQuestionAnswer(answers()[index()] ?? [])
+                      const answered = () => value().answers.length > 0 || value().notes.length > 0
                       return (
                         <box paddingLeft={1}>
                           <text wrapMode="word">
                             <span style={{ fg: props.theme.muted }}>{item.header}:</span>{" "}
                             <span style={{ fg: answered() ? props.theme.text : props.theme.error }}>
-                              {answered() ? value() : `(${UI.t("cli.run.not_answered")})`}
+                              {answered() ? value().answers.join(", ") : `(${UI.t("cli.run.not_answered")})`}
                             </span>
                           </text>
+                          <Show when={value().notes.length > 0}>
+                            <text fg={props.theme.muted} wrapMode="word">
+                              {UI.t("question.note_label")}: {value().notes.join("\n")}
+                            </text>
+                          </Show>
                         </box>
                       )
                     }}
@@ -505,6 +564,39 @@ export function RunQuestionBody(props: {
                       </Show>
                     </box>
                   </Show>
+
+                  <Show when={state().noteEditing || note()}>
+                    <box paddingLeft={3} flexDirection="column">
+                      <text />
+                      <Show
+                        when={state().noteEditing}
+                        fallback={
+                          <text fg={props.theme.muted} wrapMode="word">
+                            {note()}
+                          </text>
+                        }
+                      >
+                        <textarea
+                          width="100%"
+                          minHeight={1}
+                          maxHeight={4}
+                          wrapMode="word"
+                          placeholder={UI.t("question.notes_placeholder")}
+                          placeholderColor={props.theme.muted}
+                          textColor={props.theme.text}
+                          focusedTextColor={props.theme.text}
+                          backgroundColor={props.theme.surface}
+                          focusedBackgroundColor={props.theme.surface}
+                          cursorColor={props.theme.text}
+                          focused={!disabled()}
+                          onSubmit={saveNoteAndCommit}
+                          ref={(item) => {
+                            area = item
+                          }}
+                        />
+                      </Show>
+                    </box>
+                  </Show>
                 </box>
               </scrollbox>
             </box>
@@ -536,34 +628,48 @@ export function RunQuestionBody(props: {
             flexShrink={0}
             width={narrow() ? "100%" : undefined}
           >
-            <Show
-              when={!state().editing}
-              fallback={
-                <>
-                  <text fg={props.theme.text}>
-                    enter <span style={{ fg: props.theme.muted }}>save</span>
-                  </text>
-                  <text fg={props.theme.text}>
-                    esc <span style={{ fg: props.theme.muted }}>cancel</span>
-                  </text>
-                </>
-              }
-            >
-              <Show when={!single()}>
+            <Show when={state().editing}>
+              <text fg={props.theme.text}>
+                enter <span style={{ fg: props.theme.muted }}>{UI.t("question.save_edit")}</span>
+              </text>
+              <text fg={props.theme.text}>
+                esc <span style={{ fg: props.theme.muted }}>{UI.t("question.cancel_edit")}</span>
+              </text>
+            </Show>
+            <Show when={state().noteEditing}>
+              <text fg={props.theme.text}>
+                enter <span style={{ fg: props.theme.muted }}>{UI.t("question.save_notes")}</span>
+              </text>
+              <text fg={props.theme.text}>
+                esc <span style={{ fg: props.theme.muted }}>{UI.t("question.cancel_notes")}</span>
+              </text>
+              <Show when={(info()?.options.length ?? 0) > 0}>
                 <text fg={props.theme.text}>
-                  {"⇆"} <span style={{ fg: props.theme.muted }}>tab</span>
+                  tab <span style={{ fg: props.theme.muted }}>{UI.t("question.cancel_notes")}</span>
+                </text>
+              </Show>
+            </Show>
+            <Show when={!state().editing && !state().noteEditing}>
+              <Show when={!single() && !(state().answers[state().tab]?.length ?? 0)}>
+                <text fg={props.theme.text}>
+                  {"⇆"} <span style={{ fg: props.theme.muted }}>{UI.t("question.tab")}</span>
+                </text>
+              </Show>
+              <Show when={single() || Boolean(state().answers[state().tab]?.length)}>
+                <text fg={props.theme.text}>
+                  tab <span style={{ fg: props.theme.muted }}>{UI.t("question.add_notes")}</span>
                 </text>
               </Show>
               <Show when={!confirm()}>
                 <text fg={props.theme.text}>
-                  {"↑↓"} <span style={{ fg: props.theme.muted }}>select</span>
+                  {"↑↓"} <span style={{ fg: props.theme.muted }}>{UI.t("question.select")}</span>
                 </text>
               </Show>
               <text fg={props.theme.text}>
                 enter <span style={{ fg: props.theme.muted }}>{verb()}</span>
               </text>
               <text fg={props.theme.text}>
-                esc <span style={{ fg: props.theme.muted }}>dismiss</span>
+                esc <span style={{ fg: props.theme.muted }}>{UI.t("question.dismiss")}</span>
               </text>
             </Show>
           </box>

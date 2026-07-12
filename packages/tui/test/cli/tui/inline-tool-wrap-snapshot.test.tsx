@@ -19,6 +19,7 @@ import {
   alwaysSeparate,
   toolDisplay,
 } from "../../../src/routes/session"
+import { splitQuestionAnswer } from "../../../src/routes/session/question.shared"
 
 let testSetup: Awaited<ReturnType<typeof testRender>> | undefined
 
@@ -305,6 +306,10 @@ describe("TUI inline tool wrapping", () => {
     expect(parseQuestions([{}, { question: 1 }, { question: "Continue?" }])).toEqual([{ question: "Continue?" }])
     expect(parseQuestionAnswers([null, ["yes", 1], "no"])).toEqual([[], ["yes"], []])
     expect(parseQuestionAnswers({})).toBeUndefined()
+    expect(splitQuestionAnswer(["yes", "user_note: keep the change small"])).toEqual({
+      answers: ["yes"],
+      notes: ["keep the change small"],
+    })
   })
 
   test("ignores diagnostics with malformed nested ranges", () => {
