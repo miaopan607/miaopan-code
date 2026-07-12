@@ -66,6 +66,7 @@ import * as Model from "./util/model"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
+import { PromptQueueProvider } from "./context/prompt-queue"
 import { TuiConfigProvider, useTuiConfig, type TuiConfig } from "./config"
 import { I18nProvider, useI18n } from "./context/i18n"
 import { createTuiApiAdapters } from "./plugin/adapters"
@@ -319,16 +320,18 @@ export const run = Effect.fn("Tui.run")(function* (input: TuiInput) {
                                                           <DialogProvider>
                                                             <FrecencyProvider>
                                                               <PromptHistoryProvider>
-                                                                <PromptRefProvider>
-                                                                  <EditorContextProvider>
-                                                                    <LocationProvider>
-                                                                      <App
-                                                                        onSnapshot={input.onSnapshot}
-                                                                        pluginHost={input.pluginHost}
-                                                                      />
-                                                                    </LocationProvider>
-                                                                  </EditorContextProvider>
-                                                                </PromptRefProvider>
+                                                                <PromptQueueProvider>
+                                                                  <PromptRefProvider>
+                                                                    <EditorContextProvider>
+                                                                      <LocationProvider>
+                                                                        <App
+                                                                          onSnapshot={input.onSnapshot}
+                                                                          pluginHost={input.pluginHost}
+                                                                        />
+                                                                      </LocationProvider>
+                                                                    </EditorContextProvider>
+                                                                  </PromptRefProvider>
+                                                                </PromptQueueProvider>
                                                               </PromptHistoryProvider>
                                                             </FrecencyProvider>
                                                           </DialogProvider>

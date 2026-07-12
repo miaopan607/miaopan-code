@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { runPromptQueue } from "@/cli/cmd/run/runtime.queue"
-import type { FooterApi, FooterEvent, RunPrompt, StreamCommit } from "@/cli/cmd/run/types"
+import type { FooterApi, FooterEvent, RunPrompt, RunPromptDelivery, StreamCommit } from "@/cli/cmd/run/types"
 
 function footer() {
-  const prompts = new Set<(input: RunPrompt) => void>()
+  const prompts = new Set<(input: RunPrompt, delivery: RunPromptDelivery) => void>()
   const queuedRemoves = new Set<(messageID: string) => void>()
   const closes = new Set<() => void>()
   const events: FooterEvent[] = []
@@ -67,10 +67,10 @@ function footer() {
     api,
     events,
     commits,
-    submit(text: string, mode?: RunPrompt["mode"]) {
+    submit(text: string, mode?: RunPrompt["mode"], delivery: RunPromptDelivery = "steer") {
       const next = mode ? { text, parts: [] as RunPrompt["parts"], mode } : { text, parts: [] as RunPrompt["parts"] }
       for (const fn of [...prompts]) {
-        fn(next)
+        fn(next, delivery)
       }
     },
     removeQueued(messageID: string) {
@@ -316,6 +316,73 @@ describe("run runtime queue", () => {
     await task
 
     expect(seen).toEqual(["one", "two"])
+  })
+
+  test("steers an active ordinary turn without adding a queued follow-up", async () => {
+    const ui = footer()
+    const steers: string[] = []
+    let finish: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+
+    const task = runPromptQueue({
+      footer: ui.api,
+      steer: async (prompt) => {
+        steers.push(prompt.text)
+      },
+      run: async () => {
+        await gate
+        ui.api.close()
+      },
+    })
+
+    ui.submit("first")
+    await Promise.resolve()
+    ui.submit("steer")
+    await Promise.resolve()
+
+    expect(steers).toEqual(["steer"])
+    const queued = ui.events.findLast((event) => event.type === "queued.prompts")
+    expect(queued?.type === "queued.prompts" ? queued.prompts : []).toEqual([])
+
+    finish?.()
+    await task
+  })
+
+  test("queues an active ordinary turn when queue delivery is requested", async () => {
+    const ui = footer()
+    const turns: string[] = []
+    let finish: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+
+    const task = runPromptQueue({
+      footer: ui.api,
+      steer: async () => {
+        throw new Error("unexpected steer")
+      },
+      run: async (prompt) => {
+        turns.push(prompt.text)
+        if (prompt.text === "first") await gate
+        if (prompt.text === "follow-up") ui.api.close()
+      },
+    })
+
+    ui.submit("first")
+    await Promise.resolve()
+    ui.submit("follow-up", undefined, "queue")
+    await Promise.resolve()
+
+    const queued = ui.events.findLast((event) => event.type === "queued.prompts")
+    expect(queued?.type === "queued.prompts" ? queued.prompts.map((item) => item.prompt.text) : []).toEqual([
+      "follow-up",
+    ])
+
+    finish?.()
+    await task
+    expect(turns).toEqual(["first", "follow-up"])
   })
 
   test("exposes ordinary in-flight prompts for removal before sending", async () => {

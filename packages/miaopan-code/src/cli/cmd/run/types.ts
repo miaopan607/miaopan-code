@@ -42,6 +42,8 @@ export type RunPrompt = {
   }
 }
 
+export type RunPromptDelivery = "steer" | "queue"
+
 export type FooterQueuedPrompt = {
   messageID: string
   partID: string
@@ -339,7 +341,7 @@ export type LocalReplayRow = {
 // touch the renderer directly -- they go through this interface.
 export type FooterApi = {
   readonly isClosed: boolean
-  onPrompt(fn: (input: RunPrompt) => void): () => void
+  onPrompt(fn: (input: RunPrompt, delivery: RunPromptDelivery) => void): () => void
   onQueuedRemove(fn: (messageID: string) => boolean | Promise<boolean>): () => void
   onClose(fn: () => void): () => void
   event(next: FooterEvent): void

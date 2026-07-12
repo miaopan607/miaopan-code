@@ -27,7 +27,16 @@ import { MIAOPAN_CODE_BASE_MODE, useBindings } from "@miaopan-code/tui/keymap"
 import { realignEditorPromptParts, resolveEditorSlashValue } from "./prompt.editor"
 import { FOOTER_MENU_ROWS, createFooterMenuState, type RunFooterMenuItem } from "./footer.menu"
 import type { RunFooterTheme } from "./theme"
-import type { FooterState, RunAgent, RunCommand, RunPrompt, RunPromptPart, RunResource, RunTuiConfig } from "./types"
+import type {
+  FooterState,
+  RunAgent,
+  RunCommand,
+  RunPrompt,
+  RunPromptDelivery,
+  RunPromptPart,
+  RunResource,
+  RunTuiConfig,
+} from "./types"
 import { UI } from "../../ui"
 
 const AUTOCOMPLETE_ROWS = FOOTER_MENU_ROWS
@@ -69,7 +78,7 @@ type PromptInput = {
   width: Accessor<number>
   theme: Accessor<RunFooterTheme>
   history?: RunPrompt[]
-  onSubmit: (input: RunPrompt) => boolean | Promise<boolean>
+  onSubmit: (input: RunPrompt, delivery?: RunPromptDelivery) => boolean | Promise<boolean>
   onCycle: () => void
   onInterrupt: () => boolean
   onEditorOpen: (input: { value: string }) => Promise<string | undefined>
@@ -1161,7 +1170,7 @@ export function createPromptState(input: PromptInput): PromptState {
     }
   }
 
-  const submitPrompt = (next: RunPrompt) => {
+  const submitPrompt = (next: RunPrompt, delivery: RunPromptDelivery = "steer") => {
     if (!area || area.isDestroyed) {
       draft = clonePrompt(next)
     }
@@ -1204,7 +1213,7 @@ export function createPromptState(input: PromptInput): PromptState {
 
     resetDraft()
     queueMicrotask(async () => {
-      if (await input.onSubmit(submit)) {
+      if (await input.onSubmit(submit, delivery)) {
         push(next)
         if (shellMode) {
           setShellMode(false)
@@ -1221,6 +1230,23 @@ export function createPromptState(input: PromptInput): PromptState {
     syncDraft()
     submitPrompt(clonePrompt(draft))
   }
+
+  useBindings(() => ({
+    mode: MIAOPAN_CODE_BASE_MODE,
+    enabled: input.prompt() && !visible() && input.state().phase === "running" && draft.text.trim().length > 0,
+    commands: [
+      {
+        name: "prompt.queue",
+        title: UI.t("prompt.queue"),
+        category: "Prompt",
+        run() {
+          syncDraft()
+          submitPrompt(clonePrompt(draft), "queue")
+        },
+      },
+    ],
+    bindings: input.tuiConfig.keybinds.get("prompt.queue"),
+  }))
 
   const submitText = (text: string) => {
     submitPrompt({ text, parts: [] })

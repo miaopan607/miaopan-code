@@ -50,6 +50,7 @@ import type {
   RunDiffStyle,
   RunInput,
   RunPrompt,
+  RunPromptDelivery,
   RunProvider,
   RunResource,
   RunTuiConfig,
@@ -93,7 +94,7 @@ type RunFooterViewProps = {
   backgroundSubagents: boolean
   history?: RunPrompt[]
   agent: string
-  onSubmit: (input: RunPrompt) => boolean
+  onSubmit: (input: RunPrompt, delivery?: RunPromptDelivery) => boolean
   onPermissionReply: (input: PermissionReply) => void | Promise<void>
   onQuestionReply: (input: QuestionReply) => void | Promise<void>
   onQuestionReject: (input: QuestionReject) => void | Promise<void>

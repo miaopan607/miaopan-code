@@ -11,7 +11,7 @@
 import * as Locale from "@/util/locale"
 import { MessageID, PartID } from "@/session/schema"
 import { isExitCommand, isNewCommand } from "./prompt.shared"
-import type { FooterApi, FooterEvent, FooterQueuedPrompt, RunPrompt } from "./types"
+import type { FooterApi, FooterEvent, FooterQueuedPrompt, RunPrompt, RunPromptDelivery } from "./types"
 import { UI } from "../../ui"
 
 type Trace = {
@@ -30,6 +30,7 @@ export type QueueInput = {
   trace?: Trace
   onSend?: (prompt: RunPrompt) => void
   onNewSession?: () => void | Promise<void>
+  steer?: (prompt: RunPrompt) => void | Promise<void>
   run: (prompt: RunPrompt, signal: AbortSignal) => Promise<void>
 }
 
@@ -266,7 +267,7 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
     })()
   }
 
-  const submit = (prompt: RunPrompt) => {
+  const submit = (prompt: RunPrompt, delivery: RunPromptDelivery = "steer") => {
     if (!prompt.text.trim() || state.closed) {
       return
     }
@@ -285,6 +286,28 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
       !prompt.command &&
       !isNewCommand(prompt.text)
     ) {
+      if (delivery === "steer" && input.steer) {
+        const sent = {
+          ...prompt,
+          messageID: prompt.messageID ?? MessageID.ascending(),
+          partID: prompt.partID ?? PartID.ascending(),
+        }
+        const commit = {
+          kind: "user",
+          text: sent.text,
+          phase: "start",
+          source: "system",
+          messageID: sent.messageID,
+        } as const
+        input.trace?.write("ui.commit", commit)
+        input.footer.append(commit)
+        input.onSend?.(sent)
+        void Promise.resolve(input.steer(sent)).catch((error) => {
+          const status = error instanceof Error ? error.message : String(error)
+          emit({ type: "stream.patch", patch: { status } }, { status })
+        })
+        return
+      }
       const queued: FooterQueuedPrompt = {
         messageID: MessageID.ascending(),
         partID: PartID.ascending(),
@@ -315,8 +338,8 @@ export async function runPromptQueue(input: QueueInput): Promise<void> {
     drain()
   }
 
-  const offPrompt = input.footer.onPrompt((prompt) => {
-    submit(prompt)
+  const offPrompt = input.footer.onPrompt((prompt, delivery) => {
+    submit(prompt, delivery)
   })
   const offClose = input.footer.onClose(() => {
     close()
