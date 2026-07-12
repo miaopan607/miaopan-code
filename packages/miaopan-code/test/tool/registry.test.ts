@@ -108,7 +108,7 @@ describe("tool.registry", () => {
       if (!ask) throw new Error("ask agent not found")
 
       const tools = yield* registry.tools({
-        providerID: ProviderV2.ID.miaopanCode,
+        providerID: ProviderV2.ID.opencode,
         modelID: ModelV2.ID.make("test"),
         agent: ask,
       })
