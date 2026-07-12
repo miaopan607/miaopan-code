@@ -1163,6 +1163,16 @@
           },
           "description": "Additional instruction files or patterns to include"
         },
+        "question": {
+          "type": "object",
+          "properties": {
+            "auto_resolution": {
+              "type": "boolean",
+              "description": "Allow question tools to submit empty answers automatically after the requested wait (default: true)"
+            }
+          },
+          "additionalProperties": false
+        },
         "layout": {
           "$ref": "#/$defs/LayoutConfig",
           "description": "@deprecated Always uses stretch layout."

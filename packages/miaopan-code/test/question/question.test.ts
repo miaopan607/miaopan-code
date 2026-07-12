@@ -145,6 +145,34 @@ it.instance(
   { git: true },
 )
 
+it.instance(
+  "ask - ignores auto resolution when disabled in config",
+  () =>
+    Effect.gen(function* () {
+      const fiber = yield* askEffect({
+        sessionID: SessionID.make("ses_test"),
+        autoResolutionMs: 10,
+        questions: [
+          {
+            question: "Optional context?",
+            header: "Context",
+            options: [
+              { label: "Yes", description: "Provide context" },
+              { label: "No", description: "Continue without it" },
+            ],
+          },
+        ],
+      }).pipe(Effect.forkScoped)
+
+      const pending = yield* waitForPending(1)
+      yield* Effect.sleep("30 millis")
+      expect(yield* listEffect).toHaveLength(1)
+      yield* replyEffect({ requestID: pending[0].id, answers: [["Yes"]] })
+      expect(yield* Fiber.join(fiber)).toEqual([["Yes"]])
+    }),
+  { git: true, config: { question: { auto_resolution: false } } },
+)
+
 // reply tests
 
 it.instance(

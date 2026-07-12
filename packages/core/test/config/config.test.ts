@@ -97,6 +97,19 @@ describe("Config", () => {
     }),
   )
 
+  it.effect("decodes the question auto-resolution setting", () =>
+    Effect.sync(() => {
+      expect(
+        Schema.decodeUnknownSync(ConfigV1.Info)({ question: { auto_resolution: false } }).question?.auto_resolution,
+      ).toBe(false)
+      expect(
+        Schema.decodeUnknownSync(ConfigV1.Info)({ question: { auto_resolution: true } }).question?.auto_resolution,
+      ).toBe(true)
+      expect(Schema.decodeUnknownSync(ConfigV1.Info)({}).question?.auto_resolution).toBeUndefined()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ question: { auto_resolution: "false" } })).toThrow()
+    }),
+  )
+
   it.effect("migrates v1 provider setup options into AISDK settings", () =>
     Effect.sync(() => {
       const migrated = ConfigMigrateV1.migrate({

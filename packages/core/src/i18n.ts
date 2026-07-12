@@ -2195,6 +2195,10 @@ export const messages = {
     "zh-CN": "要包含的附加指令文件或模式",
     en: "Additional instruction files or patterns to include",
   },
+  "config.v1.question_auto_resolution": {
+    "zh-CN": "允许提问工具在指定等待时间后自动提交空答案（默认：true）",
+    en: "Allow question tools to submit empty answers automatically after the requested wait (default: true)",
+  },
   "config.v1.layout": { "zh-CN": "已弃用：始终使用 stretch 布局", en: "@deprecated Always uses stretch layout." },
   "config.v1.attachments": {
     "zh-CN": "附件处理配置，包括图像大小限制和调整行为",
@@ -5379,8 +5383,8 @@ export const messages = {
   },
   "request_user_input.questions": { "zh-CN": "要显示的一至三个问题，优先只问一个", en: "One to three questions to show; prefer one" },
   "request_user_input.auto_resolution": {
-    "zh-CN": "可选自动处理等待时间，范围为 60000 至 240000 毫秒",
-    en: "Optional auto-resolution window from 60000 to 240000 milliseconds",
+    "zh-CN": "仅用于有帮助但不阻塞的问题；必须获得明确回答时省略。范围为 60000 至 240000 毫秒",
+    en: "Use only for useful but non-blocking questions; omit when an explicit answer is required. Range: 60000 to 240000 milliseconds",
   },
   "request_user_input.root_only": { "zh-CN": "request_user_input 只能由根 Plan 代理使用", en: "request_user_input can only be used by the root Plan agent" },
   "request_user_input.duplicate_id": { "zh-CN": "request_user_input 的问题 ID 必须唯一", en: "request_user_input question IDs must be unique" },

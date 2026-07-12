@@ -2014,6 +2014,9 @@ export type Config = {
             }
       }
   instructions?: Array<string>
+  question?: {
+    auto_resolution?: boolean
+  }
   layout?: LayoutConfig
   permission?: PermissionConfig
   tools?: {

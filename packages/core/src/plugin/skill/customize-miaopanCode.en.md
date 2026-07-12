@@ -138,6 +138,8 @@ Every field is optional.
   "formatter": false,
   "lsp": false,
 
+  "question": { "auto_resolution": false },
+
   "experimental": {
     "primary_tools": ["edit"],
     "mcp_timeout": 30000
@@ -159,6 +161,7 @@ Shape notes worth being explicit about:
 - `plugin` is an array of strings or `[name, options]` tuples, not an object.
 - `mcp[name].command` is an array of strings, never a single string. `type` is required.
 - `permission` is either a string action or an object keyed by tool name.
+- `question.auto_resolution` defaults to `true`. When set to `false`, questions wait for the user indefinitely and the model does not see the auto-resolution parameter.
 
 ## Skills
 
