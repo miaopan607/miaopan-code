@@ -3457,7 +3457,7 @@ function CompactQuestionResult(props: { results: ReadonlyArray<QuestionResult>; 
       pending={t(Locale.language(), "tool.asking_questions")}
       dense={true}
       details={
-        <box flexDirection="column">
+        <box flexDirection="column" paddingLeft={2}>
           <For each={props.results}>
             {(result) => {
               const value = createMemo(() => splitQuestionAnswer(result.answers))
