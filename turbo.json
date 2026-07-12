@@ -16,6 +16,6 @@
     "@miaopan-code/core#test": {
       "dependsOn": ["^build"],
       "outputs": []
-    },
+    }
   }
 }

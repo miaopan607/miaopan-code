@@ -1113,11 +1113,13 @@ itProposedPlan.live("session.processor stores proposed plans as ordered plan par
           tools: {},
         })
 
-        expect((yield* MessageV2.parts(msg.id)).filter((part) => part.type === "text" || part.type === "plan")).toEqual([
-          expect.objectContaining({ type: "text", text: "Context\n" }),
-          expect.objectContaining({ type: "plan", text: "Step one\n" }),
-          expect.objectContaining({ type: "text", text: "After" }),
-        ])
+        expect((yield* MessageV2.parts(msg.id)).filter((part) => part.type === "text" || part.type === "plan")).toEqual(
+          [
+            expect.objectContaining({ type: "text", text: "Context\n" }),
+            expect.objectContaining({ type: "plan", text: "Step one\n" }),
+            expect.objectContaining({ type: "text", text: "After" }),
+          ],
+        )
       }),
     { config: cfg },
   ),

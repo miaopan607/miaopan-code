@@ -1945,10 +1945,14 @@ it.instance(
     const modelA = ModelV2.ID.make("a")
     const modelB = ModelV2.ID.make("b")
 
-    yield* Effect.promise(() => Bun.write(path.join(instance.directory, "miaopan-code.json"), JSON.stringify(config("a"))))
+    yield* Effect.promise(() =>
+      Bun.write(path.join(instance.directory, "miaopan-code.json"), JSON.stringify(config("a"))),
+    )
     expect((yield* provider.list())[providerID].models[modelA]).toBeDefined()
 
-    yield* Effect.promise(() => Bun.write(path.join(instance.directory, "miaopan-code.json"), JSON.stringify(config("b"))))
+    yield* Effect.promise(() =>
+      Bun.write(path.join(instance.directory, "miaopan-code.json"), JSON.stringify(config("b"))),
+    )
     const refreshed = yield* provider.refresh()
     expect(refreshed[providerID].models[modelA]).toBeUndefined()
     expect(refreshed[providerID].models[modelB]).toBeDefined()

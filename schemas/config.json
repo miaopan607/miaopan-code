@@ -4,12 +4,7 @@
   "$defs": {
     "LogLevel": {
       "type": "string",
-      "enum": [
-        "DEBUG",
-        "INFO",
-        "WARN",
-        "ERROR"
-      ],
+      "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
       "description": "日志级别"
     },
     "ServerConfig": {
@@ -59,9 +54,7 @@
           "type": "boolean"
         }
       },
-      "required": [
-        "repository"
-      ],
+      "required": ["repository"],
       "additionalProperties": false
     },
     "ConfigV2.Reference.Local": {
@@ -77,18 +70,12 @@
           "type": "boolean"
         }
       },
-      "required": [
-        "path"
-      ],
+      "required": ["path"],
       "additionalProperties": false
     },
     "PermissionActionConfig": {
       "type": "string",
-      "enum": [
-        "ask",
-        "allow",
-        "deny"
-      ]
+      "enum": ["ask", "allow", "deny"]
     },
     "PermissionObjectConfig": {
       "type": "object",
@@ -202,11 +189,7 @@
         },
         "mode": {
           "type": "string",
-          "enum": [
-            "subagent",
-            "primary",
-            "all"
-          ]
+          "enum": ["subagent", "primary", "all"]
         },
         "hidden": {
           "type": "boolean",
@@ -223,15 +206,7 @@
             },
             {
               "type": "string",
-              "enum": [
-                "primary",
-                "secondary",
-                "accent",
-                "success",
-                "warning",
-                "error",
-                "info"
-              ]
+              "enum": ["primary", "secondary", "accent", "success", "warning", "error", "info"]
             }
           ],
           "description": "代理配置，参见 docs/agents"
@@ -312,9 +287,7 @@
                 },
                 {
                   "type": "boolean",
-                  "enum": [
-                    false
-                  ]
+                  "enum": [false]
                 }
               ],
               "description": "模型上下文协议（MCP）请求的超时时间（毫秒）"
@@ -328,9 +301,7 @@
                 },
                 {
                   "type": "boolean",
-                  "enum": [
-                    false
-                  ]
+                  "enum": [false]
                 }
               ],
               "description": "等待提供商响应标头的超时时间（毫秒）；设为 false 可禁用"
@@ -381,25 +352,17 @@
                 "anyOf": [
                   {
                     "type": "boolean",
-                    "enum": [
-                      true
-                    ]
+                    "enum": [true]
                   },
                   {
                     "type": "object",
                     "properties": {
                       "field": {
                         "type": "string",
-                        "enum": [
-                          "reasoning",
-                          "reasoning_content",
-                          "reasoning_details"
-                        ]
+                        "enum": ["reasoning", "reasoning_content", "reasoning_details"]
                       }
                     },
-                    "required": [
-                      "field"
-                    ],
+                    "required": ["field"],
                     "additionalProperties": false
                   }
                 ]
@@ -435,17 +398,11 @@
                         "type": "number"
                       }
                     },
-                    "required": [
-                      "input",
-                      "output"
-                    ],
+                    "required": ["input", "output"],
                     "additionalProperties": false
                   }
                 },
-                "required": [
-                  "input",
-                  "output"
-                ],
+                "required": ["input", "output"],
                 "additionalProperties": false
               },
               "limit": {
@@ -461,10 +418,7 @@
                     "type": "number"
                   }
                 },
-                "required": [
-                  "context",
-                  "output"
-                ],
+                "required": ["context", "output"],
                 "additionalProperties": false
               },
               "modalities": {
@@ -474,26 +428,14 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "text",
-                        "audio",
-                        "image",
-                        "video",
-                        "pdf"
-                      ]
+                      "enum": ["text", "audio", "image", "video", "pdf"]
                     }
                   },
                   "output": {
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "text",
-                        "audio",
-                        "image",
-                        "video",
-                        "pdf"
-                      ]
+                      "enum": ["text", "audio", "image", "video", "pdf"]
                     }
                   }
                 },
@@ -504,12 +446,7 @@
               },
               "status": {
                 "type": "string",
-                "enum": [
-                  "alpha",
-                  "beta",
-                  "deprecated",
-                  "active"
-                ]
+                "enum": ["alpha", "beta", "deprecated", "active"]
               },
               "provider": {
                 "type": "object",
@@ -557,9 +494,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": [
-            "local"
-          ],
+          "enum": ["local"],
           "description": "MCP 服务器连接类型"
         },
         "command": {
@@ -591,10 +526,7 @@
           "description": "MCP 服务器请求超时时间（毫秒），未指定时默认为 5000（5 秒）"
         }
       },
-      "required": [
-        "type",
-        "command"
-      ],
+      "required": ["type", "command"],
       "additionalProperties": false
     },
     "McpOAuthConfig": {
@@ -630,9 +562,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": [
-            "remote"
-          ],
+          "enum": ["remote"],
           "description": "MCP 服务器连接类型"
         },
         "url": {
@@ -657,9 +587,7 @@
             },
             {
               "type": "boolean",
-              "enum": [
-                false
-              ]
+              "enum": [false]
             }
           ],
           "description": "MCP 服务器的 OAuth 身份验证配置；设为 false 可禁用 OAuth 自动检测"
@@ -671,18 +599,12 @@
           "description": "MCP 服务器请求超时时间（毫秒），未指定时默认为 5000（5 秒）"
         }
       },
-      "required": [
-        "type",
-        "url"
-      ],
+      "required": ["type", "url"],
       "additionalProperties": false
     },
     "LayoutConfig": {
       "type": "string",
-      "enum": [
-        "auto",
-        "stretch"
-      ]
+      "enum": ["auto", "stretch"]
     },
     "ImageAttachmentConfig": {
       "type": "object",
@@ -724,10 +646,7 @@
     },
     "Policy.Effect": {
       "type": "string",
-      "enum": [
-        "allow",
-        "deny"
-      ]
+      "enum": ["allow", "deny"]
     },
     "ConfigV2.Experimental.Policy": {
       "type": "object",
@@ -738,9 +657,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [
-                    "provider.use"
-                  ]
+                  "enum": ["provider.use"]
                 }
               ]
             }
@@ -753,11 +670,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "action",
-        "effect",
-        "resource"
-      ],
+      "required": ["action", "effect", "resource"],
       "additionalProperties": false
     },
     "Config": {
@@ -769,10 +682,7 @@
         },
         "language": {
           "type": "string",
-          "enum": [
-            "zh-CN",
-            "en"
-          ],
+          "enum": ["zh-CN", "en"],
           "description": "界面、内建工具和模型提示使用的语言；默认为 zh-CN"
         },
         "shell": {
@@ -812,9 +722,7 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "template"
-            ],
+            "required": ["template"],
             "additionalProperties": false
           },
           "description": "命令配置，参见 docs/commands"
@@ -915,11 +823,7 @@
         },
         "share": {
           "type": "string",
-          "enum": [
-            "manual",
-            "auto",
-            "disabled"
-          ],
+          "enum": ["manual", "auto", "disabled"],
           "description": "控制分享行为：manual 手动分享，auto 自动分享，disabled 禁用分享"
         },
         "autoshare": {
@@ -933,9 +837,7 @@
             },
             {
               "type": "string",
-              "enum": [
-                "notify"
-              ]
+              "enum": ["notify"]
             }
           ],
           "description": "自动更新到最新版本；true 自动更新，false 禁用，notify 显示更新通知"
@@ -961,10 +863,7 @@
         },
         "review_mode": {
           "type": "string",
-          "enum": [
-            "codex",
-            "opencode"
-          ],
+          "enum": ["codex", "opencode"],
           "description": "内建 /review 命令使用的审查后端；默认为 codex，也可设为 opencode"
         },
         "small_model": {
@@ -1059,9 +958,7 @@
                     "type": "boolean"
                   }
                 },
-                "required": [
-                  "enabled"
-                ],
+                "required": ["enabled"],
                 "additionalProperties": false
               }
             ]
@@ -1120,14 +1017,10 @@
                     "properties": {
                       "disabled": {
                         "type": "boolean",
-                        "enum": [
-                          true
-                        ]
+                        "enum": [true]
                       }
                     },
-                    "required": [
-                      "disabled"
-                    ],
+                    "required": ["disabled"],
                     "additionalProperties": false
                   },
                   {
@@ -1158,9 +1051,7 @@
                         "type": "object"
                       }
                     },
-                    "required": [
-                      "command"
-                    ],
+                    "required": ["command"],
                     "additionalProperties": false
                   }
                 ]

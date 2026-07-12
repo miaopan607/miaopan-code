@@ -39,17 +39,17 @@ already-loaded config until then.
 
 ## Where files live
 
-| Scope                         | Path                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Scope                         | Path                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Project config                | `./miaopan-code.json`, `./miaopan-code.jsonc`, or `.miaopan-code/miaopan-code.json` (miaopan-code walks up from the cwd to the worktree root) |
-| Global config                 | `~/.config/miaopan-code/miaopan-code.json` (NOT `~/.miaopan-code/`)                                                                   |
-| Project agents                | `.miaopan-code/agent/<name>.md` or `.miaopan-code/agents/<name>.md`                                                               |
-| Global agents                 | `~/.config/miaopan-code/agent(s)/<name>.md`                                                                                   |
-| Project commands              | `.miaopan-code/command/<name>.md` or `.miaopan-code/commands/<name>.md`                                                           |
-| Global commands               | `~/.config/miaopan-code/command(s)/<name>.md`                                                                                 |
-| Project skills                | `.miaopan-code/skill(s)/<name>/SKILL.md`                                                                                      |
-| Global skills                 | `~/.config/miaopan-code/skill(s)/<name>/SKILL.md`                                                                             |
-| External skills (auto-loaded) | `~/.claude/skills/<name>/SKILL.md`, `~/.agents/skills/<name>/SKILL.md`                                                    |
+| Global config                 | `~/.config/miaopan-code/miaopan-code.json` (NOT `~/.miaopan-code/`)                                                                           |
+| Project agents                | `.miaopan-code/agent/<name>.md` or `.miaopan-code/agents/<name>.md`                                                                           |
+| Global agents                 | `~/.config/miaopan-code/agent(s)/<name>.md`                                                                                                   |
+| Project commands              | `.miaopan-code/command/<name>.md` or `.miaopan-code/commands/<name>.md`                                                                       |
+| Global commands               | `~/.config/miaopan-code/command(s)/<name>.md`                                                                                                 |
+| Project skills                | `.miaopan-code/skill(s)/<name>/SKILL.md`                                                                                                      |
+| Global skills                 | `~/.config/miaopan-code/skill(s)/<name>/SKILL.md`                                                                                             |
+| External skills (auto-loaded) | `~/.claude/skills/<name>/SKILL.md`, `~/.agents/skills/<name>/SKILL.md`                                                                        |
 
 Configs from each scope are deep-merged. Project overrides global. Unknown
 top-level keys in `miaopan-code.json` are rejected with `ConfigInvalidError`.

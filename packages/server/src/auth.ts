@@ -29,7 +29,9 @@ export class Config extends Context.Service<Config, Info>()("@miaopan-code/Serve
         return Config.of(
           yield* EffectConfig.all({
             password: EffectConfig.string("MIAOPAN_CODE_SERVER_PASSWORD").pipe(EffectConfig.option),
-            username: EffectConfig.string("MIAOPAN_CODE_SERVER_USERNAME").pipe(EffectConfig.withDefault("miaopan-code")),
+            username: EffectConfig.string("MIAOPAN_CODE_SERVER_USERNAME").pipe(
+              EffectConfig.withDefault("miaopan-code"),
+            ),
           }),
         )
       }),

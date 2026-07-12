@@ -354,40 +354,38 @@ describe("tool.task", () => {
     }),
   )
 
-  it.instance(
-    "formats the built-in Codex review result before returning it",
-    () =>
-      Effect.gen(function* () {
-        const { chat, assistant } = yield* seed()
-        const tool = yield* TaskTool
-        const def = yield* tool.init()
-        const result = yield* def.execute(
-          {
-            description: "review changes",
-            prompt: "review the current changes",
-            subagent_type: "general",
-            command: "review",
+  it.instance("formats the built-in Codex review result before returning it", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const result = yield* def.execute(
+        {
+          description: "review changes",
+          prompt: "review the current changes",
+          subagent_type: "general",
+          command: "review",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: {
+            promptOps: stubOps({ text: JSON.stringify(reviewOutput) }),
           },
-          {
-            sessionID: chat.id,
-            messageID: assistant.id,
-            agent: "build",
-            abort: new AbortController().signal,
-            extra: {
-              promptOps: stubOps({ text: JSON.stringify(reviewOutput) }),
-            },
-            messages: [],
-            metadata: () => Effect.void,
-            ask: () => Effect.void,
-          },
-        )
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
 
-        expect(result.output).toContain("The retry path can loop forever.")
-        expect(result.output).toContain("/tmp/retry.ts:4-5")
-        expect(result.output).not.toContain('"findings"')
-        expect(result.metadata.reviewOutput).toContain("The retry path can loop forever.")
-        expect(result.metadata.reviewOutput).not.toContain("<task_result>")
-      }),
+      expect(result.output).toContain("The retry path can loop forever.")
+      expect(result.output).toContain("/tmp/retry.ts:4-5")
+      expect(result.output).not.toContain('"findings"')
+      expect(result.metadata.reviewOutput).toContain("The retry path can loop forever.")
+      expect(result.metadata.reviewOutput).not.toContain("<task_result>")
+    }),
   )
 
   it.instance(

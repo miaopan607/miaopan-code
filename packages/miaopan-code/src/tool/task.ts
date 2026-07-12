@@ -29,8 +29,7 @@ const id = "task"
 
 function hasPermission(ruleset: PermissionV1.Ruleset, rule: PermissionV1.Rule) {
   return ruleset.some(
-    (item) =>
-      item.permission === rule.permission && item.pattern === rule.pattern && item.action === rule.action,
+    (item) => item.permission === rule.permission && item.pattern === rule.pattern && item.action === rule.action,
   )
 }
 
@@ -332,7 +331,7 @@ export const TaskTool = Tool.define(
               title: params.description,
               metadata: {
                 ...metadata,
-                reviewOutput: builtinReview ? result?.output ?? "" : undefined,
+                reviewOutput: builtinReview ? (result?.output ?? "") : undefined,
               },
               output: renderOutput({ sessionID: nextSession.id, state: "completed", text: result?.output ?? "" }),
             }

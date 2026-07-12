@@ -130,14 +130,9 @@ function tool(input: { id: string; messageID: string; tool: string; state: Recor
 describe("run session data", () => {
   test("renders completed plan parts as assistant output", () => {
     const data = reduce(createSessionData(), assistant("msg-plan")).data
-    const out = reduce(
-      data,
-      plan({ id: "plan-1", messageID: "msg-plan", text: "# Plan", time: { start: 1, end: 2 } }),
-    )
+    const out = reduce(data, plan({ id: "plan-1", messageID: "msg-plan", text: "# Plan", time: { start: 1, end: 2 } }))
 
-    expect(out.commits).toEqual([
-      expect.objectContaining({ kind: "assistant", text: "# Plan", partID: "plan-1" }),
-    ])
+    expect(out.commits).toEqual([expect.objectContaining({ kind: "assistant", text: "# Plan", partID: "plan-1" })])
   })
 
   test("buffers delayed assistant text until the role is known", () => {

@@ -60,7 +60,10 @@ function app(modules: Runtime, options: CallOptions) {
     modules.HttpApiApp.routes.pipe(
       Layer.provide(
         ConfigProvider.layer(
-          ConfigProvider.fromUnknown({ MIAOPAN_CODE_SERVER_PASSWORD: password, MIAOPAN_CODE_SERVER_USERNAME: username }),
+          ConfigProvider.fromUnknown({
+            MIAOPAN_CODE_SERVER_PASSWORD: password,
+            MIAOPAN_CODE_SERVER_USERNAME: username,
+          }),
         ),
       ),
     ),

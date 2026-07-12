@@ -39,17 +39,17 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
 
 ## 文件位置
 
-| 范围                          | 路径                                                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 项目配置                      | `./miaopan-code.json`、`./miaopan-code.jsonc` 或 `.miaopan-code/miaopan-code.json`（miaopan-code 从 cwd 向上查找到 worktree 根目录） |
-| 全局配置                      | `~/.config/miaopan-code/miaopan-code.json`（不是 `~/.miaopan-code/`）                                                                   |
-| 项目代理                      | `.miaopan-code/agent/<name>.md` 或 `.miaopan-code/agents/<name>.md`                                                               |
-| 全局代理                      | `~/.config/miaopan-code/agent(s)/<name>.md`                                                                                   |
-| 项目命令                      | `.miaopan-code/command/<name>.md` 或 `.miaopan-code/commands/<name>.md`                                                           |
-| 全局命令                      | `~/.config/miaopan-code/command(s)/<name>.md`                                                                                 |
-| 项目技能                      | `.miaopan-code/skill(s)/<name>/SKILL.md`                                                                                      |
-| 全局技能                      | `~/.config/miaopan-code/skill(s)/<name>/SKILL.md`                                                                             |
-| 外部技能（自动加载）          | `~/.claude/skills/<name>/SKILL.md`、`~/.agents/skills/<name>/SKILL.md`                                                    |
+| 范围                 | 路径                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 项目配置             | `./miaopan-code.json`、`./miaopan-code.jsonc` 或 `.miaopan-code/miaopan-code.json`（miaopan-code 从 cwd 向上查找到 worktree 根目录） |
+| 全局配置             | `~/.config/miaopan-code/miaopan-code.json`（不是 `~/.miaopan-code/`）                                                                |
+| 项目代理             | `.miaopan-code/agent/<name>.md` 或 `.miaopan-code/agents/<name>.md`                                                                  |
+| 全局代理             | `~/.config/miaopan-code/agent(s)/<name>.md`                                                                                          |
+| 项目命令             | `.miaopan-code/command/<name>.md` 或 `.miaopan-code/commands/<name>.md`                                                              |
+| 全局命令             | `~/.config/miaopan-code/command(s)/<name>.md`                                                                                        |
+| 项目技能             | `.miaopan-code/skill(s)/<name>/SKILL.md`                                                                                             |
+| 全局技能             | `~/.config/miaopan-code/skill(s)/<name>/SKILL.md`                                                                                    |
+| 外部技能（自动加载） | `~/.claude/skills/<name>/SKILL.md`、`~/.agents/skills/<name>/SKILL.md`                                                               |
 
 各范围的配置会深度合并。项目配置覆盖全局配置。`miaopan-code.json`
 中未知的顶层 key 会被拒绝，并产生 `ConfigInvalidError`。
@@ -187,7 +187,7 @@ description: 用一句话说明该技能做什么以及何时触发。将用户�
 ```
 
 - `name` 是必填项，使用小写字母和连字符，最多 64 个字符，并与文件夹名称一致。
-- `description` 实际上是必填项：没有描述的技能会被过滤掉，永远不会提供给模型。同时涵盖技能做_什么_以及_何时_使用。使用第三人称（“Use when...”，而不是“I help with...”）。将具体触发关键词和文件名放在开头；如果该技能在相邻主题中应保持安静，则使用“Use ONLY when...”进行限制。
+- `description` 实际上是必填项：没有描述的技能会被过滤掉，永远不会提供给模型。同时涵盖技能做*什么*以及*何时*使用。使用第三人称（“Use when...”，而不是“I help with...”）。将具体触发关键词和文件名放在开头；如果该技能在相邻主题中应保持安静，则使用“Use ONLY when...”进行限制。
 - 可选字段：`license`、`compatibility`、`metadata`（字符串到字符串的映射）。
 
 通过 `skills.paths` 注册非默认位置中的技能（递归扫描

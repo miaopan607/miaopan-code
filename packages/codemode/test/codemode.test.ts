@@ -334,10 +334,7 @@ describe("CodeMode console capture", () => {
     expect(result).toStrictEqual({
       ok: true,
       value: "done",
-      logs: [
-        '{"nested":{"ok":true}}',
-        t("zh-CN", "codemode.console.index") + "\tname\tcount\n0\tKit\t1\n1\tOlive\t2",
-      ],
+      logs: ['{"nested":{"ok":true}}', t("zh-CN", "codemode.console.index") + "\tname\tcount\n0\tKit\t1\n1\tOlive\t2"],
       toolCalls: [],
     })
   })

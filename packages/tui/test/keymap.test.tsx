@@ -5,7 +5,12 @@ import { testRender, useRenderer } from "@opentui/solid"
 import { expect, test } from "bun:test"
 import { onCleanup } from "solid-js"
 import { TuiKeybind } from "../src/config/keybind"
-import { getMiaopanCodeModeStack, MIAOPAN_CODE_BASE_MODE, MiaopanCodeKeymapProvider, registerMiaopanCodeKeymap } from "../src/keymap"
+import {
+  getMiaopanCodeModeStack,
+  MIAOPAN_CODE_BASE_MODE,
+  MiaopanCodeKeymapProvider,
+  registerMiaopanCodeKeymap,
+} from "../src/keymap"
 
 function createResolvedKeymapConfig(input: TuiKeybind.KeybindOverrides = {}) {
   const keybinds = TuiKeybind.parse(input)

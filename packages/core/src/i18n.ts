@@ -5394,25 +5394,43 @@ export const messages = {
   "acp.login_label": { "zh-CN": "MiaopanCode 登录", en: "MiaopanCode Login" },
   "acp.prompt_failed": { "zh-CN": "MiaopanCode 提示失败", en: "MiaopanCode prompt failed" },
   "question.user_dismissed": { "zh-CN": "用户关闭了此问题", en: "The user dismissed this question" },
-  "request_user_input.option_label": { "zh-CN": "面向用户的简短选项标签（1 至 5 个词）", en: "User-facing label (1-5 words)" },
+  "request_user_input.option_label": {
+    "zh-CN": "面向用户的简短选项标签（1 至 5 个词）",
+    en: "User-facing label (1-5 words)",
+  },
   "request_user_input.option_description": {
     "zh-CN": "用一句简短说明描述选择该项的影响或取舍",
     en: "One short sentence explaining the impact or tradeoff",
   },
-  "request_user_input.id": { "zh-CN": "用于映射答案的稳定 snake_case 标识符", en: "Stable snake_case identifier for mapping answers" },
-  "request_user_input.header": { "zh-CN": "界面中显示的不超过 12 个字符的短标题", en: "Short UI header of at most 12 characters" },
+  "request_user_input.id": {
+    "zh-CN": "用于映射答案的稳定 snake_case 标识符",
+    en: "Stable snake_case identifier for mapping answers",
+  },
+  "request_user_input.header": {
+    "zh-CN": "界面中显示的不超过 12 个字符的短标题",
+    en: "Short UI header of at most 12 characters",
+  },
   "request_user_input.question": { "zh-CN": "向用户显示的单句问题", en: "Single-sentence question shown to the user" },
   "request_user_input.options": {
     "zh-CN": "提供 2 至 3 个互斥选项；推荐项放在首位，不要添加“其他”选项",
     en: "Provide 2-3 mutually exclusive choices, recommended first, without an Other option",
   },
-  "request_user_input.questions": { "zh-CN": "要显示的一至三个问题，优先只问一个", en: "One to three questions to show; prefer one" },
+  "request_user_input.questions": {
+    "zh-CN": "要显示的一至三个问题，优先只问一个",
+    en: "One to three questions to show; prefer one",
+  },
   "request_user_input.auto_resolution": {
     "zh-CN": "仅用于有帮助但不阻塞的问题；必须获得明确回答时省略。范围为 60000 至 240000 毫秒",
     en: "Use only for useful but non-blocking questions; omit when an explicit answer is required. Range: 60000 to 240000 milliseconds",
   },
-  "request_user_input.root_only": { "zh-CN": "request_user_input 只能由根 Plan 代理使用", en: "request_user_input can only be used by the root Plan agent" },
-  "request_user_input.duplicate_id": { "zh-CN": "request_user_input 的问题 ID 必须唯一", en: "request_user_input question IDs must be unique" },
+  "request_user_input.root_only": {
+    "zh-CN": "request_user_input 只能由根 Plan 代理使用",
+    en: "request_user_input can only be used by the root Plan agent",
+  },
+  "request_user_input.duplicate_id": {
+    "zh-CN": "request_user_input 的问题 ID 必须唯一",
+    en: "request_user_input question IDs must be unique",
+  },
   "plan.proposed_title": { "zh-CN": "拟定方案", en: "Proposed Plan" },
   "plan.implementation_title": { "zh-CN": "要实施这个计划吗？", en: "Implement this plan?" },
   "plan.implementation_current": { "zh-CN": "是，在当前上下文实施", en: "Yes, implement in this context" },
@@ -5432,7 +5450,8 @@ export const messages = {
   },
   "plan.implement_message": { "zh-CN": "实施该计划。", en: "Implement the plan." },
   "plan.fresh_message": {
-    "zh-CN": "上一位代理生成了以下计划以完成用户任务。请在新的上下文中实施该计划，将其视为用户意图的依据；按需重新读取文件，并完成实现和验证。\n\n{{plan}}",
+    "zh-CN":
+      "上一位代理生成了以下计划以完成用户任务。请在新的上下文中实施该计划，将其视为用户意图的依据；按需重新读取文件，并完成实现和验证。\n\n{{plan}}",
     en: "A previous agent produced the plan below to accomplish the user's task. Implement it in a fresh context, treat it as the source of user intent, re-read files as needed, and complete implementation and verification.\n\n{{plan}}",
   },
   "mcp.status_authenticated": { "zh-CN": "已认证", en: "authenticated" },

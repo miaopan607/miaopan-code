@@ -430,7 +430,8 @@ function sdk(
 ) {
   const client = new MiaopanCodeClient()
 
-  const subscribe: MiaopanCodeClient["event"]["subscribe"] = input.subscribe ?? (() => sse(input.stream ?? emptyStream()))
+  const subscribe: MiaopanCodeClient["event"]["subscribe"] =
+    input.subscribe ?? (() => sse(input.stream ?? emptyStream()))
   const globalEvent: MiaopanCodeClient["global"]["event"] =
     input.globalEvent ?? (() => globalSse(input.globalStream ?? wrapGlobalStream(input.stream ?? emptyStream())))
   const promptAsync: MiaopanCodeClient["session"]["promptAsync"] = input.promptAsync ?? (() => ok(undefined))

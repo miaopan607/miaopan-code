@@ -1,12 +1,6 @@
 import { EOL } from "os"
 import { Schema } from "effect"
-import {
-  I18n,
-  resolveLanguage,
-  type Language,
-  type MessageKey,
-  type MessageParameters,
-} from "@miaopan-code/core/i18n"
+import { I18n, resolveLanguage, type Language, type MessageKey, type MessageParameters } from "@miaopan-code/core/i18n"
 import { Global } from "@miaopan-code/core/global"
 import { existsSync } from "fs"
 import { parse } from "jsonc-parser"

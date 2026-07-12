@@ -8,7 +8,7 @@
 
 | 主题            | 文档                                                                                                                                                                                                     | 中文摘要                         |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| 项目结构        | [中文](project.md) · [English](project.en.md)                                                                                                                                                              | 项目边界、运行时组件与目录约定   |
+| 项目结构        | [中文](project.md) · [English](project.en.md)                                                                                                                                                            | 项目边界、运行时组件与目录约定   |
 | 存储            | [Effect SQLite 中文](storage/effect-sqlite-package.md) · [English](storage/effect-sqlite-package.en.md)；[旧数据库迁移中文](storage/remove-opencode-db.md) · [English](storage/remove-opencode-db.en.md) | SQLite Effect 封装及旧数据库迁移 |
 | V2 API          | [中文](v2/api.md) · [English API map](v2/api.html)                                                                                                                                                       | V2 API 草案与端点说明            |
 | V2 配置         | [中文](v2/config.md) · [English](v2/config.en.md)                                                                                                                                                        | 配置加载、作用域和默认值         |

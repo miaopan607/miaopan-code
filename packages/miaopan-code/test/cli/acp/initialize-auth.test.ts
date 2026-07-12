@@ -35,7 +35,9 @@ describe("miaopan-code acp initialize/auth subprocess", () => {
 
         expect(initialized.authMethods?.[0]?.id).toBe("miaopanCode-login")
         expect(initialized.authMethods?.[0]?._meta?.["terminal-auth"]).toBeDefined()
-        expect(yield* acp.request<AuthenticateResponse>("authenticate", { methodId: "miaopanCode-login" })).toMatchObject({
+        expect(
+          yield* acp.request<AuthenticateResponse>("authenticate", { methodId: "miaopanCode-login" }),
+        ).toMatchObject({
           result: {},
         })
 

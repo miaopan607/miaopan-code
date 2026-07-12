@@ -261,11 +261,11 @@ CodeMode 是编排语言，而不是通用 JavaScript 运行时。
 
 限制恰好有三个调节项：
 
-| 限制             |              默认值 | 边界                                               |
-| ---------------- | ------------------: | -------------------------------------------------- |
-| `timeoutMs`      |        无——不超时   | 墙钟执行时间。                                     |
-| `maxToolCalls`   |        无——无限制   | 执行期间接纳的工具调用。                           |
-| `maxOutputBytes` |        无——不截断   | 面向模型的输出：序列化结果值加上捕获的日志。       |
+| 限制             |     默认值 | 边界                                         |
+| ---------------- | ---------: | -------------------------------------------- |
+| `timeoutMs`      | 无——不超时 | 墙钟执行时间。                               |
+| `maxToolCalls`   | 无——无限制 | 执行期间接纳的工具调用。                     |
+| `maxOutputBytes` | 无——不截断 | 面向模型的输出：序列化结果值加上捕获的日志。 |
 
 所有限制都刻意没有默认值：执行预算属于宿主策略，而不是库策略——需要边界的宿主自行设置；可以中断执行 fiber 的宿主（miaopan-code 会在用户取消时这样做）可以不设置超时；拥有自身工具输出截断机制的宿主（miaopan-code 具备该机制）可以不设置 `maxOutputBytes`。二者都没有的宿主应设置 `maxOutputBytes`，否则超大结果会悄无声息地淹没模型上下文。
 
@@ -293,18 +293,18 @@ const runtime = CodeMode.make({
 
 失败以数据表示：
 
-| 种类                    | 含义                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------ |
-| `ParseError`            | 源代码为空或无法解析。                                                               |
-| `UnsupportedSyntax`     | 已解析的 JavaScript 超出支持的子集。                                                  |
-| `UnknownTool`           | 程序引用了宿主未提供的工具。                                                         |
-| `InvalidToolInput`      | 工具输入未通过 Schema 解码或安全数据复制。                                           |
-| `InvalidToolOutput`     | 工具输出未通过 Schema 解码或安全数据复制。                                           |
-| `InvalidDataValue`      | 程序数据违反普通数据契约（深度、循环引用、被阻止的属性、非数据值）。                 |
-| `ToolCallLimitExceeded` | 调用超过 `maxToolCalls`。                                                            |
-| `TimeoutExceeded`       | 执行超过 `timeoutMs`。                                                               |
-| `ToolFailure`           | 工具拒绝执行或执行失败。                                                             |
-| `ExecutionFailure`      | 程序抛出异常或发生其他执行错误。                                                     |
+| 种类                    | 含义                                                                 |
+| ----------------------- | -------------------------------------------------------------------- |
+| `ParseError`            | 源代码为空或无法解析。                                               |
+| `UnsupportedSyntax`     | 已解析的 JavaScript 超出支持的子集。                                 |
+| `UnknownTool`           | 程序引用了宿主未提供的工具。                                         |
+| `InvalidToolInput`      | 工具输入未通过 Schema 解码或安全数据复制。                           |
+| `InvalidToolOutput`     | 工具输出未通过 Schema 解码或安全数据复制。                           |
+| `InvalidDataValue`      | 程序数据违反普通数据契约（深度、循环引用、被阻止的属性、非数据值）。 |
+| `ToolCallLimitExceeded` | 调用超过 `maxToolCalls`。                                            |
+| `TimeoutExceeded`       | 执行超过 `timeoutMs`。                                               |
+| `ToolFailure`           | 工具拒绝执行或执行失败。                                             |
+| `ExecutionFailure`      | 程序抛出异常或发生其他执行错误。                                     |
 
 未知宿主失败、缺陷、无效输出和复制失败会被净化。若要返回安全的操作拒绝，请以 `toolError` 失败：
 

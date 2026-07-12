@@ -785,7 +785,10 @@ describe("Config", () => {
               fs.writeFile(path.join(root, "miaopan-code.json"), JSON.stringify({ $schema: "root" })),
               fs.writeFile(path.join(parent, "miaopan-code.jsonc"), JSON.stringify({ $schema: "parent" })),
               fs.writeFile(path.join(directory, "miaopan-code.json"), JSON.stringify({ $schema: "directory" })),
-              fs.writeFile(path.join(root, ".miaopanCode", "miaopan-code.json"), JSON.stringify({ $schema: "root-dot" })),
+              fs.writeFile(
+                path.join(root, ".miaopanCode", "miaopan-code.json"),
+                JSON.stringify({ $schema: "root-dot" }),
+              ),
               fs.writeFile(
                 path.join(directory, ".miaopanCode", "miaopan-code.jsonc"),
                 JSON.stringify({ $schema: "directory-dot" }),

@@ -157,6 +157,11 @@ const table = sqliteTable("session", {
 - 测试真实实现，不要在测试中复制一份实现逻辑。
 - 不能从仓库根目录运行测试（有 `do-not-run-tests-from-root` 守卫）；应从包目录运行，例如 `packages/miaopan-code`。
 
+## 格式化
+
+- 提交前必须从仓库根目录运行 `bun x prettier --write .` 格式化全部受支持文件。
+- 提交前必须运行 `bun x prettier --check .`，确保没有未格式化文件。
+
 ## 类型检查
 
 - 始终从包目录运行 `bun typecheck`（例如 `packages/miaopan-code`），不要直接运行 `tsc`。

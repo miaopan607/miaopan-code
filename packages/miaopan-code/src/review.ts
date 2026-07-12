@@ -37,10 +37,7 @@ export function parseOutput(text: string): Output {
   const start = text.indexOf("{")
   const end = text.lastIndexOf("}")
   if (start >= 0 && end > start) {
-    const embedded = decodeJson(text.slice(start, end + 1)).pipe(
-      Option.flatMap(decodeOutput),
-      Option.getOrUndefined,
-    )
+    const embedded = decodeJson(text.slice(start, end + 1)).pipe(Option.flatMap(decodeOutput), Option.getOrUndefined)
     if (embedded) return embedded
   }
   return {

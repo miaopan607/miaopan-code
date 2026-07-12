@@ -354,9 +354,7 @@ export function withCliFixture<A, E>(
           Stream.splitLines,
           Stream.runForEach((line) => {
             const m = line.match(readyRe)
-            return m
-              ? Deferred.succeed(readyDeferred, { url: m[0], hostname: m[1], port: Number(m[2]) })
-              : Effect.void
+            return m ? Deferred.succeed(readyDeferred, { url: m[0], hostname: m[1], port: Number(m[2]) }) : Effect.void
           }),
           Effect.ignore({ log: true }),
         ),

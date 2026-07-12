@@ -78,7 +78,9 @@ describe("RuntimeFlags", () => {
 
   it.effect("enables native LLM via dedicated flag only", () =>
     Effect.gen(function* () {
-      const explicit = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL_NATIVE_LLM: "true" })))
+      const explicit = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL_NATIVE_LLM: "true" })),
+      )
       const umbrella = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL: "true" })))
 
       expect(explicit.experimentalNativeLlm).toBe(true)
@@ -88,7 +90,9 @@ describe("RuntimeFlags", () => {
 
   it.effect("enables WebSockets via dedicated flag only", () =>
     Effect.gen(function* () {
-      const explicit = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL_WEBSOCKETS: "true" })))
+      const explicit = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL_WEBSOCKETS: "true" })),
+      )
       const umbrella = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL: "true" })))
 
       expect(explicit.experimentalWebSockets).toBe(true)
@@ -169,7 +173,9 @@ describe("RuntimeFlags", () => {
 
   it.effect("disableClaudeCodePrompt reads MIAOPAN_CODE_DISABLE_CLAUDE_CODE_PROMPT", () =>
     Effect.gen(function* () {
-      const flags = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_DISABLE_CLAUDE_CODE_PROMPT: "true" })))
+      const flags = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ MIAOPAN_CODE_DISABLE_CLAUDE_CODE_PROMPT: "true" })),
+      )
 
       expect(flags.disableClaudeCodePrompt).toBe(true)
     }),
@@ -185,7 +191,9 @@ describe("RuntimeFlags", () => {
 
   it.effect("experimentalIconDiscovery reads MIAOPAN_CODE_EXPERIMENTAL_ICON_DISCOVERY", () =>
     Effect.gen(function* () {
-      const flags = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL_ICON_DISCOVERY: "true" })))
+      const flags = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ MIAOPAN_CODE_EXPERIMENTAL_ICON_DISCOVERY: "true" })),
+      )
 
       expect(flags.experimentalIconDiscovery).toBe(true)
     }),
@@ -353,7 +361,9 @@ describe("RuntimeFlags", () => {
 
   it.effect("disableClaudeCodeSkills reads MIAOPAN_CODE_DISABLE_CLAUDE_CODE_SKILLS", () =>
     Effect.gen(function* () {
-      const flags = yield* readFlags.pipe(Effect.provide(fromConfig({ MIAOPAN_CODE_DISABLE_CLAUDE_CODE_SKILLS: "true" })))
+      const flags = yield* readFlags.pipe(
+        Effect.provide(fromConfig({ MIAOPAN_CODE_DISABLE_CLAUDE_CODE_SKILLS: "true" })),
+      )
 
       expect(flags.disableClaudeCodeSkills).toBe(true)
     }),

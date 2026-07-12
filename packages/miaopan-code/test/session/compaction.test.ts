@@ -1129,7 +1129,9 @@ describe("session.compaction.process", () => {
         expect(part?.type).toBe("compaction")
         expect(part?.tail_start_id).toBeUndefined()
         expect(captured).toContain("recent image turn")
-        expect(captured).toContain(t("zh-CN", "prompt.attachment_placeholder", { mime: "image/png", filename: "big.png" }))
+        expect(captured).toContain(
+          t("zh-CN", "prompt.attachment_placeholder", { mime: "image/png", filename: "big.png" }),
+        )
       }).pipe(withCompaction({ llm: stub.llmLayer, config: cfg({ tail_turns: 1, preserve_recent_tokens: 100 }) }))
     },
     { git: true },
@@ -1219,7 +1221,8 @@ describe("session.compaction.process", () => {
           (msg) =>
             msg.info.role === "user" &&
             msg.parts.some(
-              (part) => part.type === "text" && part.synthetic && part.text.includes(t("zh-CN", "prompt.compaction_continue")),
+              (part) =>
+                part.type === "text" && part.synthetic && part.text.includes(t("zh-CN", "prompt.compaction_continue")),
             ),
         ),
       ).toBe(false)
@@ -1259,9 +1262,10 @@ describe("session.compaction.process", () => {
       expect(last?.info.role).toBe("user")
       expect(last?.parts.some((part) => part.type === "file")).toBe(false)
       expect(
-        last?.parts.some((part) =>
-          part.type === "text" &&
-          part.text.includes(t("zh-CN", "prompt.attachment_placeholder", { mime: "image/png", filename: "cat.png" })),
+        last?.parts.some(
+          (part) =>
+            part.type === "text" &&
+            part.text.includes(t("zh-CN", "prompt.attachment_placeholder", { mime: "image/png", filename: "cat.png" })),
         ),
       ).toBe(true)
     }),

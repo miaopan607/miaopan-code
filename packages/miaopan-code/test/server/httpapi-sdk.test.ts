@@ -830,9 +830,7 @@ describe("HttpApi SDK", () => {
         const continued = yield* capture(() => sdk.session.continue({ sessionID }))
         const messages = yield* pollWithTimeout(
           capture(() => sdk.session.messages({ sessionID })).pipe(
-            Effect.map((result) =>
-              JSON.stringify(result.data).includes("continued response") ? result : undefined,
-            ),
+            Effect.map((result) => (JSON.stringify(result.data).includes("continued response") ? result : undefined)),
           ),
           "continued response was not persisted",
         )
@@ -840,9 +838,7 @@ describe("HttpApi SDK", () => {
         return {
           statuses: statuses({ session, prompt, continued, messages }),
           calls: (yield* llm.inputs).length,
-          userMessages: array(messages.data).filter(
-            (message) => record(record(message).info).role === "user",
-          ).length,
+          userMessages: array(messages.data).filter((message) => record(record(message).info).role === "user").length,
         }
       }),
     ),

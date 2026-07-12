@@ -85,12 +85,12 @@ LLM.request({
 
 ### 提供商行为表
 
-| 协议                    | `cache: "auto"`                                                |
-| ----------------------- | -------------------------------------------------------------- |
-| Anthropic Messages      | 最多发出 3 个 `cache_control` 标记（强制执行 4 个断点的上限）   |
-| Bedrock Converse        | 最多发出 3 个 `cachePoint` 块（强制执行 4 个断点的上限）        |
-| OpenAI Chat / Responses | 不执行操作（对 1024 token 以上内容进行隐式缓存）                |
-| Gemini                  | 不执行操作（2.5+ 隐式缓存；显式 `CachedContent` 位于带外）      |
+| 协议                    | `cache: "auto"`                                               |
+| ----------------------- | ------------------------------------------------------------- |
+| Anthropic Messages      | 最多发出 3 个 `cache_control` 标记（强制执行 4 个断点的上限） |
+| Bedrock Converse        | 最多发出 3 个 `cachePoint` 块（强制执行 4 个断点的上限）      |
+| OpenAI Chat / Responses | 不执行操作（对 1024 token 以上内容进行隐式缓存）              |
+| Gemini                  | 不执行操作（2.5+ 隐式缓存；显式 `CachedContent` 位于带外）    |
 
 所有提供商的规范化缓存用量都会读入 `response.usage.cacheReadInputTokens` 和 `cacheWriteInputTokens`。
 

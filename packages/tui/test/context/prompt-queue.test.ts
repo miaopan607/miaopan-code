@@ -18,11 +18,9 @@ describe("prompt queue", () => {
   test("pops the most recent entry for editing", () => {
     const queue = createPromptQueue()
     queue.enqueue("one", { input: "first", parts: [] })
-    queue.enqueue(
-      "one",
-      { input: "second", mode: "shell", parts: [] },
-      [{ type: "text", text: "editor context", synthetic: true }],
-    )
+    queue.enqueue("one", { input: "second", mode: "shell", parts: [] }, [
+      { type: "text", text: "editor context", synthetic: true },
+    ])
 
     expect(queue.pop("one")).toMatchObject({
       prompt: { input: "second", mode: "shell", parts: [] },

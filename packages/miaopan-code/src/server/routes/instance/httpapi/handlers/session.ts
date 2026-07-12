@@ -344,9 +344,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return HttpApiSchema.NoContent.make()
     })
 
-    const continueSession = Effect.fn("SessionHttpApi.continue")(function* (ctx: {
-      params: { sessionID: SessionID }
-    }) {
+    const continueSession = Effect.fn("SessionHttpApi.continue")(function* (ctx: { params: { sessionID: SessionID } }) {
       yield* requireSession(ctx.params.sessionID)
       if (
         !(yield* SessionError.mapStorageNotFound(session.messages({ sessionID: ctx.params.sessionID }))).some(
