@@ -31,6 +31,12 @@ describe("SkillPlugin.Plugin", () => {
           content: expect.stringContaining("# 自定义 miaopan-code"),
         }),
       )
+
+      const content = (yield* skill.list()).find((item) => item.name === "customize-miaopanCode")?.content
+      expect(content).toContain("https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json")
+      expect(content).toContain('"environment": { "BROWSER": "chromium" }')
+      expect(content).toContain("## 完整字段覆盖")
+      expect(content).toContain("## TUI 配置")
     }),
   )
 
@@ -48,6 +54,12 @@ describe("SkillPlugin.Plugin", () => {
           content: expect.stringContaining("# Customizing miaopan-code"),
         }),
       )
+
+      const content = (yield* skill.list()).find((item) => item.name === "customize-miaopanCode")?.content
+      expect(content).toContain("https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json")
+      expect(content).toContain('"environment": { "BROWSER": "chromium" }')
+      expect(content).toContain("## Complete field coverage")
+      expect(content).toContain("## TUI configuration")
     }),
   )
 })

@@ -18,7 +18,9 @@ is wrong. The shapes below cover the common surface area, but they are a
 The authoritative list of every config option — with field types, enums,
 defaults, and descriptions — lives in the published JSON Schema:
 
-**<https://github.com/miaopan607/miaopan-code/config.json>**
+**<https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json>**
+
+TUI schema: **<https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/tui.json>**
 
 If a field is not documented in this skill, or you need to confirm an exact
 shape before writing config, **fetch that URL and read the schema directly**
@@ -26,7 +28,7 @@ rather than guessing. miaopan-code hard-fails on invalid config, so the cost of 
 wrong shape is a broken startup.
 
 Independently, every `miaopan-code.json` should declare
-`"$schema": "https://github.com/miaopan607/miaopan-code/config.json"` so the user's editor catches
+`"$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"` so the user's editor catches
 mistakes as they type.
 
 ## Applying changes
@@ -60,7 +62,7 @@ Every field is optional.
 
 ```json
 {
-  "$schema": "https://github.com/miaopan607/miaopan-code/config.json",
+  "$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json",
   "username": "string",
   "model": "provider/model-id",
   "small_model": "provider/model-id",
@@ -114,7 +116,7 @@ Every field is optional.
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
       "enabled": true,
-      "env": {}
+      "environment": {}
     },
     "remote-thing": {
       "type": "remote",
@@ -162,6 +164,32 @@ Shape notes worth being explicit about:
 - `mcp[name].command` is an array of strings, never a single string. `type` is required.
 - `permission` is either a string action or an object keyed by tool name.
 - `question.auto_resolution` defaults to `true`. When set to `false`, questions wait for the user indefinitely and the model does not see the auto-resolution parameter.
+
+## Complete field coverage
+
+Read the current schema before editing configuration. Do not delete a field merely because this summary omits it, and do not infer a shape from a similar name.
+
+The complete main-config top-level field set is: `$schema`, `language`, `shell`, `logLevel`, `server`, `command`, `skills`, `references`, `reference`, `watcher`, `snapshot`, `plugin`, `share`, `autoshare`, `autoupdate`, `disabled_providers`, `enabled_providers`, `model`, `review_mode`, `small_model`, `default_agent`, `username`, `mode`, `agent`, `provider`, `mcp`, `formatter`, `lsp`, `instructions`, `question`, `layout`, `permission`, `tools`, `attachment`, `enterprise`, `tool_output`, `compaction`, and `experimental`.
+
+Important nested fields:
+
+- `server`: `port`, `hostname`, `mdns`, `mdnsDomain`, `cors`.
+- `command.<name>`: requires `template`; supports `description`, `agent`, `model`, `variant`, `subtask`.
+- `references.<name>`: a string, `{ path, description?, hidden? }`, or `{ repository, branch?, description?, hidden? }`.
+- `agent.<name>`: `model`, `variant`, `temperature`, `top_p`, `prompt`, `disable`, `description`, `mode`, `hidden`, `options`, `color`, `steps`, `permission`.
+- `provider.<id>`: `api`, `name`, `env`, `id`, `npm`, `whitelist`, `blacklist`, `options`, `models`.
+- `provider.<id>.options`: `apiKey`, `baseURL`, `enterpriseUrl`, `setCacheKey`, `timeout`, `headerTimeout`, `chunkTimeout`.
+- `provider.<id>.models.<model>`: `id`, `compaction_model`, `name`, `family`, `release_date`, `attachment`, `reasoning`, `temperature`, `tool_call`, `interleaved`, `cost`, `limit`, `modalities`, `experimental`, `status`, `provider`, `options`, `headers`, `variants`.
+- Local `mcp`: requires `type: "local"` and `command`; supports `cwd`, `environment`, `enabled`, `timeout`.
+- Remote `mcp`: requires `type: "remote"` and `url`; supports `enabled`, `headers`, `oauth`, `timeout`. OAuth supports `clientId`, `clientSecret`, `scope`, `callbackPort`, `redirectUri`.
+- `formatter.<name>`: `disabled`, `command`, `environment`, `extensions`.
+- Custom `lsp.<name>`: requires `command`; supports `extensions`, `disabled`, `env`, `initialization`.
+- `attachment.image`: `auto_resize`, `max_width`, `max_height`, `max_base64_bytes`.
+- `tool_output`: `max_lines`, `max_bytes`.
+- `compaction`: `auto`, `prune`, `tail_turns`, `preserve_recent_tokens`, `preserve_brief_history`, `reserved`.
+- `experimental`: `disable_paste_summary`, `batch_tool`, `openTelemetry`, `primary_tools`, `continue_loop_on_deny`, `mcp_timeout`, `policies`.
+
+Deprecated fields: use `references` instead of `reference`; use `agent` instead of `mode`; `layout` no longer changes layout; use agent `steps` instead of `maxSteps`.
 
 ## Skills
 
@@ -378,7 +406,7 @@ Special object-shaped (not callbacks): `tool: { my_tool: { ... } }`,
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
       "enabled": true,
-      "env": { "BROWSER": "chromium" }
+      "environment": { "BROWSER": "chromium" }
     },
     "github": {
       "type": "remote",
@@ -395,6 +423,18 @@ Special object-shaped (not callbacks): `tool: { my_tool: { ... } }`,
 disable a server inherited from a parent config. String values such as header
 tokens support `{env:VAR}` interpolation (and `{file:path}`); the shell-style
 `${VAR}` is not substituted.
+
+## TUI configuration
+
+The TUI uses a separate `tui.json` or `tui.jsonc`. Read the TUI schema before writing it, and never place TUI-only fields in `miaopan-code.json`.
+
+The complete top-level field set is: `$schema`, `theme`, `keybinds`, `plugin`, `plugin_enabled`, `leader_timeout`, `attention`, `prompt`, `scroll_speed`, `scroll_acceleration`, `diff_style`, `tool_display`, and `mouse`.
+
+- `attention`: `enabled`, `notifications`, `sound`, `volume`, `sound_pack`, plus `sounds.default`, `question`, `permission`, `error`, `done`, `subagent_done`.
+- `prompt`: `max_height`, `max_width`; `max_width` is a positive integer or `"auto"`.
+- `scroll_acceleration`: `enabled`.
+- `diff_style`: `"auto"` or `"stacked"`; `tool_display`: `"compact"` or `"detailed"`.
+- `keybinds.<action>` accepts a key string, key descriptor object, an array of those values, or `false`/`"none"`. Read action IDs from `keybinds.properties` in the TUI schema; never invent an action ID.
 
 ## Permissions
 
@@ -436,7 +476,7 @@ When a user's config is broken and miaopan-code won't start, these env vars help
   and start from globals only. Run from the project directory, miaopan-code loads,
   the user edits the broken file, then they restart without the flag.
 - `MIAOPAN_CODE_CONFIG=/path/to/file.json`: load an additional explicit config.
-- `MIAOPAN_CODE_CONFIG_CONTENT='{"$schema":"https://github.com/miaopan607/miaopan-code/config.json"}'`:
+- `MIAOPAN_CODE_CONFIG_CONTENT='{"$schema":"https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"}'`:
   inject inline JSON as a final local-scope merge.
 - `MIAOPAN_CODE_DISABLE_DEFAULT_PLUGINS=1`: skip default plugins.
 - `MIAOPAN_CODE_PURE=1`: skip external plugins entirely.
@@ -448,7 +488,7 @@ When a user's config is broken and miaopan-code won't start, these env vars help
 
 - Validate against the schema before writing. If you are unsure of a field's
   exact shape, or the field is not covered in this skill, fetch
-  `https://github.com/miaopan607/miaopan-code/config.json` and read the schema rather than guessing.
+  `https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json` and read the schema rather than guessing. Read the TUI schema when editing `tui.json`.
 - Preserve `$schema` and any existing fields the user did not ask to change.
 - For agent, command, skill, and plugin definitions, prefer creating new files
   in the correct location over inlining everything in `miaopan-code.json`.

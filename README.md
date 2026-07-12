@@ -115,7 +115,7 @@ TUI 内置三个可切换的主 Agent，使用 `Tab` 正向切换，使用 `Shif
 }
 ```
 
-完整配置字段以发布产物中的 `schemas/config.json` 或仓库内的 [配置 Schema](schemas/config.json) 为准。TUI 专用配置对应 [TUI Schema](schemas/tui.json)。
+文件位置、合并规则、Agent、技能、插件、MCP 和权限等详细说明请查看[配置指南](docs/configuration.md)。完整配置字段以发布产物中的 `schemas/config.json` 或仓库内的 [配置 Schema](schemas/config.json) 为准。TUI 专用配置对应 [TUI Schema](schemas/tui.json)。
 
 ## 语言
 

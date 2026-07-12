@@ -115,7 +115,7 @@ Minimal example:
 }
 ```
 
-For the complete field list, use `schemas/config.json` from a release or the repository's [configuration schema](schemas/config.json). TUI-specific settings use the [TUI schema](schemas/tui.json).
+See the [configuration guide](docs/configuration.en.md) for configuration locations, merge behavior, agents, skills, plugins, MCP, and permissions. For the complete field list, use `schemas/config.json` from a release or the repository's [configuration schema](schemas/config.json). TUI-specific settings use the [TUI schema](schemas/tui.json).
 
 ## Language
 

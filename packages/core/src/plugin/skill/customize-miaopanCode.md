@@ -18,7 +18,9 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
 每个配置选项的权威列表——包括字段类型、枚举、
 默认值和描述——位于已发布的 JSON Schema 中：
 
-**<https://github.com/miaopan607/miaopan-code/config.json>**
+**<https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json>**
+
+TUI Schema：**<https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/tui.json>**
 
 如果本技能没有记录某个字段，或者你需要在写入配置前确认确切
 结构，**请获取该 URL 并直接阅读 Schema**，
@@ -26,7 +28,7 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
 代价是启动失败。
 
 此外，每个 `miaopan-code.json` 都应声明
-`"$schema": "https://github.com/miaopan607/miaopan-code/config.json"`，以便用户的编辑器在
+`"$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"`，以便用户的编辑器在
 输入时捕获错误。
 
 ## 应用更改
@@ -60,7 +62,7 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
 
 ```json
 {
-  "$schema": "https://github.com/miaopan607/miaopan-code/config.json",
+  "$schema": "https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json",
   "username": "string",
   "model": "provider/model-id",
   "small_model": "provider/model-id",
@@ -114,7 +116,7 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
       "enabled": true,
-      "env": {}
+      "environment": {}
     },
     "remote-thing": {
       "type": "remote",
@@ -162,6 +164,32 @@ miaopan-code 会严格校验自身配置，并在字段错误时拒绝启动。�
 - `mcp[name].command` 是字符串数组，绝不是单个字符串。`type` 是必填项。
 - `permission` 可以是字符串操作，也可以是以工具名称为 key 的对象。
 - `question.auto_resolution` 默认为 `true`。设为 `false` 后，提问将一直等待用户回答，模型也不会看到自动处理参数。
+
+## 完整字段覆盖
+
+修改配置前必须读取当前 Schema。不得因为本摘要没有列出某字段就删除它，也不得根据相似名称猜测结构。
+
+主配置的全部顶层字段为：`$schema`、`language`、`shell`、`logLevel`、`server`、`command`、`skills`、`references`、`reference`、`watcher`、`snapshot`、`plugin`、`share`、`autoshare`、`autoupdate`、`disabled_providers`、`enabled_providers`、`model`、`review_mode`、`small_model`、`default_agent`、`username`、`mode`、`agent`、`provider`、`mcp`、`formatter`、`lsp`、`instructions`、`question`、`layout`、`permission`、`tools`、`attachment`、`enterprise`、`tool_output`、`compaction`、`experimental`。
+
+关键嵌套字段：
+
+- `server`：`port`、`hostname`、`mdns`、`mdnsDomain`、`cors`。
+- `command.<name>`：必填 `template`；可选 `description`、`agent`、`model`、`variant`、`subtask`。
+- `references.<name>`：字符串，或 `{ path, description?, hidden? }`，或 `{ repository, branch?, description?, hidden? }`。
+- `agent.<name>`：`model`、`variant`、`temperature`、`top_p`、`prompt`、`disable`、`description`、`mode`、`hidden`、`options`、`color`、`steps`、`permission`。
+- `provider.<id>`：`api`、`name`、`env`、`id`、`npm`、`whitelist`、`blacklist`、`options`、`models`。
+- `provider.<id>.options`：`apiKey`、`baseURL`、`enterpriseUrl`、`setCacheKey`、`timeout`、`headerTimeout`、`chunkTimeout`。
+- `provider.<id>.models.<model>`：`id`、`compaction_model`、`name`、`family`、`release_date`、`attachment`、`reasoning`、`temperature`、`tool_call`、`interleaved`、`cost`、`limit`、`modalities`、`experimental`、`status`、`provider`、`options`、`headers`、`variants`。
+- 本地 `mcp`：必填 `type: "local"`、`command`；可选 `cwd`、`environment`、`enabled`、`timeout`。
+- 远程 `mcp`：必填 `type: "remote"`、`url`；可选 `enabled`、`headers`、`oauth`、`timeout`。OAuth 支持 `clientId`、`clientSecret`、`scope`、`callbackPort`、`redirectUri`。
+- `formatter.<name>`：`disabled`、`command`、`environment`、`extensions`。
+- 自定义 `lsp.<name>`：必填 `command`；可选 `extensions`、`disabled`、`env`、`initialization`。
+- `attachment.image`：`auto_resize`、`max_width`、`max_height`、`max_base64_bytes`。
+- `tool_output`：`max_lines`、`max_bytes`。
+- `compaction`：`auto`、`prune`、`tail_turns`、`preserve_recent_tokens`、`preserve_brief_history`、`reserved`。
+- `experimental`：`disable_paste_summary`、`batch_tool`、`openTelemetry`、`primary_tools`、`continue_loop_on_deny`、`mcp_timeout`、`policies`。
+
+弃用项：`reference` 改用 `references`；`mode` 改用 `agent`；`layout` 已不再改变布局；Agent 的 `maxSteps` 改用 `steps`。
 
 ## 技能
 
@@ -377,7 +405,7 @@ Hook 范围（就地修改 `output`；返回 `void`）：
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
       "enabled": true,
-      "env": { "BROWSER": "chromium" }
+      "environment": { "BROWSER": "chromium" }
     },
     "github": {
       "type": "remote",
@@ -394,6 +422,18 @@ Hook 范围（就地修改 `output`；返回 `void`）：
 禁用从父配置继承的服务器。Header token 等字符串值
 支持 `{env:VAR}` 插值（以及 `{file:path}`）；Shell 风格的
 `${VAR}` 不会被替换。
+
+## TUI 配置
+
+TUI 使用单独的 `tui.json` 或 `tui.jsonc`。写入时必须读取 TUI Schema，不要把 TUI 字段写进 `miaopan-code.json`。
+
+全部顶层字段为：`$schema`、`theme`、`keybinds`、`plugin`、`plugin_enabled`、`leader_timeout`、`attention`、`prompt`、`scroll_speed`、`scroll_acceleration`、`diff_style`、`tool_display`、`mouse`。
+
+- `attention`：`enabled`、`notifications`、`sound`、`volume`、`sound_pack`，以及 `sounds.default`、`question`、`permission`、`error`、`done`、`subagent_done`。
+- `prompt`：`max_height`、`max_width`；`max_width` 是正整数或 `"auto"`。
+- `scroll_acceleration`：`enabled`。
+- `diff_style`：`"auto"` 或 `"stacked"`；`tool_display`：`"compact"` 或 `"detailed"`。
+- `keybinds.<action>` 接受按键字符串、按键描述对象、这些值的数组，或 `false`/`"none"`。动作 ID 必须从 TUI Schema 的 `keybinds.properties` 读取，不得自行发明。
 
 ## 权限
 
@@ -435,7 +475,7 @@ question, webfetch, websearch, doom_loop`）只接受扁平
   只从全局配置启动。在项目目录中运行后，miaopan-code 会启动，
   用户编辑损坏的文件，然后在不带该 flag 的情况下重新启动。
 - `MIAOPAN_CODE_CONFIG=/path/to/file.json`：加载一个额外的显式配置。
-- `MIAOPAN_CODE_CONFIG_CONTENT='{"$schema":"https://github.com/miaopan607/miaopan-code/config.json"}'`：
+- `MIAOPAN_CODE_CONFIG_CONTENT='{"$schema":"https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json"}'`：
   注入内联 JSON，作为本地范围的最终合并项。
 - `MIAOPAN_CODE_DISABLE_DEFAULT_PLUGINS=1`：跳过默认插件。
 - `MIAOPAN_CODE_PURE=1`：完全跳过外部插件。
@@ -447,7 +487,7 @@ question, webfetch, websearch, doom_loop`）只接受扁平
 
 - 写入前根据 Schema 进行验证。如果不确定字段的
   确切结构，或者本技能没有涵盖该字段，请获取
-  `https://github.com/miaopan607/miaopan-code/config.json` 并阅读 Schema，不要猜测。
+  `https://raw.githubusercontent.com/miaopan607/miaopan-code/main/schemas/config.json` 并阅读 Schema，不要猜测。修改 `tui.json` 时读取 TUI Schema。
 - 保留 `$schema` 以及用户没有要求更改的所有现有字段。
 - 对于代理、命令、技能和插件定义，优先在正确位置创建新文件，
   而不是将所有内容内联到 `miaopan-code.json` 中。
