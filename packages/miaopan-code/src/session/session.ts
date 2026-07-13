@@ -441,6 +441,7 @@ export interface Interface {
   readonly setWorkspace: (input: { sessionID: SessionID; workspaceID: Info["workspaceID"] }) => Effect.Effect<void>
   readonly diff: (sessionID: SessionID) => Effect.Effect<Snapshot.FileDiff[]>
   readonly messages: (input: { sessionID: SessionID; limit?: number }) => Effect.Effect<SessionV1.WithParts[], NotFound>
+  readonly recoverInterruptedTools: (sessionID: SessionID) => Effect.Effect<void>
   readonly children: (parentID: SessionID) => Effect.Effect<Info[]>
   readonly remove: (sessionID: SessionID) => Effect.Effect<void, NotFound>
   readonly updateMessage: <T extends SessionV1.Info>(msg: T) => Effect.Effect<T>
@@ -854,6 +855,42 @@ const layer: Layer.Layer<
       return result.reverse()
     })
 
+    const recoverInterruptedTools = Effect.fn("Session.recoverInterruptedTools")(function* (sessionID: SessionID) {
+      const history = yield* messages({ sessionID, limit: 100 }).pipe(Effect.orDie)
+      const language = (yield* config.get()).language
+      const tools = history.flatMap((message) =>
+        message.parts.filter(
+          (part): part is SessionV1.ToolPart =>
+            part.type === "tool" && (part.state.status === "pending" || part.state.status === "running"),
+        ),
+      )
+
+      yield* Effect.forEach(
+        tools,
+        (part) => {
+          const end = Date.now()
+          const state = part.state
+          return updatePart({
+            ...part,
+            state: {
+              status: "error",
+              input: state.input,
+              error: t(language, "error.tool_execution_aborted"),
+              metadata: {
+                ...(state.status === "running" ? state.metadata : {}),
+                interrupted: true,
+              },
+              time: {
+                start: state.status === "running" ? state.time.start : end,
+                end,
+              },
+            },
+          } satisfies SessionV1.ToolPart)
+        },
+        { discard: true },
+      )
+    })
+
     const removeMessage = Effect.fn("Session.removeMessage")(function* (input: {
       sessionID: SessionID
       messageID: MessageID
@@ -929,6 +966,7 @@ const layer: Layer.Layer<
       setWorkspace,
       diff,
       messages,
+      recoverInterruptedTools,
       children,
       remove,
       updateMessage,

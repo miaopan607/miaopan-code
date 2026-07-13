@@ -492,6 +492,43 @@ it.instance("loop exits without an LLM request for interrupted orphan tool calls
   }),
 )
 
+it.instance("loop recovers persisted running tool calls", () =>
+  Effect.gen(function* () {
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const chat = yield* sessions.create({ title: "Pinned" })
+    const seeded = yield* seed(chat.id, { finish: "stop" })
+    yield* sessions.updatePart({
+      id: PartID.ascending(),
+      messageID: seeded.assistant.id,
+      sessionID: chat.id,
+      type: "tool",
+      callID: "stale-call",
+      tool: "bash",
+      state: {
+        status: "running",
+        input: { command: "stale" },
+        metadata: { output: "partial output" },
+        time: { start: 1 },
+      },
+    })
+
+    const result = yield* prompt.loop({ sessionID: chat.id })
+    expect(result.info.id).toBe(seeded.assistant.id)
+
+    const messages = yield* sessions.messages({ sessionID: chat.id })
+    const tool = messages
+      .flatMap((message) => message.parts)
+      .find((part): part is SessionV1.ToolPart => part.type === "tool" && part.callID === "stale-call")
+    expect(tool?.state.status).toBe("error")
+    if (tool?.state.status === "error") {
+      expect(tool.state.error).toBe(t("zh-CN", "error.tool_execution_aborted"))
+      expect(tool.state.metadata).toEqual({ output: "partial output", interrupted: true })
+      expect(tool.state.time.end).toBeDefined()
+    }
+  }),
+)
+
 it.instance("prompt stores the OAI request mode on the user message", () =>
   Effect.gen(function* () {
     yield* useServerConfig(providerCfg)
