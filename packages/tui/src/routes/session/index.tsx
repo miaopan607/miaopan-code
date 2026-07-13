@@ -2384,14 +2384,15 @@ type ToolProps = {
   part: ToolPart
 }
 
-export function toolTitle(tool: string, language = Locale.language()) {
-  return builtinToolDisplayName(language, tool) ?? tool
+function toolTitle(tool: string) {
+  return builtinToolDisplayName(Locale.language(), tool) ?? tool
 }
 
 function GenericTool(props: ToolProps) {
   const { theme } = useTheme()
   const ctx = use()
   const output = createMemo(() => props.output?.trim() ?? "")
+  const label = createMemo(() => [toolTitle(props.tool), input(props.input)].filter(Boolean).join(" "))
   const [expanded, setExpanded] = createSignal(false)
   const maxLines = 3
   const maxChars = createMemo(() => maxLines * Math.max(20, ctx.width - 6))
@@ -2416,14 +2417,14 @@ function GenericTool(props: ToolProps) {
           pending={t(Locale.language(), "tui.writing_command")}
           complete={props.part.state.status === "completed"}
           part={props.part}
-          compactText={[toolTitle(props.tool), input(props.input)].filter(Boolean).join(" ")}
+          compactText={label()}
         >
-          {toolTitle(props.tool)} {input(props.input)}
+          {label()}
         </InlineTool>
       }
     >
       <BlockTool
-        title={`# ${toolTitle(props.tool)} ${input(props.input)}`}
+        title={`# ${label()}`}
         part={props.part}
         onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
       >

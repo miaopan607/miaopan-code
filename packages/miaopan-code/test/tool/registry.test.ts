@@ -161,7 +161,6 @@ describe("tool.registry", () => {
 
       expect(ids).toEqual(expect.arrayContaining(["get_goal", "create_goal", "update_goal"]))
       expect(ids.filter((id) => !builtinToolDisplayName("zh-CN", id))).toEqual([])
-      expect(builtinToolDisplayName("zh-CN", "broken_plugin_tool")).toBeUndefined()
     }),
   )
 

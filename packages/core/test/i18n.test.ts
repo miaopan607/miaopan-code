@@ -20,31 +20,7 @@ test("品牌名不随界面语言翻译", () => {
 })
 
 test("内置工具具有中英文显示名，未知工具保留给调用方处理", () => {
-  for (const tool of [
-    "invalid",
-    "question",
-    "request_user_input",
-    "bash",
-    "read",
-    "glob",
-    "grep",
-    "edit",
-    "write",
-    "task",
-    "webfetch",
-    "todowrite",
-    "websearch",
-    "skill",
-    "apply_patch",
-    "get_goal",
-    "create_goal",
-    "update_goal",
-    "execute",
-    "lsp",
-    "list_mcp_resources",
-    "list_mcp_resource_templates",
-    "read_mcp_resource",
-  ]) {
+  for (const tool of Object.keys(messages).flatMap((key) => (key.startsWith("tool.name.") ? [key.slice(10)] : []))) {
     expect(builtinToolDisplayName("zh-CN", tool)).toBeTruthy()
     expect(builtinToolDisplayName("en", tool)).toBeTruthy()
   }

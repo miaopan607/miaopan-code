@@ -761,7 +761,7 @@ test("inserts a spacer before the next tool after completed multiline bash outpu
 
     const output = lines.join("\n")
     expect(output).toContain(
-      `total 4\n\n✱ ${t("zh-CN", "cli.run.glob_title", { pattern: "**/*tool*" })} ${t("zh-CN", "cli.run.in_directory", { dir: "src/cli/cmd" })}`,
+      `total 4\n\n✱ ${t("zh-CN", "cli.run.glob_title", { pattern: "**/*tool*" })} ${t("zh-CN", "tui.in_path", { path: "src/cli/cmd" })}`,
     )
   } finally {
     out.scrollback.destroy()
@@ -854,7 +854,7 @@ test("does not double-space before completed bash output when inline tool header
     take()
 
     const output = lines.join("\n")
-    const title = `✱ ${t("zh-CN", "cli.run.grep_title", { pattern: "tool" })} ${t("zh-CN", "cli.run.in_directory", { dir: "src/cli/cmd/run" })}`
+    const title = `✱ ${t("zh-CN", "cli.run.grep_title", { pattern: "tool" })} ${t("zh-CN", "tui.in_path", { path: "src/cli/cmd/run" })}`
     expect(output).toContain(`${title}\n\ndemo.ts`)
     expect(output).not.toContain(`${title}\n\n\ndemo.ts`)
   } finally {
@@ -952,11 +952,11 @@ test("does not emit blank patch snapshots between edit and task", async () => {
     take()
 
     const output = lines.join("\n")
-    const created = t("zh-CN", "cli.run.patch_created", { path: "README-demo.md" }).replace(/^#/, "+")
+    const created = t("zh-CN", "cli.run.patch_created", { marker: "+", path: "README-demo.md" })
     expect(output).toContain(created)
-    expect(output).not.toContain(t("zh-CN", "cli.run.patch_applied", { path: "src/demo-format.ts" }).replace(/^#/, "~"))
-    expect(output).toContain(`${created}\n\n# ${t("zh-CN", "cli.run.task_title", { type: "Explore" })}`)
-    expect(output).not.toContain(`${created}\n\n\n# ${t("zh-CN", "cli.run.task_title", { type: "Explore" })}`)
+    expect(output).not.toContain(t("zh-CN", "cli.run.patch_applied", { marker: "~", path: "src/demo-format.ts" }))
+    expect(output).toContain(`${created}\n\n# ${t("zh-CN", "permission.task_title", { type: "Explore" })}`)
+    expect(output).not.toContain(`${created}\n\n\n# ${t("zh-CN", "permission.task_title", { type: "Explore" })}`)
   } finally {
     out.scrollback.destroy()
   }

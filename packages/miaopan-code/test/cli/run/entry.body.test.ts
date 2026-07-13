@@ -187,7 +187,7 @@ describe("run entry body", () => {
         kind: "diff",
         items: [
           {
-            title: UI.t("cli.run.patch_applied", { path: "src/a.ts" }),
+            title: UI.t("cli.run.patch_applied", { marker: "#", path: "src/a.ts" }),
             diff: "@@ -1 +1 @@\n-old\n+new\n",
             file: "src/a.ts",
             deletions: 0,
@@ -278,7 +278,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       kind: "task",
-      title: `# ${UI.t("cli.run.task_title", { type: "Explore" })}`,
+      title: `# ${UI.t("permission.task_title", { type: "Explore" })}`,
       rows: ["Inspect reducer"],
       tail: "",
     })
@@ -452,7 +452,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: t("zh-CN", "cli.run.patch_applied", { path: "src/a.ts" }).replace(/^#/, "~"),
+      content: t("zh-CN", "cli.run.patch_applied", { marker: "~", path: "src/a.ts" }),
     })
   })
 
@@ -489,7 +489,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: t("zh-CN", "cli.run.patch_created", { path: "README-demo.md" }).replace(/^#/, "+"),
+      content: t("zh-CN", "cli.run.patch_created", { marker: "+", path: "README-demo.md" }),
     })
   })
 

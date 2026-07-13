@@ -274,9 +274,12 @@ export function shellOutputSnapshot(state: { readonly metadata?: unknown }) {
 // For shell tools, surface the actual command as the title so it stays visible
 // before output lands; non-shell tools keep their model-provided title.
 function toolTitle(toolName: string, input: ToolInput, fallback: string | undefined, language?: Language) {
-  const title = builtinToolDisplayName(language, toolName) ?? toolName
-  if (isShell(toolName)) return shellCommand(input) ?? (fallback && fallback !== toolName ? fallback : title)
-  return fallback && fallback !== toolName ? fallback : title
+  if (isShell(toolName)) {
+    const command = shellCommand(input)
+    if (command) return command
+  }
+  if (fallback && fallback !== toolName) return fallback
+  return builtinToolDisplayName(language, toolName) ?? toolName
 }
 
 // Enrich shell rawInput with the resolved working directory so clients can show
