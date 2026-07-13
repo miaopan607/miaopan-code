@@ -1961,7 +1961,7 @@ export function assistantDisplayParts(
     }
     if (toolDetailsHidden(input.showDetails, part.tool, part.state)) return result
     const previous = result.at(-1)
-    if (previous?.type === "compact-explore") {
+    if (previous?.type === "compact-explore" && previous.parts.at(-1)?.tool === part.tool) {
       previous.parts.push(part)
       return result
     }
