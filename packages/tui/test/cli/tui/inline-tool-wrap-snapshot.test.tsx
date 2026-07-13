@@ -258,6 +258,38 @@ function CompactRowFixture(props: { expanded: boolean; onMouseUp: () => void }) 
   )
 }
 
+function CompactScrollbarRowFixture() {
+  const content = "Grep a very long pattern that wraps before the next tool"
+  return (
+    <scrollbox width={40} height={2} viewportOptions={{ paddingRight: 1 }}>
+      <InlineToolRow icon="✱" complete={true} pending="" compactText={content} compactWidth={33}>
+        {content}
+      </InlineToolRow>
+    </scrollbox>
+  )
+}
+
+function CompactSpinnerRowFixture(props: { state: string }) {
+  const content = "Read a very long path that wraps before the next tool"
+  return (
+    <TestTuiContexts paths={{ state: props.state }}>
+      <TuiConfigProvider config={createTuiResolvedConfig()}>
+        <KVProvider>
+          <I18nProvider language="zh-CN">
+            <ThemeProvider mode="dark">
+              <box flexDirection="column" width={40}>
+                <InlineToolRow icon="→" complete={true} pending="" spinner compactText={content} compactWidth={34}>
+                  {content}
+                </InlineToolRow>
+              </box>
+            </ThemeProvider>
+          </I18nProvider>
+        </KVProvider>
+      </TuiConfigProvider>
+    </TestTuiContexts>
+  )
+}
+
 function shellState(status: ToolPart["state"]["status"], exit?: unknown) {
   const metadata = exit === undefined ? undefined : { exit }
   if (status === "pending") return { status, input: {}, raw: "" } as ToolPart["state"]
@@ -477,6 +509,40 @@ describe("TUI inline tool wrapping", () => {
     await testSetup.mockMouse.click(5, 0)
     await testSetup.renderOnce()
     expect(testSetup.captureCharFrame()).toContain(" ...")
+  })
+
+  test("keeps the compact marker on one line when the scrollbar reserves a column", async () => {
+    const frame = await renderFrame(() => <CompactScrollbarRowFixture />, { width: 40, height: 2 })
+
+    expect(frame).toContain(" ...")
+    expect(frame.split("\n").filter((line) => line.trim())).toHaveLength(1)
+  })
+
+  test("keeps compact spinner text on one line", async () => {
+    await using tmp = await tmpdir()
+    const state = path.join(tmp.path, "state")
+    await mkdir(state, { recursive: true })
+    await Bun.write(path.join(state, "kv.json"), "{}")
+    const app = await testRender(() => <CompactSpinnerRowFixture state={state} />, { width: 40, height: 2 })
+    let frame = ""
+    try {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await app.renderOnce()
+        frame = app
+          .captureCharFrame()
+          .split("\n")
+          .map((line) => line.trimEnd())
+          .join("\n")
+          .trimEnd()
+        if (frame) break
+        await new Promise((resolve) => setTimeout(resolve, 25))
+      }
+    } finally {
+      app.renderer.destroy()
+    }
+
+    expect(frame).toContain(" ...")
+    expect(frame.split("\n").filter((line) => line.trim())).toHaveLength(1)
   })
 
   test("derives shell command success from tool state and exit metadata", () => {

@@ -318,7 +318,9 @@ export function Session() {
     return false
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
-  const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
+  const contentWidth = createMemo(
+    () => dimensions().width - (sidebarVisible() ? 42 : 0) - 4 - (showScrollbar() ? 1 : 0),
+  )
   const providers = createMemo(() => Model.index(sync.data.provider))
 
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
@@ -2573,7 +2575,11 @@ export function InlineToolRow(props: {
     >
       <Switch>
         <Match when={props.spinner}>
-          <Spinner color={props.color} children={compact() && !props.expanded ? compact()!.text : props.children} />
+          <Spinner
+            color={props.color}
+            wrapMode={compact() && !props.expanded ? "none" : undefined}
+            children={compact() && !props.expanded ? compact()!.text : props.children}
+          />
         </Match>
         <Match when={true}>
           <Show
@@ -2599,6 +2605,7 @@ export function InlineToolRow(props: {
               <text
                 flexGrow={1}
                 fg={props.failed ? props.errorColor : props.color}
+                wrapMode={compact() && !props.expanded ? "none" : undefined}
                 attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
               >
                 {props.failed && !props.complete

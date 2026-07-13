@@ -20,4 +20,11 @@ describe("collapseToolText", () => {
   test("keeps the marker within a very narrow width", () => {
     expect(collapseToolText("a long tool call", 4)).toEqual({ text: " ...", overflow: true })
   })
+
+  test("measures wide characters without exceeding the width budget", () => {
+    const collapsed = collapseToolText("读取很长的工具调用", 10)
+
+    expect(collapsed).toEqual({ text: "读取很 ...", overflow: true })
+    expect(Bun.stringWidth(collapsed.text)).toBeLessThanOrEqual(10)
+  })
 })
