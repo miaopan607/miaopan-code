@@ -28,6 +28,7 @@ import {
   toolDetailsHidden,
   alwaysSeparate,
   toolDisplay,
+  toolTitle,
 } from "../../../src/routes/session"
 import { createTuiResolvedConfig } from "../../fixture/tui-runtime"
 import { TestTuiContexts } from "../../fixture/tui-environment"
@@ -465,6 +466,13 @@ describe("TUI inline tool wrapping", () => {
   test("falls back for unknown tool names", () => {
     expect(toolDisplay("bash")).toBe("bash")
     expect(toolDisplay("plugin_tool")).toBe("generic")
+  })
+
+  test("localizes known goal tools without rewriting unknown plugin or MCP names", () => {
+    expect(toolTitle("create_goal", "zh-CN")).toBe("创建目标")
+    expect(toolTitle("create_goal", "en")).toBe("Create goal")
+    expect(toolTitle("plugin_customTool", "zh-CN")).toBe("plugin_customTool")
+    expect(toolTitle("mcp__server__customTool", "en")).toBe("mcp__server__customTool")
   })
 
   test("replaces pending copy when a tool fails before completion", async () => {

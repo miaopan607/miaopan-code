@@ -262,6 +262,7 @@ export class Subscription {
               toolName: part.tool,
               state: part.state,
               cwd,
+              language: this.input.language,
             }),
           },
         })
@@ -278,6 +279,7 @@ export class Subscription {
               toolName: part.tool,
               state: part.state,
               cwd,
+              language: this.input.language,
             }),
           },
         })
@@ -300,6 +302,7 @@ export class Subscription {
               toolName: part.tool,
               state: part.state,
               cwd,
+              language: this.input.language,
             }),
           },
         })
@@ -318,6 +321,7 @@ export class Subscription {
           state: part.state,
           output,
           cwd,
+          language: this.input.language,
         }),
       },
     })
@@ -335,6 +339,7 @@ export class Subscription {
           toolName: part.tool,
           state: part.state,
           cwd,
+          language: this.input.language,
         }),
       },
     })

@@ -40,7 +40,7 @@ import type {
 } from "@miaopan/sdk/v2"
 import { useLocal } from "../../context/local"
 import { Locale } from "../../util/locale"
-import { t } from "@miaopan-code/core/i18n"
+import { builtinToolDisplayName, t } from "@miaopan-code/core/i18n"
 import { webSearchProviderLabel } from "../../util/tool-display"
 import { useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "../../context/sdk"
@@ -2383,6 +2383,11 @@ type ToolProps = {
   output?: string
   part: ToolPart
 }
+
+export function toolTitle(tool: string, language = Locale.language()) {
+  return builtinToolDisplayName(language, tool) ?? tool
+}
+
 function GenericTool(props: ToolProps) {
   const { theme } = useTheme()
   const ctx = use()
@@ -2411,14 +2416,14 @@ function GenericTool(props: ToolProps) {
           pending={t(Locale.language(), "tui.writing_command")}
           complete={props.part.state.status === "completed"}
           part={props.part}
-          compactText={[props.tool, input(props.input)].filter(Boolean).join(" ")}
+          compactText={[toolTitle(props.tool), input(props.input)].filter(Boolean).join(" ")}
         >
-          {props.tool} {input(props.input)}
+          {toolTitle(props.tool)} {input(props.input)}
         </InlineTool>
       }
     >
       <BlockTool
-        title={`# ${props.tool} ${input(props.input)}`}
+        title={`# ${toolTitle(props.tool)} ${input(props.input)}`}
         part={props.part}
         onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
       >
@@ -3055,7 +3060,7 @@ function Task(props: ToolProps) {
       if (current()) {
         const state = current()!.state
         const title = state.status === "running" || state.status === "completed" ? state.title : undefined
-        content.push(`↳ ${Locale.titlecase(current()!.tool)} ${title}`)
+        content.push(`↳ ${toolTitle(current()!.tool)} ${title}`)
       } else content.push(`↳ ${formatSubagentToolcalls(tools().length)}`)
     }
 
@@ -3129,11 +3134,11 @@ function Execute(props: ToolProps) {
   const outputPreview = createMemo(() => collapseToolOutput(output(), 4, 4 * Math.max(20, ctx.width - 6)).output)
   const showOutput = createMemo(() => output() && hasRuntimeError())
   const content = createMemo(() => {
-    const lines = ["execute"]
+    const lines = [toolTitle("execute")]
     for (const call of calls()) {
       const args = input(call.input ?? {})
       lines.push(
-        `↳ ${call.tool}${args ? ` ${args}` : ""}${call.status === "error" ? t(Locale.language(), "tui.execute_failed") : ""}`,
+        `↳ ${toolTitle(call.tool)}${args ? ` ${args}` : ""}${call.status === "error" ? t(Locale.language(), "tui.execute_failed") : ""}`,
       )
     }
     return lines.join("\n")
@@ -3145,7 +3150,7 @@ function Execute(props: ToolProps) {
         icon={hasRuntimeError() ? "✗" : props.part.state.status === "completed" ? "✓" : "│"}
         color={hasRuntimeError() ? theme.error : undefined}
         spinner={isLoading()}
-        pending="execute"
+        pending={toolTitle("execute")}
         complete={true}
         part={props.part}
         compactText={content()}

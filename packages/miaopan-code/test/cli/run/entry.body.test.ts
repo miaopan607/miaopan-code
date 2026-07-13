@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import type { ToolPart } from "@miaopan/sdk/v2"
 import { entryBody, entryCanStream, entryDone } from "@/cli/cmd/run/entry.body"
 import type { StreamCommit, ToolSnapshot } from "@/cli/cmd/run/types"
@@ -451,7 +452,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: "~ Patched src/a.ts",
+      content: t("zh-CN", "cli.run.patch_applied", { path: "src/a.ts" }).replace(/^#/, "~"),
     })
   })
 
@@ -488,7 +489,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: "+ Created README-demo.md",
+      content: t("zh-CN", "cli.run.patch_created", { path: "README-demo.md" }).replace(/^#/, "+"),
     })
   })
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import type { AgentSideConnection } from "@agentclientprotocol/sdk"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
+import type { Language } from "@miaopan-code/core/i18n"
 import type { Event, Message, MiaopanCodeClient, Part, SessionMessageResponse, ToolPart } from "@miaopan/sdk/v2"
 import { Effect, ManagedRuntime } from "effect"
 import { ACPEvent } from "@/acp/event"
@@ -78,7 +79,7 @@ function createEventStream() {
   return { push, close, stream }
 }
 
-function createHarness(messages: Record<string, SessionMessageResponse> = {}) {
+function createHarness(messages: Record<string, SessionMessageResponse> = {}, language?: Language) {
   const updates: SessionUpdateParams[] = []
   const calls = {
     eventSubscribe: 0,
@@ -108,7 +109,7 @@ function createHarness(messages: Record<string, SessionMessageResponse> = {}) {
     },
   } satisfies Pick<AgentSideConnection, "sessionUpdate">
   const session = makeSessionService()
-  const subscription = new ACPEvent.Subscription({ sdk, connection, session })
+  const subscription = new ACPEvent.Subscription({ sdk, connection, session, language })
 
   return { calls, connection, events, sdk, session, subscription, updates }
 }
@@ -569,6 +570,30 @@ describe("acp event routing", () => {
       rawInput: { filePath: "/workspace/file.ts" },
       locations: [{ path: "/workspace/file.ts" }],
     })
+  })
+
+  it("uses the subscription language for builtin tool titles", async () => {
+    const harness = createHarness({}, "en")
+    await Effect.runPromise(harness.session.create({ id: "ses_localized", cwd: "/workspace" }))
+
+    await harness.subscription.handle(
+      toolUpdated({
+        id: "part_call_localized",
+        sessionID: "ses_localized",
+        messageID: "msg_call_localized",
+        type: "tool",
+        callID: "call_localized",
+        tool: "read",
+        state: {
+          status: "running",
+          input: { filePath: "/workspace/file.ts" },
+          title: "read",
+          time: { start: Date.now() },
+        },
+      } satisfies ToolPart),
+    )
+
+    expect(toolUpdates(harness.updates).map((item) => item.update.title)).toEqual(["Read", "Read"])
   })
 
   it("does not emit duplicate synthetic pending after a replayed running tool", async () => {

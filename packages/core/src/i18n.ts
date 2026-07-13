@@ -379,6 +379,32 @@ export const messages = {
       "仅在目标确实完成且没有剩余工作时标记 complete；仅在同一阻塞条件连续出现至少三个目标回合且无法继续推进时标记 blocked。不得仅因预算即将耗尽或准备停止工作而标记完成。",
     en: "Mark the goal complete only when it is achieved and no required work remains. Mark it blocked only after the same blocking condition has recurred for at least three consecutive goal turns and progress is impossible. Do not complete a goal merely because its budget is nearly exhausted or work is stopping.",
   },
+  "tool.name.invalid": { "zh-CN": "无效工具", en: "Invalid tool" },
+  "tool.name.question": { "zh-CN": "提问", en: "Ask" },
+  "tool.name.request_user_input": { "zh-CN": "询问用户", en: "Ask user" },
+  "tool.name.bash": { "zh-CN": "执行", en: "Execute" },
+  "tool.name.read": { "zh-CN": "读取", en: "Read" },
+  "tool.name.glob": { "zh-CN": "查找文件", en: "Find files" },
+  "tool.name.grep": { "zh-CN": "搜索内容", en: "Search contents" },
+  "tool.name.edit": { "zh-CN": "编辑", en: "Edit" },
+  "tool.name.write": { "zh-CN": "写入", en: "Write" },
+  "tool.name.task": { "zh-CN": "代理任务", en: "Agent task" },
+  "tool.name.webfetch": { "zh-CN": "获取网页", en: "Fetch web page" },
+  "tool.name.todowrite": { "zh-CN": "更新任务列表", en: "Update task list" },
+  "tool.name.websearch": { "zh-CN": "搜索网页", en: "Search web" },
+  "tool.name.skill": { "zh-CN": "加载技能", en: "Load skill" },
+  "tool.name.apply_patch": { "zh-CN": "应用补丁", en: "Apply patch" },
+  "tool.name.get_goal": { "zh-CN": "查看目标", en: "View goal" },
+  "tool.name.create_goal": { "zh-CN": "创建目标", en: "Create goal" },
+  "tool.name.update_goal": { "zh-CN": "更新目标", en: "Update goal" },
+  "tool.name.execute": { "zh-CN": "执行代码", en: "Execute code" },
+  "tool.name.lsp": { "zh-CN": "代码导航", en: "Code navigation" },
+  "tool.name.list_mcp_resources": { "zh-CN": "列出 MCP 资源", en: "List MCP resources" },
+  "tool.name.list_mcp_resource_templates": {
+    "zh-CN": "列出 MCP 资源模板",
+    en: "List MCP resource templates",
+  },
+  "tool.name.read_mcp_resource": { "zh-CN": "读取 MCP 资源", en: "Read MCP resource" },
   "tool.param.goal_objective": {
     "zh-CN": "要持续推进的具体目标",
     en: "The concrete objective to keep pursuing",
@@ -1522,6 +1548,8 @@ export const messages = {
   "cli.run.batch_count": { "zh-CN": "批处理 {{count}} 个工具", en: "Batch {{count}} tool(s)" },
   "cli.run.task_title": { "zh-CN": "{{type}} 任务", en: "{{type}} Task" },
   "cli.run.agent_label": { "zh-CN": "{{type}} 代理", en: "{{type}} Agent" },
+  "cli.run.in_directory": { "zh-CN": "在 {{dir}} 中", en: "in {{dir}}" },
+  "cli.run.file_count": { "zh-CN": "{{count}} 个文件", en: "{{count}} file(s)" },
   "cli.run.patch_created": { "zh-CN": "# 创建 {{path}}", en: "# Created {{path}}" },
   "cli.run.patch_deleted": { "zh-CN": "# 删除 {{path}}", en: "# Deleted {{path}}" },
   "cli.run.patch_moved": { "zh-CN": "# 移动 {{from}} → {{to}}", en: "# Moved {{from}} -> {{to}}" },
@@ -6071,6 +6099,12 @@ export const messages = {
 
 export type MessageKey = keyof typeof messages
 export type MessageParameters = Record<string, string | number | undefined>
+
+export function builtinToolDisplayName(language: Language | undefined, tool: string) {
+  const key = `tool.name.${tool}`
+  if (!Object.prototype.hasOwnProperty.call(messages, key)) return undefined
+  return t(language, key as MessageKey)
+}
 
 export function resolveLanguage(input: unknown): Language {
   return input === "en" ? "en" : "zh-CN"
