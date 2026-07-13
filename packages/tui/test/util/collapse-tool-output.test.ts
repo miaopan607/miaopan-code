@@ -1,5 +1,22 @@
 import { describe, expect, test } from "bun:test"
-import { collapseToolText } from "../../src/util/collapse-tool-output"
+import { collapseToolOutput, collapseToolText } from "../../src/util/collapse-tool-output"
+
+describe("collapseToolOutput", () => {
+  test("keeps output that fits within the line and character limits unchanged", () => {
+    expect(collapseToolOutput("first\nsecond", 3, 20)).toEqual({ output: "first\nsecond", overflow: false })
+  })
+
+  test("adds an ellipsis after the preview line limit", () => {
+    expect(collapseToolOutput("first\nsecond\nthird\nfourth", 3, 100)).toEqual({
+      output: "first\nsecond\nthird\n…",
+      overflow: true,
+    })
+  })
+
+  test("truncates a long single line within the character limit", () => {
+    expect(collapseToolOutput("abcdefghij", 3, 6)).toEqual({ output: "abcde…", overflow: true })
+  })
+})
 
 describe("collapseToolText", () => {
   test("keeps text that fits on one line unchanged", () => {

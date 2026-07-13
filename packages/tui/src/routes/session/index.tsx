@@ -1861,19 +1861,7 @@ function AssistantMessage(props: {
         </box>
       </Show>
       <Show when={props.message.error && props.message.error.name !== "MessageAbortedError"}>
-        <box
-          ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
-          border={["left"]}
-          paddingTop={1}
-          paddingBottom={1}
-          paddingLeft={2}
-          marginTop={1}
-          backgroundColor={theme.backgroundPanel}
-          customBorderChars={SplitBorder.customBorderChars}
-          borderColor={theme.error}
-        >
-          <text fg={theme.textMuted}>{errorMessage(props.message.error)}</text>
-        </box>
+        <AssistantError error={errorMessage(props.message.error)} width={ctx.width} />
       </Show>
       <Switch>
         <Match when={props.last || final() || props.message.error?.name === "MessageAbortedError"}>
@@ -1929,6 +1917,40 @@ function AssistantMessage(props: {
         </Match>
       </Switch>
     </>
+  )
+}
+
+export function AssistantError(props: { error: string; width: number }) {
+  const { theme } = useTheme()
+  const renderer = useRenderer()
+  const [expanded, setExpanded] = createSignal(false)
+  const collapsed = createMemo(() => collapseToolOutput(props.error, 3, 3 * Math.max(20, props.width - 6)))
+  const toggle = () => {
+    if (!collapsed().overflow) return
+    if (renderer.getSelection()?.getSelectedText()) return
+    setExpanded((previous) => !previous)
+  }
+
+  return (
+    <box
+      ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
+      border={["left"]}
+      paddingTop={1}
+      paddingBottom={1}
+      paddingLeft={2}
+      marginTop={1}
+      backgroundColor={theme.backgroundPanel}
+      customBorderChars={SplitBorder.customBorderChars}
+      borderColor={theme.error}
+      onMouseUp={toggle}
+    >
+      <text fg={theme.textMuted}>{expanded() ? props.error : collapsed().output}</text>
+      <Show when={collapsed().overflow}>
+        <text fg={theme.textMuted}>
+          {expanded() ? t(Locale.language(), "tui.click_collapse") : t(Locale.language(), "tui.click_expand")}
+        </text>
+      </Show>
+    </box>
   )
 }
 

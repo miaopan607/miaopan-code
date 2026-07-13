@@ -10,6 +10,7 @@ import { KVProvider } from "../../../src/context/kv"
 import { ThemeProvider } from "../../../src/context/theme"
 import { TuiConfigProvider } from "../../../src/config"
 import {
+  AssistantError,
   formatCompletedSubagentDetail,
   formatSubagentRetry,
   formatSubagentTitle,
@@ -461,6 +462,40 @@ async function renderQuestionResult(tool: "question" | "request_user_input", com
   }
 }
 
+async function renderAssistantError(error: string) {
+  await using tmp = await tmpdir()
+  const state = path.join(tmp.path, "state")
+  await mkdir(state, { recursive: true })
+  await Bun.write(path.join(state, "kv.json"), "{}")
+
+  const app = await testRender(
+    () => (
+      <TestTuiContexts paths={{ state }}>
+        <TuiConfigProvider config={createTuiResolvedConfig()}>
+          <KVProvider>
+            <I18nProvider language="zh-CN">
+              <ThemeProvider mode="dark">
+                <box width={72}>
+                  <AssistantError error={error} width={72} />
+                </box>
+              </ThemeProvider>
+            </I18nProvider>
+          </KVProvider>
+        </TuiConfigProvider>
+      </TestTuiContexts>
+    ),
+    { width: 72, height: 20 },
+  )
+  testSetup = app
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await app.renderOnce()
+    if (app.captureCharFrame().trim()) return app
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  return app
+}
+
 describe("TUI inline tool wrapping", () => {
   test("falls back for unknown tool names", () => {
     expect(toolDisplay("bash")).toBe("bash")
@@ -657,6 +692,43 @@ describe("TUI inline tool wrapping", () => {
 
   test("renders request_user_input results with the detailed question layout", async () => {
     expect(await renderQuestionResult("request_user_input", false)).toMatchSnapshot()
+  })
+
+  test("collapses long assistant errors until clicked", async () => {
+    const app = await renderAssistantError(
+      [
+        "Type validation failed",
+        "The provider returned an invalid response.",
+        "Expected a text value at response.output",
+        "DETAILS_HIDDEN_UNTIL_EXPANDED " + "x".repeat(240),
+      ].join("\n"),
+    )
+    const collapsed = app.captureCharFrame()
+
+    expect(collapsed).toContain("Type validation failed")
+    expect(collapsed).toContain("点击展开")
+    expect(collapsed).not.toContain("DETAILS_HIDDEN_UNTIL_EXPANDED")
+
+    await app.mockMouse.click(5, 1)
+    await app.renderOnce()
+    const expanded = app.captureCharFrame()
+
+    expect(expanded).toContain("DETAILS_HIDDEN_UNTIL_EXPANDED")
+    expect(expanded).toContain("点击收起")
+    expect(expanded).not.toContain("点击展开")
+
+    await app.mockMouse.click(5, 1)
+    await app.renderOnce()
+    expect(app.captureCharFrame()).not.toContain("DETAILS_HIDDEN_UNTIL_EXPANDED")
+  })
+
+  test("keeps short assistant errors expanded without a toggle", async () => {
+    const app = await renderAssistantError("Type validation failed")
+    const frame = app.captureCharFrame()
+
+    expect(frame).toContain("Type validation failed")
+    expect(frame).not.toContain("点击展开")
+    expect(frame).not.toContain("点击收起")
   })
 
   test("snapshots expanded tool errors under the tool text", async () => {
