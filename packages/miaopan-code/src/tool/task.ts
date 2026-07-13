@@ -206,15 +206,15 @@ export const TaskTool = Tool.define(
       const oai = parentMessage.info.role === "user" ? parentMessage.info.oai : undefined
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
-        // If resuming an existing subagent session, check whether it has a
-        // prior assistant message. If so, the session was interrupted and we
-        // should continue from where it left off instead of sending a fresh
-        // prompt.
+        // If resuming an existing subagent session, check whether it was
+        // interrupted (last assistant message has an error). If so, continue
+        // from where it left off instead of sending a fresh prompt.
         const isResume = session !== undefined
         if (isResume) {
           const childMessages = yield* sessions.messages({ sessionID: nextSession.id }).pipe(Effect.orDie)
-          const hasAssistant = childMessages.some((m) => m.info.role === "assistant")
-          if (hasAssistant) {
+          const lastAssistant = childMessages.findLast((m) => m.info.role === "assistant")
+          const wasInterrupted = lastAssistant?.info.role === "assistant" && lastAssistant.info.error !== undefined
+          if (wasInterrupted) {
             const result = yield* ops.continue({
               sessionID: nextSession.id,
             })

@@ -435,10 +435,12 @@ const layer = Layer.effect(
           state: {
             status: "error",
             error: wasInterrupted
-              ? t(cfg.language, "tool.error.subagent_interrupted", {
-                  detail: error ? `: ${error.message}` : "",
-                  sessionId: sessionId ?? "",
-                })
+              ? sessionId
+                ? t(cfg.language, "tool.error.subagent_interrupted", {
+                    detail: error ? `: ${error.message}` : "",
+                    sessionId,
+                  })
+                : t(cfg.language, "error.tool_cancelled")
               : t(cfg.language, "error.tool_execution_failed", {
                   detail: error ? `: ${error.message}` : "",
                 }),

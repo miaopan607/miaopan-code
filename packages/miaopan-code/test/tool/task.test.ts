@@ -280,6 +280,138 @@ describe("tool.task", () => {
     }),
   )
 
+  it.instance("execute continues an interrupted subagent via task_id", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      const child = yield* sessions.create({ parentID: chat.id, title: "Interrupted child" })
+      // Seed the child with a user message and an interrupted assistant message
+      const childUser = yield* sessions.updateMessage({
+        id: MessageID.ascending(),
+        role: "user",
+        sessionID: child.id,
+        agent: "general",
+        model: ref,
+        time: { created: Date.now() },
+      })
+      const childAssistant: SessionV1.Assistant = {
+        id: MessageID.ascending(),
+        role: "assistant",
+        parentID: childUser.id,
+        sessionID: child.id,
+        mode: "general",
+        agent: "general",
+        cost: 0,
+        path: { cwd: "/tmp", root: "/tmp" },
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        modelID: ref.modelID,
+        providerID: ref.providerID,
+        time: { created: Date.now() },
+        error: { name: "MessageAbortedError", data: { message: "Aborted" } },
+      }
+      yield* sessions.updateMessage(childAssistant)
+
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      let continued = false
+      let prompted = false
+      const promptOps: TaskPromptOps = {
+        ...stubOps({ text: "resumed" }),
+        continue: () => Effect.sync(() => { continued = true; return reply({ sessionID: child.id, parts: [{ type: "text" as const, text: "continued" }] } as SessionPrompt.PromptInput, "continued") }),
+        prompt: () => Effect.sync(() => { prompted = true; return reply({ sessionID: child.id, parts: [{ type: "text" as const, text: "prompted" }] } as SessionPrompt.PromptInput, "prompted") }),
+      }
+
+      const result = yield* def.execute(
+        {
+          description: "resume work",
+          prompt: "continue the previous task",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect(continued).toBe(true)
+      expect(prompted).toBe(false)
+      expect(result.output).toContain("continued")
+    }),
+  )
+
+  it.instance("execute sends fresh prompt when resuming a non-interrupted session", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      const child = yield* sessions.create({ parentID: chat.id, title: "Completed child" })
+      // Seed the child with a user message and a completed (no error) assistant message
+      const childUser = yield* sessions.updateMessage({
+        id: MessageID.ascending(),
+        role: "user",
+        sessionID: child.id,
+        agent: "general",
+        model: ref,
+        time: { created: Date.now() },
+      })
+      const childAssistant: SessionV1.Assistant = {
+        id: MessageID.ascending(),
+        role: "assistant",
+        parentID: childUser.id,
+        sessionID: child.id,
+        mode: "general",
+        agent: "general",
+        cost: 0,
+        path: { cwd: "/tmp", root: "/tmp" },
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        modelID: ref.modelID,
+        providerID: ref.providerID,
+        time: { created: Date.now(), completed: Date.now() },
+        finish: "stop",
+      }
+      yield* sessions.updateMessage(childAssistant)
+
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      let continued = false
+      let prompted = false
+      const promptOps: TaskPromptOps = {
+        ...stubOps({ text: "fresh" }),
+        continue: () => Effect.sync(() => { continued = true; return reply({ sessionID: child.id, parts: [{ type: "text" as const, text: "continued" }] } as SessionPrompt.PromptInput, "continued") }),
+        prompt: (input) => Effect.sync(() => { prompted = true; return reply(input, "fresh") }),
+      }
+
+      const result = yield* def.execute(
+        {
+          description: "new task",
+          prompt: "do something different",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect(continued).toBe(false)
+      expect(prompted).toBe(true)
+      expect(result.output).toContain("fresh")
+    }),
+  )
+
   it.instance("plan mode reapplies read-only restrictions when resuming a task session", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
