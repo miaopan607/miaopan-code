@@ -1331,12 +1331,7 @@ const layer = Layer.effect(
 
           const language = (yield* config.get()).language
           const [collaboration, skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
-            sys.collaboration(
-              agent,
-              session.metadata?.collaboration_mode === "plan" || session.metadata?.collaboration_mode === "ask"
-                ? session.metadata.collaboration_mode
-                : undefined,
-            ),
+            sys.collaboration(agent),
             sys.skills(agent),
             sys.environment(model),
             instruction.system().pipe(Effect.orDie),

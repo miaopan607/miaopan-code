@@ -22,32 +22,23 @@ function testAgent(input: {
   } satisfies Agent.Info
 }
 
-it.instance("plan subagents inherit the parent mode edit ceiling", () =>
+it.instance("subagents do not inherit the parent mode edit ceiling", () =>
   Effect.gen(function* () {
-    const planAgent = yield* Agent.use.get("plan")
     const generalAgent = yield* Agent.use.get("general")
 
-    expect(planAgent).toBeDefined()
     expect(generalAgent).toBeDefined()
-    // Sanity: the plan agent itself blocks edit. (Note: `write` and
-    // `apply_patch` route through the `edit` permission at the runtime
-    // tool layer — see Permission.disabled / EDIT_TOOLS.)
-    expect(Permission.evaluate("edit", "/some/file.ts", planAgent!.permission).action).toBe("deny")
 
     const parentSessionPermission: PermissionV1.Ruleset = []
 
     const subagentSessionPermission = deriveSubagentSessionPermission({
       parentSessionPermission,
       subagent: generalAgent!,
-      collaborationMode: "plan",
     })
 
     const effective = Permission.merge(generalAgent!.permission, subagentSessionPermission)
 
-    expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("deny")
-    expect(Permission.disabled(["edit", "write", "apply_patch"], effective)).toEqual(
-      new Set(["edit", "write", "apply_patch"]),
-    )
+    expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("allow")
+    expect(Permission.disabled(["edit", "write", "apply_patch"], effective)).toEqual(new Set())
   }),
 )
 
@@ -68,27 +59,21 @@ it.instance("subagent's own read-only restriction remains effective", () =>
 )
 
 it.instance(
-  "custom subagent cannot override plan mode edit restrictions",
+  "custom subagent keeps its edit permission in a plan parent",
   () =>
     Effect.gen(function* () {
-      const planAgent = yield* Agent.use.get("plan")
       const my = yield* Agent.use.get("my_subagent")
-      expect(planAgent).toBeDefined()
       expect(my).toBeDefined()
 
       const parentSessionPermission: PermissionV1.Ruleset = []
       const subagentSessionPermission = deriveSubagentSessionPermission({
         parentSessionPermission,
         subagent: my!,
-        collaborationMode: "plan",
       })
       const effective = Permission.merge(my!.permission, subagentSessionPermission)
 
-      expect(Permission.evaluate("edit", "/some/file.ts", planAgent!.permission).action).toBe("deny")
-      expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("deny")
-      expect(Permission.disabled(["edit", "write", "apply_patch"], effective)).toEqual(
-        new Set(["edit", "write", "apply_patch"]),
-      )
+      expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("allow")
+      expect(Permission.disabled(["edit", "write", "apply_patch"], effective)).toEqual(new Set())
     }),
   {
     config: {
@@ -106,23 +91,19 @@ it.instance(
 )
 
 it.instance(
-  "ask subagents inherit only the edit ceiling",
+  "custom subagent keeps its edit permission in an ask parent",
   () =>
     Effect.gen(function* () {
-      const ask = yield* Agent.use.get("ask")
       const my = yield* Agent.use.get("my_subagent")
-      expect(ask).toBeDefined()
       expect(my).toBeDefined()
 
       const subagentSessionPermission = deriveSubagentSessionPermission({
         parentSessionPermission: [],
         subagent: my!,
-        collaborationMode: "ask",
       })
       const effective = Permission.merge(my!.permission, subagentSessionPermission)
 
-      expect(Permission.evaluate("edit", "/some/file.ts", ask!.permission).action).toBe("deny")
-      expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("deny")
+      expect(Permission.evaluate("edit", "/some/file.ts", effective).action).toBe("allow")
       expect(Permission.evaluate("todowrite", "*", effective).action).toBe("allow")
       expect(Permission.evaluate("create_goal", "*", effective).action).toBe("allow")
       expect(Permission.evaluate("update_goal", "*", effective).action).toBe("allow")

@@ -276,7 +276,47 @@ describe("tool.task", () => {
     }),
   )
 
-  it.instance("plan mode reapplies read-only restrictions when resuming a task session", () =>
+  it.instance("resuming a task preserves the parent deny permission ceiling", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      yield* sessions.setPermission({
+        sessionID: chat.id,
+        permission: Permission.fromConfig({ bash: "deny" }),
+      })
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Existing child",
+        permission: Permission.fromConfig({ bash: "allow" }),
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const resumed = yield* sessions.get(child.id)
+      expect(Permission.evaluate("bash", "git status", resumed.permission ?? []).action).toBe("deny")
+    }),
+  )
+
+  it.instance("plan mode does not add read-only restrictions when resuming a task session", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
       const { chat, assistant } = yield* seed("Pinned", "plan")
@@ -308,12 +348,43 @@ describe("tool.task", () => {
       )
 
       const resumed = yield* sessions.get(child.id)
-      expect(resumed.metadata?.collaboration_mode).toBe("plan")
-      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("deny")
+      expect(resumed.metadata?.collaboration_mode).toBeUndefined()
+      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("allow")
     }),
   )
 
-  it.instance("ask mode reapplies its edit restriction when resuming a task session", () =>
+  it.instance("plan mode does not write collaboration metadata to a new task session", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "plan")
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      const result = yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "plan",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const child = yield* sessions.get(result.metadata.sessionId)
+      expect(child.metadata).toBeUndefined()
+      expect(Permission.evaluate("edit", "src/index.ts", child.permission ?? []).action).not.toBe("deny")
+    }),
+  )
+
+  it.instance("ask mode does not add an edit restriction when resuming a task session", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
       const { chat, assistant } = yield* seed("Pinned", "ask")
@@ -348,9 +419,9 @@ describe("tool.task", () => {
       const permissionCount = (yield* sessions.get(child.id)).permission?.length ?? 0
       yield* execute()
       const resumed = yield* sessions.get(child.id)
-      expect(resumed.metadata?.collaboration_mode).toBe("ask")
+      expect(resumed.metadata?.collaboration_mode).toBeUndefined()
       expect(resumed.permission).toHaveLength(permissionCount)
-      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("deny")
+      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("allow")
       expect(Permission.evaluate("create_goal", "*", resumed.permission ?? []).action).not.toBe("deny")
     }),
   )

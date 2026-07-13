@@ -44,7 +44,7 @@ export function ultra(language: Language = "zh-CN") {
 
 export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
-  readonly collaboration: (agent: Agent.Info, collaborationMode?: "plan" | "ask") => Effect.Effect<string | undefined>
+  readonly collaboration: (agent: Agent.Info) => Effect.Effect<string | undefined>
   readonly skills: (agent: Agent.Info) => Effect.Effect<string | undefined>
   readonly mcp: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
 }
@@ -60,16 +60,12 @@ const layer = Layer.effect(
     const config = yield* Config.Service
 
     return Service.of({
-      collaboration: Effect.fn("SystemPrompt.collaboration")(function* (
-        agent: Agent.Info,
-        collaborationMode?: "plan" | "ask",
-      ) {
+      collaboration: Effect.fn("SystemPrompt.collaboration")(function* (agent: Agent.Info) {
         const language = (yield* config.get()).language
-        const mode = collaborationMode ?? (agent.name === "plan" || agent.name === "ask" ? agent.name : undefined)
-        if (mode === "plan") {
+        if (agent.name === "plan") {
           return `<collaboration_mode>\n${PromptI18n.text(language, "session.plan_mode")}\n</collaboration_mode>`
         }
-        if (mode === "ask") {
+        if (agent.name === "ask") {
           return `<collaboration_mode>\n${PromptI18n.text(language, "session.ask_mode")}\n</collaboration_mode>`
         }
         if (agent.name === "build") {

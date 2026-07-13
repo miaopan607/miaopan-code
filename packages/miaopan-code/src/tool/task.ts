@@ -124,16 +124,9 @@ export const TaskTool = Tool.define(
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
       const parent = yield* sessions.get(ctx.sessionID)
-      const collaborationMode =
-        parent.agent === "plan" || parent.agent === "ask"
-          ? parent.agent
-          : parent.metadata?.collaboration_mode === "plan" || parent.metadata?.collaboration_mode === "ask"
-            ? parent.metadata.collaboration_mode
-            : undefined
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,
-        collaborationMode,
       })
       const primaryToolDenies =
         cfg.experimental?.primary_tools?.map((permission) => ({
@@ -145,19 +138,13 @@ export const TaskTool = Tool.define(
         ...childPermission,
         ...primaryToolDenies.filter((deny) => !hasPermission(childPermission, deny)),
       ]
-      if (session && collaborationMode) {
+      if (session) {
         const permission = session.permission ?? []
         const additions = childSessionPermission.filter((rule) => !hasPermission(permission, rule))
         if (additions.length > 0) {
           yield* sessions.setPermission({
             sessionID: session.id,
             permission: Permission.merge(permission, additions),
-          })
-        }
-        if (session.metadata?.collaboration_mode !== collaborationMode) {
-          yield* sessions.setMetadata({
-            sessionID: session.id,
-            metadata: { ...session.metadata, collaboration_mode: collaborationMode },
           })
         }
       }
@@ -167,7 +154,6 @@ export const TaskTool = Tool.define(
           parentID: ctx.sessionID,
           title: params.description + ToolI18n.text(ctx, "tool.task.subagent_suffix", { name: next.name }),
           agent: next.name,
-          metadata: collaborationMode ? { collaboration_mode: collaborationMode } : undefined,
           permission: childSessionPermission,
         }))
 
