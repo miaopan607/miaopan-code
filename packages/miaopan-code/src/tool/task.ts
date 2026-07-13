@@ -23,6 +23,7 @@ export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
   resolvePromptParts(template: string): Effect.Effect<SessionPrompt.PromptInput["parts"]>
   prompt(input: SessionPrompt.PromptInput): Effect.Effect<SessionV1.WithParts>
+  continue(input: SessionPrompt.LoopInput): Effect.Effect<SessionV1.WithParts>
 }
 
 const id = "task"
@@ -205,6 +206,23 @@ export const TaskTool = Tool.define(
       const oai = parentMessage.info.role === "user" ? parentMessage.info.oai : undefined
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
+        // If resuming an existing subagent session, check whether it has a
+        // prior assistant message. If so, the session was interrupted and we
+        // should continue from where it left off instead of sending a fresh
+        // prompt.
+        const isResume = session !== undefined
+        if (isResume) {
+          const childMessages = yield* sessions.messages({ sessionID: nextSession.id }).pipe(Effect.orDie)
+          const hasAssistant = childMessages.some((m) => m.info.role === "assistant")
+          if (hasAssistant) {
+            const result = yield* ops.continue({
+              sessionID: nextSession.id,
+            })
+            const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
+            if (!builtinReview) return text
+            return Review.renderOutput(Review.parseOutput(text), language)
+          }
+        }
         const parts = yield* ops.resolvePromptParts(params.prompt)
         const result = yield* ops.prompt({
           messageID: MessageID.ascending(),

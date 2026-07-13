@@ -126,6 +126,10 @@ function stubOps(opts?: { onPrompt?: (input: SessionPrompt.PromptInput) => void;
         opts?.onPrompt?.(input)
         return reply(input, opts?.text ?? "done")
       }),
+    continue: (input) =>
+      Effect.sync(() =>
+        reply({ ...input, messageID: MessageID.ascending(), parts: [{ type: "text" as const, text: "continued" }] }, opts?.text ?? "continued"),
+      ),
   }
 }
 
@@ -521,6 +525,11 @@ describe("tool.task", () => {
             ready.resolve(input)
             return cancelled.promise
           }).pipe(Effect.as(reply(input, "cancelled"))),
+        continue: (input) =>
+          Effect.promise(() => {
+            ready.resolve({ ...input, messageID: MessageID.ascending(), parts: [{ type: "text" as const, text: "continued" }] } as SessionPrompt.PromptInput)
+            return cancelled.promise
+          }).pipe(Effect.as(reply({ ...input, messageID: MessageID.ascending(), parts: [{ type: "text" as const, text: "continued" }] } as SessionPrompt.PromptInput, "cancelled"))),
       }
 
       const fiber = yield* def
@@ -712,6 +721,13 @@ describe("tool.task", () => {
             return reply(input, "background done")
           })
         },
+        continue: (input) =>
+          Effect.gen(function* () {
+            runs += 1
+            yield* Deferred.succeed(ready, undefined)
+            yield* Deferred.await(done)
+            return reply({ ...input, messageID: MessageID.ascending(), parts: [{ type: "text" as const, text: "continued" }] } as SessionPrompt.PromptInput, "background continued")
+          }),
       }
 
       const fiber = yield* def

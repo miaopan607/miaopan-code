@@ -174,7 +174,7 @@
     },
     "packages/miaopan-code": {
       "name": "miaopan-code",
-      "version": "0.1.3",
+      "version": "0.2.3",
       "bin": {
         "miaopan-code": "./bin/miaopan-code",
       },
