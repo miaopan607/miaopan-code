@@ -2276,7 +2276,7 @@ function CompactExplore(props: { part: CompactExplorePart }) {
 
   return (
     <InlineToolRow
-      icon="•"
+      icon={errors().length ? "×" : "•"}
       iconColor={status()}
       color={theme.textMuted}
       complete={true}
@@ -2294,7 +2294,7 @@ function CompactExplore(props: { part: CompactExplorePart }) {
               {(row) => (
                 <box flexDirection="row">
                   <text width={INLINE_TOOL_ICON_WIDTH} fg={status()}>
-                    •
+                    {errors().length ? "×" : "•"}
                   </text>
                   <text flexGrow={1} fg={theme.textMuted}>
                     {compactExploreLabel(row.key)} {row.labels}
@@ -2600,7 +2600,7 @@ export function InlineToolRow(props: {
                 fg={props.failed ? props.errorColor : (props.iconColor ?? props.color)}
                 attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
               >
-                {props.icon}
+                {props.failed && props.icon === "•" ? "×" : props.icon}
               </text>
               <text
                 flexGrow={1}
@@ -2741,7 +2741,7 @@ function Shell(props: ToolProps) {
     <Switch>
       <Match when={ctx.tui.tool_display === "compact"}>
         <InlineTool
-          icon="•"
+          icon={props.part.state.status === "error" || succeeded() === false ? "×" : "•"}
           iconColor={statusColor()}
           pending={t(Locale.language(), "tui.writing_command")}
           complete={complete()}
@@ -2774,7 +2774,7 @@ function Shell(props: ToolProps) {
               <Match when={complete()}>
                 <box flexDirection="row" gap={1}>
                   <text fg={statusColor()} attributes={TextAttributes.BOLD}>
-                    •
+                    {props.part.state.status === "error" || succeeded() === false ? "×" : "•"}
                   </text>
                   <text fg={theme.text}>{commandLabel()}</text>
                 </box>
@@ -2796,7 +2796,7 @@ function Shell(props: ToolProps) {
       </Match>
       <Match when={true}>
         <InlineTool
-          icon="•"
+          icon={props.part.state.status === "error" || succeeded() === false ? "×" : "•"}
           iconColor={statusColor()}
           pending={t(Locale.language(), "tui.writing_command")}
           complete={complete()}
