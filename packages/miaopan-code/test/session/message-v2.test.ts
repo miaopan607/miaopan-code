@@ -279,6 +279,39 @@ describe("session.message-v2.toModelMessage", () => {
     ])
   })
 
+  test("preserves synthetic user history for prompt cache stability", async () => {
+    const reminder = "<system-reminder>legacy plan instructions</system-reminder>"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: userInfo("synthetic-history"),
+        parts: [
+          {
+            ...basePart("synthetic-history", "reminder"),
+            type: "text",
+            text: reminder,
+            synthetic: true,
+          },
+          {
+            ...basePart("synthetic-history", "context"),
+            type: "text",
+            text: "synthetic context",
+            synthetic: true,
+          },
+        ] as SessionV1.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model)).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: reminder },
+          { type: "text", text: "synthetic context" },
+        ],
+      },
+    ])
+  })
+
   test("converts user text/file parts and injects compaction/subtask prompts", async () => {
     const messageID = "m-user"
 

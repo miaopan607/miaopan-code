@@ -59,6 +59,7 @@ import { SessionGoal } from "@miaopan-code/core/session/goal"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@miaopan-code/llm"
 import { escapeHtml } from "@/util/html"
+import { Collaboration } from "./collaboration"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -257,10 +258,10 @@ const layer = Layer.effect(
       model: Provider.Model
       lastUser: SessionV1.User
       sessionID: SessionID
-      session: Session.Info
       msgs: SessionV1.WithParts[]
+      permission: PermissionV1.Ruleset
     }) {
-      const { task, model, lastUser, sessionID, session, msgs } = input
+      const { task, model, lastUser, sessionID, msgs, permission: effectivePermission } = input
       const language = (yield* config.get()).language
       const ctx = yield* InstanceState.context
       const promptOps = yield* ops()
@@ -349,7 +350,7 @@ const layer = Layer.effect(
               .ask({
                 ...req,
                 sessionID,
-                ruleset: Permission.merge(taskAgent.permission, session.permission ?? []),
+                ruleset: effectivePermission,
               })
               .pipe(Effect.orDie),
         })
@@ -713,6 +714,16 @@ const layer = Layer.effect(
       }
 
       const current = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
+      if (
+        (ag.mode === "primary" || Collaboration.mode(ag.name)) &&
+        Object.hasOwn(current.metadata ?? {}, Collaboration.MODE_METADATA_KEY)
+      ) {
+        yield* sessions.setPermissionMetadata({
+          sessionID: current.id,
+          permission: current.permission ?? [],
+          metadata: Collaboration.replaceModeMetadata(current.metadata, undefined),
+        })
+      }
       if (
         current.agent !== info.agent ||
         current.model?.providerID !== info.model.providerID ||
@@ -1136,12 +1147,12 @@ const layer = Layer.effect(
       const ctx = yield* InstanceState.context
       let structured: unknown
       let step = 0
-      const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
       const language = (yield* config.get()).language
 
       while (true) {
         yield* status.set(sessionID, { type: "busy" })
         yield* Effect.logInfo(t(language, "log.session_loop"), { "session.id": sessionID, step })
+        const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         let msgs = yield* MessageV2.filterCompactedEffect(sessionID).pipe(
           Effect.provideService(Database.Service, database),
@@ -1151,6 +1162,9 @@ const layer = Layer.effect(
 
         if (!lastUser) throw new Error(t((yield* config.get()).language, "error.no_user_message"))
         const selectedAgent = yield* agents.get(lastUser.agent)
+        const effectivePermission = selectedAgent
+          ? Collaboration.effectivePermission({ agent: selectedAgent, session })
+          : []
 
         const lastAssistantMsg = msgs.findLast(
           (msg) => msg.info.role === "assistant" && msg.info.id === lastAssistant?.id,
@@ -1207,7 +1221,7 @@ const layer = Layer.effect(
         const task = tasks.pop()
 
         if (task?.type === "subtask") {
-          const stop = yield* handleSubtask({ task, model, lastUser, sessionID, session, msgs })
+          const stop = yield* handleSubtask({ task, model, lastUser, sessionID, msgs, permission: effectivePermission })
           if (stop) break
           continue
         }
@@ -1300,6 +1314,7 @@ const layer = Layer.effect(
           const tools = yield* SessionTools.resolve({
             agent,
             session,
+            permission: effectivePermission,
             model,
             processor: handle,
             bypassAgentCheck,
@@ -1331,11 +1346,11 @@ const layer = Layer.effect(
 
           const language = (yield* config.get()).language
           const [collaboration, skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
-            sys.collaboration(agent),
-            sys.skills(agent),
+            sys.collaboration(Collaboration.resolveMode(agent, session)),
+            sys.skills(agent, effectivePermission),
             sys.environment(model),
             instruction.system().pipe(Effect.orDie),
-            sys.mcp(agent, session.permission),
+            sys.mcp(agent, effectivePermission),
             MessageV2.toModelMessagesEffect(msgs, model, { language }),
           ])
           const system = [
@@ -1359,7 +1374,7 @@ const layer = Layer.effect(
           const result = yield* handle.process({
             user: lastUser,
             agent,
-            permission: session.permission,
+            permission: effectivePermission,
             sessionID,
             parentSessionID: session.parentID,
             system,

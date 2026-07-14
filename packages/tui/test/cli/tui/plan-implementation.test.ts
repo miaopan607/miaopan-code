@@ -33,7 +33,7 @@ describe("implementPlanInCurrentContext", () => {
       },
     })
 
-    expect(calls).toEqual(["finish:message-1", "build"])
+    expect(calls).toEqual(["finish:message-1"])
     prompt = {
       set: (value) => calls.push(`set:${value.input}`),
       submit: () => calls.push("submit"),
@@ -69,6 +69,34 @@ describe("implementPlanInCurrentContext", () => {
       defer: (callback) => callback(),
     })
 
-    expect(calls).toEqual(["finish", "build"])
+    expect(calls).toEqual(["finish"])
+  })
+
+  test("captures Build after the remounted prompt restores the old Plan agent", () => {
+    let agent = "plan"
+    let prompt: Pick<PromptRef, "set" | "submit"> | undefined
+    let deferred: (() => void) | undefined
+    const submittedAgents: string[] = []
+
+    implementPlanInCurrentContext({
+      plan: { messageID: "message-1" },
+      prompt: () => prompt,
+      finish: () => {},
+      build: () => {
+        agent = "build"
+      },
+      message: "implement",
+      defer: (callback) => {
+        deferred = callback
+      },
+    })
+
+    prompt = {
+      set: () => submittedAgents.push(`set:${agent}`),
+      submit: () => submittedAgents.push(`submit:${agent}`),
+    }
+    deferred?.()
+
+    expect(submittedAgents).toEqual(["set:build", "submit:build"])
   })
 })

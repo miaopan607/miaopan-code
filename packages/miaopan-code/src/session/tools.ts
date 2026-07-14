@@ -1,5 +1,6 @@
 import { Agent } from "@/agent/agent"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
+import { PermissionV1 } from "@miaopan-code/core/v1/permission"
 import { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
 import { MCP } from "@/mcp"
@@ -44,6 +45,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
   agent: Agent.Info
   model: Provider.Model
   session: Session.Info
+  permission: PermissionV1.Ruleset
   processor: Pick<SessionProcessor.Handle, "message" | "updateToolCall" | "completeToolCall">
   bypassAgentCheck: boolean
   messages: SessionV1.WithParts[]
@@ -91,7 +93,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
           ...req,
           sessionID: input.session.id,
           tool: { messageID: input.processor.message.id, callID: options.toolCallId },
-          ruleset: Permission.merge(input.agent.permission, input.session.permission ?? []),
+          ruleset: input.permission,
         })
         .pipe(Effect.orDie),
   })
@@ -100,7 +102,7 @@ export const resolve = Effect.fn("SessionTools.resolve")(function* (input: {
     modelID: ModelV2.ID.make(input.model.api.id),
     providerID: input.model.providerID,
     agent: input.agent,
-    permission: input.session.permission,
+    permission: input.permission,
   })) {
     const schema = ProviderTransform.schema(input.model, ToolJsonSchema.fromTool(item))
     tools[item.id] = tool({

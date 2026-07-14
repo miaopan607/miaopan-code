@@ -118,11 +118,11 @@ export function implementPlanInCurrentContext(input: {
 }) {
   if (!input.plan) return
   input.finish(input.plan.messageID)
-  input.build()
 
   const submit = () => {
     const prompt = input.prompt()
     if (!prompt) return
+    input.build()
     prompt.set({ input: input.message, parts: [] })
     prompt.submit()
   }

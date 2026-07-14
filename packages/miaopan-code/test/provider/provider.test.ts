@@ -24,6 +24,7 @@ import { testEffect } from "../lib/effect"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { t } from "@miaopan-code/core/i18n"
+import { GitLabWorkflowLanguageModel } from "gitlab-ai-provider"
 
 const originalEnv = new Map<string, string | undefined>()
 
@@ -328,6 +329,47 @@ it.instance("getModel throws ModelNotFoundError for invalid provider", () =>
       .pipe(Effect.exit)
     expect(exit._tag).toBe("Failure")
   }),
+)
+
+it.instance(
+  "GitLab workflow language models are isolated by request scope and capped by LRU",
+  Effect.gen(function* () {
+    yield* set("GITLAB_TOKEN", "test-gitlab-token")
+    yield* set("GITLAB_INSTANCE_URL", "http://127.0.0.1:1")
+    const provider = yield* Provider.Service
+    const model = yield* provider.getModel(ProviderV2.ID.gitlab, ModelV2.ID.make("duo-workflow-test"))
+
+    const first = yield* provider.getLanguage(model, { sessionID: "session-one" })
+    expect(first).toBeInstanceOf(GitLabWorkflowLanguageModel)
+    expect(yield* provider.getLanguage(model, { sessionID: "session-one" })).toBe(first)
+    expect(yield* provider.getLanguage(model, { sessionID: "session-two" })).not.toBe(first)
+    expect(yield* provider.getLanguage(model, { sessionID: "session-one", small: true })).not.toBe(first)
+    expect(yield* provider.getLanguage(model, { sessionID: "session-one", hidden: true })).not.toBe(first)
+
+    for (let i = 0; i < 50; i++) {
+      yield* provider.getLanguage(model, { sessionID: `lru-${i}` })
+    }
+
+    expect(yield* provider.getLanguage(model, { sessionID: "session-one" })).not.toBe(first)
+    const latest = yield* provider.getLanguage(model, { sessionID: "lru-49" })
+    expect(yield* provider.getLanguage(model, { sessionID: "lru-49" })).toBe(latest)
+  }),
+  {
+    config: {
+      provider: {
+        gitlab: {
+          models: {
+            "duo-workflow-test": {
+              name: "Workflow Test",
+              reasoning: true,
+              tool_call: true,
+              limit: { context: 10000, output: 1000 },
+            },
+          },
+        },
+      },
+    },
+  },
 )
 
 // Pure synchronous unit tests — no Effect runtime needed.

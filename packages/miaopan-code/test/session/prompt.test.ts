@@ -59,6 +59,7 @@ import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { LocationServiceMap, locationServiceMapLayer } from "@miaopan-code/core/location-services"
 import { t } from "@miaopan-code/core/i18n"
+import { PromptI18n } from "../../src/i18n/prompt"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -912,6 +913,46 @@ it.instance("static loop consumes queued replies across turns", () =>
 
     expect(yield* llm.hits).toHaveLength(2)
     expect(yield* llm.pending).toBe(0)
+  }),
+)
+
+it.instance("rebuilds one effective collaboration prompt for each Plan to Build turn", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({
+      title: "Plan then Build",
+      permission: [{ permission: "*", pattern: "*", action: "allow" }],
+    })
+
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "plan",
+      noReply: true,
+      parts: [{ type: "text", text: "make a plan" }],
+    })
+    yield* llm.text("plan response")
+    yield* prompt.loop({ sessionID: session.id })
+
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "implement it" }],
+    })
+    yield* llm.text("build response")
+    yield* prompt.loop({ sessionID: session.id })
+
+    const inputs = yield* llm.inputs
+    expect(inputs).toHaveLength(2)
+    const planBody = JSON.stringify(inputs[0]).replaceAll("\\n", "\n")
+    const buildBody = JSON.stringify(inputs[1]).replaceAll("\\n", "\n")
+    expect(planBody).toContain(PromptI18n.text("zh-CN", "session.plan_mode"))
+    expect(buildBody.match(/<collaboration_mode>/g)).toHaveLength(1)
+    expect(buildBody).toContain(PromptI18n.text("zh-CN", "session.build_switch"))
+    expect(buildBody).not.toContain(PromptI18n.text("zh-CN", "session.plan_mode"))
+    expect(buildBody).not.toContain(PromptI18n.text("zh-CN", "session.ask_mode"))
   }),
 )
 

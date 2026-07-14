@@ -44,6 +44,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { SessionMessage } from "@miaopan-code/schema/session-message"
+import { Collaboration } from "./collaboration"
 
 const parentTitlePrefix = "New session - "
 const childTitlePrefix = "Child session - "
@@ -423,6 +424,11 @@ export interface Interface {
   readonly setTitle: (input: { sessionID: SessionID; title: string }) => Effect.Effect<void>
   readonly setArchived: (input: { sessionID: SessionID; time?: number }) => Effect.Effect<void>
   readonly setMetadata: (input: typeof SetMetadataInput.Type) => Effect.Effect<void>
+  readonly setPermissionMetadata: (input: {
+    sessionID: SessionID
+    permission?: PermissionV1.Ruleset
+    metadata?: typeof Metadata.Type
+  }) => Effect.Effect<void>
   readonly setAgentModel: (input: {
     sessionID: SessionID
     agent: string
@@ -697,7 +703,7 @@ const layer: Layer.Layer<
         path: sessionPath(ctx.worktree, ctx.directory),
         workspaceID: original.workspaceID,
         title,
-        metadata: structuredClone(original.metadata),
+        metadata: Collaboration.withoutInternalMetadata(structuredClone(original.metadata)),
       })
       const msgs = yield* messages({ sessionID: input.sessionID })
       const idMap = new Map<string, MessageID>()
@@ -760,6 +766,18 @@ const layer: Layer.Layer<
 
     const setMetadata = Effect.fn("Session.setMetadata")(function* (input: typeof SetMetadataInput.Type) {
       yield* patch(input.sessionID, { metadata: input.metadata, time: { updated: Date.now() } }).pipe(Effect.orDie)
+    })
+
+    const setPermissionMetadata = Effect.fn("Session.setPermissionMetadata")(function* (input: {
+      sessionID: SessionID
+      permission?: PermissionV1.Ruleset
+      metadata?: typeof Metadata.Type
+    }) {
+      yield* patch(input.sessionID, {
+        permission: input.permission ? [...input.permission] : undefined,
+        metadata: input.metadata,
+        time: { updated: Date.now() },
+      }).pipe(Effect.orDie)
     })
 
     const setAgentModel = Effect.fn("Session.setAgentModel")(function* (input: {
@@ -957,6 +975,7 @@ const layer: Layer.Layer<
       setTitle,
       setArchived,
       setMetadata,
+      setPermissionMetadata,
       setAgentModel,
       setPermission,
       setRevert,
