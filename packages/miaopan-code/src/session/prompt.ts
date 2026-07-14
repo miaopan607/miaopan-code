@@ -12,7 +12,8 @@ import { Provider } from "@/provider/provider"
 import { Review } from "@/review"
 
 import { type Tool as AITool, tool, jsonSchema } from "ai"
-import type { JSONSchema7 } from "@ai-sdk/provider"
+import { TypeValidationError, type JSONSchema7 } from "@ai-sdk/provider"
+import Ajv from "ajv"
 import { SessionCompaction } from "./compaction"
 import { SystemPrompt } from "./system"
 import { t } from "@miaopan-code/core/i18n"
@@ -228,7 +229,6 @@ const layer = Layer.effect(
           tools: {},
           model: mdl,
           sessionID: input.session.id,
-          retries: 2,
           messages: [{ role: "user", content: t(language, "prompt.generate_title") }, ...msgs],
         })
         .pipe(
@@ -1442,14 +1442,6 @@ const layer = Layer.effect(
               yield* events.publish(Session.Event.Error, { sessionID, error: handle.message.error })
               return "break" as const
             }
-            if (format.type === "json_schema") {
-              handle.message.error = new SessionV1.StructuredOutputError({
-                message: t((yield* config.get()).language, "error.structured_output_missing"),
-                retries: 0,
-              }).toObject()
-              yield* sessions.updateMessage(handle.message)
-              return "break" as const
-            }
           }
 
           if (result === "stop") return "break" as const
@@ -1742,16 +1734,35 @@ export type CommandInput = Schema.Schema.Type<typeof CommandInput>
 
 /** @internal Exported for testing */
 export function createStructuredOutputTool(input: {
-  schema: Record<string, any>
+  schema: Record<string, unknown>
   language?: "zh-CN" | "en"
   onSuccess: (output: unknown) => void
 }): AITool {
   // Remove $schema property if present (not needed for tool input)
   const { $schema: _, ...toolSchema } = input.schema
+  const structuredSchema = toolSchema as JSONSchema7
+  const validate = structuredOutputAjv.compile(structuredSchema)
 
   return tool({
     description: t(input.language, "prompt.structured_output_description"),
-    inputSchema: jsonSchema(toolSchema as JSONSchema7),
+    inputSchema: jsonSchema(structuredSchema, {
+      validate(value) {
+        if (validate(value)) return { success: true, value }
+        const failure = validate.errors?.[0]
+        return {
+          success: false,
+          error: new TypeValidationError({
+            value,
+            cause: new Error(
+              t(input.language, "error.structured_output_schema_mismatch", {
+                path: failure?.instancePath || "$",
+                detail: failure ? `${failure.keyword} (${failure.schemaPath})` : "schema_mismatch",
+              }),
+            ),
+          }),
+        }
+      },
+    }),
     async execute(args) {
       // AI SDK validates args against inputSchema before calling execute()
       input.onSuccess(args)
@@ -1769,6 +1780,8 @@ export function createStructuredOutputTool(input: {
     },
   })
 }
+
+const structuredOutputAjv = new Ajv({ strict: false, addUsedSchema: false })
 const bashRegex = /!`([^`]+)`/g
 // Match [Image N] as single token, quoted strings, or non-space sequences
 const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi

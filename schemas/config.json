@@ -477,6 +477,17 @@
                     "disabled": {
                       "type": "boolean",
                       "description": "禁用自动加载的提供商"
+                    },
+                    "$miaopanCode": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": ["ultra"]
+                        }
+                      },
+                      "required": ["mode"],
+                      "additionalProperties": false
                     }
                   }
                 },
@@ -640,6 +651,85 @@
         "image": {
           "$ref": "#/$defs/ImageAttachmentConfig",
           "description": "图像附件配置"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Config.RetryCategory": {
+      "type": "string",
+      "enum": ["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"]
+    },
+    "Config.Retry": {
+      "type": "object",
+      "properties": {
+        "stream_max_retries": {
+          "minimum": 0,
+          "description": "流阶段在首次请求之外最多自动重试的次数（默认：5）",
+          "type": "integer",
+          "maximum": 9007199254740991
+        },
+        "stream_initial_delay_ms": {
+          "minimum": 0,
+          "description": "流阶段第一次重试的本地退避间隔（毫秒，默认：200）",
+          "type": "integer",
+          "maximum": 9007199254740991
+        },
+        "stream_backoff_factor": {
+          "minimum": 1,
+          "description": "流阶段每次重试的退避倍数（最小值：1，默认：2）",
+          "type": "number"
+        },
+        "stream_max_delay_ms": {
+          "minimum": 0,
+          "description": "流阶段本地指数退避的最大间隔（毫秒，默认：3200）",
+          "type": "integer",
+          "maximum": 9007199254740991
+        },
+        "stream_jitter_percent": {
+          "minimum": 0,
+          "maximum": 100,
+          "description": "流阶段退避的均匀抖动百分比（0 至 100，默认：10）",
+          "type": "number"
+        },
+        "http_max_retries": {
+          "minimum": 0,
+          "description": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）",
+          "type": "integer",
+          "maximum": 9007199254740991
+        },
+        "http_initial_delay_ms": {
+          "minimum": 0,
+          "description": "HTTP 阶段第一次重试的本地退避间隔（毫秒，默认：200）",
+          "type": "integer",
+          "maximum": 9007199254740991
+        },
+        "http_backoff_factor": {
+          "minimum": 1,
+          "description": "HTTP 阶段每次重试的退避倍数（最小值：1，默认：2）",
+          "type": "number"
+        },
+        "http_max_delay_ms": {
+          "minimum": 0,
+          "description": "HTTP 阶段本地指数退避的最大间隔（毫秒，默认：1600）",
+          "type": "integer",
+          "maximum": 9007199254740991
+        },
+        "http_jitter_percent": {
+          "minimum": 0,
+          "maximum": 100,
+          "description": "HTTP 阶段退避的均匀抖动百分比（0 至 100，默认：10）",
+          "type": "number"
+        },
+        "respect_retry_after": {
+          "type": "boolean",
+          "description": "是否优先使用 Provider 返回的 Retry-After 间隔（默认：true）"
+        },
+        "retry_on": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Config.RetryCategory"
+          },
+          "description": "启用自动重试的稳定错误类别；未配置时启用全部默认类别"
         }
       },
       "additionalProperties": false
@@ -1072,7 +1162,7 @@
           "properties": {
             "auto_resolution": {
               "type": "boolean",
-              "description": "Allow question tools to submit empty answers automatically after the requested wait (default: true)"
+              "description": "允许提问工具在指定等待时间后自动提交空答案（默认：true）"
             }
           },
           "additionalProperties": false
@@ -1158,6 +1248,10 @@
             }
           },
           "additionalProperties": false
+        },
+        "retry": {
+          "$ref": "#/$defs/Config.Retry",
+          "description": "模型请求的 HTTP 与流重试策略"
         },
         "experimental": {
           "type": "object",

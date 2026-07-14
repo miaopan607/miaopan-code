@@ -8,6 +8,7 @@ import { Cause, Effect, FiberSet, Queue } from "effect"
 import * as Stream from "effect/Stream"
 import { FetchHttpClient } from "effect/unstable/http"
 import {
+  HttpRetryOptions,
   LLMRequest,
   Tool as NativeTool,
   ToolFailure,
@@ -19,6 +20,7 @@ import {
 import type { LLMClientShape } from "@miaopan-code/llm/route"
 import { LLMNative } from "./native-request"
 import { t, type Language } from "@miaopan-code/core/i18n"
+import { SessionRetry } from "../retry"
 
 export type RuntimeStatus =
   | { readonly type: "supported"; readonly apiKey: string; readonly baseURL?: string }
@@ -41,6 +43,7 @@ type StreamInput = {
   readonly maxOutputTokens?: number
   readonly providerOptions?: Record<string, any>
   readonly headers: Record<string, string>
+  readonly retry?: SessionRetry.RetryOptions
   readonly abort: AbortSignal
   readonly language?: Language
 }
@@ -101,6 +104,7 @@ export function stream(input: StreamInput): StreamResult {
     maxOutputTokens: input.maxOutputTokens,
     providerOptions: ProviderTransform.providerOptions(input.model, input.providerOptions ?? {}),
     headers: { ...providerHeaders(input.provider.options.headers), ...input.headers },
+    retry: nativeRetry(input.retry),
     language: input.language,
   })
   const stream = Stream.scoped(
@@ -146,6 +150,19 @@ export function stream(input: StreamInput): StreamResult {
     ...current,
     stream: fetch ? stream.pipe(Stream.provideService(FetchHttpClient.Fetch, fetch)) : stream,
   }
+}
+
+function nativeRetry(input: SessionRetry.RetryOptions | undefined) {
+  const retry = SessionRetry.resolveConfig(input)
+  return new HttpRetryOptions({
+    maxRetries: retry.http_max_retries,
+    initialDelayMs: retry.http_initial_delay_ms,
+    backoffFactor: retry.http_backoff_factor,
+    maxDelayMs: retry.http_max_delay_ms,
+    jitterPercent: retry.http_jitter_percent,
+    respectRetryAfter: retry.respect_retry_after,
+    retryOn: [...retry.retry_on],
+  })
 }
 
 function providerFetch(input: Pick<StreamInput, "provider" | "auth">): typeof globalThis.fetch | undefined {

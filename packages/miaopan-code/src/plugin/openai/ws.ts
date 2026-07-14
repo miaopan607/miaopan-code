@@ -181,13 +181,20 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
     if (completed) return
     if (!options.idleTimeout) return
     if (idleTimer) clearTimeout(idleTimer)
-    idleTimer = setTimeout(() => invalidate(new ProviderError.ResponseStreamError(message)), options.idleTimeout)
+    idleTimer = setTimeout(
+      () => invalidate(new ProviderError.ResponseStreamError(message, { transport: "websocket" })),
+      options.idleTimeout,
+    )
   }
 
   async function onMessage(data: WebSocket.RawData, isBinary: boolean) {
     if (completed) return
     if (isBinary) {
-      invalidate(new ProviderError.ResponseStreamError(t(options.language, "error.websocket_binary_frame")))
+      invalidate(
+        new ProviderError.ResponseStreamError(t(options.language, "error.websocket_binary_frame"), {
+          transport: "websocket",
+        }),
+      )
       return
     }
 
@@ -219,6 +226,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
         invalidate(
           new ProviderError.ResponseStreamError(error instanceof Error ? error.message : String(error), {
             cause: error,
+            transport: "websocket",
           }),
         )
         return
@@ -239,6 +247,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
           statusCode: wrappedError.status,
           responseHeaders: wrappedError.headers,
           responseBody: wrappedError.body,
+          cause: new ProviderError.ResponseStreamError(wrappedError.message, { transport: "websocket" }),
         }),
       )
       return
@@ -274,7 +283,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
   }
 
   function onError(error: Error) {
-    invalidate(new ProviderError.ResponseStreamError(error.message, { cause: error }))
+    invalidate(new ProviderError.ResponseStreamError(error.message, { cause: error, transport: "websocket" }))
   }
 
   function onClose(code: number, reason: Buffer) {
@@ -282,6 +291,7 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
     invalidate(
       new ProviderError.ResponseStreamError(
         closeMessage(t(options.language, "error.websocket_closed_before_completed"), code, reason, options.language),
+        { transport: "websocket" },
       ),
     )
   }
@@ -320,7 +330,8 @@ export function streamResponsesWebSocket(options: StreamResponsesWebSocketOption
     socket.send(JSON.stringify({ type: "response.create", ...payload }), (error) => {
       if (completed) return
       resetIdleTimeout(t(options.language, "error.websocket_idle_waiting"))
-      if (error) invalidate(new ProviderError.ResponseStreamError(error.message, { cause: error }))
+      if (error)
+        invalidate(new ProviderError.ResponseStreamError(error.message, { cause: error, transport: "websocket" }))
     })
   }
 

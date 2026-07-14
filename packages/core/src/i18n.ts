@@ -684,6 +684,55 @@ export const messages = {
   "config.tool_output": { "zh-CN": "工具输出截断阈值", en: "Tool output truncation thresholds" },
   "config.mcp": { "zh-CN": "MCP 服务器配置", en: "MCP server configuration" },
   "config.compaction": { "zh-CN": "对话压缩行为", en: "Conversation compaction behavior" },
+  "config.retry": { "zh-CN": "模型请求的 HTTP 与流重试策略", en: "HTTP and stream retry strategy for model requests" },
+  "config.retry.stream_max_retries": {
+    "zh-CN": "流阶段在首次请求之外最多自动重试的次数（默认：5）",
+    en: "Maximum stream retries after the initial request (default: 5)",
+  },
+  "config.retry.stream_initial_delay_ms": {
+    "zh-CN": "流阶段第一次重试的本地退避间隔（毫秒，默认：200）",
+    en: "Local backoff interval for the first stream retry in milliseconds (default: 200)",
+  },
+  "config.retry.stream_backoff_factor": {
+    "zh-CN": "流阶段每次重试的退避倍数（最小值：1，默认：2）",
+    en: "Stream retry backoff multiplier (minimum: 1, default: 2)",
+  },
+  "config.retry.stream_max_delay_ms": {
+    "zh-CN": "流阶段本地指数退避的最大间隔（毫秒，默认：3200）",
+    en: "Maximum local stream backoff interval in milliseconds (default: 3200)",
+  },
+  "config.retry.stream_jitter_percent": {
+    "zh-CN": "流阶段退避的均匀抖动百分比（0 至 100，默认：10）",
+    en: "Uniform jitter percentage for stream backoff (0 to 100, default: 10)",
+  },
+  "config.retry.http_max_retries": {
+    "zh-CN": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）",
+    en: "Maximum HTTP retries after the initial request (default: 4)",
+  },
+  "config.retry.http_initial_delay_ms": {
+    "zh-CN": "HTTP 阶段第一次重试的本地退避间隔（毫秒，默认：200）",
+    en: "Local backoff interval for the first HTTP retry in milliseconds (default: 200)",
+  },
+  "config.retry.http_backoff_factor": {
+    "zh-CN": "HTTP 阶段每次重试的退避倍数（最小值：1，默认：2）",
+    en: "HTTP retry backoff multiplier (minimum: 1, default: 2)",
+  },
+  "config.retry.http_max_delay_ms": {
+    "zh-CN": "HTTP 阶段本地指数退避的最大间隔（毫秒，默认：1600）",
+    en: "Maximum local HTTP backoff interval in milliseconds (default: 1600)",
+  },
+  "config.retry.http_jitter_percent": {
+    "zh-CN": "HTTP 阶段退避的均匀抖动百分比（0 至 100，默认：10）",
+    en: "Uniform jitter percentage for HTTP backoff (0 to 100, default: 10)",
+  },
+  "config.retry.respect_retry_after": {
+    "zh-CN": "是否优先使用 Provider 返回的 Retry-After 间隔（默认：true）",
+    en: "Whether to prefer Retry-After intervals returned by the provider (default: true)",
+  },
+  "config.retry.retry_on": {
+    "zh-CN": "启用自动重试的稳定错误类别；未配置时启用全部默认类别",
+    en: "Stable error categories enabled for automatic retry; all default categories are enabled when omitted",
+  },
   "config.skills": { "zh-CN": "用于发现技能的附加路径或 URL", en: "Additional paths or URLs to discover skills from" },
   "config.commands": { "zh-CN": "命名的斜杠命令定义", en: "Named slash command definitions" },
   "config.instructions": {
@@ -2863,6 +2912,10 @@ export const messages = {
   "error.structured_output_missing": {
     "zh-CN": "模型未生成结构化输出",
     en: "Model did not produce structured output",
+  },
+  "error.structured_output_schema_mismatch": {
+    "zh-CN": "结构化输出在 {{path}} 处不符合 Schema：{{detail}}",
+    en: "Structured output does not match the schema at {{path}}: {{detail}}",
   },
   "error.tool_execution_failed": {
     "zh-CN": "工具执行失败{{detail}}",

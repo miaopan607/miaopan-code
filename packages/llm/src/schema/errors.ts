@@ -181,6 +181,8 @@ export class LLMError extends Schema.TaggedErrorClass<LLMError>()("LLM.Error", {
   module: Schema.String,
   method: Schema.String,
   reason: LLMErrorReason,
+  phase: Schema.optional(Schema.Literals(["http", "stream"])),
+  transport: Schema.optional(Schema.Literals(["http", "websocket"])),
 }) {
   override readonly cause = this.reason
 

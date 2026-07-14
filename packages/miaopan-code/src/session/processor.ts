@@ -119,6 +119,10 @@ const layer = Layer.effect(
       }
       let aborted = false
       let hasNonReplayableProgress = false
+      let structuredOutputActive = false
+      let structuredOutputSucceeded = false
+      let structuredOutputFailure: string | undefined
+      let retryAttempts = 0
 
       const parse = (e: unknown) =>
         MessageV2.fromError(e, {
@@ -334,6 +338,7 @@ const layer = Layer.effect(
       }
 
       const handleEvent = Effect.fnUntraced(function* (value: StreamEvent) {
+        const structuredOutputEvent = "name" in value && value.name === "StructuredOutput"
         if (
           value.type === "text-delta" ||
           value.type === "tool-input-start" ||
@@ -345,7 +350,7 @@ const layer = Layer.effect(
           value.type === "step-finish" ||
           value.type === "finish"
         ) {
-          hasNonReplayableProgress = true
+          if (!structuredOutputEvent) hasNonReplayableProgress = true
         }
 
         switch (value.type) {
@@ -453,6 +458,12 @@ const layer = Layer.effect(
           }
 
           case "tool-result": {
+            if (value.name === "StructuredOutput" && value.result.type === "error") {
+              structuredOutputFailure = errorMessage(value.result.value)
+              yield* failToolCall(value.id, value.result.value)
+              throw new SessionRetry.StructuredOutputValidationError(structuredOutputFailure)
+            }
+            if (value.name === "StructuredOutput") structuredOutputSucceeded = true
             const toolCall = yield* readToolCall(value.id)
             if (!toolCall && value.result.type === "error") return
             if (value.result.type === "error") {
@@ -489,12 +500,19 @@ const layer = Layer.effect(
           }
 
           case "tool-error": {
-            yield* failToolCall(value.id, value.error ?? new Error(value.message))
+            const error = value.error ?? new Error(value.message)
+            yield* failToolCall(value.id, error)
+            if (value.name === "StructuredOutput") {
+              structuredOutputFailure = errorMessage(error)
+              throw new SessionRetry.StructuredOutputValidationError(structuredOutputFailure, undefined, {
+                cause: error,
+              })
+            }
             return
           }
 
           case "provider-error":
-            throw new Error(value.message)
+            throw new SessionRetry.ProviderStreamError(value.message, value.retryable ?? false, value.classification)
 
           case "step-start":
             if (!ctx.snapshot) ctx.snapshot = yield* snapshot.track()
@@ -650,7 +668,17 @@ const layer = Layer.effect(
           error: errorMessage(e),
           stack: e instanceof Error ? e.stack : undefined,
         })
-        const error = parse(e)
+        const parsed = parse(e)
+        const error =
+          structuredOutputActive &&
+          !structuredOutputSucceeded &&
+          SessionRetry.classify(parsed) === "validation" &&
+          SessionV1.APIError.isInstance(parsed)
+            ? new SessionV1.StructuredOutputError({
+                message: parsed.data.message,
+                retries: retryAttempts,
+              }).toObject()
+            : parsed
         if (SessionV1.ContextOverflowError.isInstance(error)) {
           if ((yield* config.get()).compaction?.auto === false && !ctx.assistantMessage.summary) {
             ctx.assistantMessage.error = error
@@ -673,6 +701,11 @@ const layer = Layer.effect(
 
       const process = Effect.fn("SessionProcessor.process")(function* (streamInput: LLM.StreamInput) {
         hasNonReplayableProgress = false
+        structuredOutputActive = "StructuredOutput" in streamInput.tools
+        structuredOutputSucceeded = false
+        structuredOutputFailure = undefined
+        retryAttempts = 0
+        let currentStreamInput = streamInput
         yield* Effect.logInfo(t(language, "log.session_process_info"), {
           "session.id": input.sessionID,
           messageID: input.assistantMessage.id,
@@ -687,13 +720,18 @@ const layer = Layer.effect(
             ctx.proposedPlan = undefined
             ctx.reasoningMap = {}
             yield* status.set(ctx.sessionID, { type: "busy" })
-            const stream = llm.stream(streamInput)
+            const stream = llm.stream(currentStreamInput)
 
             yield* stream.pipe(
               Stream.tap((event) => handleEvent(event)),
               Stream.takeUntil(() => ctx.needsCompaction),
               Stream.runDrain,
             )
+            if (structuredOutputActive && !structuredOutputSucceeded) {
+              throw new SessionRetry.StructuredOutputValidationError(
+                structuredOutputFailure ?? t(language, "error.structured_output_missing"),
+              )
+            }
           }).pipe(
             Effect.onInterrupt(() =>
               Effect.gen(function* () {
@@ -711,15 +749,50 @@ const layer = Layer.effect(
               SessionRetry.policy({
                 provider: input.model.providerID,
                 language: cfg.language,
+                retry: cfg.retry,
                 parse,
-                shouldRetry: () => !hasNonReplayableProgress,
+                shouldRetry: (_error, category) =>
+                  !hasNonReplayableProgress || (structuredOutputActive && category === "validation"),
                 set: (info) => {
+                  retryAttempts = info.attempt
+                  if (SessionRetry.transport(info.error) === "websocket" && info.attempt === 1) return Effect.void
                   return status.set(ctx.sessionID, {
                     type: "retry",
                     attempt: info.attempt,
                     message: info.message,
                     action: info.action,
                     next: info.next,
+                  })
+                },
+                onRetry: ({ category }) => {
+                  if (!structuredOutputActive || category !== "validation") return Effect.void
+                  return Effect.gen(function* () {
+                    hasNonReplayableProgress = false
+                    structuredOutputSucceeded = false
+                    structuredOutputFailure = undefined
+                    ctx.currentText = undefined
+                    ctx.proposedPlan = undefined
+                    ctx.reasoningMap = {}
+                    ctx.blocked = false
+                    ctx.needsCompaction = false
+                    ctx.toolcalls = {}
+                    ctx.assistantMessage.error = undefined
+                    ctx.assistantMessage.finish = undefined
+                    ctx.assistantMessage.time.completed = undefined
+                    ctx.assistantMessage.cost = 0
+                    ctx.assistantMessage.tokens = {
+                      input: 0,
+                      output: 0,
+                      reasoning: 0,
+                      cache: { read: 0, write: 0 },
+                    }
+                    const history = yield* MessageV2.filterCompactedEffect(ctx.sessionID).pipe(
+                      Effect.provideService(Database.Service, database),
+                    )
+                    currentStreamInput = {
+                      ...currentStreamInput,
+                      messages: yield* MessageV2.toModelMessagesEffect(history, ctx.model, { language }),
+                    }
                   })
                 },
               }),

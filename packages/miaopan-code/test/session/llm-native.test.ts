@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { LLMEvent, ToolFailure } from "@miaopan-code/llm"
+import { HttpRetryOptions, LLMEvent, type LLMRequest, ToolFailure } from "@miaopan-code/llm"
 import { LLMClient, RequestExecutor, WebSocketExecutor, type LLMClientShape } from "@miaopan-code/llm/route"
 import { jsonSchema, tool, type ModelMessage, type Tool } from "ai"
 import { Effect, Fiber, Layer, Stream } from "effect"
@@ -561,6 +561,52 @@ describe("session.llm-native.request", () => {
       const failure = yield* Effect.flip(wrapped.incomplete.execute({}, { id: "call-1", name: "incomplete" }))
       expect(failure).toBeInstanceOf(ToolFailure)
       expect(failure.message).toContain("incomplete")
+    }),
+  )
+
+  it.effect("passes resolved HTTP retry configuration to native requests", () =>
+    Effect.gen(function* () {
+      let captured: LLMRequest | undefined
+      const llmClient: LLMClientShape = {
+        prepare: () => Effect.die("unused"),
+        stream: (request) => {
+          captured = request
+          return Stream.make(LLMEvent.finish({ reason: "stop" }))
+        },
+        generate: () => Effect.die("unused"),
+      }
+      const native = LLMNativeRuntime.stream({
+        model: baseModel,
+        provider: providerInfo,
+        auth: undefined,
+        llmClient,
+        messages: [],
+        tools: {},
+        headers: {},
+        retry: {
+          http_max_retries: 2,
+          http_initial_delay_ms: 10,
+          http_max_delay_ms: 20,
+          http_jitter_percent: 0,
+          respect_retry_after: false,
+          retry_on: ["network"],
+        },
+        abort: new AbortController().signal,
+      })
+      expect(native.type).toBe("supported")
+      if (native.type === "unsupported") throw new Error(native.reason)
+      yield* native.stream.pipe(Stream.runDrain)
+
+      expect(captured?.http?.retry).toBeInstanceOf(HttpRetryOptions)
+      expect(captured?.http?.retry).toMatchObject({
+        maxRetries: 2,
+        initialDelayMs: 10,
+        backoffFactor: 2,
+        maxDelayMs: 20,
+        jitterPercent: 0,
+        respectRetryAfter: false,
+        retryOn: ["network"],
+      })
     }),
   )
 

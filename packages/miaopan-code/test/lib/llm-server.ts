@@ -440,10 +440,10 @@ const reset = Effect.fn("TestLLMServer.reset")(function* (item: Sse) {
         for (const part of item.head) res.write(line(part))
         for (const part of item.tail) res.write(line(part))
         // Let buffered SSE chunks reach the client before simulating a reset.
-        setImmediate(() => {
+        setTimeout(() => {
           res.destroy(new Error("connection reset"))
           resolve()
-        })
+        }, 10)
       }),
   )
   return yield* Effect.never
