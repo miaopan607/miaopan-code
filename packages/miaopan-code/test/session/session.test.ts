@@ -238,6 +238,24 @@ describe("Session", () => {
     }),
   )
 
+  it.instance("strips internal collaboration metadata while forking", () =>
+    Effect.gen(function* () {
+      const session = yield* SessionNs.Service
+      const created = yield* Effect.acquireRelease(
+        session.create({
+          title: "with-mode-meta",
+          metadata: { source: "sdk", collaboration_mode: "plan", permission_version: 2 },
+        }),
+        (info) => session.remove(info.id).pipe(Effect.ignore),
+      )
+      const fork = yield* Effect.acquireRelease(session.fork({ sessionID: created.id }), (info) =>
+        session.remove(info.id).pipe(Effect.ignore),
+      )
+
+      expect(fork.metadata).toEqual({ source: "sdk" })
+    }),
+  )
+
   it.instance("omits metadata when not provided", () =>
     Effect.gen(function* () {
       const session = yield* SessionNs.Service

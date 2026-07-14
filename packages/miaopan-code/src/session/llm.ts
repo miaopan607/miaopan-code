@@ -95,7 +95,11 @@ const live: Layer.Layer<
 
       const [language, cfg, item, info] = yield* Effect.all(
         [
-          provider.getLanguage(input.model),
+          provider.getLanguage(input.model, {
+            sessionID: input.sessionID,
+            small: input.small === true,
+            hidden: input.agent.hidden === true,
+          }),
           config.get(),
           provider.getProvider(input.model.providerID),
           auth.get(input.model.providerID),
@@ -125,7 +129,6 @@ const live: Layer.Layer<
           approvalHandler?: (approvalTools: { name: string; args: string }[]) => Promise<{ approved: boolean }>
         }
         workflowModel.sessionID = input.sessionID
-        workflowModel.systemPrompt = prepared.system.join("\n")
         workflowModel.toolExecutor = async (toolName, argsJson, _requestID) => {
           const tool = prepared.tools[toolName]
           if (!tool || !tool.execute) {
@@ -148,7 +151,7 @@ const live: Layer.Layer<
           }
         }
 
-        const ruleset = Permission.merge(input.agent.permission ?? [], input.permission ?? [])
+        const ruleset = input.permission ?? input.agent.permission ?? []
         workflowModel.sessionPreapprovedTools = Object.keys(prepared.tools).filter((name) => {
           const match = ruleset.findLast((rule) => Wildcard.match(name, rule.permission))
           return !match || match.action !== "ask"
@@ -341,6 +344,7 @@ const live: Layer.Layer<
           abortSignal: input.abort,
           headers: codex?.headers ?? prepared.headers,
           maxRetries: input.retries ?? 0,
+          system: isWorkflow ? prepared.system.join("\n") : undefined,
           messages: codex?.messages ?? prepared.messages,
           model: wrapLanguageModel({
             model: language,
