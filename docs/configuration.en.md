@@ -379,6 +379,10 @@ Themes, keybindings, and TUI plugins use a separate `tui.json` or `tui.jsonc`. P
 
 Each `keybinds.<action>` accepts a key string, a key descriptor object, an array of those values, or `false`/`"none"` to disable it. Actions cover application, command, diff, session, model, agent, message, input, dialog, plugin, and terminal operations. The exact IDs are the properties under `keybinds` in the [TUI schema](../schemas/tui.json); editors complete every action when `$schema` is present.
 
+## Codex request version
+
+Codex model requests emulate `codex-tui` with version `0.144.1` by default. Set `MIAOPAN_CODE_CODEX_VERSION` to override that version; it appears in both the User-Agent prefix and the trailing client information. Restart miaopan-code after changing it.
+
 ## Recovering from invalid configuration
 
 If invalid configuration prevents miaopan-code from starting, temporarily use one of these environment variables:

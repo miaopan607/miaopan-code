@@ -32,6 +32,7 @@ import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
 import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
+import { CodexUserAgent } from "./codex-user-agent"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
@@ -1776,6 +1777,11 @@ const layer = Layer.effect(
         options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
           const fetchFn = customFetch ?? fetch
           const opts = init ?? {}
+          const headers = new Headers(opts.headers ?? (input instanceof Request ? input.headers : undefined))
+          if (headers.get("originator") === CodexUserAgent.originator) {
+            headers.set("user-agent", await CodexUserAgent.get())
+            opts.headers = headers
+          }
           const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
           const headerTimeoutMs = headerTimeout === false ? undefined : headerTimeout
           const headerTimeoutCtl =
