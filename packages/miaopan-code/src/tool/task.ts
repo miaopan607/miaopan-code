@@ -11,7 +11,7 @@ import { Agent } from "../agent/agent"
 import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
-import { Effect, Exit, Schema, Scope } from "effect"
+import { Effect, Exit, Option, Schema, Scope } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@miaopan-code/core/database/database"
@@ -25,6 +25,7 @@ export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
   resolvePromptParts(template: string): Effect.Effect<SessionPrompt.PromptInput["parts"]>
   prompt(input: SessionPrompt.PromptInput): Effect.Effect<SessionV1.WithParts>
+  continue(input: SessionPrompt.LoopInput): Effect.Effect<SessionV1.WithParts>
 }
 
 const id = "task"
@@ -227,6 +228,23 @@ export const TaskTool = Tool.define(
       const oai = parentMessage.info.role === "user" ? parentMessage.info.oai : undefined
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
+        if (session) {
+          const lastAssistant = yield* sessions
+            .findMessage(nextSession.id, (message) => message.info.role === "assistant")
+            .pipe(Effect.orDie)
+          const wasInterrupted =
+            Option.isSome(lastAssistant) &&
+            lastAssistant.value.info.role === "assistant" &&
+            lastAssistant.value.info.error?.name === "MessageAbortedError"
+          if (wasInterrupted) {
+            const result = yield* ops.continue({
+              sessionID: nextSession.id,
+            })
+            const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
+            if (!builtinReview) return text
+            return Review.renderOutput(Review.parseOutput(text), language)
+          }
+        }
         const parts = yield* ops.resolvePromptParts(params.prompt)
         const result = yield* ops.prompt({
           messageID: MessageID.ascending(),

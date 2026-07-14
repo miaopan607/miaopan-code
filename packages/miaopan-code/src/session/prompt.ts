@@ -143,6 +143,7 @@ const layer = Layer.effect(
         cancel: (sessionID: SessionID) => cancel(sessionID),
         resolvePromptParts: (template: string) => resolvePromptParts(template),
         prompt: (input: PromptInput) => prompt(input).pipe(Effect.catch(Effect.die)),
+        continue: (input: LoopInput) => continueSession(input).pipe(Effect.catch(Effect.die)),
       } satisfies TaskPromptOps
     })
 
@@ -371,13 +372,19 @@ const layer = Layer.effect(
               assistantMessage.time.completed = Date.now()
               yield* sessions.updateMessage(assistantMessage)
               if (part.state.status === "running") {
+                const cfg = yield* config.get()
+                const sessionId = part.state.metadata?.sessionId as string | undefined
                 yield* sessions.updatePart({
                   ...part,
                   state: {
                     status: "error",
-                    error: t((yield* config.get()).language, "error.tool_cancelled"),
+                    error: t(cfg.language, "error.tool_cancelled"),
                     time: { start: part.state.time.start, end: Date.now() },
-                    metadata: part.state.metadata,
+                    metadata: {
+                      ...(part.state.metadata ?? {}),
+                      interrupted: true,
+                      ...(sessionId ? { sessionId } : {}),
+                    },
                     input: part.state.input,
                   },
                 } satisfies SessionV1.ToolPart)
@@ -419,13 +426,24 @@ const layer = Layer.effect(
       }
 
       if (!result) {
+        const stateMetadata = part.state.status === "pending" ? undefined : part.state.metadata
+        const wasInterrupted = stateMetadata?.interrupted === true
+        const sessionId = stateMetadata?.sessionId as string | undefined
+        const cfg = yield* config.get()
         yield* sessions.updatePart({
           ...part,
           state: {
             status: "error",
-            error: t((yield* config.get()).language, "error.tool_execution_failed", {
-              detail: error ? `: ${error.message}` : "",
-            }),
+            error: wasInterrupted
+              ? sessionId
+                ? t(cfg.language, "tool.error.subagent_interrupted", {
+                    detail: error ? `: ${error.message}` : "",
+                    sessionId,
+                  })
+                : t(cfg.language, "error.tool_cancelled")
+              : t(cfg.language, "error.tool_execution_failed", {
+                  detail: error ? `: ${error.message}` : "",
+                }),
             time: {
               start: part.state.status === "running" ? part.state.time.start : Date.now(),
               end: Date.now(),

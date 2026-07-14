@@ -1271,6 +1271,11 @@ export const messages = {
   },
   "tool.error.skill": { "zh-CN": "无法加载技能 {{name}}", en: "Unable to load skill {{name}}" },
   "tool.error.task_cancelled": { "zh-CN": "任务已取消", en: "Task cancelled" },
+  "tool.error.subagent_interrupted": {
+    "zh-CN":
+      "子代理任务被中断。要继续此任务，请使用相同的 subagent_type 并设置 task_id 为 {{sessionId}} 重新调用 task 工具，子代理将从上次中断处继续执行{{detail}}",
+    en: "The subagent task was interrupted. To resume, call the task tool again with the same subagent_type and task_id set to {{sessionId}}; the subagent will continue from where it was interrupted{{detail}}",
+  },
   "tool.error.unknown_agent": {
     "zh-CN": "未知代理类型：{{type}} 不是有效的代理类型",
     en: "Unknown agent type: {{type}} is not a valid agent type",
@@ -2472,8 +2477,9 @@ export const messages = {
     en: 'Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.',
   },
   "tool.param.task_resume": {
-    "zh-CN": "仅在要恢复之前的任务时设置；传入之前的 task_id 可继续同一代理会话，而不是创建新会话",
-    en: "Set this only when resuming a previous task; pass a prior task_id to continue the same subagent session instead of creating a fresh one",
+    "zh-CN":
+      "仅在要恢复之前的任务时设置；传入之前的 task_id 可继续同一代理会话，而不是创建新会话。如果子代理被中断，传入此参数可从上次中断处继续执行",
+    en: "Set this only when resuming a previous task; pass a prior task_id to continue the same subagent session instead of creating a fresh one. If the subagent was interrupted, passing this will resume from where it left off",
   },
   "tool.param.task_background": {
     "zh-CN": "在后台运行代理；完成后会收到通知。不要休眠、轮询或主动检查进度",
