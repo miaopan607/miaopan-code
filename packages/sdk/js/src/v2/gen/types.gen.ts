@@ -3877,10 +3877,11 @@ export type ConfigRetryCategory =
   | "rate_limit"
   | "forbidden"
   | "server"
+  | "unknown"
 
 export type ConfigRetry = {
   /**
-   * 流阶段在首次请求之外最多自动重试的次数（默认：5）
+   * 流阶段在首次请求之外最多自动重试的次数（默认：10）
    */
   stream_max_retries?: number
   /**
@@ -3900,7 +3901,7 @@ export type ConfigRetry = {
    */
   stream_jitter_percent?: number
   /**
-   * HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）
+   * HTTP 阶段在首次请求之外最多自动重试的次数（默认：10）
    */
   http_max_retries?: number
   /**
@@ -3924,7 +3925,7 @@ export type ConfigRetry = {
    */
   respect_retry_after?: boolean
   /**
-   * 启用自动重试的稳定错误类别；未配置时启用全部默认类别
+   * 启用自动重试的错误类别；未配置时启用全部默认类别
    */
   retry_on?: Array<ConfigRetryCategory>
 }

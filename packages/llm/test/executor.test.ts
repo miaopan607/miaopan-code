@@ -445,7 +445,7 @@ describe("RequestExecutor", () => {
     }),
   )
 
-  it.effect("uses exponential jittered delay when retry-after is absent", () =>
+  it.effect("uses ten exponential jittered retries by default when retry-after is absent", () =>
     Effect.gen(function* () {
       const attempts = yield* Ref.make(0)
       return yield* Effect.gen(function* () {
@@ -454,52 +454,22 @@ describe("RequestExecutor", () => {
 
         yield* Effect.yieldNow
         expect(yield* Ref.get(attempts)).toBe(1)
-
-        yield* TestClock.adjust(199)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(1)
-
-        yield* TestClock.adjust(1)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(2)
-
-        yield* TestClock.adjust(399)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(2)
-
-        yield* TestClock.adjust(1)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(3)
-
-        yield* TestClock.adjust(799)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(3)
-
-        yield* TestClock.adjust(1)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(4)
-
-        yield* TestClock.adjust(1_599)
-        yield* Effect.yieldNow
-        expect(yield* Ref.get(attempts)).toBe(4)
-
-        yield* TestClock.adjust(1)
+        yield* Effect.forEach([200, 400, 800, 1600, 1600, 1600, 1600, 1600, 1600, 1600], (delay, index) =>
+          Effect.gen(function* () {
+            yield* TestClock.adjust(delay - 1)
+            yield* Effect.yieldNow
+            expect(yield* Ref.get(attempts)).toBe(index + 1)
+            yield* TestClock.adjust(1)
+            yield* Effect.yieldNow
+            expect(yield* Ref.get(attempts)).toBe(index + 2)
+          }),
+        )
         const error = yield* Fiber.join(fiber)
 
         expectLLMError(error)
         expect(error.reason).toMatchObject({ _tag: "ProviderInternal" })
-        expect(yield* Ref.get(attempts)).toBe(5)
-      }).pipe(
-        Effect.provide(
-          countedResponsesLayer(attempts, [
-            new Response("busy", { status: 503 }),
-            new Response("still busy", { status: 503 }),
-            new Response("still retrying", { status: 503 }),
-            new Response("last retry", { status: 503 }),
-            new Response("done retrying", { status: 503 }),
-          ]),
-        ),
-      )
+        expect(yield* Ref.get(attempts)).toBe(11)
+      }).pipe(Effect.provide(countedResponsesLayer(attempts, [new Response("busy", { status: 503 })])))
     }).pipe(Effect.provideService(Random.Random, randomMidpoint)),
   )
 
@@ -558,18 +528,46 @@ describe("RequestExecutor", () => {
     }),
   )
 
-  it.effect("leaves ordinary rate limits to the stream retry policy", () =>
-    Effect.gen(function* () {
-      const attempts = yield* Ref.make(0)
-      const error = yield* Effect.gen(function* () {
-        const executor = yield* RequestExecutor.Service
-        return yield* executor.execute(request).pipe(Effect.flip)
-      }).pipe(Effect.provide(countedResponsesLayer(attempts, [new Response("rate limited", { status: 429 })])))
+  it.effect("retries transient HTTP statuses", () =>
+    Effect.forEach([408, 409, 421, 423, 424, 425, 444, 460, 499], (status) =>
+      Effect.gen(function* () {
+        const attempts = yield* Ref.make(0)
+        const error = yield* Effect.gen(function* () {
+          const executor = yield* RequestExecutor.Service
+          return yield* executor
+            .execute(request, undefined, {
+              maxRetries: 2,
+              initialDelayMs: 0,
+              backoffFactor: 2,
+              maxDelayMs: 0,
+              jitterPercent: 0,
+              respectRetryAfter: false,
+              retryOn: [status === 408 ? "timeout" : "server"],
+            })
+            .pipe(Effect.flip)
+        }).pipe(Effect.provide(countedResponsesLayer(attempts, [new Response("temporarily unavailable", { status })])))
 
-      expectLLMError(error)
-      expect(error.reason._tag).toBe("RateLimit")
-      expect(yield* Ref.get(attempts)).toBe(1)
-    }),
+        expectLLMError(error)
+        expect(error.phase).toBe("http")
+        expect(yield* Ref.get(attempts)).toBe(3)
+      }),
+    ),
+  )
+
+  it.effect("leaves ordinary rate limits to the stream retry policy", () =>
+    Effect.forEach([420, 429], (status) =>
+      Effect.gen(function* () {
+        const attempts = yield* Ref.make(0)
+        const error = yield* Effect.gen(function* () {
+          const executor = yield* RequestExecutor.Service
+          return yield* executor.execute(request).pipe(Effect.flip)
+        }).pipe(Effect.provide(countedResponsesLayer(attempts, [new Response("rate limited", { status })])))
+
+        expectLLMError(error)
+        expect(error.reason._tag).toBe("RateLimit")
+        expect(yield* Ref.get(attempts)).toBe(1)
+      }),
+    ),
   )
 
   it.effect("does not retry quota exhaustion", () =>

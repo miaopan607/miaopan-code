@@ -58,6 +58,7 @@ export const HttpRetryCategory = Schema.Literals([
   "rate_limit",
   "forbidden",
   "server",
+  "unknown",
 ])
 export type HttpRetryCategory = typeof HttpRetryCategory.Type
 

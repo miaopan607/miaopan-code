@@ -12,6 +12,7 @@ export const Category = Schema.Literals([
   "rate_limit",
   "forbidden",
   "server",
+  "unknown",
 ]).annotate({
   identifier: "Config.RetryCategory",
 })
@@ -26,12 +27,12 @@ const optionalDefault = <S extends Schema.Top>(schema: S, value: Schema.Schema.T
   schema.annotate({ description }).pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed(value)))
 
 export class Info extends Schema.Class<Info>("Config.Retry")({
-  stream_max_retries: optionalDefault(NonNegativeInt, 5, zh("config.retry.stream_max_retries")),
+  stream_max_retries: optionalDefault(NonNegativeInt, 10, zh("config.retry.stream_max_retries")),
   stream_initial_delay_ms: optionalDefault(NonNegativeInt, 200, zh("config.retry.stream_initial_delay_ms")),
   stream_backoff_factor: optionalDefault(BackoffFactor, 2, zh("config.retry.stream_backoff_factor")),
   stream_max_delay_ms: optionalDefault(NonNegativeInt, 3200, zh("config.retry.stream_max_delay_ms")),
   stream_jitter_percent: optionalDefault(JitterPercent, 10, zh("config.retry.stream_jitter_percent")),
-  http_max_retries: optionalDefault(NonNegativeInt, 4, zh("config.retry.http_max_retries")),
+  http_max_retries: optionalDefault(NonNegativeInt, 10, zh("config.retry.http_max_retries")),
   http_initial_delay_ms: optionalDefault(NonNegativeInt, 200, zh("config.retry.http_initial_delay_ms")),
   http_backoff_factor: optionalDefault(BackoffFactor, 2, zh("config.retry.http_backoff_factor")),
   http_max_delay_ms: optionalDefault(NonNegativeInt, 1600, zh("config.retry.http_max_delay_ms")),
@@ -42,7 +43,16 @@ export class Info extends Schema.Class<Info>("Config.Retry")({
     .pipe(
       Schema.optional,
       Schema.withDecodingDefault(
-        Effect.succeed(["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"]),
+        Effect.succeed([
+          "network",
+          "timeout",
+          "response",
+          "validation",
+          "rate_limit",
+          "forbidden",
+          "server",
+          "unknown",
+        ]),
       ),
     ),
 }) {}

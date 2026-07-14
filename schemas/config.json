@@ -657,14 +657,14 @@
     },
     "Config.RetryCategory": {
       "type": "string",
-      "enum": ["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"]
+      "enum": ["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server", "unknown"]
     },
     "Config.Retry": {
       "type": "object",
       "properties": {
         "stream_max_retries": {
           "minimum": 0,
-          "description": "流阶段在首次请求之外最多自动重试的次数（默认：5）",
+          "description": "流阶段在首次请求之外最多自动重试的次数（默认：10）",
           "type": "integer",
           "maximum": 9007199254740991
         },
@@ -693,7 +693,7 @@
         },
         "http_max_retries": {
           "minimum": 0,
-          "description": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）",
+          "description": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：10）",
           "type": "integer",
           "maximum": 9007199254740991
         },
@@ -729,7 +729,7 @@
           "items": {
             "$ref": "#/$defs/Config.RetryCategory"
           },
-          "description": "启用自动重试的稳定错误类别；未配置时启用全部默认类别"
+          "description": "启用自动重试的错误类别；未配置时启用全部默认类别"
         }
       },
       "additionalProperties": false

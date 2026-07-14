@@ -105,18 +105,18 @@ describe("Config", () => {
   it.effect("uses retry defaults in v1 and current schemas", () =>
     Effect.sync(() => {
       const expected = {
-        stream_max_retries: 5,
+        stream_max_retries: 10,
         stream_initial_delay_ms: 200,
         stream_backoff_factor: 2,
         stream_max_delay_ms: 3200,
         stream_jitter_percent: 10,
-        http_max_retries: 4,
+        http_max_retries: 10,
         http_initial_delay_ms: 200,
         http_backoff_factor: 2,
         http_max_delay_ms: 1600,
         http_jitter_percent: 10,
         respect_retry_after: true,
-        retry_on: ["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"],
+        retry_on: ["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server", "unknown"],
       } satisfies typeof ConfigRetry.Info.Type
       expect(Schema.decodeUnknownSync(ConfigV1.Info)({ retry: {} }).retry).toEqual(expected)
       expect(Schema.decodeUnknownSync(Config.Info)({ retry: {} }).retry).toEqual(expected)
@@ -135,7 +135,7 @@ describe("Config", () => {
       expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_max_delay_ms: -1 } })).toThrow()
       expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_backoff_factor: 0.5 } })).toThrow()
       expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_jitter_percent: -1 } })).toThrow()
-      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { retry_on: ["unknown"] } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { retry_on: ["unsupported"] } })).toThrow()
     }),
   )
 

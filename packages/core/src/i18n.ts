@@ -686,8 +686,8 @@ export const messages = {
   "config.compaction": { "zh-CN": "对话压缩行为", en: "Conversation compaction behavior" },
   "config.retry": { "zh-CN": "模型请求的 HTTP 与流重试策略", en: "HTTP and stream retry strategy for model requests" },
   "config.retry.stream_max_retries": {
-    "zh-CN": "流阶段在首次请求之外最多自动重试的次数（默认：5）",
-    en: "Maximum stream retries after the initial request (default: 5)",
+    "zh-CN": "流阶段在首次请求之外最多自动重试的次数（默认：10）",
+    en: "Maximum stream retries after the initial request (default: 10)",
   },
   "config.retry.stream_initial_delay_ms": {
     "zh-CN": "流阶段第一次重试的本地退避间隔（毫秒，默认：200）",
@@ -706,8 +706,8 @@ export const messages = {
     en: "Uniform jitter percentage for stream backoff (0 to 100, default: 10)",
   },
   "config.retry.http_max_retries": {
-    "zh-CN": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）",
-    en: "Maximum HTTP retries after the initial request (default: 4)",
+    "zh-CN": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：10）",
+    en: "Maximum HTTP retries after the initial request (default: 10)",
   },
   "config.retry.http_initial_delay_ms": {
     "zh-CN": "HTTP 阶段第一次重试的本地退避间隔（毫秒，默认：200）",
@@ -730,8 +730,8 @@ export const messages = {
     en: "Whether to prefer Retry-After intervals returned by the provider (default: true)",
   },
   "config.retry.retry_on": {
-    "zh-CN": "启用自动重试的稳定错误类别；未配置时启用全部默认类别",
-    en: "Stable error categories enabled for automatic retry; all default categories are enabled when omitted",
+    "zh-CN": "启用自动重试的错误类别；未配置时启用全部默认类别",
+    en: "Error categories enabled for automatic retry; all default categories are enabled when omitted",
   },
   "config.skills": { "zh-CN": "用于发现技能的附加路径或 URL", en: "Additional paths or URLs to discover skills from" },
   "config.commands": { "zh-CN": "命名的斜杠命令定义", en: "Named slash command definitions" },

@@ -24,7 +24,7 @@ import {
   TransportReason,
   UnknownProviderReason,
 } from "../schema"
-import { isContextOverflow } from "../provider-error"
+import { isContextOverflow, isRateLimitStatus, isRetryableHttpStatus } from "../provider-error"
 import { t, type Language } from "../i18n"
 
 export interface Interface {
@@ -38,7 +38,7 @@ export interface Interface {
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/LLM/RequestExecutor") {}
 
 const BODY_LIMIT = 16_384
-const MAX_RETRIES = 4
+const MAX_RETRIES = 10
 const BASE_DELAY_MS = 200
 const BACKOFF_FACTOR = 2
 const MAX_DELAY_MS = 1600
@@ -95,8 +95,6 @@ const requestId = (headers: Record<string, string>) => {
     headers["cf-ray"]
   )
 }
-
-const retryableStatus = (status: number) => status === 429 || status === 503 || status === 504 || status === 529
 
 const retryAfterMs = (headers: Record<string, string>) => {
   const millis = Number(headers["retry-after-ms"])
@@ -251,7 +249,7 @@ const statusReason = (input: {
     }
     return new ProviderInternalReason({ message: input.message, status: input.status, http: input.http })
   }
-  if (input.status === 429) {
+  if (isRateLimitStatus(input.status)) {
     if (/insufficient[-_\s]?quota|quota[-_\s]?exceeded/i.test(body)) {
       return new QuotaExceededReason({ message: input.message, http: input.http })
     }
@@ -259,6 +257,14 @@ const statusReason = (input: {
       message: input.message,
       retryAfterMs: input.retryAfterMs,
       rateLimit: input.rateLimit,
+      http: input.http,
+    })
+  }
+  if (isRetryableHttpStatus(input.status)) {
+    return new ProviderInternalReason({
+      message: input.message,
+      status: input.status,
+      retryAfterMs: input.retryAfterMs,
       http: input.http,
     })
   }
@@ -270,24 +276,10 @@ const statusReason = (input: {
       http: input.http,
     })
   }
-  if (
-    input.status === 400 ||
-    input.status === 404 ||
-    input.status === 409 ||
-    input.status === 413 ||
-    input.status === 422
-  ) {
+  if (input.status === 400 || input.status === 404 || input.status === 413 || input.status === 422) {
     return new InvalidRequestReason({
       message: input.message,
       classification: isContextOverflow(body) ? "context-overflow" : undefined,
-      http: input.http,
-    })
-  }
-  if (input.status >= 500 || retryableStatus(input.status)) {
-    return new ProviderInternalReason({
-      message: input.message,
-      status: input.status,
-      retryAfterMs: input.retryAfterMs,
       http: input.http,
     })
   }
@@ -375,13 +367,16 @@ const retryConfig = (input?: HttpRetryOptions) => ({
   jitterPercent: Math.min(100, Math.max(0, input?.jitterPercent ?? JITTER_PERCENT)),
   respectRetryAfter: input?.respectRetryAfter ?? true,
   retryOn:
-    input?.retryOn ?? (["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"] as const),
+    input?.retryOn ??
+    (["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server", "unknown"] as const),
 })
 
 const retryCategory = (error: LLMError): HttpRetryCategory | undefined => {
   if (error.reason._tag === "Transport") return error.reason.kind === "Timeout" ? "timeout" : "network"
   if (error.reason._tag !== "ProviderInternal") return undefined
-  return error.reason.status === 403 ? "forbidden" : "server"
+  if (error.reason.status === 403) return "forbidden"
+  if (error.reason.status === 408) return "timeout"
+  return "server"
 }
 
 const retryDelay = (error: LLMError, attempt: number, input?: HttpRetryOptions) => {

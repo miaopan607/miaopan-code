@@ -2,7 +2,7 @@ import { APICallError } from "ai"
 import { STATUS_CODES } from "http"
 import { iife } from "@/util/iife"
 import type { ProviderV2 } from "@miaopan-code/core/provider"
-import { isContextOverflow } from "@miaopan-code/llm"
+import { isContextOverflow, isRetryableHttpStatus } from "@miaopan-code/llm"
 import { t, type Language } from "@miaopan-code/core/i18n"
 
 export class HeaderTimeoutError extends Error {
@@ -182,7 +182,7 @@ export function parseAPICallError(input: {
 
   const metadata = input.error.url ? { url: input.error.url } : undefined
   const status = input.error.statusCode
-  const statusRetryable = status === 403 || status === 408 || status === 429 || (status !== undefined && status >= 500)
+  const statusRetryable = isRetryableHttpStatus(status)
   const hardStatus = status !== undefined && status >= 400 && status < 500 && !statusRetryable
   const legacyOpenAiNotFound = status === 404 && input.providerID.startsWith("openai")
   return {

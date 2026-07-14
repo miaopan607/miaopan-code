@@ -157,7 +157,7 @@ describe("session.retry.delay", () => {
 })
 
 describe("session.retry.configuration", () => {
-  test("uses five stream retries by default", async () => {
+  test("uses ten stream retries by default", async () => {
     let runs = 0
     const error = statusError(500)
     const exit = await Effect.runPromise(
@@ -182,7 +182,7 @@ describe("session.retry.configuration", () => {
       ),
     )
 
-    expect(runs).toBe(6)
+    expect(runs).toBe(11)
     expect(Exit.isFailure(exit)).toBe(true)
   })
 
@@ -212,6 +212,16 @@ describe("session.retry.configuration", () => {
 
   test("classifies default HTTP retry categories and hard failures", () => {
     expect(SessionRetry.classify(statusError(403))).toBe("forbidden")
+    expect(SessionRetry.classify(statusError(408))).toBe("timeout")
+    expect(SessionRetry.classify(statusError(409))).toBe("server")
+    expect(SessionRetry.classify(statusError(420))).toBe("rate_limit")
+    expect(SessionRetry.classify(statusError(421))).toBe("server")
+    expect(SessionRetry.classify(statusError(423))).toBe("server")
+    expect(SessionRetry.classify(statusError(424))).toBe("server")
+    expect(SessionRetry.classify(statusError(425))).toBe("server")
+    expect(SessionRetry.classify(statusError(444))).toBe("server")
+    expect(SessionRetry.classify(statusError(460))).toBe("server")
+    expect(SessionRetry.classify(statusError(499))).toBe("server")
     expect(SessionRetry.classify(statusError(429))).toBe("rate_limit")
     expect(SessionRetry.classify(statusError(500))).toBe("server")
     expect(SessionRetry.classify(statusError(502))).toBe("server")
@@ -222,10 +232,28 @@ describe("session.retry.configuration", () => {
     expect(SessionRetry.classify(statusError(422))).toBeUndefined()
   })
 
+  test("keeps explicit terminal errors out of the unknown retry fallback", () => {
+    expect(SessionRetry.classify(new SessionV1.AbortedError({ message: "cancelled" }).toObject())).toBeUndefined()
+    expect(
+      SessionRetry.classify(new SessionV1.AuthError({ providerID: "test", message: "invalid credentials" }).toObject()),
+    ).toBeUndefined()
+    expect(
+      SessionRetry.classify(new SessionV1.ContentFilterError({ message: "content policy" }).toObject()),
+    ).toBeUndefined()
+  })
+
   test("retry_on can disable a retry category", () => {
     const error = statusError(403)
     expect(SessionRetry.resolveConfig({ retry_on: ["server"] }).retry_on).toEqual(["server"])
     expect(SessionRetry.classify(error)).toBe("forbidden")
+  })
+
+  test("keeps both retry counts configurable", () => {
+    expect(SessionRetry.resolveConfig({ stream_max_retries: 3, http_max_retries: 7 })).toMatchObject({
+      stream_max_retries: 3,
+      http_max_retries: 7,
+    })
+    expect(SessionRetry.resolveConfig()).toMatchObject({ stream_max_retries: 10, http_max_retries: 10 })
   })
 
   test("uses configured local backoff parameters", () => {
@@ -262,6 +290,160 @@ describe("session.retry.configuration", () => {
   })
 })
 
+describe("session.retry.http", () => {
+  test("classifies certificate verification failures as network errors", () => {
+    const error = new APICallError({
+      message: "unknown certificate verification error",
+      url: "https://provider.example/v1",
+      requestBodyValues: {},
+      statusCode: undefined,
+      responseHeaders: undefined,
+      responseBody: undefined,
+      isRetryable: false,
+    })
+
+    expect(SessionRetry.classifyHttpError(error)).toMatchObject({ category: "network" })
+    expect(SessionRetry.isTransportError(error)).toBe(true)
+  })
+
+  test("recursively classifies connection reset and TLS causes", () => {
+    const reset = Object.assign(new Error("The server reset the connection"), { code: "ECONNRESET" })
+    const tls = Object.assign(new Error("request failed", { cause: new Error("TLS handshake failed") }), {
+      code: "ERR_TLS_CERT_ALTNAME_INVALID",
+    })
+
+    expect(SessionRetry.classifyHttpError(new Error("fetch failed", { cause: reset }))).toMatchObject({
+      category: "network",
+    })
+    expect(SessionRetry.classifyHttpError(tls)).toMatchObject({ category: "network" })
+  })
+
+  test("covers common Node, Bun, Undici, TLS and HTTP parser error codes", () => {
+    const cases = [
+      "ENETUNREACH",
+      "EHOSTUNREACH",
+      "ENOBUFS",
+      "UND_ERR_CLOSED",
+      "ERR_STREAM_PREMATURE_CLOSE",
+      "ERR_HTTP2_STREAM_CANCEL",
+      "ERR_QUIC_ENDPOINT_CLOSED",
+      "HPE_INVALID_CHUNK_SIZE",
+      "CERT_HAS_EXPIRED",
+      "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+      "HOSTNAME_MISMATCH",
+      "ConnectionReset",
+      "CertificateVerifyFailed",
+    ]
+
+    cases.forEach((code) => {
+      expect(SessionRetry.classifyHttpError(Object.assign(new Error("request failed"), { code }))).toMatchObject({
+        category: "network",
+      })
+    })
+    expect(
+      SessionRetry.classifyHttpError(Object.assign(new Error("request failed"), { code: "UND_ERR_CONNECT_TIMEOUT" })),
+    ).toMatchObject({ category: "timeout" })
+  })
+
+  test("covers browser, proxy, WebSocket and incomplete response messages", () => {
+    const messages = [
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource.",
+      "The Internet connection appears to be offline.",
+      "Temporary failure in name resolution",
+      "Connection reset by peer",
+      "The other side closed the connection",
+      "Incomplete chunked encoding",
+      "Response ended prematurely",
+      "HTTP/2 stream received GOAWAY",
+      "Proxy connection failed",
+      "Tunneling socket could not be established",
+      "WebSocket closed with close code 1006",
+      "无法连接到服务器",
+      "网络连接丢失",
+    ]
+
+    messages.forEach((message) => {
+      expect(SessionRetry.classifyHttpError(new Error(message))).toMatchObject({ category: "network" })
+    })
+  })
+
+  test("covers additional timeout, overload, throttling and response parse messages", () => {
+    expect(SessionRetry.classifyHttpError(new Error("headers_timeout"))).toMatchObject({ category: "timeout" })
+    expect(SessionRetry.classify(wrap("Too many concurrent requests: throttled"))).toBe("rate_limit")
+    expect(SessionRetry.classify(wrap("The model is loading, try again later"))).toBe("server")
+    expect(SessionRetry.classify(wrap("Failed to decode the JSON response"))).toBe("response")
+  })
+
+  test("honors AI SDK retryable hints for unrecognized transport failures", () => {
+    const error = new APICallError({
+      message: "provider transport hiccup",
+      url: "https://provider.example/v1",
+      requestBodyValues: {},
+      statusCode: undefined,
+      responseHeaders: undefined,
+      responseBody: undefined,
+      isRetryable: true,
+    })
+
+    expect(SessionRetry.classifyHttpError(error)).toMatchObject({ category: "network" })
+  })
+
+  test("retries otherwise unknown HTTP failures within the configured budget", async () => {
+    let attempts = 0
+    const source = new Error("brand new provider failure")
+    const result = await SessionRetry.retryHttp({
+      run: () => {
+        attempts += 1
+        throw source
+      },
+      retry: {
+        http_max_retries: 2,
+        http_initial_delay_ms: 0,
+        http_max_delay_ms: 0,
+        http_jitter_percent: 0,
+      },
+      classify: SessionRetry.classifyHttpError,
+      sleep: async () => {},
+    }).catch((error) => error)
+
+    expect(attempts).toBe(3)
+    expect(result).toBeInstanceOf(SessionRetry.HttpRetryError)
+    expect((result as SessionRetry.HttpRetryError).cause).toBe(source)
+  })
+
+  test("does not retry explicit hard HTTP failures", () => {
+    const error = new APICallError({
+      message: "invalid request",
+      url: "https://provider.example/v1",
+      requestBodyValues: {},
+      statusCode: 400,
+      responseHeaders: undefined,
+      responseBody: '{"error":{"code":"invalid_request"}}',
+      isRetryable: true,
+    })
+
+    expect(SessionRetry.classifyHttpError(error).category).toBeUndefined()
+
+    const auth = new APICallError({
+      message: "authentication failed: invalid API key",
+      url: "https://provider.example/v1",
+      requestBodyValues: {},
+      statusCode: undefined,
+      responseHeaders: undefined,
+      responseBody: undefined,
+      isRetryable: true,
+    })
+    expect(SessionRetry.classifyHttpError(auth).category).toBeUndefined()
+  })
+
+  test("does not retry explicit abort errors", () => {
+    const error = new Error("request failed", { cause: new DOMException("cancelled", "AbortError") })
+
+    expect(SessionRetry.classifyHttpError(error).category).toBeUndefined()
+  })
+})
+
 describe("session.retry.retryable", () => {
   test("maps too_many_requests json messages", () => {
     const error = wrap(JSON.stringify({ type: "error", error: { type: "too_many_requests" } }))
@@ -274,20 +456,22 @@ describe("session.retry.retryable", () => {
     expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "提供商过载" })
   })
 
-  test("does not retry unknown json messages", () => {
+  test("retries unknown json messages", () => {
     const error = wrap(JSON.stringify({ error: { message: "no_kv_space" } }))
-    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({
+      message: JSON.stringify({ error: { message: "no_kv_space" } }),
+    })
   })
 
-  test("does not throw on numeric error codes", () => {
+  test("retries unknown numeric error codes without throwing", () => {
     const error = wrap(JSON.stringify({ type: "error", error: { code: 123 } }))
     const result = SessionRetry.retryable(error, retryProvider)
-    expect(result).toBeUndefined()
+    expect(result).toEqual({ message: JSON.stringify({ type: "error", error: { code: 123 } }) })
   })
 
-  test("returns undefined for non-json message", () => {
+  test("retries unknown non-json messages", () => {
     const error = wrap("not-json")
-    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "not-json" })
   })
 
   test("retries plain text rate limit errors from Alibaba", () => {
@@ -347,7 +531,7 @@ describe("session.retry.retryable", () => {
       }).toObject(),
     )
 
-    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Internal server error" })
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "提供商过载" })
   })
 
   test("retries 502 bad gateway errors", () => {
@@ -492,6 +676,22 @@ describe("session.retry.retryable", () => {
 })
 
 describe("session.message-v2.fromError", () => {
+  test("converts certificate verification failures to retryable network errors", () => {
+    const result = MessageV2.fromError(new Error("unknown certificate verification error"), { providerID })
+
+    expect(SessionV1.APIError.isInstance(result)).toBe(true)
+    if (!SessionV1.APIError.isInstance(result)) return
+    expect(result.data.isRetryable).toBe(true)
+    expect(SessionRetry.classify(result)).toBe("network")
+  })
+
+  test("classifies otherwise unknown errors for bounded automatic retry", () => {
+    const result = MessageV2.fromError(new Error("brand new provider failure"), { providerID })
+
+    expect(SessionRetry.classify(result)).toBe("unknown")
+    expect(SessionRetry.retryable(result, retryProvider)).toEqual({ message: "brand new provider failure" })
+  })
+
   test("converts structured output validation errors with original details", () => {
     const error = new NoObjectGeneratedError({
       message: "No object generated: response did not match schema.",

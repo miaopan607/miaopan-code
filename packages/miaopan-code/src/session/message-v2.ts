@@ -659,7 +659,7 @@ export function fromError(
   ctx: { providerID: ProviderV2.ID; aborted?: boolean; language?: Language },
 ): NonNullable<Assistant["error"]> {
   if (e instanceof LLMError) return fromLLMError(e)
-  const apiError = APICallError.isInstance(e) ? e : findAPICallError(e)
+  const apiError = APICallError.isInstance(e) ? e : SessionRetry.findAPICallError(e)
   if (apiError) return fromAPICallCause(e, apiError, ctx)
 
   switch (true) {
@@ -793,7 +793,7 @@ export function fromError(
         },
         { cause: e },
       ).toObject()
-    case e instanceof Error && networkError(e):
+    case e instanceof Error && SessionRetry.isTransportError(e):
       return new APIError(
         {
           message: e.message,
@@ -843,13 +843,6 @@ function structuredOutputError(error: Error, responseBody?: string) {
     },
     { cause: error },
   ).toObject()
-}
-
-function findAPICallError(value: unknown, depth = 0): APICallError | undefined {
-  if (depth > 3 || typeof value !== "object" || value === null) return undefined
-  const cause = (value as { cause?: unknown }).cause
-  if (APICallError.isInstance(cause)) return cause
-  return cause === undefined ? undefined : findAPICallError(cause, depth + 1)
 }
 
 function fromAPICallCause(
@@ -948,26 +941,6 @@ function errorCode(value: unknown): string | undefined {
   if (typeof code === "string") return code
   const cause = (value as { cause?: unknown }).cause
   return cause === undefined ? undefined : errorCode(cause)
-}
-
-function networkError(error: Error) {
-  const code = errorCode(error)?.toLowerCase()
-  if (
-    code &&
-    [
-      "econnreset",
-      "econnrefused",
-      "enotfound",
-      "eai_again",
-      "etimedout",
-      "econnaborted",
-      "epipe",
-      "und_err_socket",
-    ].some((item) => code.includes(item))
-  ) {
-    return true
-  }
-  return /fetch failed|network error|connection (?:reset|refused|closed|aborted)|socket|timed out/i.test(error.message)
 }
 
 export * as MessageV2 from "./message-v2"

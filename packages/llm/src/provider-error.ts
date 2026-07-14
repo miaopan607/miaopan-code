@@ -31,3 +31,20 @@ export const isContextOverflowFailure = (failure: unknown) =>
   failure instanceof LLMError
     ? failure.reason._tag === "InvalidRequest" && failure.reason.classification === "context-overflow"
     : Schema.is(ProviderErrorEvent)(failure) && failure.classification === "context-overflow"
+
+export const isRateLimitStatus = (status: number | undefined) => status === 420 || status === 429
+
+export const isRetryableHttpStatus = (status: number | undefined) =>
+  status !== undefined &&
+  (status === 403 ||
+    status === 408 ||
+    status === 409 ||
+    isRateLimitStatus(status) ||
+    status === 421 ||
+    status === 423 ||
+    status === 424 ||
+    status === 425 ||
+    status === 444 ||
+    status === 460 ||
+    status === 499 ||
+    status >= 500)

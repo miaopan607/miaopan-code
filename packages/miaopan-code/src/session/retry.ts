@@ -3,6 +3,7 @@ import { ConfigRetry } from "@miaopan-code/core/config/retry"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import { Cause, Clock, Duration, Effect, Random, Schedule } from "effect"
 import { APICallError, InvalidResponseDataError, JSONParseError } from "ai"
+import { isRateLimitStatus, isRetryableHttpStatus } from "@miaopan-code/llm"
 import { iife } from "@/util/iife"
 import { isRecord } from "@/util/record"
 import { t, type Language } from "@miaopan-code/core/i18n"
@@ -65,15 +66,16 @@ export const DEFAULT_RETRY_ON: readonly RetryCategory[] = [
   "rate_limit",
   "forbidden",
   "server",
+  "unknown",
 ]
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  stream_max_retries: 5,
+  stream_max_retries: 10,
   stream_initial_delay_ms: 200,
   stream_backoff_factor: 2,
   stream_max_delay_ms: 3200,
   stream_jitter_percent: 10,
-  http_max_retries: 4,
+  http_max_retries: 10,
   http_initial_delay_ms: 200,
   http_backoff_factor: 2,
   http_max_delay_ms: 1600,
@@ -90,8 +92,73 @@ const NETWORK_CODES = [
   "etimedout",
   "econnaborted",
   "epipe",
-  "und_err_socket",
+  "enetdown",
+  "enetreset",
+  "enetunreach",
+  "ehostdown",
+  "ehostunreach",
+  "eaddrinuse",
+  "eaddrnotavail",
+  "enobufs",
+  "eshutdown",
+  "enotconn",
+  "eisconn",
+  "ealready",
+  "einprogress",
+  "eproto",
+  "und_err_connect",
+  "und_err_closed",
+  "und_err_destroyed",
+  "err_network",
+  "err_stream_premature_close",
+  "err_stream_destroyed",
+  "err_http2",
+  "err_quic",
+  "err_tls",
+  "err_ssl",
+  "hpe_",
+  "cert_",
+  "certificate_",
+  "self_signed_cert",
+  "unable_to_verify",
+  "unable_to_get_issuer",
+  "hostname_mismatch",
+  "invalid_ca",
+  "path_length_exceeded",
+  "cert_untrusted",
+  "cert_rejected",
+  "connectionrefused",
+  "connectionreset",
+  "connectionaborted",
+  "connectionclosed",
+  "connectiontimedout",
+  "hostunreachable",
+  "networkunreachable",
+  "dnserror",
+  "tlsnotavailable",
+  "certificateverifyfailed",
   "socket",
+]
+
+const NETWORK_MESSAGE_PATTERNS = [
+  /fetch failed|failed to fetch|network ?error|network request failed|load failed/i,
+  /internet connection appears to be offline|not connected to the internet|network connection was lost/i,
+  /could not connect to (?:the )?server|failed to connect|unable to connect/i,
+  /getaddrinfo|name or service not known|temporary failure in name resolution/i,
+  /nodename nor servname provided|no address associated with hostname|dns/i,
+  /connection (?:reset|refused|closed|aborted|terminated|lost)|server reset (?:the )?connection/i,
+  /reset by peer|peer (?:reset|closed|disconnected)|remote host closed|other side closed|broken pipe/i,
+  /socket (?:hang up|closed|disconnected|connection was closed)|client network socket disconnected/i,
+  /premature (?:close|eof)|response ended prematurely|unexpected (?:eof|end of stream)|end of file/i,
+  /incomplete (?:chunked encoding|response|message body)|chunked encoding error|invalid chunk/i,
+  /stream (?:closed|terminated|ended unexpectedly)|http\/?[23]|quic|goaway|refused_stream/i,
+  /proxy (?:error|connection)|proxyconnect|socks proxy|tunneli?ng socket/i,
+  /websocket (?:is not open|closed|disconnected)|close code (?:1006|1011)/i,
+  /certificate|self[- ]signed|unable to verify|unable to get local issuer/i,
+  /tls handshake|ssl routines|wrong version number|bad record mac|x509/i,
+  /econn|enetunreach|ehostunreach/i,
+  /服务器重置了连接|连接被.*(?:重置|关闭|中断)|网络(?:错误|连接丢失|不可用)/i,
+  /无法连接(?:到)?服务器|证书.*(?:校验|验证|过期|不受信任)/i,
 ]
 
 const HARD_FAILURE_PATTERNS = [
@@ -120,6 +187,17 @@ const HARD_FAILURE_PATTERNS = [
   "policy denied",
   "operation not permitted",
   "invalid prompt",
+  "invalid api key",
+  "incorrect api key",
+  "api key is invalid",
+  "missing api key",
+  "authentication failed",
+  "unauthorized",
+  "invalid credentials",
+  "invalid access token",
+  "access token expired",
+  "token has expired",
+  "token was revoked",
   "invalid parameter",
   "invalid argument",
   "invalid request",
@@ -267,23 +345,25 @@ export type HttpFailure = {
 }
 
 export function classifyHttpError(error: unknown): HttpFailure {
+  if (abortError(error)) return {}
   const apiError = findAPICallError(error)
   if (apiError) {
     const status = apiError.statusCode
     if (hardFailure(apiError.message, apiError.responseBody)) return {}
-    if (status === 429) return { category: undefined, headers: apiError.responseHeaders }
-    if (status === 403) return { category: "forbidden", headers: apiError.responseHeaders }
-    if (status === 408) return { category: "timeout", headers: apiError.responseHeaders }
-    if (status !== undefined && status >= 500) return { category: "server", headers: apiError.responseHeaders }
+    if (isRateLimitStatus(status)) return { headers: apiError.responseHeaders }
+    const statusCategory = categoryFromStatus(status)
+    if (statusCategory) return { category: statusCategory, headers: apiError.responseHeaders }
     if (overloadMessage(`${apiError.message}\n${apiError.responseBody ?? ""}`.toLowerCase())) {
       return { category: "server", headers: apiError.responseHeaders }
     }
-    return {}
+    if (status !== undefined && status >= 400 && status < 500) return {}
+    return {
+      category: categoryFromUnknown(error) ?? (apiError.isRetryable ? "network" : "unknown"),
+      headers: apiError.responseHeaders,
+    }
   }
   if (JSONParseError.isInstance(error) || InvalidResponseDataError.isInstance(error)) return { category: "response" }
-  if (error instanceof Error && timeoutMessage(error.message.toLowerCase())) return { category: "timeout" }
-  if (error instanceof Error && networkMessage(error.message.toLowerCase())) return { category: "network" }
-  return {}
+  return { category: categoryFromUnknown(error) ?? "unknown" }
 }
 
 export function findAPICallError(value: unknown, depth = 0): APICallError | undefined {
@@ -340,12 +420,21 @@ function httpCategory(category: RetryCategory) {
     category === "timeout" ||
     category === "response" ||
     category === "forbidden" ||
-    category === "server"
+    category === "server" ||
+    category === "unknown"
   )
 }
 
 export function classify(error: Err): RetryCategory | undefined {
-  if (SessionV1.ContextOverflowError.isInstance(error)) return undefined
+  if (
+    SessionV1.ContextOverflowError.isInstance(error) ||
+    SessionV1.AbortedError.isInstance(error) ||
+    SessionV1.AuthError.isInstance(error) ||
+    SessionV1.ContentFilterError.isInstance(error) ||
+    SessionV1.OutputLengthError.isInstance(error)
+  ) {
+    return undefined
+  }
   if (SessionV1.StructuredOutputError.isInstance(error)) return "validation"
 
   if (SessionV1.APIError.isInstance(error)) {
@@ -354,16 +443,11 @@ export function classify(error: Err): RetryCategory | undefined {
     const body = error.data.responseBody
     if (hardFailure(message, body)) return undefined
     if (overloadMessage(`${message}\n${body ?? ""}`.toLowerCase())) return "server"
-    if (
-      status === 401 ||
-      (status !== undefined && status >= 400 && status < 500 && status !== 403 && status !== 408 && status !== 429)
-    ) {
+    if (status !== undefined && status >= 400 && status < 500 && !isRetryableHttpStatus(status)) {
       return undefined
     }
-    if (status === 403) return "forbidden"
-    if (status === 408) return "timeout"
-    if (status === 429) return "rate_limit"
-    if (status !== undefined && status >= 500) return "server"
+    const statusCategory = categoryFromStatus(status)
+    if (statusCategory) return statusCategory
 
     const byCode = categoryFromCode(lower(error.data.metadata?.code))
     if (byCode) return byCode
@@ -372,13 +456,21 @@ export function classify(error: Err): RetryCategory | undefined {
       categoryFromMessage(message) ??
       categoryFromJSON(message) ??
       categoryFromJSON(body ?? "") ??
-      (error.data.isRetryable ? "network" : undefined)
+      (error.data.isRetryable ? "network" : "unknown")
     )
   }
 
   const message = isRecord(error.data) && typeof error.data.message === "string" ? error.data.message : undefined
-  if (!message || hardFailure(message)) return undefined
-  return categoryFromMessage(message) ?? categoryFromJSON(message)
+  if (message && hardFailure(message)) return undefined
+  if (!message) return "unknown"
+  return categoryFromMessage(message) ?? categoryFromJSON(message) ?? "unknown"
+}
+
+function categoryFromStatus(status: number | undefined): RetryCategory | undefined {
+  if (isRateLimitStatus(status)) return "rate_limit"
+  if (status === 403) return "forbidden"
+  if (status === 408) return "timeout"
+  if (isRetryableHttpStatus(status)) return "server"
 }
 
 function categoryFromCode(code: string) {
@@ -428,15 +520,51 @@ function networkCode(code: string) {
 }
 
 function networkMessage(message: string) {
-  return /\b(fetch failed|network error|connection (?:reset|refused|closed|aborted)|socket|econn|dns)\b/i.test(message)
+  return NETWORK_MESSAGE_PATTERNS.some((pattern) => pattern.test(message))
 }
 
 function timeoutMessage(message: string) {
-  return /\b(timeout|timed out|timedout|deadline exceeded)\b/i.test(message)
+  return /(?:^|[^a-z])(?:timeout|timed out|timedout|time out|deadline exceeded|deadline has elapsed|request expired)(?:$|[^a-z])|(?:连接|请求|响应|读取|写入).*超时/i.test(
+    message,
+  )
+}
+
+function categoryFromUnknown(error: unknown): RetryCategory | undefined {
+  const details = errorDetails(error).join("\n").toLowerCase()
+  if (timeoutMessage(details)) return "timeout"
+  if (networkCode(details) || networkMessage(details)) return "network"
+}
+
+export function isTransportError(error: unknown) {
+  return categoryFromUnknown(error) !== undefined
+}
+
+function errorDetails(value: unknown, depth = 0): string[] {
+  if (depth > 6 || value === undefined || value === null) return []
+  if (typeof value === "string") return [value]
+  if (typeof value !== "object") return [String(value)]
+
+  const item = value as Record<string, unknown>
+  return ["name", "message", "code", "errno", "syscall", "type"]
+    .flatMap((key) => (typeof item[key] === "string" ? [item[key]] : []))
+    .concat(
+      [item.cause, item.error, item.reason].flatMap((nested) => errorDetails(nested, depth + 1)),
+      Array.isArray(item.errors) ? item.errors.flatMap((nested) => errorDetails(nested, depth + 1)) : [],
+    )
+}
+
+function abortError(value: unknown, depth = 0): boolean {
+  if (depth > 6 || typeof value !== "object" || value === null) return false
+  const item = value as Record<string, unknown>
+  if (item.name === "AbortError") return true
+  return (
+    [item.cause, item.error, item.reason].some((nested) => abortError(nested, depth + 1)) ||
+    (Array.isArray(item.errors) && item.errors.some((nested) => abortError(nested, depth + 1)))
+  )
 }
 
 function responseParseMessage(message: string) {
-  return /(?:unexpected token|unexpected end|invalid json|not valid json|parse (?:the )?response|non[- ]json|html|cloudflare)/i.test(
+  return /(?:unexpected token|unexpected end|invalid json|not valid json|malformed json|failed to (?:parse|decode) (?:the )?(?:json|response)|parse (?:the )?response|decode (?:the )?response|non[- ]json|invalid character .*json|html|cloudflare)/i.test(
     message,
   )
 }
@@ -446,6 +574,9 @@ function rateLimitMessage(message: string) {
     message.includes("rate increased too quickly") ||
     message.includes("rate limit") ||
     message.includes("too many requests") ||
+    message.includes("too many concurrent requests") ||
+    message.includes("throttled") ||
+    message.includes("throttling") ||
     message.includes("slow_down") ||
     message.includes("slow down")
   )
@@ -456,7 +587,17 @@ function overloadMessage(message: string) {
     message.includes("overloaded") ||
     message.includes("server_is_overloaded") ||
     message.includes("bad gateway") ||
-    message.includes("service unavailable")
+    message.includes("service unavailable") ||
+    message.includes("temporarily unavailable") ||
+    message.includes("gateway timeout") ||
+    message.includes("internal server error") ||
+    message.includes("server busy") ||
+    message.includes("server is busy") ||
+    message.includes("capacity") ||
+    message.includes("resource exhausted") ||
+    message.includes("model is loading") ||
+    message.includes("try again later") ||
+    message.includes("upstream connect error")
   )
 }
 
@@ -588,7 +729,9 @@ export function retryable(
       return { message: t(language, "session.rate_limited") }
     }
   }
-  if (typeof message === "string" && (category ?? classify(error))) return { message }
+  if (category ?? classify(error)) {
+    return { message: typeof message === "string" ? message : t(language, "error.provider_unknown") }
+  }
   return undefined
 }
 
