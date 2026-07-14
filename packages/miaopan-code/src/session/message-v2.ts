@@ -18,7 +18,19 @@ import {
 } from "@miaopan-code/core/v1/session"
 
 import { NamedError } from "@miaopan-code/core/util/error"
-import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
+import {
+  APICallError,
+  convertToModelMessages,
+  InvalidResponseDataError,
+  InvalidToolInputError,
+  JSONParseError,
+  LoadAPIKeyError,
+  NoObjectGeneratedError,
+  NoOutputGeneratedError,
+  TypeValidationError,
+  type ModelMessage,
+  type UIMessage,
+} from "ai"
 import { Database } from "@miaopan-code/core/database/database"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { NotFoundError } from "@/storage/storage"
@@ -30,6 +42,8 @@ import { lt } from "drizzle-orm"
 import { or } from "drizzle-orm"
 import { MessageTable, PartTable, SessionTable } from "@miaopan-code/core/session/sql"
 import { ProviderError } from "@/provider/error"
+import { SessionRetry } from "./retry"
+import { LLMError } from "@miaopan-code/llm"
 import { iife } from "@/util/iife"
 import { errorMessage } from "@/util/error"
 import { isMedia } from "@/util/media"
@@ -644,6 +658,10 @@ export function fromError(
   e: unknown,
   ctx: { providerID: ProviderV2.ID; aborted?: boolean; language?: Language },
 ): NonNullable<Assistant["error"]> {
+  if (e instanceof LLMError) return fromLLMError(e)
+  const apiError = APICallError.isInstance(e) ? e : findAPICallError(e)
+  if (apiError) return fromAPICallCause(e, apiError, ctx)
+
   switch (true) {
     case e instanceof DOMException && e.name === "AbortError":
       return new AbortedError(
@@ -659,6 +677,66 @@ export function fromError(
         {
           providerID: ctx.providerID,
           message: e.message,
+        },
+        { cause: e },
+      ).toObject()
+    case SessionRetry.StructuredOutputValidationError.isInstance(e):
+      return structuredOutputError(e, e.responseBody)
+    case e instanceof SessionRetry.HttpRetryError: {
+      const parsed = fromError(e.cause, ctx)
+      if (!APIError.isInstance(parsed)) return parsed
+      return new APIError(
+        {
+          ...parsed.data,
+          metadata: { ...parsed.data.metadata, phase: "http" },
+        },
+        { cause: e },
+      ).toObject()
+    }
+    case e instanceof SessionRetry.ProviderStreamError:
+      if (e.classification === "context-overflow") {
+        return new ContextOverflowError({ message: e.message }, { cause: e }).toObject()
+      }
+      return new APIError(
+        {
+          message: e.message,
+          isRetryable: e.retryable,
+          metadata: { code: "PROVIDER_STREAM_ERROR", phase: "stream" },
+        },
+        { cause: e },
+      ).toObject()
+    case NoObjectGeneratedError.isInstance(e):
+      return structuredOutputError(e, e.text)
+    case TypeValidationError.isInstance(e):
+      return structuredOutputError(e, serialize(e.value))
+    case JSONParseError.isInstance(e):
+      return new APIError(
+        {
+          message: withCause(e.message, e.cause),
+          isRetryable: true,
+          responseBody: e.text,
+          metadata: { code: "JSON_PARSE_ERROR" },
+        },
+        { cause: e },
+      ).toObject()
+    case InvalidToolInputError.isInstance(e):
+      return structuredOutputError(e, e.toolInput)
+    case InvalidResponseDataError.isInstance(e):
+      return new APIError(
+        {
+          message: withCause(e.message, e.data),
+          isRetryable: true,
+          responseBody: serialize(e.data),
+          metadata: { code: "RESPONSE_PARSE_ERROR" },
+        },
+        { cause: e },
+      ).toObject()
+    case NoOutputGeneratedError.isInstance(e):
+      return new APIError(
+        {
+          message: e.message,
+          isRetryable: true,
+          metadata: { code: "RESPONSE_EMPTY" },
         },
         { cause: e },
       ).toObject()
@@ -696,7 +774,7 @@ export function fromError(
           message: e.message,
           isRetryable: true,
           metadata: {
-            code: e.name,
+            code: "TIMEOUT",
             timeoutMs: String(e.ms),
           },
         },
@@ -708,35 +786,19 @@ export function fromError(
           message: e.message,
           isRetryable: true,
           metadata: {
-            code: e.name,
+            code: "RESPONSE_STREAM_ERROR",
+            phase: "stream",
+            ...(e.transport ? { transport: e.transport } : {}),
           },
         },
         { cause: e },
       ).toObject()
-    case APICallError.isInstance(e):
-      const parsed = ProviderError.parseAPICallError({
-        providerID: ctx.providerID,
-        error: e,
-        language: ctx.language,
-      })
-      if (parsed.type === "context_overflow") {
-        return new ContextOverflowError(
-          {
-            message: parsed.message,
-            responseBody: parsed.responseBody,
-          },
-          { cause: e },
-        ).toObject()
-      }
-
+    case e instanceof Error && networkError(e):
       return new APIError(
         {
-          message: parsed.message,
-          statusCode: parsed.statusCode,
-          isRetryable: parsed.isRetryable,
-          responseHeaders: parsed.responseHeaders,
-          responseBody: parsed.responseBody,
-          metadata: parsed.metadata,
+          message: e.message,
+          isRetryable: true,
+          metadata: { code: errorCode(e) ?? "NETWORK_ERROR" },
         },
         { cause: e },
       ).toObject()
@@ -769,6 +831,143 @@ export function fromError(
       } catch {}
       return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e }).toObject()
   }
+}
+
+function structuredOutputError(error: Error, responseBody?: string) {
+  return new APIError(
+    {
+      message: withCause(withCause(error.message, "cause" in error ? error.cause : undefined), responseBody),
+      isRetryable: true,
+      responseBody,
+      metadata: { code: "STRUCTURED_OUTPUT_VALIDATION" },
+    },
+    { cause: error },
+  ).toObject()
+}
+
+function findAPICallError(value: unknown, depth = 0): APICallError | undefined {
+  if (depth > 3 || typeof value !== "object" || value === null) return undefined
+  const cause = (value as { cause?: unknown }).cause
+  if (APICallError.isInstance(cause)) return cause
+  return cause === undefined ? undefined : findAPICallError(cause, depth + 1)
+}
+
+function fromAPICallCause(
+  value: unknown,
+  error: APICallError,
+  ctx: { providerID: ProviderV2.ID; language?: Language },
+) {
+  const parsed = ProviderError.parseAPICallError({ providerID: ctx.providerID, error, language: ctx.language })
+  if (parsed.type === "context_overflow") {
+    return new ContextOverflowError(
+      {
+        message: parsed.message,
+        responseBody: parsed.responseBody,
+      },
+      { cause: value },
+    ).toObject()
+  }
+
+  const transport = findTransport(value)
+  return new APIError(
+    {
+      message: value === error ? parsed.message : `${parsed.message}: ${errorMessage(value)}`,
+      statusCode: parsed.statusCode,
+      isRetryable: parsed.isRetryable,
+      responseHeaders: parsed.responseHeaders,
+      responseBody: parsed.responseBody,
+      metadata: {
+        ...parsed.metadata,
+        ...(value instanceof SessionRetry.HttpRetryError ? { phase: "http" } : {}),
+        ...(transport ? { transport } : {}),
+      },
+    },
+    { cause: value },
+  ).toObject()
+}
+
+function fromLLMError(error: LLMError) {
+  const http = "http" in error.reason ? error.reason.http : undefined
+  if (error.reason._tag === "InvalidRequest" && error.reason.classification === "context-overflow") {
+    return new ContextOverflowError(
+      { message: error.reason.message, responseBody: http?.body },
+      { cause: error },
+    ).toObject()
+  }
+
+  const statusCode = http?.response?.status ?? ("status" in error.reason ? error.reason.status : undefined)
+  const retryable =
+    error.reason._tag === "RateLimit" ||
+    error.reason._tag === "ProviderInternal" ||
+    error.reason._tag === "Transport" ||
+    error.reason._tag === "InvalidProviderOutput"
+  return new APIError(
+    {
+      message: error.reason.message,
+      statusCode,
+      isRetryable: retryable,
+      responseHeaders: http?.response?.headers,
+      responseBody: http?.body,
+      metadata: {
+        code: error.reason._tag,
+        ...(error.phase ? { phase: error.phase } : {}),
+        ...(error.transport ? { transport: error.transport } : {}),
+      },
+    },
+    { cause: error },
+  ).toObject()
+}
+
+function findTransport(value: unknown, depth = 0): "websocket" | undefined {
+  if (depth > 5 || typeof value !== "object" || value === null) return undefined
+  if (value instanceof ProviderError.ResponseStreamError && value.transport) return value.transport
+  const cause = (value as { cause?: unknown }).cause
+  return cause === undefined ? undefined : findTransport(cause, depth + 1)
+}
+
+function withCause(message: string, cause: unknown) {
+  if (cause === undefined) return message
+  const detail = serialize(cause)
+  return detail && !message.includes(detail) ? `${message}: ${detail}` : message
+}
+
+function serialize(value: unknown) {
+  if (value === undefined) return undefined
+  if (typeof value === "string") return value
+  if (value instanceof Error) return value.message
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function errorCode(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined
+  const code = (value as { code?: unknown }).code
+  if (typeof code === "string") return code
+  const cause = (value as { cause?: unknown }).cause
+  return cause === undefined ? undefined : errorCode(cause)
+}
+
+function networkError(error: Error) {
+  const code = errorCode(error)?.toLowerCase()
+  if (
+    code &&
+    [
+      "econnreset",
+      "econnrefused",
+      "enotfound",
+      "eai_again",
+      "etimedout",
+      "econnaborted",
+      "epipe",
+      "und_err_socket",
+    ].some((item) => code.includes(item))
+  ) {
+    return true
+  }
+  return /fetch failed|network error|connection (?:reset|refused|closed|aborted)|socket|timed out/i.test(error.message)
 }
 
 export * as MessageV2 from "./message-v2"

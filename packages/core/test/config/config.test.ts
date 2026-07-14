@@ -4,6 +4,7 @@ import { describe, expect } from "bun:test"
 import { Effect, Layer, Schema } from "effect"
 import { FastCheck } from "effect/testing"
 import { Config } from "@miaopan-code/core/config"
+import { ConfigRetry } from "@miaopan-code/core/config/retry"
 import { ConfigProvider } from "@miaopan-code/core/config/provider"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
@@ -73,6 +74,68 @@ describe("Config", () => {
       expect(ConfigMigrateV1.isV1({ reference: {} })).toBe(true)
       expect(ConfigMigrateV1.isV1({ shell: "/bin/zsh", model: "anthropic/claude" })).toBe(false)
       expect(ConfigMigrateV1.isV1({ references: {} })).toBe(false)
+      expect(ConfigMigrateV1.isV1({ retry: { stream_max_retries: 5 } })).toBe(false)
+    }),
+  )
+
+  it.effect("decodes shared retry configuration in v1 and current schemas", () =>
+    Effect.sync(() => {
+      const input = {
+        retry: {
+          stream_max_retries: 3,
+          stream_initial_delay_ms: 100,
+          stream_backoff_factor: 1.5,
+          stream_max_delay_ms: 500,
+          stream_jitter_percent: 5,
+          http_max_retries: 2,
+          http_initial_delay_ms: 50,
+          http_backoff_factor: 1.25,
+          http_max_delay_ms: 250,
+          http_jitter_percent: 15,
+          respect_retry_after: false,
+          retry_on: ["network", "validation"],
+        },
+      }
+      expect(Schema.decodeUnknownSync(ConfigV1.Info)(input).retry).toBeInstanceOf(ConfigRetry.Info)
+      expect(Schema.decodeUnknownSync(Config.Info)(input).retry).toBeInstanceOf(ConfigRetry.Info)
+      expect(ConfigMigrateV1.migrate(Schema.decodeUnknownSync(ConfigV1.Info)(input)).retry).toMatchObject(input.retry)
+    }),
+  )
+
+  it.effect("uses retry defaults in v1 and current schemas", () =>
+    Effect.sync(() => {
+      const expected = {
+        stream_max_retries: 5,
+        stream_initial_delay_ms: 200,
+        stream_backoff_factor: 2,
+        stream_max_delay_ms: 3200,
+        stream_jitter_percent: 10,
+        http_max_retries: 4,
+        http_initial_delay_ms: 200,
+        http_backoff_factor: 2,
+        http_max_delay_ms: 1600,
+        http_jitter_percent: 10,
+        respect_retry_after: true,
+        retry_on: ["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"],
+      } satisfies typeof ConfigRetry.Info.Type
+      expect(Schema.decodeUnknownSync(ConfigV1.Info)({ retry: {} }).retry).toEqual(expected)
+      expect(Schema.decodeUnknownSync(Config.Info)({ retry: {} }).retry).toEqual(expected)
+    }),
+  )
+
+  it.effect("rejects invalid retry configuration", () =>
+    Effect.sync(() => {
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { stream_max_retries: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { stream_initial_delay_ms: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { stream_max_delay_ms: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { stream_backoff_factor: 0.5 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { stream_jitter_percent: 101 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_max_retries: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_initial_delay_ms: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_max_delay_ms: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_backoff_factor: 0.5 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { http_jitter_percent: -1 } })).toThrow()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ retry: { retry_on: ["unknown"] } })).toThrow()
     }),
   )
 

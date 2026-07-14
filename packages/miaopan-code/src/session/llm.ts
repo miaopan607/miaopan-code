@@ -44,7 +44,6 @@ export type StreamInput = {
   messages: ModelMessage[]
   small?: boolean
   tools: Record<string, Tool>
-  retries?: number
   toolChoice?: "auto" | "required" | "none"
 }
 
@@ -247,6 +246,7 @@ const live: Layer.Layer<
           maxOutputTokens: prepared.params.maxOutputTokens,
           providerOptions: prepared.params.options,
           headers: prepared.headers,
+          retry: cfg.retry,
           abort: input.abort,
           language: cfg.language,
         })
@@ -340,11 +340,12 @@ const live: Layer.Layer<
           maxOutputTokens: prepared.params.maxOutputTokens,
           abortSignal: input.abort,
           headers: codex?.headers ?? prepared.headers,
-          maxRetries: input.retries ?? 0,
+          maxRetries: 0,
           messages: codex?.messages ?? prepared.messages,
           model: wrapLanguageModel({
             model: language,
             middleware: [
+              LLMAISDK.httpRetryMiddleware(cfg.retry),
               {
                 specificationVersion: "v3" as const,
                 async transformParams(args) {

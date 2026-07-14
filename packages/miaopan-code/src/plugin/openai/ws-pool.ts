@@ -159,6 +159,7 @@ export function createWebSocketFetch(options?: CreateWebSocketFetchOptions) {
       return failedResponse(
         new ProviderError.ResponseStreamError(error instanceof Error ? error.message : String(error), {
           cause: error,
+          transport: "websocket",
         }),
       )
     }

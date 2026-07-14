@@ -4,7 +4,7 @@ import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { expect } from "bun:test"
 import { tool } from "ai"
-import { Cause, Effect, Exit, Fiber, Layer, Stream } from "effect"
+import { Cause, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect"
 import path from "path"
 import z from "zod"
 import type { Agent } from "../../src/agent/agent"
@@ -17,16 +17,18 @@ import { SessionProcessor } from "../../src/session/processor"
 import { MessageID, PartID, SessionID } from "../../src/session/schema"
 import { SessionStatus } from "../../src/session/status"
 import { SessionSummary } from "../../src/session/summary"
+import { SessionPrompt } from "../../src/session/prompt"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { provideTmpdirInstance, provideTmpdirServer } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
-import { raw, reply, TestLLMServer } from "../lib/llm-server"
+import { httpError, raw, reply, TestLLMServer } from "../lib/llm-server"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { SessionProjector } from "@miaopan-code/core/session/projector"
 import { LLMEvent } from "@miaopan-code/llm"
 import { t } from "@miaopan-code/core/i18n"
+import { ProviderError } from "@/provider/error"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -243,6 +245,68 @@ const proposedPlanLLM = Layer.succeed(
 )
 const proposedPlanEnv = LayerNode.compile(root, [...replacements, [LLM.node, proposedPlanLLM]])
 const itProposedPlan = testEffect(proposedPlanEnv)
+
+const websocketRetryLLM = Layer.effect(
+  LLM.Service,
+  Ref.make(0).pipe(
+    Effect.map((attempts) =>
+      LLM.Service.of({
+        stream: () =>
+          Stream.unwrap(
+            Ref.getAndUpdate(attempts, (value) => value + 1).pipe(
+              Effect.map((attempt) =>
+                attempt < 2
+                  ? Stream.fail(
+                      new ProviderError.ResponseStreamError("websocket disconnected", {
+                        transport: "websocket",
+                      }),
+                    )
+                  : Stream.make(
+                      LLMEvent.stepStart({ index: 0 }),
+                      LLMEvent.stepFinish({ index: 0, reason: "stop" }),
+                      LLMEvent.finish({ reason: "stop" }),
+                    ),
+              ),
+            ),
+          ),
+      }),
+    ),
+  ),
+)
+const websocketRetryEnv = LayerNode.compile(root, [...replacements, [LLM.node, websocketRetryLLM]])
+const itWebsocketRetry = testEffect(websocketRetryEnv)
+
+const streamCategoryRetryLLM = Layer.effect(
+  LLM.Service,
+  Ref.make(0).pipe(
+    Effect.map((attempts) =>
+      LLM.Service.of({
+        stream: () =>
+          Stream.unwrap(
+            Ref.getAndUpdate(attempts, (value) => value + 1).pipe(
+              Effect.map((attempt): Stream.Stream<LLMEvent, unknown> => {
+                if (attempt === 0) {
+                  return Stream.make(
+                    LLMEvent.providerError({ message: '{"error":{"code":"server_is_overloaded"}}', retryable: true }),
+                  )
+                }
+                if (attempt === 1) {
+                  return Stream.fail(Object.assign(new Error("decompression failed"), { code: "ZlibError" }))
+                }
+                return Stream.make(
+                  LLMEvent.stepStart({ index: 0 }),
+                  LLMEvent.stepFinish({ index: 0, reason: "stop" }),
+                  LLMEvent.finish({ reason: "stop" }),
+                )
+              }),
+            ),
+          ),
+      }),
+    ),
+  ),
+)
+const streamCategoryRetryEnv = LayerNode.compile(root, [...replacements, [LLM.node, streamCategoryRetryLLM]])
+const itStreamCategoryRetry = testEffect(streamCategoryRetryEnv)
 
 const boot = Effect.fn("test.boot")(function* () {
   const processors = yield* SessionProcessor.Service
@@ -673,7 +737,147 @@ it.live("session.processor effect tests retry recognized structured json errors"
   ),
 )
 
-it.live("session.processor effect tests publish retry status updates", () =>
+it.live("session.processor effect tests ignore legacy structured retryCount and use the global policy", () =>
+  provideTmpdirServer(
+    ({ dir, llm }) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+        let output: unknown
+
+        yield* llm.push(
+          reply().tool("StructuredOutput", { answer: "not a number" }),
+          reply().tool("StructuredOutput", { answer: 4 }),
+        )
+
+        const chat = yield* session.create({})
+        const parent = yield* user(chat.id, "structured retry")
+        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const handle = yield* processors.create({
+          assistantMessage: msg,
+          sessionID: chat.id,
+          model: mdl,
+        })
+        const structuredTool = SessionPrompt.createStructuredOutputTool({
+          schema: {
+            type: "object",
+            properties: { answer: { type: "number" } },
+            required: ["answer"],
+          },
+          onSuccess(value) {
+            output = value
+          },
+        })
+
+        const value = yield* handle.process({
+          user: {
+            id: parent.id,
+            sessionID: chat.id,
+            role: "user",
+            time: parent.time,
+            agent: parent.agent,
+            model: { providerID: ref.providerID, modelID: ref.modelID },
+            format: {
+              type: "json_schema",
+              schema: { type: "object" },
+              retryCount: 0,
+            },
+          } satisfies SessionV1.User,
+          sessionID: chat.id,
+          model: mdl,
+          agent: agent(),
+          system: [],
+          messages: [{ role: "user", content: "structured retry" }],
+          tools: { StructuredOutput: structuredTool },
+          toolChoice: "required",
+        })
+
+        expect(value).toBe("continue")
+        expect(yield* llm.calls).toBe(2)
+        expect(output).toEqual({ answer: 4 })
+        expect(handle.message.error).toBeUndefined()
+      }),
+    {
+      config: (url) => ({
+        ...providerCfg(url),
+        retry: {
+          stream_max_retries: 1,
+          stream_initial_delay_ms: 0,
+          stream_max_delay_ms: 0,
+          stream_jitter_percent: 0,
+        },
+      }),
+    },
+  ),
+)
+
+it.live("session.processor effect tests persist structured output errors after the global budget", () =>
+  provideTmpdirServer(
+    ({ dir, llm }) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+
+        yield* llm.push(
+          ...Array.from({ length: 11 }, () => reply().tool("StructuredOutput", { answer: "not a number" })),
+        )
+
+        const chat = yield* session.create({})
+        const parent = yield* user(chat.id, "structured retry budget")
+        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const handle = yield* processors.create({
+          assistantMessage: msg,
+          sessionID: chat.id,
+          model: mdl,
+        })
+        const structuredTool = SessionPrompt.createStructuredOutputTool({
+          schema: {
+            type: "object",
+            properties: { answer: { type: "number" } },
+            required: ["answer"],
+          },
+          onSuccess() {},
+        })
+
+        const value = yield* handle.process({
+          user: {
+            id: parent.id,
+            sessionID: chat.id,
+            role: "user",
+            time: parent.time,
+            agent: parent.agent,
+            model: { providerID: ref.providerID, modelID: ref.modelID },
+          } satisfies SessionV1.User,
+          sessionID: chat.id,
+          model: mdl,
+          agent: agent(),
+          system: [],
+          messages: [{ role: "user", content: "structured retry budget" }],
+          tools: { StructuredOutput: structuredTool },
+          toolChoice: "required",
+        })
+
+        expect(value).toBe("stop")
+        expect(yield* llm.calls).toBe(11)
+        expect(SessionV1.StructuredOutputError.isInstance(handle.message.error)).toBe(true)
+        if (!handle.message.error || !SessionV1.StructuredOutputError.isInstance(handle.message.error)) return
+        expect(handle.message.error.data.retries).toBe(10)
+      }),
+    {
+      config: (url) => ({
+        ...providerCfg(url),
+        retry: {
+          stream_max_retries: 10,
+          stream_initial_delay_ms: 0,
+          stream_max_delay_ms: 0,
+          stream_jitter_percent: 0,
+        },
+      }),
+    },
+  ),
+)
+
+it.live("session.processor effect tests hide HTTP retry status updates", () =>
   provideTmpdirServer(
     ({ dir, llm }) =>
       Effect.gen(function* () {
@@ -721,10 +925,259 @@ it.live("session.processor effect tests publish retry status updates", () =>
 
         expect(value).toBe("continue")
         expect(yield* llm.calls).toBe(2)
+        expect(states).toStrictEqual([])
+      }),
+    {
+      config: (url) => ({
+        ...providerCfg(url),
+        retry: {
+          http_initial_delay_ms: 0,
+          http_max_delay_ms: 0,
+          http_jitter_percent: 0,
+        },
+      }),
+    },
+  ),
+)
+
+it.live("session.processor effect tests separate HTTP and stream retry categories", () =>
+  provideTmpdirServer(
+    ({ dir, llm }) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+        const events = yield* EventV2Bridge.Service
+
+        const run = Effect.fnUntraced(function* (prompt: string) {
+          const calls = yield* llm.calls
+          const chat = yield* session.create({})
+          const parent = yield* user(chat.id, prompt)
+          const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+          const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+          const states: number[] = []
+          const off = yield* events.listen((evt) => {
+            if (evt.type !== SessionStatus.Event.Status.type) return Effect.void
+            const data = evt.data as typeof SessionStatus.Event.Status.data.Type
+            if (data.sessionID === chat.id && data.status.type === "retry") states.push(data.status.attempt)
+            return Effect.void
+          })
+          const handle = yield* processors.create({ assistantMessage: msg, sessionID: chat.id, model: mdl })
+          const value = yield* handle.process({
+            user: {
+              id: parent.id,
+              sessionID: chat.id,
+              role: "user",
+              time: parent.time,
+              agent: parent.agent,
+              model: { providerID: ref.providerID, modelID: ref.modelID },
+            } satisfies SessionV1.User,
+            sessionID: chat.id,
+            model: mdl,
+            agent: agent(),
+            system: [],
+            messages: [{ role: "user", content: prompt }],
+            tools: {},
+          })
+          yield* off
+          return { value, calls: (yield* llm.calls) - calls, states }
+        })
+
+        yield* llm.push(...Array.from({ length: 5 }, () => httpError(429, { error: "rate limited" })), reply().stop())
+        expect(yield* run("rate limit")).toEqual({ value: "continue", calls: 6, states: [1, 2, 3, 4, 5] })
+
+        yield* llm.error(429, { error: { code: "insufficient_quota" } })
+        expect(yield* run("quota")).toEqual({ value: "stop", calls: 1, states: [] })
+
+        yield* llm.push(...Array.from({ length: 4 }, () => httpError(403, { error: "forbidden" })), reply().stop())
+        expect(yield* run("generic forbidden")).toEqual({ value: "continue", calls: 5, states: [] })
+
+        yield* llm.error(403, { error: "permission denied by sandbox policy" })
+        expect(yield* run("hard forbidden")).toEqual({ value: "stop", calls: 1, states: [] })
+
+        yield* llm.push(
+          ...Array.from({ length: 4 }, () => httpError(503, { error: "server overloaded" })),
+          reply().stop(),
+        )
+        expect(yield* run("server error")).toEqual({ value: "continue", calls: 5, states: [] })
+      }),
+    {
+      config: (url) => ({
+        ...providerCfg(url),
+        retry: {
+          stream_initial_delay_ms: 0,
+          stream_max_delay_ms: 0,
+          stream_jitter_percent: 0,
+          http_initial_delay_ms: 0,
+          http_max_delay_ms: 0,
+          http_jitter_percent: 0,
+        },
+      }),
+    },
+  ),
+)
+
+it.live("session.processor effect tests show non-WebSocket stream retry status", () =>
+  provideTmpdirServer(
+    ({ dir, llm }) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+        const events = yield* EventV2Bridge.Service
+
+        yield* llm.push(reply().reason("one").reset(), reply().reason("two").stop())
+
+        const chat = yield* session.create({})
+        const parent = yield* user(chat.id, "stream retry")
+        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const states: number[] = []
+        const off = yield* events.listen((evt) => {
+          if (evt.type !== SessionStatus.Event.Status.type) return Effect.void
+          const data = evt.data as typeof SessionStatus.Event.Status.data.Type
+          if (data.sessionID === chat.id && data.status.type === "retry") states.push(data.status.attempt)
+          return Effect.void
+        })
+        const handle = yield* processors.create({ assistantMessage: msg, sessionID: chat.id, model: mdl })
+
+        const value = yield* handle.process({
+          user: {
+            id: parent.id,
+            sessionID: chat.id,
+            role: "user",
+            time: parent.time,
+            agent: parent.agent,
+            model: { providerID: ref.providerID, modelID: ref.modelID },
+          } satisfies SessionV1.User,
+          sessionID: chat.id,
+          model: mdl,
+          agent: agent(),
+          system: [],
+          messages: [{ role: "user", content: "stream retry" }],
+          tools: {},
+        })
+        yield* off
+
+        expect(value).toBe("continue")
+        expect(yield* llm.calls).toBe(2)
         expect(states).toStrictEqual([1])
       }),
-    { config: (url) => providerCfg(url) },
+    {
+      config: (url) => ({
+        ...providerCfg(url),
+        retry: {
+          stream_initial_delay_ms: 0,
+          stream_max_delay_ms: 0,
+          stream_jitter_percent: 0,
+        },
+      }),
+    },
   ),
+)
+
+itWebsocketRetry.live("session.processor effect tests hide the first WebSocket retry and show the second", () =>
+  provideTmpdirInstance(
+    (dir) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+        const events = yield* EventV2Bridge.Service
+        const chat = yield* session.create({})
+        const parent = yield* user(chat.id, "websocket retry")
+        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const states: number[] = []
+        const off = yield* events.listen((evt) => {
+          if (evt.type !== SessionStatus.Event.Status.type) return Effect.void
+          const data = evt.data as typeof SessionStatus.Event.Status.data.Type
+          if (data.sessionID === chat.id && data.status.type === "retry") states.push(data.status.attempt)
+          return Effect.void
+        })
+        const handle = yield* processors.create({ assistantMessage: msg, sessionID: chat.id, model: mdl })
+
+        const value = yield* handle.process({
+          user: {
+            id: parent.id,
+            sessionID: chat.id,
+            role: "user",
+            time: parent.time,
+            agent: parent.agent,
+            model: { providerID: ref.providerID, modelID: ref.modelID },
+          } satisfies SessionV1.User,
+          sessionID: chat.id,
+          model: mdl,
+          agent: agent(),
+          system: [],
+          messages: [{ role: "user", content: "websocket retry" }],
+          tools: {},
+        })
+        yield* off
+
+        expect(value).toBe("continue")
+        expect(states).toStrictEqual([2])
+      }),
+    {
+      config: {
+        ...cfg,
+        retry: {
+          stream_initial_delay_ms: 0,
+          stream_max_delay_ms: 0,
+          stream_jitter_percent: 0,
+        },
+      },
+    },
+  ),
+)
+
+itStreamCategoryRetry.live(
+  "session.processor effect tests use stream retries for overload and decompression errors",
+  () =>
+    provideTmpdirInstance(
+      (dir) =>
+        Effect.gen(function* () {
+          const { processors, session, provider } = yield* boot()
+          const events = yield* EventV2Bridge.Service
+          const chat = yield* session.create({})
+          const parent = yield* user(chat.id, "stream categories")
+          const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+          const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+          const states: number[] = []
+          const off = yield* events.listen((evt) => {
+            if (evt.type !== SessionStatus.Event.Status.type) return Effect.void
+            const data = evt.data as typeof SessionStatus.Event.Status.data.Type
+            if (data.sessionID === chat.id && data.status.type === "retry") states.push(data.status.attempt)
+            return Effect.void
+          })
+          const handle = yield* processors.create({ assistantMessage: msg, sessionID: chat.id, model: mdl })
+
+          const value = yield* handle.process({
+            user: {
+              id: parent.id,
+              sessionID: chat.id,
+              role: "user",
+              time: parent.time,
+              agent: parent.agent,
+              model: { providerID: ref.providerID, modelID: ref.modelID },
+            } satisfies SessionV1.User,
+            sessionID: chat.id,
+            model: mdl,
+            agent: agent(),
+            system: [],
+            messages: [{ role: "user", content: "stream categories" }],
+            tools: {},
+          })
+          yield* off
+
+          expect(value).toBe("continue")
+          expect(states).toStrictEqual([1, 2])
+        }),
+      {
+        config: {
+          ...cfg,
+          retry: {
+            stream_initial_delay_ms: 0,
+            stream_max_delay_ms: 0,
+            stream_jitter_percent: 0,
+          },
+        },
+      },
+    ),
 )
 
 it.live("session.processor effect tests compact on structured context overflow", () =>

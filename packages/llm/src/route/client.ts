@@ -218,10 +218,25 @@ export interface MakeTransportInput<Body, Prepared, Frame, Event, State> {
   readonly defaults?: RouteDefaultsInput
 }
 
-const streamError = (route: string, message: string, cause: Cause.Cause<unknown>) => {
+const streamError = (route: string, message: string, cause: Cause.Cause<unknown>, transport: "http" | "websocket") => {
   const failed = cause.reasons.find(Cause.isFailReason)?.error
-  if (failed instanceof LLMErrorClass) return failed
-  return ProviderShared.eventError(route, message, Cause.pretty(cause))
+  if (failed instanceof LLMErrorClass) {
+    return new LLMErrorClass({
+      module: failed.module,
+      method: failed.method,
+      reason: failed.reason,
+      phase: failed.phase ?? "stream",
+      transport: failed.transport ?? transport,
+    })
+  }
+  const error = ProviderShared.eventError(route, message, Cause.pretty(cause))
+  return new LLMErrorClass({
+    module: error.module,
+    method: error.method,
+    reason: error.reason,
+    phase: "stream",
+    transport,
+  })
 }
 
 function makeFromTransport<Body, Prepared, Frame, Event, State>(
@@ -292,7 +307,14 @@ function makeFromTransport<Body, Prepared, Frame, Event, State>(
             protocol.stream.onHalt ? { onHalt: protocol.stream.onHalt } : undefined,
           ),
           Stream.catchCause((cause) =>
-            Stream.fail(streamError(route, t(request.language, "llm.route.stream_read_failed", { route }), cause)),
+            Stream.fail(
+              streamError(
+                route,
+                t(request.language, "llm.route.stream_read_failed", { route }),
+                cause,
+                routeInput.transport.id.startsWith("websocket") ? "websocket" : "http",
+              ),
+            ),
           ),
         )
       },

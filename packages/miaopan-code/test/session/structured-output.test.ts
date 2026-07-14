@@ -10,6 +10,21 @@ const decodeFormat = Schema.decodeUnknownExit(SessionV1.Format)
 const decodeUser = Schema.decodeUnknownExit(SessionV1.User)
 const decodeAssistant = Schema.decodeUnknownExit(SessionV1.Assistant)
 
+async function validateStructuredInput(
+  tool: ReturnType<typeof SessionPrompt.createStructuredOutputTool>,
+  value: unknown,
+) {
+  const inputSchema = tool.inputSchema as {
+    validate: (
+      value: unknown,
+    ) =>
+      | { success: true; value: unknown }
+      | { success: false; error: Error }
+      | PromiseLike<{ success: true; value: unknown } | { success: false; error: Error }>
+  }
+  return inputSchema.validate(value)
+}
+
 describe("structured-output.OutputFormat", () => {
   test("parses text format", () => {
     const result = decodeFormat({ type: "text" })
@@ -277,6 +292,47 @@ describe("structured-output.createStructuredOutputTool", () => {
     expect(tool.inputSchema).toBeDefined()
     const inputSchema = tool.inputSchema as any
     expect(inputSchema.jsonSchema?.properties?.count?.type).toBe("number")
+  })
+
+  test("validates local schema references", async () => {
+    const tool = SessionPrompt.createStructuredOutputTool({
+      schema: {
+        $ref: "#/$defs/Result",
+        $defs: {
+          Result: {
+            type: "object",
+            properties: { answer: { type: "number" } },
+            required: ["answer"],
+          },
+        },
+      },
+      onSuccess: () => {},
+    })
+    expect((await validateStructuredInput(tool, { answer: "wrong" })).success).toBe(false)
+    expect((await validateStructuredInput(tool, { answer: 42 })).success).toBe(true)
+  })
+
+  test("compares object values independently of property order", async () => {
+    const tool = SessionPrompt.createStructuredOutputTool({
+      schema: {
+        type: "array",
+        uniqueItems: true,
+        items: {
+          allOf: [{ const: { a: 1, b: 2 } }, { enum: [{ a: 1, b: 2 }] }],
+        },
+      },
+      onSuccess: () => {},
+    })
+
+    expect((await validateStructuredInput(tool, [{ b: 2, a: 1 }])).success).toBe(true)
+    expect(
+      (
+        await validateStructuredInput(tool, [
+          { a: 1, b: 2 },
+          { b: 2, a: 1 },
+        ])
+      ).success,
+    ).toBe(false)
   })
 
   test("execute handles nested objects", async () => {

@@ -14,6 +14,7 @@ import { ConfigMCPV1 } from "./mcp"
 import { ConfigPermissionV1 } from "./permission"
 import { ConfigPluginV1 } from "./plugin"
 import { ConfigProviderV1 } from "./provider"
+import { ConfigRetry } from "../../config/retry"
 import { ConfigServerV1 } from "./server"
 import { ConfigSkillsV1 } from "./skills"
 import { zh } from "../../i18n"
@@ -177,6 +178,9 @@ export const Info = Schema.Struct({
       }),
     }),
   ),
+  retry: ConfigRetry.Info.pipe(Schema.optional).annotate({
+    description: zh("config.retry"),
+  }),
   experimental: Schema.optional(
     Schema.Struct({
       disable_paste_summary: Schema.optional(Schema.Boolean),

@@ -50,25 +50,62 @@ export const mergeProviderOptions = (
   return Object.keys(result).length === 0 ? undefined : result
 }
 
+export const HttpRetryCategory = Schema.Literals([
+  "network",
+  "timeout",
+  "response",
+  "validation",
+  "rate_limit",
+  "forbidden",
+  "server",
+])
+export type HttpRetryCategory = typeof HttpRetryCategory.Type
+
+export class HttpRetryOptions extends Schema.Class<HttpRetryOptions>("LLM.HttpRetryOptions")({
+  maxRetries: Schema.Number,
+  initialDelayMs: Schema.Number,
+  backoffFactor: Schema.Number,
+  maxDelayMs: Schema.Number,
+  jitterPercent: Schema.Number,
+  respectRetryAfter: Schema.Boolean,
+  retryOn: Schema.Array(HttpRetryCategory),
+}) {}
+
+export namespace HttpRetryOptions {
+  export type Input = HttpRetryOptions | ConstructorParameters<typeof HttpRetryOptions>[0]
+
+  export const make = (input: Input) => (input instanceof HttpRetryOptions ? input : new HttpRetryOptions(input))
+}
+
 export class HttpOptions extends Schema.Class<HttpOptions>("LLM.HttpOptions")({
   body: Schema.optional(JsonSchema),
   headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   query: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  retry: Schema.optional(HttpRetryOptions),
 }) {}
 
 export namespace HttpOptions {
-  export type Input = HttpOptions | ConstructorParameters<typeof HttpOptions>[0]
+  export type Input =
+    | HttpOptions
+    | (Omit<ConstructorParameters<typeof HttpOptions>[0], "retry"> & { readonly retry?: HttpRetryOptions.Input })
 
   /** Normalize HTTP option input into the canonical `HttpOptions` class. */
-  export const make = (input: Input) => (input instanceof HttpOptions ? input : new HttpOptions(input))
+  export const make = (input: Input) =>
+    input instanceof HttpOptions
+      ? input
+      : new HttpOptions({
+          ...input,
+          retry: input.retry === undefined ? undefined : HttpRetryOptions.make(input.retry),
+        })
 }
 
 export const mergeHttpOptions = (...items: ReadonlyArray<HttpOptions | undefined>): HttpOptions | undefined => {
   const body = mergeJsonRecords(...items.map((item) => item?.body))
   const headers = mergeStringRecords(...items.map((item) => item?.headers))
   const query = mergeStringRecords(...items.map((item) => item?.query))
-  if (!body && !headers && !query) return undefined
-  return new HttpOptions({ body, headers, query })
+  const retry = items.findLast((item) => item?.retry !== undefined)?.retry
+  if (!body && !headers && !query && !retry) return undefined
+  return new HttpOptions({ body, headers, query, retry })
 }
 
 export class GenerationOptions extends Schema.Class<GenerationOptions>("LLM.GenerationOptions")({

@@ -2,9 +2,23 @@ import { FinishReason, LLMEvent, ProviderMetadata, ToolResultValue } from "@miao
 import { Effect, Schema } from "effect"
 import { type streamText } from "ai"
 import { errorMessage } from "@/util/error"
+import { SessionRetry } from "../retry"
 
 type Result = Awaited<ReturnType<typeof streamText>>
 type AISDKEvent = Result["fullStream"] extends AsyncIterable<infer T> ? T : never
+
+export function httpRetryMiddleware(retry?: SessionRetry.RetryOptions) {
+  return {
+    specificationVersion: "v3" as const,
+    wrapStream: (input: Parameters<NonNullable<import("ai").LanguageModelMiddleware["wrapStream"]>>[0]) =>
+      SessionRetry.retryHttp({
+        run: input.doStream,
+        retry,
+        classify: SessionRetry.classifyHttpError,
+        signal: input.params.abortSignal,
+      }),
+  }
+}
 
 export function adapterState() {
   return {

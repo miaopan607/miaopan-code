@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test"
 import { Effect, Fiber, Layer, Random, Ref } from "effect"
 import * as TestClock from "effect/testing/TestClock"
-import { Headers, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
+import { Headers, HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { LLM, LLMError } from "../src"
 import { LLMClient, RequestExecutor } from "../src/route"
 import * as OpenAIChat from "../src/protocols/openai-chat"
@@ -55,6 +55,26 @@ const countedResponsesLayer = (attempts: Ref.Ref<number>, responses: ReadonlyArr
             ),
           )
         }),
+      ),
+    ),
+  )
+
+const transportFailuresLayer = (attempts: Ref.Ref<number>) =>
+  RequestExecutor.layer.pipe(
+    Layer.provide(
+      Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make((request) =>
+          Ref.update(attempts, (value) => value + 1).pipe(
+            Effect.andThen(
+              Effect.fail(
+                new HttpClientError.HttpClientError({
+                  reason: new HttpClientError.TransportError({ request, description: "connection reset" }),
+                }),
+              ),
+            ),
+          ),
+        ),
       ),
     ),
   )
@@ -385,6 +405,46 @@ describe("RequestExecutor", () => {
     }),
   )
 
+  it.effect("ignores Retry-After when disabled", () =>
+    Effect.gen(function* () {
+      const attempts = yield* Ref.make(0)
+      return yield* Effect.gen(function* () {
+        const executor = yield* RequestExecutor.Service
+        const fiber = yield* executor
+          .execute(request, undefined, {
+            maxRetries: 1,
+            initialDelayMs: 10,
+            backoffFactor: 2,
+            maxDelayMs: 10,
+            jitterPercent: 0,
+            respectRetryAfter: false,
+            retryOn: ["server"],
+          })
+          .pipe(Effect.forkChild)
+
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(attempts)).toBe(1)
+
+        yield* TestClock.adjust(9)
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(attempts)).toBe(1)
+
+        yield* TestClock.adjust(1)
+        const response = yield* Fiber.join(fiber)
+
+        expect(response.status).toBe(200)
+        expect(yield* Ref.get(attempts)).toBe(2)
+      }).pipe(
+        Effect.provide(
+          countedResponsesLayer(attempts, [
+            new Response("busy", { status: 503, headers: { "retry-after": "60" } }),
+            new Response("ok", { status: 200 }),
+          ]),
+        ),
+      )
+    }),
+  )
+
   it.effect("uses exponential jittered delay when retry-after is absent", () =>
     Effect.gen(function* () {
       const attempts = yield* Ref.make(0)
@@ -395,7 +455,7 @@ describe("RequestExecutor", () => {
         yield* Effect.yieldNow
         expect(yield* Ref.get(attempts)).toBe(1)
 
-        yield* TestClock.adjust(499)
+        yield* TestClock.adjust(199)
         yield* Effect.yieldNow
         expect(yield* Ref.get(attempts)).toBe(1)
 
@@ -403,21 +463,39 @@ describe("RequestExecutor", () => {
         yield* Effect.yieldNow
         expect(yield* Ref.get(attempts)).toBe(2)
 
-        yield* TestClock.adjust(999)
+        yield* TestClock.adjust(399)
         yield* Effect.yieldNow
         expect(yield* Ref.get(attempts)).toBe(2)
+
+        yield* TestClock.adjust(1)
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(attempts)).toBe(3)
+
+        yield* TestClock.adjust(799)
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(attempts)).toBe(3)
+
+        yield* TestClock.adjust(1)
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(attempts)).toBe(4)
+
+        yield* TestClock.adjust(1_599)
+        yield* Effect.yieldNow
+        expect(yield* Ref.get(attempts)).toBe(4)
 
         yield* TestClock.adjust(1)
         const error = yield* Fiber.join(fiber)
 
         expectLLMError(error)
         expect(error.reason).toMatchObject({ _tag: "ProviderInternal" })
-        expect(yield* Ref.get(attempts)).toBe(3)
+        expect(yield* Ref.get(attempts)).toBe(5)
       }).pipe(
         Effect.provide(
           countedResponsesLayer(attempts, [
             new Response("busy", { status: 503 }),
             new Response("still busy", { status: 503 }),
+            new Response("still retrying", { status: 503 }),
+            new Response("last retry", { status: 503 }),
             new Response("done retrying", { status: 503 }),
           ]),
         ),
@@ -453,6 +531,103 @@ describe("RequestExecutor", () => {
       expectLLMError(error)
       expect(error.reason).toMatchObject({ _tag: "InvalidProviderOutput" })
       expect(yield* Ref.get(attempts)).toBe(1)
+    }),
+  )
+
+  it.effect("uses four HTTP retries for transport failures", () =>
+    Effect.gen(function* () {
+      const attempts = yield* Ref.make(0)
+      const error = yield* Effect.gen(function* () {
+        const executor = yield* RequestExecutor.Service
+        return yield* executor
+          .execute(request, undefined, {
+            maxRetries: 4,
+            initialDelayMs: 0,
+            backoffFactor: 2,
+            maxDelayMs: 0,
+            jitterPercent: 0,
+            respectRetryAfter: false,
+            retryOn: ["network"],
+          })
+          .pipe(Effect.flip)
+      }).pipe(Effect.provide(transportFailuresLayer(attempts)))
+
+      expectLLMError(error)
+      expect(error.phase).toBe("http")
+      expect(yield* Ref.get(attempts)).toBe(5)
+    }),
+  )
+
+  it.effect("leaves ordinary rate limits to the stream retry policy", () =>
+    Effect.gen(function* () {
+      const attempts = yield* Ref.make(0)
+      const error = yield* Effect.gen(function* () {
+        const executor = yield* RequestExecutor.Service
+        return yield* executor.execute(request).pipe(Effect.flip)
+      }).pipe(Effect.provide(countedResponsesLayer(attempts, [new Response("rate limited", { status: 429 })])))
+
+      expectLLMError(error)
+      expect(error.reason._tag).toBe("RateLimit")
+      expect(yield* Ref.get(attempts)).toBe(1)
+    }),
+  )
+
+  it.effect("does not retry quota exhaustion", () =>
+    Effect.gen(function* () {
+      const attempts = yield* Ref.make(0)
+      const error = yield* Effect.gen(function* () {
+        const executor = yield* RequestExecutor.Service
+        return yield* executor.execute(request).pipe(Effect.flip)
+      }).pipe(
+        Effect.provide(
+          countedResponsesLayer(attempts, [new Response('{"error":{"code":"insufficient_quota"}}', { status: 429 })]),
+        ),
+      )
+
+      expectLLMError(error)
+      expect(error.reason._tag).toBe("QuotaExceeded")
+      expect(yield* Ref.get(attempts)).toBe(1)
+    }),
+  )
+
+  it.effect("retries generic 403 responses but not explicit permission failures", () =>
+    Effect.gen(function* () {
+      const genericAttempts = yield* Ref.make(0)
+      const generic = yield* Effect.gen(function* () {
+        const executor = yield* RequestExecutor.Service
+        return yield* executor
+          .execute(request, undefined, {
+            maxRetries: 4,
+            initialDelayMs: 0,
+            backoffFactor: 2,
+            maxDelayMs: 0,
+            jitterPercent: 0,
+            respectRetryAfter: false,
+            retryOn: ["forbidden"],
+          })
+          .pipe(Effect.flip)
+      }).pipe(Effect.provide(countedResponsesLayer(genericAttempts, [new Response("forbidden", { status: 403 })])))
+
+      expectLLMError(generic)
+      expect(generic.reason._tag).toBe("ProviderInternal")
+      expect(generic.phase).toBe("http")
+      expect(yield* Ref.get(genericAttempts)).toBe(5)
+
+      const permissionAttempts = yield* Ref.make(0)
+      const permission = yield* Effect.gen(function* () {
+        const executor = yield* RequestExecutor.Service
+        return yield* executor.execute(request).pipe(Effect.flip)
+      }).pipe(
+        Effect.provide(
+          countedResponsesLayer(permissionAttempts, [
+            new Response("permission denied by sandbox policy", { status: 403 }),
+          ]),
+        ),
+      )
+
+      expectLLMError(permission)
+      expect(permission.reason._tag).toBe("Authentication")
+      expect(yield* Ref.get(permissionAttempts)).toBe(1)
     }),
   )
 })

@@ -13,6 +13,8 @@ import {
   HttpContext,
   HttpRateLimitDetails,
   HttpRequestDetails,
+  type HttpRetryCategory,
+  type HttpRetryOptions,
   HttpResponseDetails,
   InvalidRequestReason,
   LLMError,
@@ -29,15 +31,19 @@ export interface Interface {
   readonly execute: (
     request: HttpClientRequest.HttpClientRequest,
     language?: Language,
+    retry?: HttpRetryOptions,
   ) => Effect.Effect<HttpClientResponse.HttpClientResponse, LLMError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@miaopan-code/LLM/RequestExecutor") {}
 
 const BODY_LIMIT = 16_384
-const MAX_RETRIES = 2
-const BASE_DELAY_MS = 500
-const MAX_DELAY_MS = 10_000
+const MAX_RETRIES = 4
+const BASE_DELAY_MS = 200
+const BACKOFF_FACTOR = 2
+const MAX_DELAY_MS = 1600
+const JITTER_PERCENT = 10
+const TIMER_MAX_DELAY_MS = 2_147_483_647
 const REDACTED = "<redacted>"
 
 // One source of truth for what counts as a sensitive name across headers,
@@ -240,7 +246,10 @@ const statusReason = (input: {
     return new AuthenticationReason({ message: input.message, kind: "invalid", http: input.http })
   }
   if (input.status === 403) {
-    return new AuthenticationReason({ message: input.message, kind: "insufficient-permissions", http: input.http })
+    if (/permission|sandbox|security|policy|invalid (?:argument|parameter|request)/i.test(body)) {
+      return new AuthenticationReason({ message: input.message, kind: "insufficient-permissions", http: input.http })
+    }
+    return new ProviderInternalReason({ message: input.message, status: input.status, http: input.http })
   }
   if (input.status === 429) {
     if (/insufficient[-_\s]?quota|quota[-_\s]?exceeded/i.test(body)) {
@@ -250,6 +259,14 @@ const statusReason = (input: {
       message: input.message,
       retryAfterMs: input.retryAfterMs,
       rateLimit: input.rateLimit,
+      http: input.http,
+    })
+  }
+  if (/server_is_overloaded|slow_down|overloaded/i.test(body)) {
+    return new ProviderInternalReason({
+      message: input.message,
+      status: input.status,
+      retryAfterMs: input.retryAfterMs,
       http: input.http,
     })
   }
@@ -290,6 +307,7 @@ const statusError =
       return yield* new LLMError({
         module: "RequestExecutor",
         method: "execute",
+        transport: "http",
         reason: statusReason({
           status: response.status,
           message: providerMessage(response.status, details, language),
@@ -316,6 +334,7 @@ const toHttpError = (redactedNames: ReadonlyArray<string | RegExp>, language?: L
     new LLMError({
       module: "RequestExecutor",
       method: "execute",
+      transport: "http",
       reason: new TransportReason({
         message: input.message,
         kind: input.kind,
@@ -348,24 +367,48 @@ const toHttpError = (redactedNames: ReadonlyArray<string | RegExp>, language?: L
   })
 }
 
-const retryDelay = (error: LLMError, attempt: number) => {
-  if (error.retryAfterMs !== undefined) return Effect.succeed(Math.min(error.retryAfterMs, MAX_DELAY_MS))
-  return Random.nextBetween(
-    Math.min(BASE_DELAY_MS * 2 ** attempt * 0.8, MAX_DELAY_MS),
-    Math.min(BASE_DELAY_MS * 2 ** attempt * 1.2, MAX_DELAY_MS),
-  ).pipe(Effect.map((delay) => Math.round(delay)))
+const retryConfig = (input?: HttpRetryOptions) => ({
+  maxRetries: Math.max(0, Math.trunc(input?.maxRetries ?? MAX_RETRIES)),
+  initialDelayMs: Math.max(0, input?.initialDelayMs ?? BASE_DELAY_MS),
+  backoffFactor: Math.max(1, input?.backoffFactor ?? BACKOFF_FACTOR),
+  maxDelayMs: Math.max(0, input?.maxDelayMs ?? MAX_DELAY_MS),
+  jitterPercent: Math.min(100, Math.max(0, input?.jitterPercent ?? JITTER_PERCENT)),
+  respectRetryAfter: input?.respectRetryAfter ?? true,
+  retryOn:
+    input?.retryOn ?? (["network", "timeout", "response", "validation", "rate_limit", "forbidden", "server"] as const),
+})
+
+const retryCategory = (error: LLMError): HttpRetryCategory | undefined => {
+  if (error.reason._tag === "Transport") return error.reason.kind === "Timeout" ? "timeout" : "network"
+  if (error.reason._tag !== "ProviderInternal") return undefined
+  return error.reason.status === 403 ? "forbidden" : "server"
+}
+
+const retryDelay = (error: LLMError, attempt: number, input?: HttpRetryOptions) => {
+  const config = retryConfig(input)
+  if (config.respectRetryAfter && error.retryAfterMs !== undefined) {
+    return Effect.succeed(Math.min(Math.max(0, Math.ceil(error.retryAfterMs)), TIMER_MAX_DELAY_MS))
+  }
+  const base = Math.min(config.initialDelayMs * config.backoffFactor ** Math.max(0, attempt - 1), config.maxDelayMs)
+  const spread = base * (config.jitterPercent / 100)
+  return Random.nextBetween(Math.max(0, base - spread), base + spread).pipe(
+    Effect.map((delay) => Math.min(Math.ceil(delay), TIMER_MAX_DELAY_MS)),
+  )
 }
 
 const retryStatusFailures = <A, R>(
   effect: Effect.Effect<A, LLMError, R>,
-  retries = MAX_RETRIES,
-  attempt = 0,
+  input?: HttpRetryOptions,
+  attempt = 1,
 ): Effect.Effect<A, LLMError, R> =>
   Effect.catchTag(effect, "LLM.Error", (error): Effect.Effect<A, LLMError, R> => {
-    if (!error.retryable || retries <= 0) return Effect.fail(error)
-    return retryDelay(error, attempt).pipe(
+    const config = retryConfig(input)
+    const category = retryCategory(error)
+    if (!category || !config.retryOn.includes(category)) return Effect.fail(error)
+    if (attempt > config.maxRetries) return Effect.fail(new LLMError({ ...error, phase: "http" }))
+    return retryDelay(error, attempt, input).pipe(
       Effect.flatMap((delay) => Effect.sleep(delay)),
-      Effect.flatMap(() => retryStatusFailures(effect, retries - 1, attempt + 1)),
+      Effect.flatMap(() => retryStatusFailures(effect, input, attempt + 1)),
     )
   })
 
@@ -384,7 +427,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient> = Layer.e
           )
       })
     return Service.of({
-      execute: (request, language) => retryStatusFailures(executeOnce(request, language)),
+      execute: (request, language, retry) => retryStatusFailures(executeOnce(request, language), retry),
     })
   }),
 )

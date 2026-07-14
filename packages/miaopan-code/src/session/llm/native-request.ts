@@ -1,4 +1,4 @@
-import type { JsonSchema, LLMRequest, ProviderMetadata } from "@miaopan-code/llm"
+import type { HttpRetryOptions, JsonSchema, LLMRequest, ProviderMetadata } from "@miaopan-code/llm"
 import { LLM, Message, SystemPart, ToolCallPart, ToolDefinition, ToolResultPart } from "@miaopan-code/llm"
 import { t, type Language } from "@miaopan-code/core/i18n"
 import {
@@ -33,6 +33,7 @@ export type RequestInput = {
   readonly maxOutputTokens?: number
   readonly providerOptions?: LLMRequest["providerOptions"]
   readonly headers?: Record<string, string>
+  readonly retry?: HttpRetryOptions
   readonly language?: Language
 }
 
@@ -195,6 +196,7 @@ export const request = (input: RequestInput) => {
     toolChoice: input.toolChoice,
     generation: generation(input),
     providerOptions: input.providerOptions,
+    http: input.retry ? { retry: input.retry } : undefined,
     language: input.language,
   })
 }

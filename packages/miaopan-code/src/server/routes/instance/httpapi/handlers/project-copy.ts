@@ -51,7 +51,6 @@ export const projectCopyHandlers = HttpApiBuilder.group(InstanceHttpApi, "projec
           tools: {},
           model,
           sessionID,
-          retries: 2,
           messages: [{ role: "user", content: t(language, "prompt.project_copy_name", { context: text }) }],
         })
         .pipe(
