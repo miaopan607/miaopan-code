@@ -27,6 +27,7 @@ import { ModelV2 } from "@miaopan-code/core/model"
 import { AppNodeBuilder } from "@miaopan-code/core/effect/app-node-builder"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { LayerNodePlatform } from "@miaopan-code/core/effect/app-node-platform"
+import { CodexUserAgent } from "@/provider/codex-user-agent"
 
 type ConfigModel = NonNullable<NonNullable<ConfigV1.Info["provider"]>[string]["models"]>[string]
 
@@ -1384,7 +1385,13 @@ describe("session.llm.stream", () => {
         )
 
         const capture = yield* Effect.promise(() => request)
-        expect(capture.headers.get("originator")).toBe("codex_cli_rs")
+        const userAgent = capture.headers.get("user-agent")
+        expect(capture.headers.get("originator")).toBe("codex-tui")
+        expect(userAgent).toBe(yield* Effect.promise(() => CodexUserAgent.get()))
+        expect(userAgent).not.toContain("codex_cli_rs")
+        expect(userAgent).not.toContain("miaopan-code")
+        expect(userAgent).not.toContain("ai-sdk/provider-utils")
+        expect(userAgent).not.toContain("runtime/bun")
         expect(capture.headers.get("thread-id")).toBe(sessionID)
         expect(capture.headers.get("x-client-request-id")).toBe(sessionID)
         expect(capture.body.store).toBe(false)
@@ -1846,6 +1853,8 @@ describe("session.llm.stream", () => {
         const body = capture.body
 
         expect(capture.url.pathname.endsWith("/messages")).toBe(true)
+        expect(capture.headers.get("user-agent")).toContain("miaopan-code/")
+        expect(capture.headers.get("originator")).not.toBe("codex-tui")
         expect(body.model).toBe(resolved.api.id)
         expect(body.max_tokens).toBe(ProviderTransform.maxOutputTokens(resolved))
         expect(body.temperature).toBe(0.4)

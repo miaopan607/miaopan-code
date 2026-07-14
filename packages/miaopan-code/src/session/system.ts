@@ -18,6 +18,7 @@ import { Config } from "@/config/config"
 import { t } from "@miaopan-code/core/i18n"
 import { PromptI18n, type PromptKey } from "@/i18n/prompt"
 import { isGpt56Plus } from "@/provider/model-id"
+import { Collaboration } from "./collaboration"
 
 export function provider(model: Provider.Model, language: Language = "zh-CN") {
   const text = (key: PromptKey) => [PromptI18n.text(language, key)]
@@ -44,8 +45,8 @@ export function ultra(language: Language = "zh-CN") {
 
 export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
-  readonly collaboration: (agent: Agent.Info, collaborationMode?: "plan" | "ask") => Effect.Effect<string | undefined>
-  readonly skills: (agent: Agent.Info) => Effect.Effect<string | undefined>
+  readonly collaboration: (mode: Collaboration.Mode | Agent.Info | undefined) => Effect.Effect<string | undefined>
+  readonly skills: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
   readonly mcp: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
 }
 
@@ -61,18 +62,17 @@ const layer = Layer.effect(
 
     return Service.of({
       collaboration: Effect.fn("SystemPrompt.collaboration")(function* (
-        agent: Agent.Info,
-        collaborationMode?: "plan" | "ask",
+        value: Collaboration.Mode | Agent.Info | undefined,
       ) {
         const language = (yield* config.get()).language
-        const mode = collaborationMode ?? (agent.name === "plan" || agent.name === "ask" ? agent.name : undefined)
+        const mode = typeof value === "string" ? value : value?.name
         if (mode === "plan") {
           return `<collaboration_mode>\n${PromptI18n.text(language, "session.plan_mode")}\n</collaboration_mode>`
         }
         if (mode === "ask") {
           return `<collaboration_mode>\n${PromptI18n.text(language, "session.ask_mode")}\n</collaboration_mode>`
         }
-        if (agent.name === "build") {
+        if (mode === "build") {
           return `<collaboration_mode>\n${PromptI18n.text(language, "session.build_switch")}\n</collaboration_mode>`
         }
       }),
@@ -117,8 +117,9 @@ const layer = Layer.effect(
         ].filter((part): part is string => part !== undefined)
       }),
 
-      skills: Effect.fn("SystemPrompt.skills")(function* (agent: Agent.Info) {
-        if (Permission.disabled(["skill"], agent.permission).has("skill")) return
+      skills: Effect.fn("SystemPrompt.skills")(function* (agent: Agent.Info, permission?: PermissionV1.Ruleset) {
+        const ruleset = permission ?? agent.permission
+        if (Permission.disabled(["skill"], ruleset).has("skill")) return
 
         const list = yield* skill.available(agent)
 
@@ -132,7 +133,7 @@ const layer = Layer.effect(
       }),
 
       mcp: Effect.fn("SystemPrompt.mcp")(function* (agent: Agent.Info, permission?: PermissionV1.Ruleset) {
-        const ruleset = Permission.merge(agent.permission, permission ?? [])
+        const ruleset = permission ?? agent.permission
         const instructions = (yield* mcp.instructions()).filter(
           (item) => item.tools.length === 0 || Permission.disabled(item.tools, ruleset).size < item.tools.length,
         )

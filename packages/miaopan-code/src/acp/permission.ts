@@ -125,6 +125,7 @@ async function permissionToolCall(input: {
       input: input.input,
       title: permissionTitle(input.toolName, input.input, input.language),
     },
+    language: input.language,
   })
   const content = await permissionContent(input.toolName, input.input)
   return {

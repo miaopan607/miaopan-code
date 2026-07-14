@@ -122,16 +122,16 @@ describe("session.system", () => {
     expect(SystemPrompt.ultra("en")).toContain("Proactive multi-agent delegation is active")
   })
 
-  it.instance("uses the ask prompt for ask agents and delegated ask sessions", () =>
+  it.instance("uses the ask prompt only for ask agents", () =>
     Effect.gen(function* () {
       const prompt = yield* SystemPrompt.Service
       const direct = yield* prompt.collaboration(ask)
-      const delegated = yield* prompt.collaboration({ ...build, name: "general" }, "ask")
+      const delegated = yield* prompt.collaboration({ ...build, name: "general" })
 
       expect(direct).toContain("协作模式：Ask")
       expect(direct).toContain("不要实施修改")
       expect(direct).not.toContain("<proposed_plan>")
-      expect(delegated).toBe(direct)
+      expect(delegated).toBeUndefined()
     }),
   )
 

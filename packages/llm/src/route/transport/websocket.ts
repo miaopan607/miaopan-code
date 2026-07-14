@@ -36,6 +36,8 @@ const transportError = (
   new LLMError({
     module: "WebSocketExecutor",
     method,
+    phase: "stream",
+    transport: "websocket",
     reason: new TransportReason({ message, url: input.url, kind: input.kind }),
   })
 

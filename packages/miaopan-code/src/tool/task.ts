@@ -18,6 +18,8 @@ import { Database } from "@miaopan-code/core/database/database"
 import { t, type Language } from "@miaopan-code/core/i18n"
 import { Permission } from "../permission"
 import { Review } from "@/review"
+import { Collaboration } from "../session/collaboration"
+import { isDeepStrictEqual } from "node:util"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -31,6 +33,18 @@ const id = "task"
 function hasPermission(ruleset: PermissionV1.Ruleset, rule: PermissionV1.Rule) {
   return ruleset.some(
     (item) => item.permission === rule.permission && item.pattern === rule.pattern && item.action === rule.action,
+  )
+}
+
+function uniquePermission(ruleset: PermissionV1.Ruleset) {
+  return ruleset.filter(
+    (rule, index) =>
+      ruleset.findIndex(
+        (candidate) =>
+          candidate.permission === rule.permission &&
+          candidate.pattern === rule.pattern &&
+          candidate.action === rule.action,
+      ) === index,
   )
 }
 
@@ -125,16 +139,14 @@ export const TaskTool = Tool.define(
         ? yield* sessions.get(SessionID.make(params.task_id)).pipe(Effect.catchCause(() => Effect.succeed(undefined)))
         : undefined
       const parent = yield* sessions.get(ctx.sessionID)
-      const collaborationMode =
-        parent.agent === "plan" || parent.agent === "ask"
-          ? parent.agent
-          : parent.metadata?.collaboration_mode === "plan" || parent.metadata?.collaboration_mode === "ask"
-            ? parent.metadata.collaboration_mode
-            : undefined
+      const parentAgent = parent.agent ? yield* agent.get(parent.agent) : undefined
+      const parentMode = Collaboration.resolveMode(
+        parentAgent ?? { name: parent.agent ?? ctx.agent, mode: "all" },
+        parent,
+      )
       const childPermission = deriveSubagentSessionPermission({
         parentSessionPermission: parent.permission ?? [],
         subagent: next,
-        collaborationMode,
       })
       const primaryToolDenies =
         cfg.experimental?.primary_tools?.map((permission) => ({
@@ -146,31 +158,41 @@ export const TaskTool = Tool.define(
         ...childPermission,
         ...primaryToolDenies.filter((deny) => !hasPermission(childPermission, deny)),
       ]
-      if (session && collaborationMode) {
-        const permission = session.permission ?? []
-        const additions = childSessionPermission.filter((rule) => !hasPermission(permission, rule))
-        if (additions.length > 0) {
-          yield* sessions.setPermission({
-            sessionID: session.id,
-            permission: Permission.merge(permission, additions),
-          })
-        }
-        if (session.metadata?.collaboration_mode !== collaborationMode) {
-          yield* sessions.setMetadata({
-            sessionID: session.id,
-            metadata: { ...session.metadata, collaboration_mode: collaborationMode },
-          })
-        }
-      }
+      const existingPermission = session?.permission ?? []
+      const metadataMode = session?.metadata?.[Collaboration.MODE_METADATA_KEY]
+      const legacyMode = Collaboration.mode(metadataMode) ? metadataMode : undefined
+      const migratedPermission =
+        session && !Collaboration.hasPermissionVersion(session.metadata)
+          ? Collaboration.removeLegacyModePermission(
+              existingPermission,
+              legacyMode,
+              (parent.permission ?? []).filter(
+                (rule) => rule.permission === "external_directory" || rule.action === "deny",
+              ).length,
+            )
+          : existingPermission
+      const persistentPermission = uniquePermission(Permission.merge(migratedPermission, childSessionPermission))
+      const sessionMetadata = Collaboration.markPermissionVersion(session?.metadata, parentMode)
       const nextSession =
         session ??
         (yield* sessions.create({
           parentID: ctx.sessionID,
           title: params.description + ToolI18n.text(ctx, "tool.task.subagent_suffix", { name: next.name }),
           agent: next.name,
-          metadata: collaborationMode ? { collaboration_mode: collaborationMode } : undefined,
-          permission: childSessionPermission,
+          metadata: sessionMetadata,
+          permission: persistentPermission,
         }))
+      if (
+        session &&
+        (!isDeepStrictEqual(existingPermission, persistentPermission) ||
+          !isDeepStrictEqual(session.metadata, sessionMetadata))
+      ) {
+        yield* sessions.setPermissionMetadata({
+          sessionID: session.id,
+          permission: persistentPermission,
+          metadata: sessionMetadata,
+        })
+      }
 
       const msg = yield* MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID }).pipe(
         Effect.provideService(Database.Service, database),

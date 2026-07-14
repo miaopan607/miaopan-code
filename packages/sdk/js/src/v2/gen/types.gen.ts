@@ -2049,6 +2049,7 @@ export type Config = {
     preserve_brief_history?: boolean
     reserved?: number
   }
+  retry?: ConfigRetry
   experimental?: {
     disable_paste_summary?: boolean
     batch_tool?: boolean
@@ -3866,6 +3867,66 @@ export type ConfigV2ReferenceLocal = {
   path: string
   description?: string
   hidden?: boolean
+}
+
+export type ConfigRetryCategory =
+  | "network"
+  | "timeout"
+  | "response"
+  | "validation"
+  | "rate_limit"
+  | "forbidden"
+  | "server"
+
+export type ConfigRetry = {
+  /**
+   * 流阶段在首次请求之外最多自动重试的次数（默认：5）
+   */
+  stream_max_retries?: number
+  /**
+   * 流阶段第一次重试的本地退避间隔（毫秒，默认：200）
+   */
+  stream_initial_delay_ms?: number
+  /**
+   * 流阶段每次重试的退避倍数（最小值：1，默认：2）
+   */
+  stream_backoff_factor?: number
+  /**
+   * 流阶段本地指数退避的最大间隔（毫秒，默认：3200）
+   */
+  stream_max_delay_ms?: number
+  /**
+   * 流阶段退避的均匀抖动百分比（0 至 100，默认：10）
+   */
+  stream_jitter_percent?: number
+  /**
+   * HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）
+   */
+  http_max_retries?: number
+  /**
+   * HTTP 阶段第一次重试的本地退避间隔（毫秒，默认：200）
+   */
+  http_initial_delay_ms?: number
+  /**
+   * HTTP 阶段每次重试的退避倍数（最小值：1，默认：2）
+   */
+  http_backoff_factor?: number
+  /**
+   * HTTP 阶段本地指数退避的最大间隔（毫秒，默认：1600）
+   */
+  http_max_delay_ms?: number
+  /**
+   * HTTP 阶段退避的均匀抖动百分比（0 至 100，默认：10）
+   */
+  http_jitter_percent?: number
+  /**
+   * 是否优先使用 Provider 返回的 Retry-After 间隔（默认：true）
+   */
+  respect_retry_after?: boolean
+  /**
+   * 启用自动重试的稳定错误类别；未配置时启用全部默认类别
+   */
+  retry_on?: Array<ConfigRetryCategory>
 }
 
 export type PolicyEffect = "allow" | "deny"
@@ -10255,7 +10316,13 @@ export type SessionPromptAsyncResponses = {
 export type SessionPromptAsyncResponse = SessionPromptAsyncResponses[keyof SessionPromptAsyncResponses]
 
 export type SessionContinueData = {
-  body?: never
+  body?: {
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    variant?: string
+  }
   path: {
     sessionID: string
   }

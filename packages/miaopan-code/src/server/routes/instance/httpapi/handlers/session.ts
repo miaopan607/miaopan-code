@@ -26,6 +26,7 @@ import { HttpApiBuilder, HttpApiError, HttpApiSchema } from "effect/unstable/htt
 import { InstanceHttpApi } from "../api"
 import {
   CommandPayload,
+  ContinuePayload,
   DiffQuery,
   ForkPayload,
   InitPayload,
@@ -137,6 +138,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
         })
       }
       yield* requireSession(ctx.params.sessionID)
+      yield* runState.recoverInterruptedTools(ctx.params.sessionID)
       if (ctx.query.limit === undefined || ctx.query.limit === 0) {
         return yield* SessionError.mapStorageNotFound(session.messages({ sessionID: ctx.params.sessionID }))
       }
@@ -344,7 +346,10 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       return HttpApiSchema.NoContent.make()
     })
 
-    const continueSession = Effect.fn("SessionHttpApi.continue")(function* (ctx: { params: { sessionID: SessionID } }) {
+    const continueSession = Effect.fn("SessionHttpApi.continue")(function* (ctx: {
+      params: { sessionID: SessionID }
+      payload: typeof ContinuePayload.Type | void
+    }) {
       yield* requireSession(ctx.params.sessionID)
       if (
         !(yield* SessionError.mapStorageNotFound(session.messages({ sessionID: ctx.params.sessionID }))).some(
@@ -353,7 +358,10 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       ) {
         return yield* new HttpApiError.BadRequest({})
       }
-      yield* startAsyncPrompt(ctx.params.sessionID, promptSvc.continue({ sessionID: ctx.params.sessionID }))
+      yield* startAsyncPrompt(
+        ctx.params.sessionID,
+        promptSvc.continue({ sessionID: ctx.params.sessionID, ...(ctx.payload ?? {}) }),
+      )
       return HttpApiSchema.NoContent.make()
     })
 

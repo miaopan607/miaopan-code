@@ -4,9 +4,12 @@ import {
   completedToolContent,
   completedToolUpdate,
   completedToolRawOutput,
+  duplicateRunningToolUpdate,
+  errorToolUpdate,
   extractImageAttachments,
   imageContents,
   pendingToolCall,
+  runningToolUpdate,
   shellOutputSnapshot,
   toLocations,
   toToolKind,
@@ -16,6 +19,7 @@ describe("acp tool conversion", () => {
   test("maps MiaopanCode tool ids to ACP tool kinds", () => {
     expect(toToolKind("bash")).toBe("execute")
     expect(toToolKind("shell")).toBe("execute")
+    expect(toToolKind("execute")).toBe("execute")
     expect(toToolKind("webfetch")).toBe("fetch")
     expect(toToolKind("edit")).toBe("edit")
     expect(toToolKind("apply_patch")).toBe("edit")
@@ -23,11 +27,72 @@ describe("acp tool conversion", () => {
     expect(toToolKind("write")).toBe("edit")
     expect(toToolKind("grep")).toBe("search")
     expect(toToolKind("glob")).toBe("search")
+    expect(toToolKind("websearch")).toBe("search")
+    expect(toToolKind("lsp")).toBe("search")
     expect(toToolKind("context7_resolve_library_id")).toBe("search")
     expect(toToolKind("context7_get_library_docs")).toBe("search")
     expect(toToolKind("read")).toBe("read")
     expect(toToolKind("task")).toBe("think")
     expect(toToolKind("custom_tool")).toBe("other")
+  })
+
+  test("localizes builtin tool titles while preserving custom titles and tool ids", () => {
+    expect(
+      pendingToolCall({
+        toolCallId: "pending",
+        toolName: "get_goal",
+        state: { input: {}, title: "get_goal" },
+        language: "zh-CN",
+      }).title,
+    ).toBe("查看目标")
+    expect(
+      runningToolUpdate({
+        toolCallId: "running",
+        toolName: "read",
+        state: { status: "running", input: {}, title: "read" },
+        language: "en",
+      }).title,
+    ).toBe("Read")
+    expect(
+      duplicateRunningToolUpdate({
+        toolCallId: "duplicate",
+        toolName: "read",
+        state: { status: "running", input: {}, title: "Read file.ts" },
+        language: "zh-CN",
+      }).title,
+    ).toBe("Read file.ts")
+    expect(
+      errorToolUpdate({
+        toolCallId: "error",
+        toolName: "read",
+        state: { status: "error", input: {}, error: "failed" },
+        language: "en",
+      }).title,
+    ).toBe("Read")
+    expect(
+      pendingToolCall({
+        toolCallId: "unknown",
+        toolName: "custom_tool",
+        state: { input: {}, title: "custom_tool" },
+        language: "zh-CN",
+      }).title,
+    ).toBe("custom_tool")
+    expect(
+      pendingToolCall({
+        toolCallId: "shell",
+        toolName: "bash",
+        state: { input: { command: "printf hello" }, title: "bash" },
+        language: "zh-CN",
+      }).title,
+    ).toBe("printf hello")
+    expect(
+      completedToolUpdate({
+        toolCallId: "completed",
+        toolName: "read",
+        state: { status: "completed", input: {}, title: "read", output: "done" },
+        language: "zh-CN",
+      }).title,
+    ).toBe("读取")
   })
 
   test("extracts file locations from tool input", () => {

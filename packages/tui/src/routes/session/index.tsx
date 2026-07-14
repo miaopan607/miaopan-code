@@ -40,7 +40,7 @@ import type {
 } from "@miaopan/sdk/v2"
 import { useLocal } from "../../context/local"
 import { Locale } from "../../util/locale"
-import { t } from "@miaopan-code/core/i18n"
+import { builtinToolDisplayName, t } from "@miaopan-code/core/i18n"
 import { webSearchProviderLabel } from "../../util/tool-display"
 import { useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "../../context/sdk"
@@ -118,11 +118,11 @@ export function implementPlanInCurrentContext(input: {
 }) {
   if (!input.plan) return
   input.finish(input.plan.messageID)
-  input.build()
 
   const submit = () => {
     const prompt = input.prompt()
     if (!prompt) return
+    input.build()
     prompt.set({ input: input.message, parts: [] })
     prompt.submit()
   }
@@ -131,6 +131,22 @@ export function implementPlanInCurrentContext(input: {
     return
   }
   setTimeout(submit, 0)
+}
+
+export async function implementPlanInFreshContext(input: {
+  plan: { messageID: string } | undefined
+  create: () => Promise<{ id: string }>
+  promptAsync: (sessionID: string) => Promise<unknown>
+  finish: (messageID: string) => void
+  build: () => void
+  navigate: (sessionID: string) => void
+}) {
+  if (!input.plan) return
+  const created = await input.create()
+  await input.promptAsync(created.id)
+  input.finish(input.plan.messageID)
+  input.build()
+  input.navigate(created.id)
 }
 
 type RetryAction = Extract<SessionStatus, { type: "retry" }>["action"]
@@ -318,7 +334,9 @@ export function Session() {
     return false
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
-  const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
+  const contentWidth = createMemo(
+    () => dimensions().width - (sidebarVisible() ? 42 : 0) - 4 - (showScrollbar() ? 1 : 0),
+  )
   const providers = createMemo(() => Model.index(sync.data.provider))
 
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
@@ -528,34 +546,41 @@ export function Session() {
     const model = local.model.current()
     const current = session()
     if (!plan || !model || !current) return
-    const created = await sdk.client.session.create(
-      {
-        directory: current.directory,
-        workspace: current.workspaceID,
-        agent: "build",
-        model: {
-          providerID: model.providerID,
-          id: model.modelID,
-          variant: local.model.variant.current(),
-        },
+    await implementPlanInFreshContext({
+      plan,
+      create: async () => {
+        const created = await sdk.client.session.create(
+          {
+            directory: current.directory,
+            workspace: current.workspaceID,
+            agent: "build",
+            model: {
+              providerID: model.providerID,
+              id: model.modelID,
+              variant: local.model.variant.current(),
+            },
+          },
+          { throwOnError: true },
+        )
+        return created.data
       },
-      { throwOnError: true },
-    )
-    await sdk.client.session.prompt(
-      {
-        sessionID: created.data.id,
-        ...model,
-        agent: "build",
-        model,
-        variant: local.model.variant.current(),
-        ...(kv.get("oai", false) ? { oai: true } : {}),
-        parts: [{ type: "text", text: i18n.t("plan.fresh_message", { plan: plan.text }) }],
-      },
-      { throwOnError: true },
-    )
-    finishPlanPrompt(plan.messageID)
-    local.agent.set("build")
-    navigate({ type: "session", sessionID: created.data.id })
+      promptAsync: (sessionID) =>
+        sdk.client.session.promptAsync(
+          {
+            sessionID,
+            ...model,
+            agent: "build",
+            model,
+            variant: local.model.variant.current(),
+            ...(kv.get("oai", false) ? { oai: true } : {}),
+            parts: [{ type: "text", text: i18n.t("plan.fresh_message", { plan: plan.text }) }],
+          },
+          { throwOnError: true },
+        ),
+      finish: finishPlanPrompt,
+      build: () => local.agent.set("build"),
+      navigate: (sessionID) => navigate({ type: "session", sessionID }),
+    })
   }
 
   function answerPlanQuestion(answers: string[][]) {
@@ -675,7 +700,11 @@ export function Session() {
         }
         if (!canContinue()) return
         await sdk.client.session
-          .continue({ sessionID: route.sessionID })
+          .continue({
+            sessionID: route.sessionID,
+            model: local.model.current(),
+            variant: local.model.variant.current(),
+          })
           .catch((error) =>
             toast.show({ message: error instanceof Error ? error.message : String(error), variant: "error" }),
           )
@@ -1385,7 +1414,14 @@ export function Session() {
       >
         <box flexDirection="row" flexGrow={1} minHeight={0}>
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
-            <Show when={session()}>
+            <Show
+              when={session()}
+              fallback={
+                <box flexGrow={1} alignItems="center" justifyContent="center">
+                  <Spinner color={theme.textMuted}>{i18n.t("tui.loading")}</Spinner>
+                </box>
+              }
+            >
               <scrollbox
                 ref={(r) => (scroll = r)}
                 viewportOptions={{
@@ -1852,19 +1888,7 @@ function AssistantMessage(props: {
         </box>
       </Show>
       <Show when={props.message.error && props.message.error.name !== "MessageAbortedError"}>
-        <box
-          ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
-          border={["left"]}
-          paddingTop={1}
-          paddingBottom={1}
-          paddingLeft={2}
-          marginTop={1}
-          backgroundColor={theme.backgroundPanel}
-          customBorderChars={SplitBorder.customBorderChars}
-          borderColor={theme.error}
-        >
-          <text fg={theme.textMuted}>{errorMessage(props.message.error)}</text>
-        </box>
+        <AssistantError error={errorMessage(props.message.error)} width={ctx.width} />
       </Show>
       <Switch>
         <Match when={props.last || final() || props.message.error?.name === "MessageAbortedError"}>
@@ -1923,6 +1947,40 @@ function AssistantMessage(props: {
   )
 }
 
+export function AssistantError(props: { error: string; width: number }) {
+  const { theme } = useTheme()
+  const renderer = useRenderer()
+  const [expanded, setExpanded] = createSignal(false)
+  const collapsed = createMemo(() => collapseToolOutput(props.error, 3, 3 * Math.max(20, props.width - 6)))
+  const toggle = () => {
+    if (!collapsed().overflow) return
+    if (renderer.getSelection()?.getSelectedText()) return
+    setExpanded((previous) => !previous)
+  }
+
+  return (
+    <box
+      ref={(el: BoxRenderable) => alwaysSeparate.add(el)}
+      border={["left"]}
+      paddingTop={1}
+      paddingBottom={1}
+      paddingLeft={2}
+      marginTop={1}
+      backgroundColor={theme.backgroundPanel}
+      customBorderChars={SplitBorder.customBorderChars}
+      borderColor={theme.error}
+      onMouseUp={toggle}
+    >
+      <text fg={theme.textMuted}>{expanded() ? props.error : collapsed().output}</text>
+      <Show when={collapsed().overflow}>
+        <text fg={theme.textMuted}>
+          {expanded() ? t(Locale.language(), "tui.click_collapse") : t(Locale.language(), "tui.click_expand")}
+        </text>
+      </Show>
+    </box>
+  )
+}
+
 type CompactExplorePart = { type: "compact-explore"; parts: ToolPart[] }
 type DisplayPart = Part | CompactExplorePart
 
@@ -1952,7 +2010,7 @@ export function assistantDisplayParts(
     }
     if (toolDetailsHidden(input.showDetails, part.tool, part.state)) return result
     const previous = result.at(-1)
-    if (previous?.type === "compact-explore") {
+    if (previous?.type === "compact-explore" && previous.parts.at(-1)?.tool === part.tool) {
       previous.parts.push(part)
       return result
     }
@@ -2267,7 +2325,7 @@ function CompactExplore(props: { part: CompactExplorePart }) {
 
   return (
     <InlineToolRow
-      icon="•"
+      icon={errors().length ? "×" : "•"}
       iconColor={status()}
       color={theme.textMuted}
       complete={true}
@@ -2285,7 +2343,7 @@ function CompactExplore(props: { part: CompactExplorePart }) {
               {(row) => (
                 <box flexDirection="row">
                   <text width={INLINE_TOOL_ICON_WIDTH} fg={status()}>
-                    •
+                    {errors().length ? "×" : "•"}
                   </text>
                   <text flexGrow={1} fg={theme.textMuted}>
                     {compactExploreLabel(row.key)} {row.labels}
@@ -2374,10 +2432,16 @@ type ToolProps = {
   output?: string
   part: ToolPart
 }
+
+function toolTitle(tool: string) {
+  return builtinToolDisplayName(Locale.language(), tool) ?? tool
+}
+
 function GenericTool(props: ToolProps) {
   const { theme } = useTheme()
   const ctx = use()
   const output = createMemo(() => props.output?.trim() ?? "")
+  const label = createMemo(() => [toolTitle(props.tool), input(props.input)].filter(Boolean).join(" "))
   const [expanded, setExpanded] = createSignal(false)
   const maxLines = 3
   const maxChars = createMemo(() => maxLines * Math.max(20, ctx.width - 6))
@@ -2402,14 +2466,14 @@ function GenericTool(props: ToolProps) {
           pending={t(Locale.language(), "tui.writing_command")}
           complete={props.part.state.status === "completed"}
           part={props.part}
-          compactText={[props.tool, input(props.input)].filter(Boolean).join(" ")}
+          compactText={label()}
         >
-          {props.tool} {input(props.input)}
+          {label()}
         </InlineTool>
       }
     >
       <BlockTool
-        title={`# ${props.tool} ${input(props.input)}`}
+        title={`# ${label()}`}
         part={props.part}
         onClick={collapsed().overflow ? () => setExpanded((prev) => !prev) : undefined}
       >
@@ -2566,7 +2630,11 @@ export function InlineToolRow(props: {
     >
       <Switch>
         <Match when={props.spinner}>
-          <Spinner color={props.color} children={compact() && !props.expanded ? compact()!.text : props.children} />
+          <Spinner
+            color={props.color}
+            wrapMode={compact() && !props.expanded ? "none" : undefined}
+            children={compact() && !props.expanded ? compact()!.text : props.children}
+          />
         </Match>
         <Match when={true}>
           <Show
@@ -2587,11 +2655,12 @@ export function InlineToolRow(props: {
                 fg={props.failed ? props.errorColor : (props.iconColor ?? props.color)}
                 attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
               >
-                {props.icon}
+                {props.failed && props.icon === "•" ? "×" : props.icon}
               </text>
               <text
                 flexGrow={1}
                 fg={props.failed ? props.errorColor : props.color}
+                wrapMode={compact() && !props.expanded ? "none" : undefined}
                 attributes={props.denied ? TextAttributes.STRIKETHROUGH : undefined}
               >
                 {props.failed && !props.complete
@@ -2727,7 +2796,7 @@ function Shell(props: ToolProps) {
     <Switch>
       <Match when={ctx.tui.tool_display === "compact"}>
         <InlineTool
-          icon="•"
+          icon={props.part.state.status === "error" || succeeded() === false ? "×" : "•"}
           iconColor={statusColor()}
           pending={t(Locale.language(), "tui.writing_command")}
           complete={complete()}
@@ -2760,7 +2829,7 @@ function Shell(props: ToolProps) {
               <Match when={complete()}>
                 <box flexDirection="row" gap={1}>
                   <text fg={statusColor()} attributes={TextAttributes.BOLD}>
-                    •
+                    {props.part.state.status === "error" || succeeded() === false ? "×" : "•"}
                   </text>
                   <text fg={theme.text}>{commandLabel()}</text>
                 </box>
@@ -2782,7 +2851,7 @@ function Shell(props: ToolProps) {
       </Match>
       <Match when={true}>
         <InlineTool
-          icon="•"
+          icon={props.part.state.status === "error" || succeeded() === false ? "×" : "•"}
           iconColor={statusColor()}
           pending={t(Locale.language(), "tui.writing_command")}
           complete={complete()}
@@ -3041,7 +3110,7 @@ function Task(props: ToolProps) {
       if (current()) {
         const state = current()!.state
         const title = state.status === "running" || state.status === "completed" ? state.title : undefined
-        content.push(`↳ ${Locale.titlecase(current()!.tool)} ${title}`)
+        content.push(`↳ ${toolTitle(current()!.tool)} ${title}`)
       } else content.push(`↳ ${formatSubagentToolcalls(tools().length)}`)
     }
 
@@ -3115,11 +3184,11 @@ function Execute(props: ToolProps) {
   const outputPreview = createMemo(() => collapseToolOutput(output(), 4, 4 * Math.max(20, ctx.width - 6)).output)
   const showOutput = createMemo(() => output() && hasRuntimeError())
   const content = createMemo(() => {
-    const lines = ["execute"]
+    const lines = [toolTitle("execute")]
     for (const call of calls()) {
       const args = input(call.input ?? {})
       lines.push(
-        `↳ ${call.tool}${args ? ` ${args}` : ""}${call.status === "error" ? t(Locale.language(), "tui.execute_failed") : ""}`,
+        `↳ ${toolTitle(call.tool)}${args ? ` ${args}` : ""}${call.status === "error" ? t(Locale.language(), "tui.execute_failed") : ""}`,
       )
     }
     return lines.join("\n")
@@ -3131,7 +3200,7 @@ function Execute(props: ToolProps) {
         icon={hasRuntimeError() ? "✗" : props.part.state.status === "completed" ? "✓" : "│"}
         color={hasRuntimeError() ? theme.error : undefined}
         spinner={isLoading()}
-        pending="execute"
+        pending={toolTitle("execute")}
         complete={true}
         part={props.part}
         compactText={content()}

@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test"
 import { LayerNode } from "@miaopan-code/core/effect/layer-node"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
 import type { NamedError } from "@miaopan-code/core/util/error"
-import { APICallError } from "ai"
+import { APICallError, JSONParseError, NoObjectGeneratedError, TypeValidationError } from "ai"
 import { setTimeout as sleep } from "node:timers/promises"
-import { Effect, Schedule, Schema } from "effect"
+import { Cause, Effect, Exit, Schedule, Schema } from "effect"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { SessionRetry } from "../../src/session/retry"
 import { MessageV2 } from "../../src/session/message-v2"
@@ -28,62 +28,70 @@ function apiError(headers?: Record<string, string>): SessionV1.APIError {
   )
 }
 
+function statusError(statusCode: number, isRetryable = false, responseBody?: string): SessionV1.APIError {
+  return Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+    new SessionV1.APIError({ message: `HTTP ${statusCode}`, statusCode, isRetryable, responseBody }).toObject(),
+  )
+}
+
 function wrap(message: unknown): ReturnType<NamedError["toObject"]> {
   return { name: "", data: { message } }
 }
 
 describe("session.retry.delay", () => {
-  test("caps delay at 30 seconds when headers missing", () => {
-    const error = apiError()
-    const delays = Array.from({ length: 10 }, (_, index) => SessionRetry.delay(index + 1, error))
-    expect(delays).toStrictEqual([2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 30000])
+  test("uses independent stream and HTTP defaults", () => {
+    expect(
+      Array.from({ length: 6 }, (_, index) => SessionRetry.delay("stream", index + 1, undefined, undefined, 0.5)),
+    ).toEqual([200, 400, 800, 1600, 3200, 3200])
+    expect(
+      Array.from({ length: 6 }, (_, index) => SessionRetry.delay("http", index + 1, undefined, undefined, 0.5)),
+    ).toEqual([200, 400, 800, 1600, 1600, 1600])
   })
 
-  test("prefers retry-after-ms when shorter than exponential", () => {
-    const error = apiError({ "retry-after-ms": "1500" })
-    expect(SessionRetry.delay(4, error)).toBe(1500)
+  test("retry-after-ms overrides local backoff", () => {
+    expect(SessionRetry.delay("stream", 4, undefined, { "retry-after-ms": "1500" }, 0)).toBe(1500)
   })
 
-  test("uses retry-after seconds when reasonable", () => {
-    const error = apiError({ "retry-after": "30" })
-    expect(SessionRetry.delay(3, error)).toBe(30000)
+  test("uses retry-after seconds", () => {
+    expect(SessionRetry.delay("stream", 3, undefined, { "retry-after": "30" }, 0)).toBe(30000)
   })
 
   test("accepts http-date retry-after values", () => {
     const date = new Date(Date.now() + 20000).toUTCString()
-    const error = apiError({ "retry-after": date })
-    const d = SessionRetry.delay(1, error)
+    const d = SessionRetry.delay("stream", 1, undefined, { "retry-after": date }, 0.5)
     expect(d).toBeGreaterThanOrEqual(19000)
     expect(d).toBeLessThanOrEqual(20000)
   })
 
   test("ignores invalid retry hints", () => {
-    const error = apiError({ "retry-after": "not-a-number" })
-    expect(SessionRetry.delay(1, error)).toBe(2000)
+    expect(SessionRetry.delay("stream", 1, undefined, { "retry-after": "not-a-number" }, 0.5)).toBe(200)
   })
 
   test("ignores malformed date retry hints", () => {
-    const error = apiError({ "retry-after": "Invalid Date String" })
-    expect(SessionRetry.delay(1, error)).toBe(2000)
+    expect(SessionRetry.delay("stream", 1, undefined, { "retry-after": "Invalid Date String" }, 0.5)).toBe(200)
   })
 
   test("ignores past date retry hints", () => {
     const pastDate = new Date(Date.now() - 5000).toUTCString()
-    const error = apiError({ "retry-after": pastDate })
-    expect(SessionRetry.delay(1, error)).toBe(2000)
+    expect(SessionRetry.delay("stream", 1, undefined, { "retry-after": pastDate }, 0.5)).toBe(200)
   })
 
-  test("uses retry-after values even when exceeding 10 minutes with headers", () => {
-    const error = apiError({ "retry-after": "50" })
-    expect(SessionRetry.delay(1, error)).toBe(50000)
-
-    const longError = apiError({ "retry-after-ms": "700000" })
-    expect(SessionRetry.delay(1, longError)).toBe(700000)
+  test("uses retry-after values above the local maximum", () => {
+    expect(SessionRetry.delay("http", 1, undefined, { "retry-after": "50" }, 0.5)).toBe(50000)
+    expect(SessionRetry.delay("http", 1, undefined, { "retry-after-ms": "700000" }, 0.5)).toBe(700000)
   })
 
   test("caps oversized header delays to the runtime timer limit", () => {
-    const error = apiError({ "retry-after-ms": "999999999999" })
-    expect(SessionRetry.delay(1, error)).toBe(SessionRetry.RETRY_MAX_DELAY)
+    expect(SessionRetry.delay("http", 1, undefined, { "retry-after-ms": "999999999999" }, 0.5)).toBe(
+      SessionRetry.RETRY_MAX_DELAY,
+    )
+  })
+
+  test("applies uniform configurable jitter", () => {
+    const retry = { stream_initial_delay_ms: 100, stream_jitter_percent: 10 }
+    expect(SessionRetry.delay("stream", 1, retry, undefined, 0)).toBe(90)
+    expect(SessionRetry.delay("stream", 1, retry, undefined, 0.5)).toBe(100)
+    expect(SessionRetry.delay("stream", 1, retry, undefined, 1)).toBe(110)
   })
 
   it.instance("policy updates retry status and increments attempts", () =>
@@ -115,6 +123,143 @@ describe("session.retry.delay", () => {
       })
     }),
   )
+
+  it.instance("policy preserves the original failure when retry is disabled", () =>
+    Effect.gen(function* () {
+      const error = apiError({ "retry-after-ms": "0" })
+      let runs = 0
+      let sets = 0
+      const exit = yield* Effect.exit(
+        Effect.sync(() => {
+          runs += 1
+        }).pipe(
+          Effect.flatMap(() => Effect.fail(error)),
+          Effect.retry(
+            SessionRetry.policy({
+              provider: retryProvider,
+              parse: Schema.decodeUnknownSync(SessionV1.APIError.Schema),
+              shouldRetry: () => false,
+              set: () =>
+                Effect.sync(() => {
+                  sets += 1
+                }),
+            }),
+          ),
+        ),
+      )
+
+      expect(runs).toBe(1)
+      expect(sets).toBe(0)
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBe(error)
+    }),
+  )
+})
+
+describe("session.retry.configuration", () => {
+  test("uses five stream retries by default", async () => {
+    let runs = 0
+    const error = statusError(500)
+    const exit = await Effect.runPromise(
+      Effect.exit(
+        Effect.sync(() => {
+          runs++
+        }).pipe(
+          Effect.flatMap(() => Effect.fail(error)),
+          Effect.retry(
+            SessionRetry.policy({
+              provider: retryProvider,
+              parse: Schema.decodeUnknownSync(SessionV1.APIError.Schema),
+              retry: {
+                stream_initial_delay_ms: 0,
+                stream_max_delay_ms: 0,
+                respect_retry_after: false,
+              },
+              set: () => Effect.void,
+            }),
+          ),
+        ),
+      ),
+    )
+
+    expect(runs).toBe(6)
+    expect(Exit.isFailure(exit)).toBe(true)
+  })
+
+  test("stream_max_retries zero disables automatic retry", async () => {
+    let runs = 0
+    const error = statusError(500)
+    await Effect.runPromise(
+      Effect.exit(
+        Effect.sync(() => {
+          runs++
+        }).pipe(
+          Effect.flatMap(() => Effect.fail(error)),
+          Effect.retry(
+            SessionRetry.policy({
+              provider: retryProvider,
+              parse: Schema.decodeUnknownSync(SessionV1.APIError.Schema),
+              retry: { stream_max_retries: 0, stream_initial_delay_ms: 0, stream_max_delay_ms: 0 },
+              set: () => Effect.void,
+            }),
+          ),
+        ),
+      ),
+    )
+
+    expect(runs).toBe(1)
+  })
+
+  test("classifies default HTTP retry categories and hard failures", () => {
+    expect(SessionRetry.classify(statusError(403))).toBe("forbidden")
+    expect(SessionRetry.classify(statusError(429))).toBe("rate_limit")
+    expect(SessionRetry.classify(statusError(500))).toBe("server")
+    expect(SessionRetry.classify(statusError(502))).toBe("server")
+    expect(SessionRetry.classify(statusError(503))).toBe("server")
+    expect(SessionRetry.classify(statusError(504))).toBe("server")
+    expect(SessionRetry.classify(statusError(401))).toBeUndefined()
+    expect(SessionRetry.classify(statusError(400))).toBeUndefined()
+    expect(SessionRetry.classify(statusError(422))).toBeUndefined()
+  })
+
+  test("retry_on can disable a retry category", () => {
+    const error = statusError(403)
+    expect(SessionRetry.resolveConfig({ retry_on: ["server"] }).retry_on).toEqual(["server"])
+    expect(SessionRetry.classify(error)).toBe("forbidden")
+  })
+
+  test("uses configured local backoff parameters", () => {
+    const config = {
+      stream_initial_delay_ms: 10,
+      stream_backoff_factor: 3,
+      stream_max_delay_ms: 50,
+      stream_jitter_percent: 0,
+      respect_retry_after: false,
+    }
+    expect(SessionRetry.delay("stream", 1, config, { "retry-after-ms": "1" })).toBe(10)
+    expect(SessionRetry.delay("stream", 2, config)).toBe(30)
+    expect(SessionRetry.delay("stream", 3, config)).toBe(50)
+  })
+
+  test("respects or ignores provider retry intervals according to configuration", () => {
+    const headers = { "retry-after-ms": "100" }
+    expect(
+      SessionRetry.delay(
+        "stream",
+        1,
+        { stream_initial_delay_ms: 10, stream_jitter_percent: 0, respect_retry_after: true },
+        headers,
+      ),
+    ).toBe(100)
+    expect(
+      SessionRetry.delay(
+        "stream",
+        1,
+        { stream_initial_delay_ms: 10, stream_jitter_percent: 0, respect_retry_after: false },
+        headers,
+      ),
+    ).toBe(10)
+  })
 })
 
 describe("session.retry.retryable", () => {
@@ -214,7 +359,7 @@ describe("session.retry.retryable", () => {
       }).toObject(),
     )
 
-    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Bad gateway" })
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "提供商过载" })
   })
 
   test("retries 503 service unavailable errors", () => {
@@ -226,7 +371,7 @@ describe("session.retry.retryable", () => {
       }).toObject(),
     )
 
-    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Service unavailable" })
+    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "提供商过载" })
   })
 
   test("does not retry 4xx errors when isRetryable is false", () => {
@@ -347,6 +492,69 @@ describe("session.retry.retryable", () => {
 })
 
 describe("session.message-v2.fromError", () => {
+  test("converts structured output validation errors with original details", () => {
+    const error = new NoObjectGeneratedError({
+      message: "No object generated: response did not match schema.",
+      cause: new TypeValidationError({ value: { answer: "four" }, cause: "expected a number" }),
+      text: '{"answer":"four"}',
+      response: undefined as never,
+      usage: undefined as never,
+      finishReason: undefined as never,
+    })
+    const result = MessageV2.fromError(error, { providerID })
+
+    expect(SessionV1.APIError.isInstance(result)).toBe(true)
+    if (!SessionV1.APIError.isInstance(result)) return
+    expect(result.data.isRetryable).toBe(true)
+    expect(result.data.message).toContain("No object generated")
+    expect(result.data.message).toContain("expected a number")
+    expect(result.data.responseBody).toBe('{"answer":"four"}')
+    expect(SessionRetry.classify(result)).toBe("validation")
+  })
+
+  test("classifies JSON parse and HTML response failures", () => {
+    const parsed = MessageV2.fromError(new JSONParseError({ text: "<html>Cloudflare</html>", cause: new Error("<") }), {
+      providerID,
+    })
+    expect(SessionV1.APIError.isInstance(parsed)).toBe(true)
+    expect(SessionRetry.classify(parsed)).toBe("response")
+
+    const html = MessageV2.fromError(
+      new APICallError({
+        message: "OK",
+        url: "https://provider.example/v1",
+        requestBodyValues: {},
+        statusCode: 403,
+        responseHeaders: { "content-type": "text/html" },
+        responseBody: "<!doctype html><title>Cloudflare</title>",
+        isRetryable: false,
+      }),
+      { providerID },
+    )
+    expect(SessionRetry.classify(html)).toBe("forbidden")
+  })
+
+  test("keeps hard quota and content policy failures non-retryable", () => {
+    const quota = new SessionV1.APIError({
+      message: "insufficient_quota",
+      statusCode: 429,
+      isRetryable: true,
+    }).toObject()
+    const safety = new SessionV1.APIError({
+      message: "Content policy rejected the request",
+      statusCode: 403,
+      isRetryable: false,
+    }).toObject()
+    const subscription = new SessionV1.APIError({
+      message: "The requested model is not supported by your subscription",
+      statusCode: 429,
+      isRetryable: true,
+    }).toObject()
+    expect(SessionRetry.classify(quota)).toBeUndefined()
+    expect(SessionRetry.classify(safety)).toBeUndefined()
+    expect(SessionRetry.classify(subscription)).toBeUndefined()
+  })
+
   test.concurrent(
     "converts ECONNRESET socket errors to retryable APIError",
     async () => {

@@ -1,8 +1,31 @@
 /** @jsxImportSource @opentui/solid */
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "../../../fixture/fixture"
-import { mount, wait } from "./sync-fixture"
+import { json, mount, wait } from "./sync-fixture"
 import type { GlobalEvent } from "@miaopan/sdk/v2"
+
+const sessionID = "ses_new_review"
+const session = {
+  id: sessionID,
+  slug: "review",
+  projectID: "proj_test",
+  title: "review",
+  time: { created: 1, updated: 1 },
+  version: "1.15.13",
+  directory: "/tmp/miaopanCode/packages/tui",
+}
+
+function sessionEvent(type: "session.created" | "session.updated" | "session.deleted", info = session): GlobalEvent {
+  return {
+    directory: "/tmp/other",
+    project: "proj_test",
+    payload: {
+      id: `evt_${type}`,
+      type,
+      properties: { sessionID: info.id, info },
+    },
+  }
+}
 
 function branchEvent(branch: string, workspace?: string): GlobalEvent {
   return {
@@ -59,6 +82,95 @@ describe("tui sync", () => {
 
       expect(sync.data.vcs?.branch).toBe("feature")
     } finally {
+      app.renderer.destroy()
+    }
+  })
+
+  test("stale session lists preserve sessions hydrated after the request started", async () => {
+    await using tmp = await tmpdir()
+    await Bun.write(`${tmp.path}/kv.json`, "{}")
+
+    let resolveList!: (response: Response) => void
+    const list = new Promise<Response>((resolve) => {
+      resolveList = resolve
+    })
+    let requested = false
+    let resolved = false
+    const { app, sync } = await mount(
+      (url) => {
+        if (url.pathname === "/session") {
+          requested = true
+          return list
+        }
+        if (url.pathname === `/session/${sessionID}`) return json(session)
+        if (
+          url.pathname === `/session/${sessionID}/message` ||
+          url.pathname === `/session/${sessionID}/todo` ||
+          url.pathname === `/session/${sessionID}/diff`
+        )
+          return json([])
+        return undefined
+      },
+      tmp.path,
+      { waitForComplete: false },
+    )
+
+    try {
+      await wait(() => requested && sync.status === "partial")
+      await sync.session.sync(sessionID)
+      expect(sync.session.get(sessionID)?.title).toBe("review")
+
+      resolved = true
+      resolveList(json([]))
+      await wait(() => sync.status === "complete")
+
+      expect(sync.session.get(sessionID)?.title).toBe("review")
+    } finally {
+      if (!resolved) resolveList(json([]))
+      app.renderer.destroy()
+    }
+  })
+
+  test("session events win over stale lists without duplicating or reviving sessions", async () => {
+    await using tmp = await tmpdir()
+    await Bun.write(`${tmp.path}/kv.json`, "{}")
+
+    let resolveList!: (response: Response) => void
+    const list = new Promise<Response>((resolve) => {
+      resolveList = resolve
+    })
+    let requested = false
+    let resolved = false
+    const { app, emit, sync } = await mount(
+      (url) => {
+        if (url.pathname !== "/session") return undefined
+        requested = true
+        return list
+      },
+      tmp.path,
+      { waitForComplete: false },
+    )
+
+    try {
+      await wait(() => requested && sync.status === "partial")
+      const deleted = { ...session, id: "ses_deleted_review", title: "deleted" }
+      emit(sessionEvent("session.created"))
+      emit(sessionEvent("session.updated", { ...session, title: "updated", time: { created: 1, updated: 2 } }))
+      emit(sessionEvent("session.created", deleted))
+      emit(sessionEvent("session.deleted", deleted))
+      await wait(() => sync.session.get(sessionID)?.title === "updated")
+      expect(sync.data.session.filter((item) => item.id === sessionID)).toHaveLength(1)
+      await wait(() => sync.session.get(deleted.id) === undefined)
+
+      resolved = true
+      resolveList(json([{ ...session, title: "stale" }, deleted]))
+      await wait(() => sync.status === "complete")
+
+      expect(sync.session.get(sessionID)?.title).toBe("updated")
+      expect(sync.data.session.filter((item) => item.id === sessionID)).toHaveLength(1)
+      expect(sync.session.get(deleted.id)).toBeUndefined()
+    } finally {
+      if (!resolved) resolveList(json([]))
       app.renderer.destroy()
     }
   })

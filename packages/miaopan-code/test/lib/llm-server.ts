@@ -433,12 +433,19 @@ function send(item: Sse) {
 const reset = Effect.fn("TestLLMServer.reset")(function* (item: Sse) {
   const req = yield* HttpServerRequest.HttpServerRequest
   const res = NodeHttpServerRequest.toServerResponse(req)
-  yield* Effect.sync(() => {
-    res.writeHead(200, { "content-type": "text/event-stream" })
-    for (const part of item.head) res.write(line(part))
-    for (const part of item.tail) res.write(line(part))
-    res.destroy(new Error("connection reset"))
-  })
+  yield* Effect.promise(
+    () =>
+      new Promise<void>((resolve) => {
+        res.writeHead(200, { "content-type": "text/event-stream" })
+        for (const part of item.head) res.write(line(part))
+        for (const part of item.tail) res.write(line(part))
+        // Let buffered SSE chunks reach the client before simulating a reset.
+        setTimeout(() => {
+          res.destroy(new Error("connection reset"))
+          resolve()
+        }, 10)
+      }),
+  )
   return yield* Effect.never
 })
 

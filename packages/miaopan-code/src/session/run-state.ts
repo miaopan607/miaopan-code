@@ -11,6 +11,7 @@ import { SessionStatus } from "./status"
 export interface Interface {
   readonly assertNotBusy: (sessionID: SessionID) => Effect.Effect<void, Session.BusyError>
   readonly cancel: (sessionID: SessionID) => Effect.Effect<void>
+  readonly recoverInterruptedTools: (sessionID: SessionID) => Effect.Effect<void>
   readonly ensureRunning: (
     sessionID: SessionID,
     onInterrupt: Effect.Effect<SessionV1.WithParts>,
@@ -30,6 +31,7 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const background = yield* BackgroundJob.Service
+    const sessions = yield* Session.Service
     const status = yield* SessionStatus.Service
 
     const state = yield* InstanceState.make(
@@ -74,6 +76,20 @@ const layer = Layer.effect(
       if (existing?.busy) yield* busyError(sessionID)
     })
 
+    const recoverInterruptedTools = Effect.fn("SessionRunState.recoverInterruptedTools")(function* (
+      sessionID: SessionID,
+    ) {
+      const data = yield* InstanceState.get(state)
+      if (data.runners.get(sessionID)?.busy) return
+      yield* sessions.recoverInterruptedTools(sessionID)
+    })
+
+    const recoverBeforeRun = (sessionID: SessionID, work: Effect.Effect<SessionV1.WithParts>) =>
+      Effect.gen(function* () {
+        yield* sessions.recoverInterruptedTools(sessionID)
+        return yield* work
+      })
+
     const cancel = Effect.fn("SessionRunState.cancel")(function* (sessionID: SessionID) {
       yield* cancelBackgroundJobs(background, sessionID)
       const data = yield* InstanceState.get(state)
@@ -90,7 +106,7 @@ const layer = Layer.effect(
       onInterrupt: Effect.Effect<SessionV1.WithParts>,
       work: Effect.Effect<SessionV1.WithParts>,
     ) {
-      return yield* (yield* runner(sessionID, onInterrupt)).ensureRunning(work)
+      return yield* (yield* runner(sessionID, onInterrupt)).ensureRunning(recoverBeforeRun(sessionID, work))
     })
 
     const startShell = Effect.fn("SessionRunState.startShell")(function* (
@@ -100,11 +116,11 @@ const layer = Layer.effect(
       ready?: Latch.Latch,
     ) {
       return yield* (yield* runner(sessionID, onInterrupt))
-        .startShell(work, ready)
+        .startShell(recoverBeforeRun(sessionID, work), ready)
         .pipe(Effect.catchTag("RunnerBusy", () => Effect.fail(busyError(sessionID))))
     })
 
-    return Service.of({ assertNotBusy, cancel, ensureRunning, startShell })
+    return Service.of({ assertNotBusy, cancel, recoverInterruptedTools, ensureRunning, startShell })
   }),
 )
 
@@ -146,6 +162,10 @@ function busyError(sessionID: SessionID) {
   return new Session.BusyError({ sessionID })
 }
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [BackgroundJob.node, SessionStatus.node] })
+export const node = LayerNode.make({
+  service: Service,
+  layer: layer,
+  deps: [BackgroundJob.node, Session.node, SessionStatus.node],
+})
 
 export * as SessionRunState from "./run-state"

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { Config } from "@miaopan-code/core/config"
 import { ConfigV1 } from "@miaopan-code/core/v1/config/config"
-import { localizeKnownText, messages, resolveLanguage, t } from "@miaopan-code/core/i18n"
+import { builtinToolDisplayName, localizeKnownText, messages, resolveLanguage, t } from "@miaopan-code/core/i18n"
 import { Schema } from "effect"
 
 test("默认使用简体中文，并仅接受已支持的语言", () => {
@@ -17,6 +17,16 @@ test("品牌名不随界面语言翻译", () => {
   expect(t("en", "sidebar.brand")).toBe("淼畔 Code")
   expect(t("zh-CN", "tui.code")).toBe("代码")
   expect(t("en", "tui.code")).toBe("Code")
+})
+
+test("内置工具具有中英文显示名，未知工具保留给调用方处理", () => {
+  for (const tool of Object.keys(messages).flatMap((key) => (key.startsWith("tool.name.") ? [key.slice(10)] : []))) {
+    expect(builtinToolDisplayName("zh-CN", tool)).toBeTruthy()
+    expect(builtinToolDisplayName("en", tool)).toBeTruthy()
+  }
+  expect(builtinToolDisplayName("zh-CN", "get_goal")).toBe("查看目标")
+  expect(builtinToolDisplayName("en", "get_goal")).toBe("View goal")
+  expect(builtinToolDisplayName("zh-CN", "plugin_tool")).toBeUndefined()
 })
 
 test("两代配置都接受 language 字段", () => {

@@ -560,6 +560,16 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     )
   }
 
+  function EmptyView() {
+    const view = props.emptyView
+    if (view !== undefined && view !== null && typeof view !== "string" && typeof view !== "number") return view
+    return (
+      <box paddingLeft={4} paddingRight={4} paddingTop={1}>
+        <text fg={theme.textMuted}>{view ?? t(Locale.language(), "dialog.no_results")}</text>
+      </box>
+    )
+  }
+
   return (
     <box gap={1} paddingBottom={1} flexGrow={1}>
       <box paddingLeft={4} paddingRight={4}>
@@ -602,16 +612,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         </Show>
       </box>
       <box flexGrow={1} flexShrink={1}>
-        <Show
-          when={grouped().length > 0}
-          fallback={
-            props.emptyView ?? (
-              <box paddingLeft={4} paddingRight={4} paddingTop={1}>
-                <text fg={theme.textMuted}>{t(Locale.language(), "dialog.no_results")}</text>
-              </box>
-            )
-          }
-        >
+        <Show when={grouped().length > 0} fallback={<EmptyView />}>
           <scrollbox
             paddingLeft={1}
             paddingRight={1}

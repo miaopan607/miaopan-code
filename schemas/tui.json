@@ -185,7 +185,7 @@
               }
             }
           ],
-          "description": "Leader key for keybind combinations"
+          "description": "快捷键组合的前导键"
         },
         "app_exit": {
           "anyOf": [
@@ -361,7 +361,7 @@
               }
             }
           ],
-          "description": "Exit the application"
+          "description": "退出应用"
         },
         "app_debug": {
           "anyOf": [
@@ -537,7 +537,7 @@
               }
             }
           ],
-          "description": "Toggle debug panel"
+          "description": "切换调试面板"
         },
         "app_console": {
           "anyOf": [
@@ -713,7 +713,7 @@
               }
             }
           ],
-          "description": "Toggle console"
+          "description": "切换控制台"
         },
         "app_heap_snapshot": {
           "anyOf": [
@@ -889,7 +889,7 @@
               }
             }
           ],
-          "description": "Write heap snapshot"
+          "description": "写入堆快照"
         },
         "app_toggle_animations": {
           "anyOf": [
@@ -1065,7 +1065,7 @@
               }
             }
           ],
-          "description": "Toggle animations"
+          "description": "切换动画"
         },
         "app_toggle_file_context": {
           "anyOf": [
@@ -1241,7 +1241,7 @@
               }
             }
           ],
-          "description": "Toggle file context"
+          "description": "切换文件上下文"
         },
         "app_toggle_diffwrap": {
           "anyOf": [
@@ -1417,7 +1417,7 @@
               }
             }
           ],
-          "description": "Toggle diff wrapping"
+          "description": "切换差异换行"
         },
         "app_toggle_paste_summary": {
           "anyOf": [
@@ -1593,7 +1593,7 @@
               }
             }
           ],
-          "description": "Toggle paste summary"
+          "description": "切换粘贴摘要"
         },
         "app_toggle_session_directory_filter": {
           "anyOf": [
@@ -1769,7 +1769,7 @@
               }
             }
           ],
-          "description": "Toggle session directory filtering"
+          "description": "切换会话目录筛选"
         },
         "command_list": {
           "anyOf": [
@@ -1945,7 +1945,7 @@
               }
             }
           ],
-          "description": "List available commands"
+          "description": "列出可用命令"
         },
         "command_palette_favorite_toggle": {
           "anyOf": [
@@ -2121,7 +2121,7 @@
               }
             }
           ],
-          "description": "Toggle command favorite status"
+          "description": "切换命令收藏状态"
         },
         "command_palette_favorite_move_up": {
           "anyOf": [
@@ -2297,7 +2297,7 @@
               }
             }
           ],
-          "description": "Move favorite command up"
+          "description": "上移收藏命令"
         },
         "command_palette_favorite_move_down": {
           "anyOf": [
@@ -2473,7 +2473,7 @@
               }
             }
           ],
-          "description": "Move favorite command down"
+          "description": "下移收藏命令"
         },
         "help_show": {
           "anyOf": [
@@ -2649,7 +2649,7 @@
               }
             }
           ],
-          "description": "Open help dialog"
+          "description": "打开帮助对话框"
         },
         "docs_open": {
           "anyOf": [
@@ -2825,7 +2825,7 @@
               }
             }
           ],
-          "description": "Open documentation"
+          "description": "打开文档"
         },
         "diff_open": {
           "anyOf": [
@@ -3001,7 +3001,7 @@
               }
             }
           ],
-          "description": "Open diff viewer"
+          "description": "打开差异查看器"
         },
         "diff_close": {
           "anyOf": [
@@ -3177,7 +3177,7 @@
               }
             }
           ],
-          "description": "Close diff viewer"
+          "description": "关闭差异查看器"
         },
         "diff_toggle": {
           "anyOf": [
@@ -3353,7 +3353,7 @@
               }
             }
           ],
-          "description": "Toggle diff viewer item"
+          "description": "切换差异查看器项目"
         },
         "diff_expand": {
           "anyOf": [
@@ -3529,7 +3529,7 @@
               }
             }
           ],
-          "description": "Expand diff viewer item"
+          "description": "展开差异查看器项目"
         },
         "diff_expand_all": {
           "anyOf": [
@@ -3705,7 +3705,7 @@
               }
             }
           ],
-          "description": "Expand all diff viewer folders"
+          "description": "展开所有差异查看器文件夹"
         },
         "diff_collapse": {
           "anyOf": [
@@ -3881,7 +3881,7 @@
               }
             }
           ],
-          "description": "Collapse diff viewer item"
+          "description": "折叠差异查看器项目"
         },
         "diff_switch_focus": {
           "anyOf": [
@@ -4057,7 +4057,7 @@
               }
             }
           ],
-          "description": "Switch diff viewer focus"
+          "description": "切换差异查看器焦点"
         },
         "diff_next_hunk": {
           "anyOf": [
@@ -4233,7 +4233,7 @@
               }
             }
           ],
-          "description": "Jump to next diff hunk"
+          "description": "跳转到下一个差异块"
         },
         "diff_previous_hunk": {
           "anyOf": [
@@ -4409,7 +4409,7 @@
               }
             }
           ],
-          "description": "Jump to previous diff hunk"
+          "description": "跳转到上一个差异块"
         },
         "diff_next_file": {
           "anyOf": [
@@ -4585,7 +4585,7 @@
               }
             }
           ],
-          "description": "Jump to next diff file"
+          "description": "跳转到下一个差异文件"
         },
         "diff_previous_file": {
           "anyOf": [
@@ -4761,7 +4761,7 @@
               }
             }
           ],
-          "description": "Jump to previous diff file"
+          "description": "跳转到上一个差异文件"
         },
         "diff_toggle_file_tree": {
           "anyOf": [
@@ -4937,7 +4937,7 @@
               }
             }
           ],
-          "description": "Toggle diff viewer file tree"
+          "description": "切换差异查看器文件树"
         },
         "diff_single_patch": {
           "anyOf": [
@@ -5113,7 +5113,7 @@
               }
             }
           ],
-          "description": "Toggle single patch view"
+          "description": "切换单个差异补丁视图"
         },
         "diff_switch_source": {
           "anyOf": [
@@ -5289,7 +5289,7 @@
               }
             }
           ],
-          "description": "Switch diff viewer source"
+          "description": "切换差异查看器来源"
         },
         "diff_toggle_view": {
           "anyOf": [
@@ -5465,7 +5465,7 @@
               }
             }
           ],
-          "description": "Toggle diff viewer split or unified view"
+          "description": "切换差异查看器分栏或统一视图"
         },
         "diff_help": {
           "anyOf": [
@@ -5641,7 +5641,7 @@
               }
             }
           ],
-          "description": "Show more diff viewer shortcuts"
+          "description": "显示更多差异查看器快捷键"
         },
         "editor_open": {
           "anyOf": [
@@ -5817,7 +5817,7 @@
               }
             }
           ],
-          "description": "Open external editor"
+          "description": "打开外部编辑器"
         },
         "theme_list": {
           "anyOf": [
@@ -5993,7 +5993,7 @@
               }
             }
           ],
-          "description": "List available themes"
+          "description": "列出可用主题"
         },
         "theme_switch_mode": {
           "anyOf": [
@@ -6169,7 +6169,7 @@
               }
             }
           ],
-          "description": "Switch between light and dark theme mode"
+          "description": "在浅色和深色主题模式之间切换"
         },
         "theme_mode_lock": {
           "anyOf": [
@@ -6345,7 +6345,7 @@
               }
             }
           ],
-          "description": "Lock or unlock theme mode"
+          "description": "锁定或解锁主题模式"
         },
         "sidebar_toggle": {
           "anyOf": [
@@ -6521,7 +6521,7 @@
               }
             }
           ],
-          "description": "Toggle sidebar"
+          "description": "切换侧栏"
         },
         "scrollbar_toggle": {
           "anyOf": [
@@ -6697,7 +6697,7 @@
               }
             }
           ],
-          "description": "Toggle session scrollbar"
+          "description": "切换会话滚动条"
         },
         "status_view": {
           "anyOf": [
@@ -6873,7 +6873,7 @@
               }
             }
           ],
-          "description": "View status"
+          "description": "查看状态"
         },
         "debug_view": {
           "anyOf": [
@@ -7049,7 +7049,7 @@
               }
             }
           ],
-          "description": "View debug info"
+          "description": "查看调试信息"
         },
         "session_export": {
           "anyOf": [
@@ -7225,7 +7225,7 @@
               }
             }
           ],
-          "description": "Export session to editor"
+          "description": "将会话导出到编辑器"
         },
         "session_copy": {
           "anyOf": [
@@ -7401,7 +7401,7 @@
               }
             }
           ],
-          "description": "Copy session transcript"
+          "description": "复制会话记录"
         },
         "session_move": {
           "anyOf": [
@@ -7577,7 +7577,7 @@
               }
             }
           ],
-          "description": "Move session"
+          "description": "移动会话"
         },
         "session_new": {
           "anyOf": [
@@ -7753,7 +7753,7 @@
               }
             }
           ],
-          "description": "Create a new session"
+          "description": "新建会话"
         },
         "session_list": {
           "anyOf": [
@@ -7929,7 +7929,7 @@
               }
             }
           ],
-          "description": "List all sessions"
+          "description": "列出会话"
         },
         "session_timeline": {
           "anyOf": [
@@ -8105,7 +8105,7 @@
               }
             }
           ],
-          "description": "Show session timeline"
+          "description": "显示会话时间线"
         },
         "session_fork": {
           "anyOf": [
@@ -8281,7 +8281,7 @@
               }
             }
           ],
-          "description": "Fork session from message"
+          "description": "从消息分叉会话"
         },
         "session_rename": {
           "anyOf": [
@@ -8457,7 +8457,7 @@
               }
             }
           ],
-          "description": "Rename session"
+          "description": "重命名会话"
         },
         "session_delete": {
           "anyOf": [
@@ -8633,7 +8633,7 @@
               }
             }
           ],
-          "description": "Delete session"
+          "description": "删除会话"
         },
         "session_share": {
           "anyOf": [
@@ -8809,7 +8809,7 @@
               }
             }
           ],
-          "description": "Share current session"
+          "description": "分享当前会话"
         },
         "session_unshare": {
           "anyOf": [
@@ -8985,7 +8985,7 @@
               }
             }
           ],
-          "description": "Unshare current session"
+          "description": "取消分享当前会话"
         },
         "session_interrupt": {
           "anyOf": [
@@ -9161,7 +9161,7 @@
               }
             }
           ],
-          "description": "Interrupt current session"
+          "description": "中断当前会话"
         },
         "session_background": {
           "anyOf": [
@@ -9337,7 +9337,7 @@
               }
             }
           ],
-          "description": "Background synchronous subagents"
+          "description": "将同步子代理转到后台"
         },
         "session_compact": {
           "anyOf": [
@@ -9513,7 +9513,7 @@
               }
             }
           ],
-          "description": "Compact the session"
+          "description": "压缩会话"
         },
         "session_toggle_timestamps": {
           "anyOf": [
@@ -9689,7 +9689,7 @@
               }
             }
           ],
-          "description": "Toggle message timestamps"
+          "description": "切换消息时间戳"
         },
         "session_toggle_generic_tool_output": {
           "anyOf": [
@@ -9865,7 +9865,7 @@
               }
             }
           ],
-          "description": "Toggle generic tool output"
+          "description": "切换通用工具输出"
         },
         "session_queued_prompts": {
           "anyOf": [
@@ -10041,7 +10041,7 @@
               }
             }
           ],
-          "description": "Manage queued prompts"
+          "description": "管理排队提示"
         },
         "session_child_first": {
           "anyOf": [
@@ -10217,7 +10217,7 @@
               }
             }
           ],
-          "description": "Go to first child session"
+          "description": "前往第一个子会话"
         },
         "session_child_cycle": {
           "anyOf": [
@@ -10393,7 +10393,7 @@
               }
             }
           ],
-          "description": "Go to next child session"
+          "description": "前往下一个子会话"
         },
         "session_child_cycle_reverse": {
           "anyOf": [
@@ -10569,7 +10569,7 @@
               }
             }
           ],
-          "description": "Go to previous child session"
+          "description": "前往上一个子会话"
         },
         "session_parent": {
           "anyOf": [
@@ -10745,7 +10745,7 @@
               }
             }
           ],
-          "description": "Go to parent session"
+          "description": "前往父会话"
         },
         "session_pin_toggle": {
           "anyOf": [
@@ -10921,7 +10921,7 @@
               }
             }
           ],
-          "description": "Pin or unpin session in the session list"
+          "description": "在会话列表中固定或取消固定会话"
         },
         "session_quick_switch_1": {
           "anyOf": [
@@ -11097,7 +11097,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 1"
+          "description": "切换到快速槽位 1 的会话"
         },
         "session_quick_switch_2": {
           "anyOf": [
@@ -11273,7 +11273,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 2"
+          "description": "切换到快速槽位 2 的会话"
         },
         "session_quick_switch_3": {
           "anyOf": [
@@ -11449,7 +11449,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 3"
+          "description": "切换到快速槽位 3 的会话"
         },
         "session_quick_switch_4": {
           "anyOf": [
@@ -11625,7 +11625,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 4"
+          "description": "切换到快速槽位 4 的会话"
         },
         "session_quick_switch_5": {
           "anyOf": [
@@ -11801,7 +11801,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 5"
+          "description": "切换到快速槽位 5 的会话"
         },
         "session_quick_switch_6": {
           "anyOf": [
@@ -11977,7 +11977,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 6"
+          "description": "切换到快速槽位 6 的会话"
         },
         "session_quick_switch_7": {
           "anyOf": [
@@ -12153,7 +12153,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 7"
+          "description": "切换到快速槽位 7 的会话"
         },
         "session_quick_switch_8": {
           "anyOf": [
@@ -12329,7 +12329,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 8"
+          "description": "切换到快速槽位 8 的会话"
         },
         "session_quick_switch_9": {
           "anyOf": [
@@ -12505,7 +12505,7 @@
               }
             }
           ],
-          "description": "Switch to session in quick slot 9"
+          "description": "切换到快速槽位 9 的会话"
         },
         "stash_delete": {
           "anyOf": [
@@ -12681,7 +12681,7 @@
               }
             }
           ],
-          "description": "Delete stash entry"
+          "description": "删除暂存条目"
         },
         "model_provider_list": {
           "anyOf": [
@@ -12857,7 +12857,7 @@
               }
             }
           ],
-          "description": "Open provider list from model dialog"
+          "description": "从模型对话框打开提供商列表"
         },
         "model_favorite_toggle": {
           "anyOf": [
@@ -13033,7 +13033,7 @@
               }
             }
           ],
-          "description": "Toggle model favorite status"
+          "description": "切换模型收藏状态"
         },
         "model_favorite_move_up": {
           "anyOf": [
@@ -13209,7 +13209,7 @@
               }
             }
           ],
-          "description": "Move favorite model up"
+          "description": "上移收藏模型"
         },
         "model_favorite_move_down": {
           "anyOf": [
@@ -13385,7 +13385,7 @@
               }
             }
           ],
-          "description": "Move favorite model down"
+          "description": "下移收藏模型"
         },
         "model_list": {
           "anyOf": [
@@ -13561,7 +13561,183 @@
               }
             }
           ],
-          "description": "List available models"
+          "description": "切换模型"
+        },
+        "model_refresh": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "enum": [false]
+            },
+            {
+              "type": "string",
+              "enum": ["none"]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "ctrl": {
+                      "type": "boolean"
+                    },
+                    "shift": {
+                      "type": "boolean"
+                    },
+                    "meta": {
+                      "type": "boolean"
+                    },
+                    "super": {
+                      "type": "boolean"
+                    },
+                    "hyper": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["name"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "ctrl": {
+                              "type": "boolean"
+                            },
+                            "shift": {
+                              "type": "boolean"
+                            },
+                            "meta": {
+                              "type": "boolean"
+                            },
+                            "super": {
+                              "type": "boolean"
+                            },
+                            "hyper": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": ["name"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "event": {
+                      "type": "string",
+                      "enum": ["press", "release"]
+                    },
+                    "preventDefault": {
+                      "type": "boolean"
+                    },
+                    "fallthrough": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["key"]
+                }
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "ctrl": {
+                        "type": "boolean"
+                      },
+                      "shift": {
+                        "type": "boolean"
+                      },
+                      "meta": {
+                        "type": "boolean"
+                      },
+                      "super": {
+                        "type": "boolean"
+                      },
+                      "hyper": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["name"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "ctrl": {
+                                "type": "boolean"
+                              },
+                              "shift": {
+                                "type": "boolean"
+                              },
+                              "meta": {
+                                "type": "boolean"
+                              },
+                              "super": {
+                                "type": "boolean"
+                              },
+                              "hyper": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["name"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": ["press", "release"]
+                      },
+                      "preventDefault": {
+                        "type": "boolean"
+                      },
+                      "fallthrough": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["key"]
+                  }
+                ]
+              }
+            }
+          ],
+          "description": "刷新模型列表"
         },
         "model_cycle_recent": {
           "anyOf": [
@@ -13737,7 +13913,7 @@
               }
             }
           ],
-          "description": "Next recently used model"
+          "description": "轮换模型"
         },
         "model_cycle_recent_reverse": {
           "anyOf": [
@@ -13913,7 +14089,7 @@
               }
             }
           ],
-          "description": "Previous recently used model"
+          "description": "反向轮换模型"
         },
         "model_cycle_favorite": {
           "anyOf": [
@@ -14089,7 +14265,7 @@
               }
             }
           ],
-          "description": "Next favorite model"
+          "description": "轮换收藏模型"
         },
         "model_cycle_favorite_reverse": {
           "anyOf": [
@@ -14265,7 +14441,7 @@
               }
             }
           ],
-          "description": "Previous favorite model"
+          "description": "反向轮换收藏模型"
         },
         "mcp_list": {
           "anyOf": [
@@ -14441,7 +14617,7 @@
               }
             }
           ],
-          "description": "List MCP servers"
+          "description": "切换 MCP"
         },
         "provider_connect": {
           "anyOf": [
@@ -14617,7 +14793,7 @@
               }
             }
           ],
-          "description": "Connect provider"
+          "description": "连接提供商"
         },
         "console_org_switch": {
           "anyOf": [
@@ -14793,7 +14969,7 @@
               }
             }
           ],
-          "description": "Switch console organization"
+          "description": "切换控制台组织"
         },
         "agent_list": {
           "anyOf": [
@@ -14969,7 +15145,7 @@
               }
             }
           ],
-          "description": "List agents"
+          "description": "列出代理"
         },
         "agent_cycle": {
           "anyOf": [
@@ -15145,7 +15321,7 @@
               }
             }
           ],
-          "description": "Next agent"
+          "description": "轮换代理"
         },
         "agent_cycle_reverse": {
           "anyOf": [
@@ -15321,7 +15497,7 @@
               }
             }
           ],
-          "description": "Previous agent"
+          "description": "反向轮换代理"
         },
         "variant_cycle": {
           "anyOf": [
@@ -15497,7 +15673,7 @@
               }
             }
           ],
-          "description": "Cycle model variants"
+          "description": "轮换模型变体"
         },
         "variant_list": {
           "anyOf": [
@@ -15673,7 +15849,7 @@
               }
             }
           ],
-          "description": "List model variants"
+          "description": "切换模型变体"
         },
         "messages_page_up": {
           "anyOf": [
@@ -15849,7 +16025,7 @@
               }
             }
           ],
-          "description": "Scroll messages up by one page"
+          "description": "将消息向上滚动一页"
         },
         "messages_page_down": {
           "anyOf": [
@@ -16025,7 +16201,7 @@
               }
             }
           ],
-          "description": "Scroll messages down by one page"
+          "description": "将消息向下滚动一页"
         },
         "messages_line_up": {
           "anyOf": [
@@ -16201,7 +16377,7 @@
               }
             }
           ],
-          "description": "Scroll messages up by one line"
+          "description": "将消息向上滚动一行"
         },
         "messages_line_down": {
           "anyOf": [
@@ -16377,7 +16553,7 @@
               }
             }
           ],
-          "description": "Scroll messages down by one line"
+          "description": "将消息向下滚动一行"
         },
         "messages_half_page_up": {
           "anyOf": [
@@ -16553,7 +16729,7 @@
               }
             }
           ],
-          "description": "Scroll messages up by half page"
+          "description": "将消息向上滚动半页"
         },
         "messages_half_page_down": {
           "anyOf": [
@@ -16729,7 +16905,7 @@
               }
             }
           ],
-          "description": "Scroll messages down by half page"
+          "description": "将消息向下滚动半页"
         },
         "messages_first": {
           "anyOf": [
@@ -16905,7 +17081,7 @@
               }
             }
           ],
-          "description": "Navigate to first message"
+          "description": "导航到第一条消息"
         },
         "messages_last": {
           "anyOf": [
@@ -17081,7 +17257,7 @@
               }
             }
           ],
-          "description": "Navigate to last message"
+          "description": "导航到最后一条消息"
         },
         "messages_next": {
           "anyOf": [
@@ -17257,7 +17433,7 @@
               }
             }
           ],
-          "description": "Navigate to next message"
+          "description": "导航到下一条消息"
         },
         "messages_previous": {
           "anyOf": [
@@ -17433,7 +17609,7 @@
               }
             }
           ],
-          "description": "Navigate to previous message"
+          "description": "导航到上一条消息"
         },
         "messages_last_user": {
           "anyOf": [
@@ -17609,7 +17785,7 @@
               }
             }
           ],
-          "description": "Navigate to last user message"
+          "description": "导航到最后一条用户消息"
         },
         "messages_copy": {
           "anyOf": [
@@ -17785,7 +17961,7 @@
               }
             }
           ],
-          "description": "Copy message"
+          "description": "复制消息"
         },
         "messages_undo": {
           "anyOf": [
@@ -17961,7 +18137,7 @@
               }
             }
           ],
-          "description": "Revert conversation and code"
+          "description": "还原对话和代码"
         },
         "messages_redo": {
           "anyOf": [
@@ -18137,7 +18313,7 @@
               }
             }
           ],
-          "description": "Redo message"
+          "description": "重做消息"
         },
         "messages_toggle_conceal": {
           "anyOf": [
@@ -18313,7 +18489,7 @@
               }
             }
           ],
-          "description": "Toggle code block concealment in messages"
+          "description": "切换消息中的代码块隐藏"
         },
         "tool_details": {
           "anyOf": [
@@ -18489,7 +18665,7 @@
               }
             }
           ],
-          "description": "Toggle tool details visibility"
+          "description": "切换工具详情可见性"
         },
         "display_thinking": {
           "anyOf": [
@@ -18665,183 +18841,7 @@
               }
             }
           ],
-          "description": "Toggle thinking blocks visibility"
-        },
-        "prompt_queue": {
-          "anyOf": [
-            {
-              "type": "boolean",
-              "enum": [false]
-            },
-            {
-              "type": "string",
-              "enum": ["none"]
-            },
-            {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "name": {
-                      "type": "string"
-                    },
-                    "ctrl": {
-                      "type": "boolean"
-                    },
-                    "shift": {
-                      "type": "boolean"
-                    },
-                    "meta": {
-                      "type": "boolean"
-                    },
-                    "super": {
-                      "type": "boolean"
-                    },
-                    "hyper": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["name"],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "name": {
-                              "type": "string"
-                            },
-                            "ctrl": {
-                              "type": "boolean"
-                            },
-                            "shift": {
-                              "type": "boolean"
-                            },
-                            "meta": {
-                              "type": "boolean"
-                            },
-                            "super": {
-                              "type": "boolean"
-                            },
-                            "hyper": {
-                              "type": "boolean"
-                            }
-                          },
-                          "required": ["name"],
-                          "additionalProperties": false
-                        }
-                      ]
-                    },
-                    "event": {
-                      "type": "string",
-                      "enum": ["press", "release"]
-                    },
-                    "preventDefault": {
-                      "type": "boolean"
-                    },
-                    "fallthrough": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["key"]
-                }
-              ]
-            },
-            {
-              "type": "array",
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string"
-                      },
-                      "ctrl": {
-                        "type": "boolean"
-                      },
-                      "shift": {
-                        "type": "boolean"
-                      },
-                      "meta": {
-                        "type": "boolean"
-                      },
-                      "super": {
-                        "type": "boolean"
-                      },
-                      "hyper": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": ["name"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "key": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "object",
-                            "properties": {
-                              "name": {
-                                "type": "string"
-                              },
-                              "ctrl": {
-                                "type": "boolean"
-                              },
-                              "shift": {
-                                "type": "boolean"
-                              },
-                              "meta": {
-                                "type": "boolean"
-                              },
-                              "super": {
-                                "type": "boolean"
-                              },
-                              "hyper": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": ["name"],
-                            "additionalProperties": false
-                          }
-                        ]
-                      },
-                      "event": {
-                        "type": "string",
-                        "enum": ["press", "release"]
-                      },
-                      "preventDefault": {
-                        "type": "boolean"
-                      },
-                      "fallthrough": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": ["key"]
-                  }
-                ]
-              }
-            }
-          ],
-          "description": "Queue until the current turn finishes"
+          "description": "切换思考块可见性"
         },
         "prompt_submit": {
           "anyOf": [
@@ -19017,7 +19017,183 @@
               }
             }
           ],
-          "description": "Submit prompt"
+          "description": "提交提示"
+        },
+        "prompt_queue": {
+          "anyOf": [
+            {
+              "type": "boolean",
+              "enum": [false]
+            },
+            {
+              "type": "string",
+              "enum": ["none"]
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "ctrl": {
+                      "type": "boolean"
+                    },
+                    "shift": {
+                      "type": "boolean"
+                    },
+                    "meta": {
+                      "type": "boolean"
+                    },
+                    "super": {
+                      "type": "boolean"
+                    },
+                    "hyper": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["name"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "ctrl": {
+                              "type": "boolean"
+                            },
+                            "shift": {
+                              "type": "boolean"
+                            },
+                            "meta": {
+                              "type": "boolean"
+                            },
+                            "super": {
+                              "type": "boolean"
+                            },
+                            "hyper": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": ["name"],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "event": {
+                      "type": "string",
+                      "enum": ["press", "release"]
+                    },
+                    "preventDefault": {
+                      "type": "boolean"
+                    },
+                    "fallthrough": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["key"]
+                }
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "ctrl": {
+                        "type": "boolean"
+                      },
+                      "shift": {
+                        "type": "boolean"
+                      },
+                      "meta": {
+                        "type": "boolean"
+                      },
+                      "super": {
+                        "type": "boolean"
+                      },
+                      "hyper": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["name"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "ctrl": {
+                                "type": "boolean"
+                              },
+                              "shift": {
+                                "type": "boolean"
+                              },
+                              "meta": {
+                                "type": "boolean"
+                              },
+                              "super": {
+                                "type": "boolean"
+                              },
+                              "hyper": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": ["name"],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "event": {
+                        "type": "string",
+                        "enum": ["press", "release"]
+                      },
+                      "preventDefault": {
+                        "type": "boolean"
+                      },
+                      "fallthrough": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["key"]
+                  }
+                ]
+              }
+            }
+          ],
+          "description": "排队到当前整轮结束后发送"
         },
         "prompt_editor_context_clear": {
           "anyOf": [
@@ -19193,7 +19369,7 @@
               }
             }
           ],
-          "description": "Clear editor context"
+          "description": "清除编辑器上下文"
         },
         "prompt_skills": {
           "anyOf": [
@@ -19369,7 +19545,7 @@
               }
             }
           ],
-          "description": "Open skill selector"
+          "description": "打开技能选择器"
         },
         "prompt_stash": {
           "anyOf": [
@@ -19545,7 +19721,7 @@
               }
             }
           ],
-          "description": "Stash prompt"
+          "description": "暂存提示"
         },
         "prompt_stash_pop": {
           "anyOf": [
@@ -19721,7 +19897,7 @@
               }
             }
           ],
-          "description": "Pop stashed prompt"
+          "description": "取出暂存的提示"
         },
         "prompt_stash_list": {
           "anyOf": [
@@ -19897,7 +20073,7 @@
               }
             }
           ],
-          "description": "List stashed prompts"
+          "description": "列出暂存的提示"
         },
         "workspace_set": {
           "anyOf": [
@@ -20073,7 +20249,7 @@
               }
             }
           ],
-          "description": "Set workspace"
+          "description": "设置工作区"
         },
         "input_clear": {
           "anyOf": [
@@ -20249,7 +20425,7 @@
               }
             }
           ],
-          "description": "Clear input field"
+          "description": "清空输入框"
         },
         "input_paste": {
           "anyOf": [
@@ -20425,7 +20601,7 @@
               }
             }
           ],
-          "description": "Paste from clipboard"
+          "description": "从剪贴板粘贴"
         },
         "input_submit": {
           "anyOf": [
@@ -20601,7 +20777,7 @@
               }
             }
           ],
-          "description": "Submit input"
+          "description": "提交输入"
         },
         "input_newline": {
           "anyOf": [
@@ -20777,7 +20953,7 @@
               }
             }
           ],
-          "description": "Insert newline in input"
+          "description": "在输入中插入换行"
         },
         "input_move_left": {
           "anyOf": [
@@ -20953,7 +21129,7 @@
               }
             }
           ],
-          "description": "Move cursor left in input"
+          "description": "在输入中向左移动光标"
         },
         "input_move_right": {
           "anyOf": [
@@ -21129,7 +21305,7 @@
               }
             }
           ],
-          "description": "Move cursor right in input"
+          "description": "在输入中向右移动光标"
         },
         "input_move_up": {
           "anyOf": [
@@ -21305,7 +21481,7 @@
               }
             }
           ],
-          "description": "Move cursor up in input"
+          "description": "在输入中向上移动光标"
         },
         "input_move_down": {
           "anyOf": [
@@ -21481,7 +21657,7 @@
               }
             }
           ],
-          "description": "Move cursor down in input"
+          "description": "在输入中向下移动光标"
         },
         "input_select_left": {
           "anyOf": [
@@ -21657,7 +21833,7 @@
               }
             }
           ],
-          "description": "Select left in input"
+          "description": "在输入中向左选择"
         },
         "input_select_right": {
           "anyOf": [
@@ -21833,7 +22009,7 @@
               }
             }
           ],
-          "description": "Select right in input"
+          "description": "在输入中向右选择"
         },
         "input_select_up": {
           "anyOf": [
@@ -22009,7 +22185,7 @@
               }
             }
           ],
-          "description": "Select up in input"
+          "description": "在输入中向上选择"
         },
         "input_select_down": {
           "anyOf": [
@@ -22185,7 +22361,7 @@
               }
             }
           ],
-          "description": "Select down in input"
+          "description": "在输入中向下选择"
         },
         "input_line_home": {
           "anyOf": [
@@ -22361,7 +22537,7 @@
               }
             }
           ],
-          "description": "Move to start of line in input"
+          "description": "移动到输入行首"
         },
         "input_line_end": {
           "anyOf": [
@@ -22537,7 +22713,7 @@
               }
             }
           ],
-          "description": "Move to end of line in input"
+          "description": "移动到输入行尾"
         },
         "input_select_line_home": {
           "anyOf": [
@@ -22713,7 +22889,7 @@
               }
             }
           ],
-          "description": "Select to start of line in input"
+          "description": "选择到输入行首"
         },
         "input_select_line_end": {
           "anyOf": [
@@ -22889,7 +23065,7 @@
               }
             }
           ],
-          "description": "Select to end of line in input"
+          "description": "选择到输入行尾"
         },
         "input_visual_line_home": {
           "anyOf": [
@@ -23065,7 +23241,7 @@
               }
             }
           ],
-          "description": "Move to start of visual line in input"
+          "description": "移动到输入可视行首"
         },
         "input_visual_line_end": {
           "anyOf": [
@@ -23241,7 +23417,7 @@
               }
             }
           ],
-          "description": "Move to end of visual line in input"
+          "description": "移动到输入可视行尾"
         },
         "input_select_visual_line_home": {
           "anyOf": [
@@ -23417,7 +23593,7 @@
               }
             }
           ],
-          "description": "Select to start of visual line in input"
+          "description": "选择到输入可视行首"
         },
         "input_select_visual_line_end": {
           "anyOf": [
@@ -23593,7 +23769,7 @@
               }
             }
           ],
-          "description": "Select to end of visual line in input"
+          "description": "选择到输入可视行尾"
         },
         "input_buffer_home": {
           "anyOf": [
@@ -23769,7 +23945,7 @@
               }
             }
           ],
-          "description": "Move to start of buffer in input"
+          "description": "移动到输入缓冲区开头"
         },
         "input_buffer_end": {
           "anyOf": [
@@ -23945,7 +24121,7 @@
               }
             }
           ],
-          "description": "Move to end of buffer in input"
+          "description": "移动到输入缓冲区末尾"
         },
         "input_select_buffer_home": {
           "anyOf": [
@@ -24121,7 +24297,7 @@
               }
             }
           ],
-          "description": "Select to start of buffer in input"
+          "description": "选择到输入缓冲区开头"
         },
         "input_select_buffer_end": {
           "anyOf": [
@@ -24297,7 +24473,7 @@
               }
             }
           ],
-          "description": "Select to end of buffer in input"
+          "description": "选择到输入缓冲区末尾"
         },
         "input_delete_line": {
           "anyOf": [
@@ -24473,7 +24649,7 @@
               }
             }
           ],
-          "description": "Delete line in input"
+          "description": "删除输入中的行"
         },
         "input_delete_to_line_end": {
           "anyOf": [
@@ -24649,7 +24825,7 @@
               }
             }
           ],
-          "description": "Delete to end of line in input"
+          "description": "删除到输入行尾"
         },
         "input_delete_to_line_start": {
           "anyOf": [
@@ -24825,7 +25001,7 @@
               }
             }
           ],
-          "description": "Delete to start of line in input"
+          "description": "删除到输入行首"
         },
         "input_backspace": {
           "anyOf": [
@@ -25001,7 +25177,7 @@
               }
             }
           ],
-          "description": "Backspace in input"
+          "description": "在输入中退格"
         },
         "input_delete": {
           "anyOf": [
@@ -25177,7 +25353,7 @@
               }
             }
           ],
-          "description": "Delete character in input"
+          "description": "删除输入中的字符"
         },
         "input_undo": {
           "anyOf": [
@@ -25353,7 +25529,7 @@
               }
             }
           ],
-          "description": "Undo in input"
+          "description": "撤销输入"
         },
         "input_redo": {
           "anyOf": [
@@ -25529,7 +25705,7 @@
               }
             }
           ],
-          "description": "Redo in input"
+          "description": "重做输入"
         },
         "input_word_forward": {
           "anyOf": [
@@ -25705,7 +25881,7 @@
               }
             }
           ],
-          "description": "Move word forward in input"
+          "description": "在输入中向前移动一个词"
         },
         "input_word_backward": {
           "anyOf": [
@@ -25881,7 +26057,7 @@
               }
             }
           ],
-          "description": "Move word backward in input"
+          "description": "在输入中向后移动一个词"
         },
         "input_select_word_forward": {
           "anyOf": [
@@ -26057,7 +26233,7 @@
               }
             }
           ],
-          "description": "Select word forward in input"
+          "description": "在输入中向前选择一个词"
         },
         "input_select_word_backward": {
           "anyOf": [
@@ -26233,7 +26409,7 @@
               }
             }
           ],
-          "description": "Select word backward in input"
+          "description": "在输入中向后选择一个词"
         },
         "input_delete_word_forward": {
           "anyOf": [
@@ -26409,7 +26585,7 @@
               }
             }
           ],
-          "description": "Delete word forward in input"
+          "description": "在输入中向前删除一个词"
         },
         "input_delete_word_backward": {
           "anyOf": [
@@ -26585,7 +26761,7 @@
               }
             }
           ],
-          "description": "Delete word backward in input"
+          "description": "在输入中向后删除一个词"
         },
         "input_select_all": {
           "anyOf": [
@@ -26761,7 +26937,7 @@
               }
             }
           ],
-          "description": "Select all in input"
+          "description": "全选输入"
         },
         "history_previous": {
           "anyOf": [
@@ -26937,7 +27113,7 @@
               }
             }
           ],
-          "description": "Previous history item"
+          "description": "上一条历史记录"
         },
         "history_next": {
           "anyOf": [
@@ -27113,7 +27289,7 @@
               }
             }
           ],
-          "description": "Next history item"
+          "description": "下一条历史记录"
         },
         "dialog.select.prev": {
           "anyOf": [
@@ -27289,7 +27465,7 @@
               }
             }
           ],
-          "description": "Move to previous dialog item"
+          "description": "移动到上一个对话框项目"
         },
         "dialog.select.next": {
           "anyOf": [
@@ -27465,7 +27641,7 @@
               }
             }
           ],
-          "description": "Move to next dialog item"
+          "description": "移动到下一个对话框项目"
         },
         "dialog.select.page_up": {
           "anyOf": [
@@ -27641,7 +27817,7 @@
               }
             }
           ],
-          "description": "Move up one page in dialog"
+          "description": "在对话框中向上移动一页"
         },
         "dialog.select.page_down": {
           "anyOf": [
@@ -27817,7 +27993,7 @@
               }
             }
           ],
-          "description": "Move down one page in dialog"
+          "description": "在对话框中向下移动一页"
         },
         "dialog.select.home": {
           "anyOf": [
@@ -27993,7 +28169,7 @@
               }
             }
           ],
-          "description": "Move to first dialog item"
+          "description": "移动到第一个对话框项目"
         },
         "dialog.select.end": {
           "anyOf": [
@@ -28169,7 +28345,7 @@
               }
             }
           ],
-          "description": "Move to last dialog item"
+          "description": "移动到最后一个对话框项目"
         },
         "dialog.select.submit": {
           "anyOf": [
@@ -28345,7 +28521,7 @@
               }
             }
           ],
-          "description": "Submit selected dialog item"
+          "description": "提交选中的对话框项目"
         },
         "dialog.prompt.submit": {
           "anyOf": [
@@ -28521,7 +28697,7 @@
               }
             }
           ],
-          "description": "Submit dialog prompt"
+          "description": "提交对话框提示"
         },
         "dialog.mcp.toggle": {
           "anyOf": [
@@ -28697,7 +28873,7 @@
               }
             }
           ],
-          "description": "Toggle MCP in MCP dialog"
+          "description": "在 MCP 对话框中切换 MCP"
         },
         "dialog.move_session.new": {
           "anyOf": [
@@ -28873,7 +29049,7 @@
               }
             }
           ],
-          "description": "New project copy"
+          "description": "新建项目副本"
         },
         "dialog.move_session.delete": {
           "anyOf": [
@@ -29049,7 +29225,7 @@
               }
             }
           ],
-          "description": "Delete project copy"
+          "description": "删除项目副本"
         },
         "dialog.move_session.refresh": {
           "anyOf": [
@@ -29225,7 +29401,7 @@
               }
             }
           ],
-          "description": "Refresh project copies"
+          "description": "刷新项目副本"
         },
         "prompt.autocomplete.prev": {
           "anyOf": [
@@ -29401,7 +29577,7 @@
               }
             }
           ],
-          "description": "Move to previous autocomplete item"
+          "description": "移动到上一个自动补全项目"
         },
         "prompt.autocomplete.next": {
           "anyOf": [
@@ -29577,7 +29753,7 @@
               }
             }
           ],
-          "description": "Move to next autocomplete item"
+          "description": "移动到下一个自动补全项目"
         },
         "prompt.autocomplete.hide": {
           "anyOf": [
@@ -29753,7 +29929,7 @@
               }
             }
           ],
-          "description": "Hide autocomplete"
+          "description": "隐藏自动补全"
         },
         "prompt.autocomplete.select": {
           "anyOf": [
@@ -29929,7 +30105,7 @@
               }
             }
           ],
-          "description": "Select autocomplete item"
+          "description": "选择自动补全项目"
         },
         "prompt.autocomplete.complete": {
           "anyOf": [
@@ -30105,7 +30281,7 @@
               }
             }
           ],
-          "description": "Complete autocomplete item"
+          "description": "完成自动补全项目"
         },
         "permission.prompt.fullscreen": {
           "anyOf": [
@@ -30281,7 +30457,7 @@
               }
             }
           ],
-          "description": "Toggle permission prompt fullscreen"
+          "description": "切换权限提示全屏"
         },
         "plugins.toggle": {
           "anyOf": [
@@ -30457,7 +30633,7 @@
               }
             }
           ],
-          "description": "Toggle plugin"
+          "description": "切换插件"
         },
         "dialog.plugins.install": {
           "anyOf": [
@@ -30633,7 +30809,7 @@
               }
             }
           ],
-          "description": "Install plugin from plugin dialog"
+          "description": "从插件对话框安装插件"
         },
         "terminal_suspend": {
           "anyOf": [
@@ -30809,7 +30985,7 @@
               }
             }
           ],
-          "description": "Suspend terminal"
+          "description": "挂起终端"
         },
         "terminal_title_toggle": {
           "anyOf": [
@@ -30985,7 +31161,7 @@
               }
             }
           ],
-          "description": "Toggle terminal title"
+          "description": "切换终端标题"
         },
         "tips_toggle": {
           "anyOf": [
@@ -31161,7 +31337,7 @@
               }
             }
           ],
-          "description": "Toggle tips on home screen"
+          "description": "切换主页提示"
         },
         "plugin_manager": {
           "anyOf": [
@@ -31337,7 +31513,7 @@
               }
             }
           ],
-          "description": "Open plugin manager dialog"
+          "description": "打开插件管理器对话框"
         },
         "plugin_install": {
           "anyOf": [
@@ -31513,7 +31689,7 @@
               }
             }
           ],
-          "description": "Install plugin"
+          "description": "安装插件"
         },
         "which_key_toggle": {
           "anyOf": [
@@ -31689,7 +31865,7 @@
               }
             }
           ],
-          "description": "Toggle which-key panel"
+          "description": "切换 which-key 面板"
         },
         "which_key_layout_toggle": {
           "anyOf": [
@@ -31865,7 +32041,7 @@
               }
             }
           ],
-          "description": "Switch which-key layout"
+          "description": "切换 which-key 布局"
         },
         "which_key_pending_toggle": {
           "anyOf": [
@@ -32041,7 +32217,7 @@
               }
             }
           ],
-          "description": "Toggle which-key pending preview"
+          "description": "切换 which-key 待定预览"
         },
         "which_key_group_previous": {
           "anyOf": [
@@ -32217,7 +32393,7 @@
               }
             }
           ],
-          "description": "Previous which-key group"
+          "description": "上一个 which-key 组"
         },
         "which_key_group_next": {
           "anyOf": [
@@ -32393,7 +32569,7 @@
               }
             }
           ],
-          "description": "Next which-key group"
+          "description": "下一个 which-key 组"
         },
         "which_key_scroll_up": {
           "anyOf": [
@@ -32569,7 +32745,7 @@
               }
             }
           ],
-          "description": "Scroll which-key up"
+          "description": "向上滚动 which-key"
         },
         "which_key_scroll_down": {
           "anyOf": [
@@ -32745,7 +32921,7 @@
               }
             }
           ],
-          "description": "Scroll which-key down"
+          "description": "向下滚动 which-key"
         },
         "which_key_page_up": {
           "anyOf": [
@@ -32921,7 +33097,7 @@
               }
             }
           ],
-          "description": "Page which-key up"
+          "description": "向上翻页 which-key"
         },
         "which_key_page_down": {
           "anyOf": [
@@ -33097,7 +33273,7 @@
               }
             }
           ],
-          "description": "Page which-key down"
+          "description": "向下翻页 which-key"
         },
         "which_key_home": {
           "anyOf": [
@@ -33273,7 +33449,7 @@
               }
             }
           ],
-          "description": "Jump to first which-key binding"
+          "description": "跳转到第一个 which-key 按键绑定"
         },
         "which_key_end": {
           "anyOf": [
@@ -33449,11 +33625,11 @@
               }
             }
           ],
-          "description": "Jump to last which-key binding"
+          "description": "跳转到最后一个 which-key 按键绑定"
         }
       },
       "additionalProperties": false,
-      "description": "TUI keybinding overrides"
+      "description": "TUI 按键绑定覆盖项"
     },
     "plugin": {
       "type": "array",
@@ -33486,7 +33662,7 @@
     },
     "leader_timeout": {
       "exclusiveMinimum": 0,
-      "description": "Leader key timeout in milliseconds",
+      "description": "主键超时时间（毫秒）",
       "type": "integer",
       "maximum": 9007199254740991
     },
@@ -33558,7 +33734,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "Attention notification and sound settings"
+      "description": "注意提醒和声音设置"
     },
     "prompt": {
       "type": "object",
@@ -33567,7 +33743,7 @@
           "exclusiveMinimum": 0,
           "type": "integer",
           "maximum": 9007199254740991,
-          "description": "Prompt textarea max height"
+          "description": "提示文本区域最大高度"
         },
         "max_width": {
           "anyOf": [
@@ -33581,11 +33757,11 @@
               "enum": ["auto"]
             }
           ],
-          "description": "Home prompt max width: a positive integer for a fixed cap, or 'auto' to scale with terminal width"
+          "description": "主页提示最大宽度：正整数表示固定上限，auto 表示随终端宽度缩放"
         }
       },
       "additionalProperties": false,
-      "description": "Prompt size settings"
+      "description": "提示大小设置"
     },
     "scroll_speed": {
       "minimum": 0.001,
@@ -33606,33 +33782,33 @@
           "enum": ["-Infinity"]
         }
       ],
-      "description": "TUI scroll speed"
+      "description": "TUI 滚动速度"
     },
     "scroll_acceleration": {
       "type": "object",
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enable scroll acceleration"
+          "description": "启用滚动加速"
         }
       },
       "required": ["enabled"],
       "additionalProperties": false,
-      "description": "Scroll acceleration settings"
+      "description": "滚动加速设置"
     },
     "diff_style": {
       "type": "string",
       "enum": ["auto", "stacked"],
-      "description": "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"
+      "description": "控制差异渲染样式：auto 根据终端宽度调整，stacked 始终使用单列"
     },
     "tool_display": {
       "type": "string",
       "enum": ["compact", "detailed"],
-      "description": "Tool call display style"
+      "description": "工具调用显示样式"
     },
     "mouse": {
       "type": "boolean",
-      "description": "Enable or disable mouse capture (default: true)"
+      "description": "启用或禁用鼠标捕获（默认：true）"
     }
   },
   "additionalProperties": false,

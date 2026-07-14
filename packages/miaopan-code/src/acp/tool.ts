@@ -1,5 +1,6 @@
 import { isAbsolute, resolve } from "path"
 import type { ToolCall, ToolCallContent, ToolCallLocation, ToolCallUpdate, ToolKind } from "@agentclientprotocol/sdk"
+import { builtinToolDisplayName, type Language } from "@miaopan-code/core/i18n"
 
 export type ToolInput = Record<string, unknown>
 
@@ -41,6 +42,7 @@ export function toToolKind(toolName: string): ToolKind {
   switch (tool) {
     case "bash":
     case "shell":
+    case "execute":
       return "execute"
 
     case "webfetch":
@@ -54,6 +56,8 @@ export function toToolKind(toolName: string): ToolKind {
 
     case "grep":
     case "glob":
+    case "websearch":
+    case "lsp":
     case "context":
     case "context7_resolve_library_id":
     case "context7_get_library_docs":
@@ -126,10 +130,11 @@ export function pendingToolCall(input: {
   readonly toolName: string
   readonly state: { readonly input: ToolInput; readonly title?: string }
   readonly cwd?: string
+  readonly language?: Language
 }): ToolCall {
   return {
     toolCallId: input.toolCallId,
-    title: toolTitle(input.toolName, input.state.input, input.state.title),
+    title: toolTitle(input.toolName, input.state.input, input.state.title, input.language),
     kind: toToolKind(input.toolName),
     status: "pending",
     locations: toLocations(input.toolName, input.state.input, input.cwd),
@@ -143,6 +148,7 @@ export function runningToolUpdate(input: {
   readonly state: RunningToolState
   readonly output?: string
   readonly cwd?: string
+  readonly language?: Language
 }): ToolCallUpdate {
   const content = input.output
     ? [
@@ -160,7 +166,7 @@ export function runningToolUpdate(input: {
     toolCallId: input.toolCallId,
     status: "in_progress",
     kind: toToolKind(input.toolName),
-    title: toolTitle(input.toolName, input.state.input, input.state.title),
+    title: toolTitle(input.toolName, input.state.input, input.state.title, input.language),
     locations: toLocations(input.toolName, input.state.input, input.cwd),
     rawInput: rawInput(input.toolName, input.state.input, input.cwd),
     ...(content ? { content } : {}),
@@ -172,12 +178,13 @@ export function duplicateRunningToolUpdate(input: {
   readonly toolName: string
   readonly state: RunningToolState
   readonly cwd?: string
+  readonly language?: Language
 }): ToolCallUpdate {
   return {
     toolCallId: input.toolCallId,
     status: "in_progress",
     kind: toToolKind(input.toolName),
-    title: toolTitle(input.toolName, input.state.input, input.state.title),
+    title: toolTitle(input.toolName, input.state.input, input.state.title, input.language),
     locations: toLocations(input.toolName, input.state.input, input.cwd),
     rawInput: rawInput(input.toolName, input.state.input, input.cwd),
   }
@@ -188,11 +195,14 @@ export function completedToolUpdate(input: {
   readonly toolName: string
   readonly state: CompletedToolState & { readonly title?: string }
   readonly cwd?: string
+  readonly language?: Language
 }): ToolCallUpdate {
   return {
     toolCallId: input.toolCallId,
     status: "completed",
-    ...(input.state.title ? { title: input.state.title } : {}),
+    ...(input.state.title
+      ? { title: toolTitle(input.toolName, input.state.input, input.state.title, input.language) }
+      : {}),
     content: completedToolContent(input.toolName, input.state),
     rawOutput: completedToolRawOutput(input.state),
   }
@@ -203,12 +213,13 @@ export function errorToolUpdate(input: {
   readonly toolName: string
   readonly state: ErrorToolState
   readonly cwd?: string
+  readonly language?: Language
 }): ToolCallUpdate {
   return {
     toolCallId: input.toolCallId,
     status: "failed",
     kind: toToolKind(input.toolName),
-    title: toolTitle(input.toolName, input.state.input, undefined),
+    title: toolTitle(input.toolName, input.state.input, undefined, input.language),
     locations: toLocations(input.toolName, input.state.input, input.cwd),
     rawInput: rawInput(input.toolName, input.state.input, input.cwd),
     content: [
@@ -262,9 +273,13 @@ export function shellOutputSnapshot(state: { readonly metadata?: unknown }) {
 
 // For shell tools, surface the actual command as the title so it stays visible
 // before output lands; non-shell tools keep their model-provided title.
-function toolTitle(toolName: string, input: ToolInput, fallback: string | undefined) {
-  if (isShell(toolName)) return shellCommand(input) ?? fallback ?? toolName
-  return fallback || toolName
+function toolTitle(toolName: string, input: ToolInput, fallback: string | undefined, language?: Language) {
+  if (isShell(toolName)) {
+    const command = shellCommand(input)
+    if (command) return command
+  }
+  if (fallback && fallback !== toolName) return fallback
+  return builtinToolDisplayName(language, toolName) ?? toolName
 }
 
 // Enrich shell rawInput with the resolved working directory so clients can show

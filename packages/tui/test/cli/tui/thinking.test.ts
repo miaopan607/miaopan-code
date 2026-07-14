@@ -223,7 +223,7 @@ describe("assistantDisplayParts", () => {
     ).toEqual([reasoning])
   })
 
-  test("groups editing tools that have no diff or file content", () => {
+  test("keeps separate editing tool calls in separate compact rows", () => {
     const write = tool("write", { filePath: "/repo/new.ts" })
     const edit = tool("edit", { filePath: "/repo/existing.ts" })
     const move = tool(
@@ -258,7 +258,35 @@ describe("assistantDisplayParts", () => {
       showDetails: true,
     })
 
-    expect(result).toEqual([{ type: "compact-explore", parts: [write, edit, move] }])
+    expect(result).toEqual([
+      { type: "compact-explore", parts: [write] },
+      { type: "compact-explore", parts: [edit] },
+      { type: "compact-explore", parts: [move] },
+    ])
+    expect(compactToolRows([move], (value) => value ?? "")).toEqual([
+      { key: "move", labels: "/repo/original.ts → /repo/renamed.ts" },
+      { key: "delete", labels: "/repo/obsolete.ts" },
+    ])
+  })
+
+  test("merges consecutive calls to the same tool without crossing tool boundaries", () => {
+    const grepFirst = tool("grep", { pattern: "CompactExplore" })
+    const readFirst = tool("read", { filePath: "/repo/src/index.ts" })
+    const readSecond = tool("read", { filePath: "/repo/src/tool.ts" })
+    const grepSecond = tool("grep", { pattern: "compactToolRows" })
+
+    expect(
+      assistantDisplayParts([grepFirst, readFirst, readSecond, grepSecond], {
+        last: true,
+        thinkingMode: "collapsed",
+        toolDisplay: "compact",
+        showDetails: true,
+      }),
+    ).toEqual([
+      { type: "compact-explore", parts: [grepFirst] },
+      { type: "compact-explore", parts: [readFirst, readSecond] },
+      { type: "compact-explore", parts: [grepSecond] },
+    ])
   })
 
   test("keeps editing tools with diff or file content out of compact groups", () => {

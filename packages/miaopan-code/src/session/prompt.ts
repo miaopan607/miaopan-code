@@ -12,7 +12,8 @@ import { Provider } from "@/provider/provider"
 import { Review } from "@/review"
 
 import { type Tool as AITool, tool, jsonSchema } from "ai"
-import type { JSONSchema7 } from "@ai-sdk/provider"
+import { TypeValidationError, type JSONSchema7 } from "@ai-sdk/provider"
+import Ajv from "ajv"
 import { SessionCompaction } from "./compaction"
 import { SystemPrompt } from "./system"
 import { t } from "@miaopan-code/core/i18n"
@@ -59,6 +60,7 @@ import { SessionGoal } from "@miaopan-code/core/session/goal"
 import { SessionTools } from "./tools"
 import { LLMEvent } from "@miaopan-code/llm"
 import { escapeHtml } from "@/util/html"
+import { Collaboration } from "./collaboration"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -95,7 +97,7 @@ function isOrphanedInterruptedTool(part: SessionV1.ToolPart) {
 export interface Interface {
   readonly cancel: (sessionID: SessionID) => Effect.Effect<void>
   readonly prompt: (input: PromptInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
-  readonly continue: (input: LoopInput) => Effect.Effect<SessionV1.WithParts>
+  readonly continue: (input: ContinueInput) => Effect.Effect<SessionV1.WithParts>
   readonly loop: (input: LoopInput) => Effect.Effect<SessionV1.WithParts>
   readonly shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError>
   readonly command: (input: CommandInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
@@ -228,7 +230,6 @@ const layer = Layer.effect(
           tools: {},
           model: mdl,
           sessionID: input.session.id,
-          retries: 2,
           messages: [{ role: "user", content: t(language, "prompt.generate_title") }, ...msgs],
         })
         .pipe(
@@ -258,10 +259,10 @@ const layer = Layer.effect(
       model: Provider.Model
       lastUser: SessionV1.User
       sessionID: SessionID
-      session: Session.Info
       msgs: SessionV1.WithParts[]
+      permission: PermissionV1.Ruleset
     }) {
-      const { task, model, lastUser, sessionID, session, msgs } = input
+      const { task, model, lastUser, sessionID, msgs, permission: effectivePermission } = input
       const language = (yield* config.get()).language
       const ctx = yield* InstanceState.context
       const promptOps = yield* ops()
@@ -350,7 +351,7 @@ const layer = Layer.effect(
               .ask({
                 ...req,
                 sessionID,
-                ruleset: Permission.merge(taskAgent.permission, session.permission ?? []),
+                ruleset: effectivePermission,
               })
               .pipe(Effect.orDie),
         })
@@ -678,14 +679,15 @@ const layer = Layer.effect(
         return {
           providerID: ProviderV2.ID.make(current.model.providerID),
           modelID: ModelV2.ID.make(current.model.id),
-          ...(current.model.variant && current.model.variant !== "default" ? { variant: current.model.variant } : {}),
+          variant: current.model.variant && current.model.variant !== "default" ? current.model.variant : undefined,
         }
       }
       const match = yield* sessions
         .findMessage(sessionID, (m) => m.info.role === "user" && !!m.info.model)
         .pipe(Effect.orDie)
       if (Option.isSome(match) && match.value.info.role === "user") return match.value.info.model
-      return yield* provider.defaultModel().pipe(Effect.orDie)
+      const fallback = yield* provider.defaultModel().pipe(Effect.orDie)
+      return { ...fallback, variant: undefined }
     })
 
     const createUserMessage = Effect.fn("SessionPrompt.createUserMessage")(function* (input: PromptInput) {
@@ -731,6 +733,16 @@ const layer = Layer.effect(
       }
 
       const current = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
+      if (
+        (ag.mode === "primary" || Collaboration.mode(ag.name)) &&
+        Object.hasOwn(current.metadata ?? {}, Collaboration.MODE_METADATA_KEY)
+      ) {
+        yield* sessions.setPermissionMetadata({
+          sessionID: current.id,
+          permission: current.permission ?? [],
+          metadata: Collaboration.replaceModeMetadata(current.metadata, undefined),
+        })
+      }
       if (
         current.agent !== info.agent ||
         current.model?.providerID !== info.model.providerID ||
@@ -1148,18 +1160,29 @@ const layer = Layer.effect(
       throw new Error(t((yield* config.get()).language, "error.impossible"))
     })
 
-    const runLoop: (sessionID: SessionID, force?: boolean) => Effect.Effect<SessionV1.WithParts> = Effect.fn(
-      "SessionPrompt.run",
-    )(function* (sessionID: SessionID, force = false) {
+    const runLoop: (
+      sessionID: SessionID,
+      force?: boolean,
+      continuation?: Pick<ContinueInput, "model" | "variant">,
+    ) => Effect.Effect<SessionV1.WithParts> = Effect.fn("SessionPrompt.run")(function* (
+      sessionID: SessionID,
+      force = false,
+      continuation?: Pick<ContinueInput, "model" | "variant">,
+    ) {
       const ctx = yield* InstanceState.context
       let structured: unknown
       let step = 0
       const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
+      const sessionModel = yield* currentModel(sessionID)
       const language = (yield* config.get()).language
+      const modelRef = continuation?.model ?? sessionModel
+      const variant = continuation?.model ? continuation.variant : (continuation?.variant ?? sessionModel.variant)
+      const modelOverridden = continuation?.model !== undefined || continuation?.variant !== undefined
 
       while (true) {
         yield* status.set(sessionID, { type: "busy" })
         yield* Effect.logInfo(t(language, "log.session_loop"), { "session.id": sessionID, step })
+        const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         let msgs = yield* MessageV2.filterCompactedEffect(sessionID).pipe(
           Effect.provideService(Database.Service, database),
@@ -1169,6 +1192,9 @@ const layer = Layer.effect(
 
         if (!lastUser) throw new Error(t((yield* config.get()).language, "error.no_user_message"))
         const selectedAgent = yield* agents.get(lastUser.agent)
+        const effectivePermission = selectedAgent
+          ? Collaboration.effectivePermission({ agent: selectedAgent, session })
+          : []
 
         const lastAssistantMsg = msgs.findLast(
           (msg) => msg.info.role === "assistant" && msg.info.id === lastAssistant?.id,
@@ -1216,16 +1242,36 @@ const layer = Layer.effect(
         if (step === 1)
           yield* title({
             session,
-            modelID: lastUser.model.modelID,
-            providerID: lastUser.model.providerID,
+            modelID: modelRef.modelID,
+            providerID: modelRef.providerID,
             history: msgs,
           }).pipe(Effect.ignore, Effect.forkIn(scope))
 
-        const model = yield* getModel(lastUser.model.providerID, lastUser.model.modelID, sessionID)
+        const model = yield* getModel(modelRef.providerID, modelRef.modelID, sessionID)
+        const user = {
+          ...lastUser,
+          model: {
+            providerID: modelRef.providerID,
+            modelID: modelRef.modelID,
+            variant,
+          },
+        }
+        if (modelOverridden && step === 1) {
+          yield* sessions.setAgentModel({
+            sessionID,
+            agent: lastUser.agent,
+            model: {
+              id: modelRef.modelID,
+              providerID: modelRef.providerID,
+              variant: variant ?? "default",
+            },
+            time: Date.now(),
+          })
+        }
         const task = tasks.pop()
 
         if (task?.type === "subtask") {
-          const stop = yield* handleSubtask({ task, model, lastUser, sessionID, session, msgs })
+          const stop = yield* handleSubtask({ task, model, lastUser, sessionID, msgs, permission: effectivePermission })
           if (stop) break
           continue
         }
@@ -1250,7 +1296,7 @@ const layer = Layer.effect(
           yield* compaction.create({
             sessionID,
             agent: lastUser.agent,
-            model: lastUser.model,
+            model: modelRef,
             auto: true,
             oai: lastUser.oai,
           })
@@ -1277,7 +1323,7 @@ const layer = Layer.effect(
           role: "assistant",
           mode: agent.name,
           agent: agent.name,
-          variant: lastUser.model.variant,
+          variant,
           path: { cwd: ctx.directory, root: ctx.worktree },
           cost: 0,
           tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
@@ -1318,6 +1364,7 @@ const layer = Layer.effect(
           const tools = yield* SessionTools.resolve({
             agent,
             session,
+            permission: effectivePermission,
             model,
             processor: handle,
             bypassAgentCheck,
@@ -1349,16 +1396,11 @@ const layer = Layer.effect(
 
           const language = (yield* config.get()).language
           const [collaboration, skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
-            sys.collaboration(
-              agent,
-              session.metadata?.collaboration_mode === "plan" || session.metadata?.collaboration_mode === "ask"
-                ? session.metadata.collaboration_mode
-                : undefined,
-            ),
-            sys.skills(agent),
+            sys.collaboration(Collaboration.resolveMode(agent, session)),
+            sys.skills(agent, effectivePermission),
             sys.environment(model),
             instruction.system().pipe(Effect.orDie),
-            sys.mcp(agent, session.permission),
+            sys.mcp(agent, effectivePermission),
             MessageV2.toModelMessagesEffect(msgs, model, { language }),
           ])
           const system = [
@@ -1380,9 +1422,9 @@ const layer = Layer.effect(
                 })
               : undefined
           const result = yield* handle.process({
-            user: lastUser,
+            user,
             agent,
-            permission: session.permission,
+            permission: effectivePermission,
             sessionID,
             parentSessionID: session.parentID,
             system,
@@ -1418,14 +1460,6 @@ const layer = Layer.effect(
               yield* events.publish(Session.Event.Error, { sessionID, error: handle.message.error })
               return "break" as const
             }
-            if (format.type === "json_schema") {
-              handle.message.error = new SessionV1.StructuredOutputError({
-                message: t((yield* config.get()).language, "error.structured_output_missing"),
-                retries: 0,
-              }).toObject()
-              yield* sessions.updateMessage(handle.message)
-              return "break" as const
-            }
           }
 
           if (result === "stop") return "break" as const
@@ -1433,7 +1467,7 @@ const layer = Layer.effect(
             yield* compaction.create({
               sessionID,
               agent: lastUser.agent,
-              model: lastUser.model,
+              model: modelRef,
               auto: true,
               overflow: !handle.message.finish,
               oai: lastUser.oai,
@@ -1458,10 +1492,14 @@ const layer = Layer.effect(
       return yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID))
     })
 
-    const continueSession: (input: LoopInput) => Effect.Effect<SessionV1.WithParts> = Effect.fn(
+    const continueSession: (input: ContinueInput) => Effect.Effect<SessionV1.WithParts> = Effect.fn(
       "SessionPrompt.continue",
-    )(function* (input: LoopInput) {
-      return yield* state.ensureRunning(input.sessionID, lastAssistant(input.sessionID), runLoop(input.sessionID, true))
+    )(function* (input: ContinueInput) {
+      return yield* state.ensureRunning(
+        input.sessionID,
+        lastAssistant(input.sessionID),
+        runLoop(input.sessionID, true, input),
+      )
     })
 
     const shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError> = Effect.fn(
@@ -1667,6 +1705,13 @@ export class LoopInput extends Schema.Class<LoopInput>("SessionPrompt.LoopInput"
   sessionID: SessionID,
 }) {}
 
+export const ContinueInput = Schema.Struct({
+  sessionID: SessionID,
+  model: Schema.optional(ModelRef),
+  variant: Schema.optional(Schema.String),
+})
+export type ContinueInput = Schema.Schema.Type<typeof ContinueInput>
+
 export const ShellInput = Schema.Struct({
   sessionID: SessionID,
   messageID: Schema.optional(MessageID),
@@ -1707,16 +1752,35 @@ export type CommandInput = Schema.Schema.Type<typeof CommandInput>
 
 /** @internal Exported for testing */
 export function createStructuredOutputTool(input: {
-  schema: Record<string, any>
+  schema: Record<string, unknown>
   language?: "zh-CN" | "en"
   onSuccess: (output: unknown) => void
 }): AITool {
   // Remove $schema property if present (not needed for tool input)
   const { $schema: _, ...toolSchema } = input.schema
+  const structuredSchema = toolSchema as JSONSchema7
+  const validate = structuredOutputAjv.compile(structuredSchema)
 
   return tool({
     description: t(input.language, "prompt.structured_output_description"),
-    inputSchema: jsonSchema(toolSchema as JSONSchema7),
+    inputSchema: jsonSchema(structuredSchema, {
+      validate(value) {
+        if (validate(value)) return { success: true, value }
+        const failure = validate.errors?.[0]
+        return {
+          success: false,
+          error: new TypeValidationError({
+            value,
+            cause: new Error(
+              t(input.language, "error.structured_output_schema_mismatch", {
+                path: failure?.instancePath || "$",
+                detail: failure ? `${failure.keyword} (${failure.schemaPath})` : "schema_mismatch",
+              }),
+            ),
+          }),
+        }
+      },
+    }),
     async execute(args) {
       // AI SDK validates args against inputSchema before calling execute()
       input.onSuccess(args)
@@ -1734,6 +1798,8 @@ export function createStructuredOutputTool(input: {
     },
   })
 }
+
+const structuredOutputAjv = new Ajv({ strict: false, addUsedSchema: false })
 const bashRegex = /!`([^`]+)`/g
 // Match [Image N] as single token, quoted strings, or non-space sequences
 const argsRegex = /(?:\[Image\s+\d+\]|"[^"]*"|'[^']*'|[^\s"']+)/gi

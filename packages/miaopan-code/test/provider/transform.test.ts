@@ -6,11 +6,12 @@ import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { jsonSchema } from "ai"
 import { t } from "@miaopan-code/core/i18n"
+import { CodexUserAgent } from "@/provider/codex-user-agent"
 
 describe("LLMRequestPrep.codex", () => {
-  test("builds Codex-shaped OpenAI request options and headers", () => {
+  test("builds Codex-shaped OpenAI request options and headers", async () => {
     const messages = [{ role: "user" as const, content: "Hello" }]
-    const result = LLMRequestPrep.codex({
+    const result = await LLMRequestPrep.codex({
       prepared: {
         system: ["System one", "System two"],
         messages: [{ role: "system", content: "System one\nSystem two" }, ...messages],
@@ -42,17 +43,17 @@ describe("LLMRequestPrep.codex", () => {
       include: ["file_search_call.results", "reasoning.encrypted_content"],
     })
     expect(result.headers).toMatchObject({
-      originator: "codex_cli_rs",
+      originator: "codex-tui",
       authorization: "Bearer test",
       "session-id": "session-123",
       "thread-id": "session-123",
       "x-client-request-id": "session-123",
     })
-    expect(result.headers["User-Agent"]).toStartWith("codex_cli_rs/")
+    expect(result.headers["User-Agent"]).toBe(await CodexUserAgent.get())
   })
 
-  test("defaults parallel tool calls and de-duplicates encrypted reasoning", () => {
-    const result = LLMRequestPrep.codex({
+  test("defaults parallel tool calls and de-duplicates encrypted reasoning", async () => {
+    const result = await LLMRequestPrep.codex({
       prepared: {
         system: [],
         messages: [],

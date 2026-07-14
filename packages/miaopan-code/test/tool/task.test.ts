@@ -26,6 +26,7 @@ import { ProviderV2 } from "@miaopan-code/core/provider"
 import { t } from "@miaopan-code/core/i18n"
 import { ModelV2 } from "@miaopan-code/core/model"
 import { Permission } from "../../src/permission"
+import { Collaboration } from "../../src/session/collaboration"
 
 afterEach(async () => {
   await disposeAllInstances()
@@ -283,6 +284,46 @@ describe("tool.task", () => {
     }),
   )
 
+  it.instance("resuming a task preserves the parent deny permission ceiling", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      yield* sessions.setPermission({
+        sessionID: chat.id,
+        permission: Permission.fromConfig({ bash: "deny" }),
+      })
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Existing child",
+        permission: Permission.fromConfig({ bash: "allow" }),
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const resumed = yield* sessions.get(child.id)
+      expect(Permission.evaluate("bash", "git status", resumed.permission ?? []).action).toBe("deny")
+    }),
+  )
+
   it.instance("execute continues an interrupted subagent via task_id", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
@@ -528,7 +569,7 @@ describe("tool.task", () => {
     }),
   )
 
-  it.instance("plan mode reapplies read-only restrictions when resuming a task session", () =>
+  it.instance("plan mode persists only mode metadata when resuming a task session", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
       const { chat, assistant } = yield* seed("Pinned", "plan")
@@ -561,11 +602,43 @@ describe("tool.task", () => {
 
       const resumed = yield* sessions.get(child.id)
       expect(resumed.metadata?.collaboration_mode).toBe("plan")
-      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("deny")
+      expect(resumed.metadata?.permission_version).toBe(2)
+      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("allow")
     }),
   )
 
-  it.instance("ask mode reapplies its edit restriction when resuming a task session", () =>
+  it.instance("plan mode writes collaboration metadata without persisting mode denies", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "plan")
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      const result = yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "plan",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const child = yield* sessions.get(result.metadata.sessionId)
+      expect(child.metadata).toEqual({ collaboration_mode: "plan", permission_version: 2 })
+      expect(Permission.evaluate("edit", "src/index.ts", child.permission ?? []).action).not.toBe("deny")
+    }),
+  )
+
+  it.instance("ask mode persists only mode metadata when resuming a task session", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
       const { chat, assistant } = yield* seed("Pinned", "ask")
@@ -601,9 +674,298 @@ describe("tool.task", () => {
       yield* execute()
       const resumed = yield* sessions.get(child.id)
       expect(resumed.metadata?.collaboration_mode).toBe("ask")
+      expect(resumed.metadata?.permission_version).toBe(2)
       expect(resumed.permission).toHaveLength(permissionCount)
-      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("deny")
+      expect(Permission.evaluate("edit", "src/index.ts", resumed.permission ?? []).action).toBe("allow")
       expect(Permission.evaluate("create_goal", "*", resumed.permission ?? []).action).not.toBe("deny")
+    }),
+  )
+
+  it.instance("Plan to Build removes the old child mode metadata", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "plan")
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const first = yield* def.execute(
+        {
+          description: "inspect bug",
+          prompt: "look into the cache key path",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "plan",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      yield* sessions.setAgentModel({
+        sessionID: chat.id,
+        agent: "build",
+        model: { id: ref.modelID, providerID: ref.providerID, variant: "default" },
+        time: Date.now(),
+      })
+      yield* def.execute(
+        {
+          description: "implement bug",
+          prompt: "apply the fix",
+          subagent_type: "general",
+          task_id: first.metadata.sessionId,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const resumed = yield* sessions.get(first.metadata.sessionId)
+      expect(resumed.metadata).toEqual({ permission_version: 2 })
+    }),
+  )
+
+  it.instance("Ask to Build removes the old child mode metadata", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "ask")
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const first = yield* def.execute(
+        {
+          description: "answer question",
+          prompt: "inspect the issue",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "ask",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      yield* sessions.setAgentModel({
+        sessionID: chat.id,
+        agent: "build",
+        model: { id: ref.modelID, providerID: ref.providerID, variant: "default" },
+        time: Date.now(),
+      })
+      yield* def.execute(
+        {
+          description: "implement fix",
+          prompt: "apply the fix",
+          subagent_type: "general",
+          task_id: first.metadata.sessionId,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect((yield* sessions.get(first.metadata.sessionId)).metadata).toEqual({ permission_version: 2 })
+    }),
+  )
+
+  it.instance("Plan to Ask replaces the child mode metadata", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed("Pinned", "plan")
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      const first = yield* def.execute(
+        {
+          description: "plan investigation",
+          prompt: "inspect the issue",
+          subagent_type: "general",
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "plan",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      yield* sessions.setAgentModel({
+        sessionID: chat.id,
+        agent: "ask",
+        model: { id: ref.modelID, providerID: ref.providerID, variant: "default" },
+        time: Date.now(),
+      })
+      yield* def.execute(
+        {
+          description: "answer follow-up",
+          prompt: "explain the result",
+          subagent_type: "general",
+          task_id: first.metadata.sessionId,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "ask",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      expect((yield* sessions.get(first.metadata.sessionId)).metadata).toEqual({
+        collaboration_mode: "ask",
+        permission_version: 2,
+      })
+    }),
+  )
+
+  it.instance("migrates an identifiable legacy Plan permission segment", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Legacy child",
+        agent: "general",
+        metadata: { collaboration_mode: "plan" },
+        permission: [
+          ...Collaboration.LEGACY_PLAN_PERMISSION,
+          { permission: "todowrite", pattern: "*", action: "deny" },
+          { permission: "task", pattern: "*", action: "deny" },
+        ],
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      yield* def.execute(
+        {
+          description: "resume legacy",
+          prompt: "continue",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const migrated = yield* sessions.get(child.id)
+      expect(migrated.metadata).toEqual({ permission_version: 2 })
+      expect(Permission.evaluate("question", "*", migrated.permission ?? []).action).not.toBe("deny")
+      expect(Permission.evaluate("edit", "src/index.ts", migrated.permission ?? []).action).not.toBe("deny")
+    }),
+  )
+
+  it.instance("migrates an identifiable legacy Ask permission segment", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Legacy Ask child",
+        agent: "general",
+        metadata: { collaboration_mode: "ask" },
+        permission: [...Collaboration.LEGACY_ASK_PERMISSION, { permission: "task", pattern: "*", action: "deny" }],
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      yield* def.execute(
+        {
+          description: "resume legacy Ask",
+          prompt: "continue",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const migrated = yield* sessions.get(child.id)
+      expect(migrated.metadata).toEqual({ permission_version: 2 })
+      expect(Permission.evaluate("edit", "src/index.ts", migrated.permission ?? []).action).not.toBe("deny")
+    }),
+  )
+
+  it.instance("keeps ambiguous legacy denies during migration", () =>
+    Effect.gen(function* () {
+      const sessions = yield* Session.Service
+      const { chat, assistant } = yield* seed()
+      const child = yield* sessions.create({
+        parentID: chat.id,
+        title: "Ambiguous legacy child",
+        agent: "general",
+        permission: [
+          ...Collaboration.LEGACY_PLAN_PERMISSION,
+          { permission: "todowrite", pattern: "*", action: "deny" },
+          { permission: "task", pattern: "*", action: "deny" },
+        ],
+      })
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+
+      yield* def.execute(
+        {
+          description: "resume ambiguous",
+          prompt: "continue",
+          subagent_type: "general",
+          task_id: child.id,
+        },
+        {
+          sessionID: chat.id,
+          messageID: assistant.id,
+          agent: "build",
+          abort: new AbortController().signal,
+          extra: { promptOps: stubOps() },
+          messages: [],
+          metadata: () => Effect.void,
+          ask: () => Effect.void,
+        },
+      )
+
+      const migrated = yield* sessions.get(child.id)
+      expect(migrated.metadata).toEqual({ permission_version: 2 })
+      expect(Permission.evaluate("question", "*", migrated.permission ?? []).action).toBe("deny")
     }),
   )
 

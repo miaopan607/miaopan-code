@@ -2,7 +2,16 @@ import { describe, expect, test } from "bun:test"
 import { CacheHint, LLM, LLMResponse } from "../src"
 import * as OpenAIChat from "../src/protocols/openai-chat"
 import * as OpenAIResponses from "../src/protocols/openai-responses"
-import { LLMRequest, Message, Model, ToolCallPart, ToolChoice, ToolDefinition, ToolResultPart } from "../src/schema"
+import {
+  HttpRetryOptions,
+  LLMRequest,
+  Message,
+  Model,
+  ToolCallPart,
+  ToolChoice,
+  ToolDefinition,
+  ToolResultPart,
+} from "../src/schema"
 
 const chatRoute = OpenAIChat.route
 const responsesRoute = OpenAIResponses.route
@@ -67,6 +76,27 @@ describe("llm constructors", () => {
       headers: { "x-shared": "request" },
       query: { request: "1" },
     })
+  })
+
+  test("normalizes plain HTTP retry input into the canonical schema class", () => {
+    const request = LLM.request({
+      model: Model.make({ id: "fake-model", provider: "fake", route: chatRoute }),
+      prompt: "Say hello.",
+      http: {
+        retry: {
+          maxRetries: 4,
+          initialDelayMs: 200,
+          backoffFactor: 2,
+          maxDelayMs: 1600,
+          jitterPercent: 10,
+          respectRetryAfter: true,
+          retryOn: ["network", "server"],
+        },
+      },
+    })
+
+    expect(request.http?.retry).toBeInstanceOf(HttpRetryOptions)
+    expect(request.http?.retry?.retryOn).toEqual(["network", "server"])
   })
 
   test("updates canonical requests from the request datatype", () => {

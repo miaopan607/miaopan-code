@@ -32,6 +32,7 @@ import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
 import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
+import { CodexUserAgent } from "./codex-user-agent"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
@@ -153,6 +154,20 @@ type CustomLoader = (provider: Info) => Effect.Effect<{
   options?: Record<string, any>
   discoverModels?: CustomDiscoverModels
 }>
+
+type LanguageRequest = {
+  sessionID?: string
+  small?: boolean
+  hidden?: boolean
+}
+
+const WORKFLOW_SESSION_CACHE_LIMIT = 50
+
+function isGitLabWorkflowModel(model: Model) {
+  return (
+    model.providerID === "gitlab" && model.api.npm === "gitlab-ai-provider" && model.api.id.startsWith("duo-workflow-")
+  )
+}
 
 type CustomDep = {
   auth: (id: string) => Effect.Effect<Auth.Info | undefined>
@@ -1171,7 +1186,7 @@ export interface Interface {
   readonly refresh: () => Effect.Effect<Record<ProviderV2.ID, Info>>
   readonly getProvider: (providerID: ProviderV2.ID) => Effect.Effect<Info>
   readonly getModel: (providerID: ProviderV2.ID, modelID: ModelV2.ID) => Effect.Effect<Model, ModelNotFoundError>
-  readonly getLanguage: (model: Model) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
+  readonly getLanguage: (model: Model, request?: LanguageRequest) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
   readonly closest: (
     providerID: ProviderV2.ID,
     query: string[],
@@ -1183,6 +1198,7 @@ export interface Interface {
 interface State {
   language: Language
   models: Map<string, LanguageModelV3>
+  workflowModels: Map<string, Map<string, LanguageModelV3>>
   providers: Record<ProviderV2.ID, Info>
   catalog: Record<ProviderV2.ID, Info>
   sdk: Map<string, BundledSDK>
@@ -1384,6 +1400,7 @@ const layer = Layer.effect(
 
         const providers: Record<ProviderV2.ID, Info> = {} as Record<ProviderV2.ID, Info>
         const languages = new Map<string, LanguageModelV3>()
+        const workflowLanguages = new Map<string, Map<string, LanguageModelV3>>()
         const modelLoaders: {
           [providerID: string]: CustomModelLoader
         } = {}
@@ -1687,6 +1704,7 @@ const layer = Layer.effect(
         return {
           language: resolveLanguage(cfg.language),
           models: languages,
+          workflowModels: workflowLanguages,
           providers,
           catalog,
           sdk,
@@ -1776,6 +1794,11 @@ const layer = Layer.effect(
         options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
           const fetchFn = customFetch ?? fetch
           const opts = init ?? {}
+          const headers = new Headers(opts.headers ?? (input instanceof Request ? input.headers : undefined))
+          if (headers.get("originator") === CodexUserAgent.originator) {
+            headers.set("user-agent", await CodexUserAgent.get())
+            opts.headers = headers
+          }
           const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
           const headerTimeoutMs = headerTimeout === false ? undefined : headerTimeout
           const headerTimeoutCtl =
@@ -1866,12 +1889,33 @@ const layer = Layer.effect(
       return info
     })
 
-    const getLanguage = Effect.fn("Provider.getLanguage")(function* (model: Model) {
+    const getLanguage = Effect.fn("Provider.getLanguage")(function* (model: Model, request?: LanguageRequest) {
       const s = yield* InstanceState.get(state)
-      const envs = yield* env.all()
       const key = `${model.providerID}/${model.id}`
-      if (s.models.has(key)) return s.models.get(key)!
+      const workflow = isGitLabWorkflowModel(model)
+      const transient = workflow && (request?.small === true || request?.hidden === true)
+      const sessionCache =
+        workflow && !transient && request?.sessionID
+          ? (s.workflowModels.get(key) ??
+            (() => {
+              const cache = new Map<string, LanguageModelV3>()
+              s.workflowModels.set(key, cache)
+              return cache
+            })())
+          : undefined
+      if (sessionCache && request?.sessionID) {
+        const cached = sessionCache.get(request.sessionID)
+        if (cached) {
+          sessionCache.delete(request.sessionID)
+          sessionCache.set(request.sessionID, cached)
+          return cached
+        }
+      }
+      if (!workflow || (!transient && !request?.sessionID)) {
+        if (s.models.has(key)) return s.models.get(key)!
+      }
 
+      const envs = yield* env.all()
       const provider = s.providers[model.providerID]
       return yield* EffectPromise.refineRejection(
         async () => {
@@ -1887,7 +1931,16 @@ const layer = Layer.effect(
                 model,
               )
             : sdk.languageModel(model.api.id)
-          s.models.set(key, language)
+          if (sessionCache && request?.sessionID) {
+            sessionCache.set(request.sessionID, language)
+            while (sessionCache.size > WORKFLOW_SESSION_CACHE_LIMIT) {
+              const oldest = sessionCache.keys().next().value
+              if (oldest === undefined) break
+              sessionCache.delete(oldest)
+            }
+          } else if (!transient) {
+            s.models.set(key, language)
+          }
           return language
         },
         (cause) =>

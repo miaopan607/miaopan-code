@@ -44,7 +44,6 @@ export type StreamInput = {
   messages: ModelMessage[]
   small?: boolean
   tools: Record<string, Tool>
-  retries?: number
   toolChoice?: "auto" | "required" | "none"
 }
 
@@ -95,7 +94,11 @@ const live: Layer.Layer<
 
       const [language, cfg, item, info] = yield* Effect.all(
         [
-          provider.getLanguage(input.model),
+          provider.getLanguage(input.model, {
+            sessionID: input.sessionID,
+            small: input.small === true,
+            hidden: input.agent.hidden === true,
+          }),
           config.get(),
           provider.getProvider(input.model.providerID),
           auth.get(input.model.providerID),
@@ -125,7 +128,6 @@ const live: Layer.Layer<
           approvalHandler?: (approvalTools: { name: string; args: string }[]) => Promise<{ approved: boolean }>
         }
         workflowModel.sessionID = input.sessionID
-        workflowModel.systemPrompt = prepared.system.join("\n")
         workflowModel.toolExecutor = async (toolName, argsJson, _requestID) => {
           const tool = prepared.tools[toolName]
           if (!tool || !tool.execute) {
@@ -148,7 +150,7 @@ const live: Layer.Layer<
           }
         }
 
-        const ruleset = Permission.merge(input.agent.permission ?? [], input.permission ?? [])
+        const ruleset = input.permission ?? input.agent.permission ?? []
         workflowModel.sessionPreapprovedTools = Object.keys(prepared.tools).filter((name) => {
           const match = ruleset.findLast((rule) => Wildcard.match(name, rule.permission))
           return !match || match.action !== "ask"
@@ -247,6 +249,7 @@ const live: Layer.Layer<
           maxOutputTokens: prepared.params.maxOutputTokens,
           providerOptions: prepared.params.options,
           headers: prepared.headers,
+          retry: cfg.retry,
           abort: input.abort,
           language: cfg.language,
         })
@@ -284,11 +287,13 @@ const live: Layer.Layer<
         "llm.model": input.model.id,
       })
       const codex = useCodexRequest
-        ? LLMRequestPrep.codex({
-            prepared,
-            messages: input.messages,
-            sessionID: input.sessionID,
-          })
+        ? yield* Effect.promise(() =>
+            LLMRequestPrep.codex({
+              prepared,
+              messages: input.messages,
+              sessionID: input.sessionID,
+            }),
+          )
         : undefined
       const options = codex?.options ?? prepared.params.options
       // Default runtime path: AI SDK owns provider execution and tool dispatch;
@@ -338,11 +343,13 @@ const live: Layer.Layer<
           maxOutputTokens: prepared.params.maxOutputTokens,
           abortSignal: input.abort,
           headers: codex?.headers ?? prepared.headers,
-          maxRetries: input.retries ?? 0,
+          maxRetries: 0,
+          system: isWorkflow ? prepared.system.join("\n") : undefined,
           messages: codex?.messages ?? prepared.messages,
           model: wrapLanguageModel({
             model: language,
             middleware: [
+              LLMAISDK.httpRetryMiddleware(cfg.retry),
               {
                 specificationVersion: "v3" as const,
                 async transformParams(args) {

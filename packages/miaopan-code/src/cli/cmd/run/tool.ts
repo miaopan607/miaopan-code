@@ -15,6 +15,7 @@
 import os from "os"
 import path from "path"
 import stripAnsi from "strip-ansi"
+import { builtinToolDisplayName } from "@miaopan-code/core/i18n"
 import type { ToolPart } from "@miaopan/sdk/v2"
 import type * as Tool from "@/tool/tool"
 import type { ApplyPatchTool } from "@/tool/apply_patch"
@@ -201,11 +202,14 @@ function span(state: ToolDict): string {
 
 function fail(ctx: ToolFrame): string {
   const error = toolError(ctx)
-  if (error) {
-    return `✖ ${ctx.name} failed: ${error}`
-  }
+  return UI.t("cli.run.tool_failed", {
+    name: displayName(ctx.name),
+    error: error ? `: ${error}` : "",
+  })
+}
 
-  return `✖ ${ctx.name} failed`
+function displayName(name: string): string {
+  return builtinToolDisplayName(UI.getLanguage(), name) ?? name
 }
 
 function toolError(ctx: ToolFrame): string {
@@ -224,10 +228,10 @@ function toolError(ctx: ToolFrame): string {
 function fallbackStart(ctx: ToolFrame): string {
   const extra = info(ctx.input)
   if (!extra) {
-    return `⚙ ${ctx.name}`
+    return `⚙ ${displayName(ctx.name)}`
   }
 
-  return `⚙ ${ctx.name} ${extra}`
+  return `⚙ ${displayName(ctx.name)} ${extra}`
 }
 
 function fallbackFinal(ctx: ToolFrame): string {
@@ -240,11 +244,10 @@ function fallbackFinal(ctx: ToolFrame): string {
   }
 
   const time = span(ctx.state)
-  if (!time) {
-    return `${ctx.name} completed`
-  }
-
-  return `${ctx.name} completed · ${time}`
+  return UI.t("cli.run.tool_completed", {
+    name: displayName(ctx.name),
+    time: time ? ` · ${time}` : "",
+  })
 }
 
 export function toolPath(input?: string, opts: { home?: boolean } = {}): string {
@@ -278,7 +281,7 @@ function fallbackInline(ctx: ToolFrame): ToolInline {
 
   return {
     icon: "⚙",
-    title: `${ctx.name} ${title}`,
+    title: `${displayName(ctx.name)} ${title}`,
   }
 }
 
@@ -289,7 +292,7 @@ function count(n: number, _label: string): string {
 function runGlob(p: ToolProps<typeof GlobTool>): ToolInline {
   const root = p.input.path ?? ""
   const title = UI.t("cli.run.glob_title", { pattern: p.input.pattern ?? "" })
-  const suffix = root ? `in ${toolPath(root)}` : ""
+  const suffix = root ? UI.t("tui.in_path", { path: toolPath(root) }) : ""
   const matches = p.metadata.count
   const description = matches === undefined ? suffix : `${suffix}${suffix ? " · " : ""}${count(matches, "match")}`
   return {
@@ -302,7 +305,7 @@ function runGlob(p: ToolProps<typeof GlobTool>): ToolInline {
 function runGrep(p: ToolProps<typeof GrepTool>): ToolInline {
   const root = p.input.path ?? ""
   const title = UI.t("cli.run.grep_title", { pattern: p.input.pattern ?? "" })
-  const suffix = root ? `in ${toolPath(root)}` : ""
+  const suffix = root ? UI.t("tui.in_path", { path: toolPath(root) }) : ""
   const matches = p.metadata.matches
   const description = matches === undefined ? suffix : `${suffix}${suffix ? " · " : ""}${count(matches, "match")}`
   return {
@@ -343,8 +346,12 @@ function runWebfetch(p: ToolProps<typeof WebFetchTool>): ToolInline {
   const url = p.input.url ?? ""
   return {
     icon: "%",
-    title: UI.t("cli.run.webfetch_title", { url }),
+    title: webfetchTitle(url),
   }
+}
+
+function webfetchTitle(url: string) {
+  return [displayName("webfetch"), url].filter(Boolean).join(" ")
 }
 
 function runEdit(p: ToolProps<typeof EditTool>): ToolInline {
@@ -365,13 +372,13 @@ function runWebSearch(p: ToolProps<typeof WebSearchTool>): ToolInline {
 }
 
 function runTask(p: ToolProps<typeof TaskTool>): ToolInline {
-  const kind = Locale.titlecase(p.input.subagent_type || "unknown")
+  const kind = Locale.titlecase(p.input.subagent_type || UI.t("cli.run.unknown"))
   const desc = p.input.description
   const icon = p.frame.status === "error" ? "✗" : p.frame.status === "running" ? "•" : "✓"
   return {
     icon,
-    title: desc || `${kind} Task`,
-    description: desc ? `${kind} Agent` : undefined,
+    title: desc || UI.t("permission.task_title", { type: kind }),
+    description: desc ? UI.t("cli.run.agent_label", { type: kind }) : undefined,
   }
 }
 
@@ -412,7 +419,7 @@ function runPatch(p: ToolProps<typeof ApplyPatchTool>): ToolInline {
 
   return {
     icon: "%",
-    title: UI.t("cli.run.patch_title", { files: ` ${files} file${files === 1 ? "" : "s"}` }),
+    title: UI.t("cli.run.patch_title", { files: ` ${UI.t("tui.file_count", { count: files })}` }),
   }
 }
 
@@ -474,20 +481,20 @@ function runLsp(p: ToolProps<typeof LspTool>): ToolInline {
 
 type PatchFile = Tool.InferMetadata<typeof ApplyPatchTool>["files"][number]
 
-function patchTitle(file: PatchFile): string {
+function patchTitle(file: PatchFile, marker = "#"): string {
   const rel = file.relativePath
   const from = file.filePath
   if (file.type === "add") {
-    return UI.t("cli.run.patch_created", { path: rel || toolPath(from) })
+    return UI.t("cli.run.patch_created", { marker, path: rel || toolPath(from) })
   }
   if (file.type === "delete") {
-    return UI.t("cli.run.patch_deleted", { path: rel || toolPath(from) })
+    return UI.t("cli.run.patch_deleted", { marker, path: rel || toolPath(from) })
   }
   if (file.type === "move") {
-    return UI.t("cli.run.patch_moved", { from: toolPath(from), to: rel || toolPath(file.movePath) })
+    return UI.t("cli.run.patch_moved", { marker, from: toolPath(from), to: rel || toolPath(file.movePath) })
   }
 
-  return UI.t("cli.run.patch_applied", { path: rel || toolPath(from) })
+  return UI.t("cli.run.patch_applied", { marker, path: rel || toolPath(from) })
 }
 
 function snapWrite(p: ToolProps<typeof WriteTool>): ToolSnapshot | undefined {
@@ -569,7 +576,7 @@ function snapTask(p: ToolProps<typeof TaskTool>): ToolSnapshot {
 
   return {
     kind: "task",
-    title: `# ${UI.t("cli.run.task_title", { type: kind })}`,
+    title: `# ${UI.t("permission.task_title", { type: kind })}`,
     rows,
     tail: "",
   }
@@ -626,10 +633,10 @@ function scrollBashStart(p: ToolProps<typeof BashTool>): string {
   }
 
   if (!cmd) {
-    return dir ? `# Running in ${dir}` : ""
+    return dir ? UI.t("cli.run.running_in", { dir }) : ""
   }
 
-  return `# Running in ${dir}\n$ ${cmd}`
+  return `${UI.t("cli.run.running_in", { dir })}\n$ ${cmd}`
 }
 
 function scrollBashProgress(p: ToolProps<typeof BashTool>): string {
@@ -673,17 +680,17 @@ function scrollBashFinal(p: ToolProps<typeof BashTool>): string {
       return UI.t("run.bash_completed")
     }
 
-    return `bash completed · ${time}`
+    return UI.t("cli.run.bash_completed_time", { time })
   }
 
-  return `bash completed (exit ${code})${time ? ` · ${time}` : ""}`
+  return UI.t("cli.run.bash_completed_exit", { code, time: time ? ` · ${time}` : "" })
 }
 
 function scrollReadStart(p: ToolProps<typeof ReadTool>): string {
   const file = toolPath(p.input.filePath)
   const extra = info(p.frame.input, ["filePath"])
   const tail = extra ? ` ${extra}` : ""
-  return `→ Read ${file}${tail}`.trim()
+  return `→ ${UI.t("cli.run.read_title", { file })}${tail}`.trim()
 }
 
 function scrollWriteStart(_: ToolProps<typeof WriteTool>): string {
@@ -699,23 +706,8 @@ function scrollPatchStart(_: ToolProps<typeof ApplyPatchTool>): string {
 }
 
 function patchLine(file: PatchFile): string {
-  const type = file.type
-  const rel = file.relativePath
-  const from = file.filePath
-
-  if (type === "add") {
-    return `+ Created ${rel || toolPath(from)}`
-  }
-
-  if (type === "delete") {
-    return `- Deleted ${rel || toolPath(from)}`
-  }
-
-  if (type === "move") {
-    return `→ Moved ${toolPath(from)} → ${rel || toolPath(file.movePath)}`
-  }
-
-  return `~ Patched ${rel || toolPath(from)}`
+  const marker = file.type === "add" ? "+" : file.type === "delete" ? "-" : file.type === "move" ? "→" : "~"
+  return patchTitle(file, marker)
 }
 
 function scrollPatchFinal(p: ToolProps<typeof ApplyPatchTool>): string {
@@ -727,17 +719,17 @@ function scrollPatchFinal(p: ToolProps<typeof ApplyPatchTool>): string {
   if (files.length === 0) {
     const time = span(p.frame.state)
     if (!time) {
-      return "patch"
+      return displayName("apply_patch")
     }
 
-    return `patch · ${time}`
+    return `${displayName("apply_patch")} · ${time}`
   }
 
   const show_updates = !files.some((file) => file?.type && file.type !== "update")
   const shown = files.filter((file) => show_updates || file.type !== "update")
   const rows = shown.slice(0, 6).map(patchLine)
   if (shown.length > 6) {
-    rows.push(`... and ${shown.length - 6} more`)
+    rows.push(UI.t("cli.run.patch_more", { count: shown.length - 6 }))
   }
 
   if (rows.length > 0) {
@@ -777,10 +769,10 @@ function scrollTaskFinal(p: ToolProps<typeof TaskTool>): string {
   const kind = Locale.titlecase(p.input.subagent_type || "general")
   const row = p.input.description || text(p.frame.state.title)
   if (!row) {
-    return `# ${kind} Task`
+    return `# ${UI.t("permission.task_title", { type: kind })}`
   }
 
-  return `# ${kind} Task\n${row}`
+  return `# ${UI.t("permission.task_title", { type: kind })}\n${row}`
 }
 
 function scrollTodoStart(_: ToolProps<typeof TodoWriteTool>): string {
@@ -792,24 +784,24 @@ function scrollTodoFinal(p: ToolProps<typeof TodoWriteTool>): string {
   const time = span(p.frame.state)
   if (items.length === 0) {
     if (!time) {
-      return "0 todos"
+      return UI.t("cli.run.todo_zero")
     }
 
-    return `0 todos · ${time}`
+    return `${UI.t("cli.run.todo_zero")} · ${time}`
   }
 
   const doneN = items.filter((item) => item.status === "completed").length
   const runN = items.filter((item) => item.status === "in_progress").length
   const left = items.length - doneN - runN
-  const tail = [`${items.length} total`]
+  const tail = [UI.t("cli.run.todo_total", { count: items.length })]
   if (doneN > 0) {
-    tail.push(`${doneN} done`)
+    tail.push(UI.t("cli.run.todo_done", { count: doneN }))
   }
   if (runN > 0) {
-    tail.push(`${runN} active`)
+    tail.push(UI.t("cli.run.todo_active", { count: runN }))
   }
   if (left > 0) {
-    tail.push(`${left} pending`)
+    tail.push(UI.t("cli.run.todo_pending", { count: left }))
   }
 
   if (time) {
@@ -855,18 +847,18 @@ function scrollLspStart(p: ToolProps<typeof LspTool>): string {
 }
 
 function scrollSkillStart(p: ToolProps<typeof SkillTool>): string {
-  return `→ Skill "${p.input.name ?? ""}"`
+  return `→ ${UI.t("cli.run.skill_title", { name: p.input.name ?? "" })}`
 }
 
 function scrollGlobStart(p: ToolProps<typeof GlobTool>): string {
   const pattern = p.input.pattern ?? ""
-  const head = pattern ? `✱ Glob "${pattern}"` : "✱ Glob"
+  const head = `✱ ${pattern ? UI.t("cli.run.glob_title", { pattern }) : displayName("glob")}`
   const dir = p.input.path ?? ""
   if (!dir) {
     return head
   }
 
-  return `${head} in ${toolPath(dir)}`
+  return `${head} ${UI.t("tui.in_path", { path: toolPath(dir) })}`
 }
 
 function scrollGlobFinal(p: ToolProps<typeof GlobTool>): string {
@@ -875,31 +867,26 @@ function scrollGlobFinal(p: ToolProps<typeof GlobTool>): string {
 
 function scrollGrepStart(p: ToolProps<typeof GrepTool>): string {
   const pattern = p.input.pattern ?? ""
-  const head = pattern ? `✱ Grep "${pattern}"` : "✱ Grep"
+  const head = `✱ ${pattern ? UI.t("cli.run.grep_title", { pattern }) : displayName("grep")}`
   const dir = p.input.path ?? ""
   if (!dir) {
     return head
   }
 
-  return `${head} in ${toolPath(dir)}`
+  return `${head} ${UI.t("tui.in_path", { path: toolPath(dir) })}`
 }
 
 function scrollListStart(p: ToolProps): string {
   const dir = text(dict(p.input).path)
   if (!dir) {
-    return "→ List"
+    return `→ ${UI.t("cli.run.list_title", { dir: "" }).trim()}`
   }
 
-  return `→ List ${toolPath(dir)}`
+  return `→ ${UI.t("cli.run.list_title", { dir: toolPath(dir) })}`
 }
 
 function scrollWebfetchStart(p: ToolProps<typeof WebFetchTool>): string {
-  const url = p.input.url ?? ""
-  if (!url) {
-    return "% WebFetch"
-  }
-
-  return `% WebFetch ${url}`
+  return `% ${webfetchTitle(p.input.url ?? "")}`
 }
 
 function scrollWebSearchStart(p: ToolProps<typeof WebSearchTool>): string {
@@ -974,7 +961,7 @@ function permTask(p: ToolPermissionProps<typeof TaskTool>): ToolPermissionInfo {
   const desc = p.input.description
   return {
     icon: "#",
-    title: UI.t("cli.run.task_title", { type: Locale.titlecase(type) }),
+    title: UI.t("permission.task_title", { type: Locale.titlecase(type) }),
     lines: desc ? [`◉ ${desc}`] : [],
   }
 }
@@ -983,7 +970,7 @@ function permWebfetch(p: ToolPermissionProps<typeof WebFetchTool>): ToolPermissi
   const url = p.input.url || ""
   return {
     icon: "%",
-    title: UI.t("cli.run.webfetch_title", { url }),
+    title: webfetchTitle(url),
     lines: url ? [UI.t("cli.run.url_line", { url })] : [],
   }
 }

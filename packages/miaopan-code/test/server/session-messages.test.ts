@@ -127,6 +127,88 @@ describe("session messages endpoint", () => {
   )
 
   it.instance(
+    "recovers persisted running tools before returning messages",
+    withoutWatcher(
+      Effect.gen(function* () {
+        const session = yield* sessionScoped
+        const service = yield* SessionNs.Service
+        const user = yield* service.updateMessage({
+          id: MessageID.ascending(),
+          sessionID: session.id,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "build",
+          model,
+          tools: {},
+        } satisfies SessionV1.User)
+        const assistant = yield* service.updateMessage({
+          id: MessageID.ascending(),
+          sessionID: session.id,
+          role: "assistant",
+          parentID: user.id,
+          mode: "build",
+          agent: "build",
+          cost: 0,
+          path: { cwd: "/tmp", root: "/tmp" },
+          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+          modelID: model.modelID,
+          providerID: model.providerID,
+          time: { created: Date.now() },
+        } satisfies SessionV1.Assistant)
+        yield* service.updatePart({
+          id: PartID.ascending(),
+          messageID: assistant.id,
+          sessionID: session.id,
+          type: "tool",
+          callID: "stale-call",
+          tool: "bash",
+          state: {
+            status: "running",
+            input: { command: "stale" },
+            metadata: { output: "partial output" },
+            time: { start: 1 },
+          },
+        })
+        yield* service.updatePart({
+          id: PartID.ascending(),
+          messageID: assistant.id,
+          sessionID: session.id,
+          type: "tool",
+          callID: "stale-pending-call",
+          tool: "read",
+          state: {
+            status: "pending",
+            input: { filePath: "stale" },
+            raw: '{"filePath":"stale"}',
+          },
+        })
+
+        const response = yield* request(`/session/${session.id}/message?limit=80`)
+        expect(response.status).toBe(200)
+        const body = yield* json<SessionV1.WithParts[]>(response)
+        const parts = body.flatMap((message) => message.parts)
+        const part = parts.find(
+          (item): item is SessionV1.ToolPart => item.type === "tool" && item.callID === "stale-call",
+        )
+        expect(part?.state.status).toBe("error")
+        if (part?.state.status === "error") {
+          expect(part.state.metadata).toEqual({ output: "partial output", interrupted: true })
+          expect(part.state.time.end).toBeDefined()
+        }
+        const pending = parts.find(
+          (item): item is SessionV1.ToolPart => item.type === "tool" && item.callID === "stale-pending-call",
+        )
+        expect(pending?.state.status).toBe("error")
+        if (pending?.state.status === "error") {
+          expect(pending.state.metadata).toEqual({ interrupted: true })
+          expect(pending.state.time.end).toBeDefined()
+        }
+      }),
+    ),
+    { git: true },
+  )
+
+  it.instance(
     "rejects invalid cursors and missing sessions",
     withoutWatcher(
       Effect.gen(function* () {

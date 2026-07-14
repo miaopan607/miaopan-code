@@ -379,6 +379,32 @@ export const messages = {
       "仅在目标确实完成且没有剩余工作时标记 complete；仅在同一阻塞条件连续出现至少三个目标回合且无法继续推进时标记 blocked。不得仅因预算即将耗尽或准备停止工作而标记完成。",
     en: "Mark the goal complete only when it is achieved and no required work remains. Mark it blocked only after the same blocking condition has recurred for at least three consecutive goal turns and progress is impossible. Do not complete a goal merely because its budget is nearly exhausted or work is stopping.",
   },
+  "tool.name.invalid": { "zh-CN": "无效工具", en: "Invalid tool" },
+  "tool.name.question": { "zh-CN": "提问", en: "Ask" },
+  "tool.name.request_user_input": { "zh-CN": "询问用户", en: "Ask user" },
+  "tool.name.bash": { "zh-CN": "执行", en: "Execute" },
+  "tool.name.read": { "zh-CN": "读取", en: "Read" },
+  "tool.name.glob": { "zh-CN": "查找文件", en: "Find files" },
+  "tool.name.grep": { "zh-CN": "搜索内容", en: "Search contents" },
+  "tool.name.edit": { "zh-CN": "编辑", en: "Edit" },
+  "tool.name.write": { "zh-CN": "写入", en: "Write" },
+  "tool.name.task": { "zh-CN": "代理任务", en: "Agent task" },
+  "tool.name.webfetch": { "zh-CN": "获取网页", en: "Fetch web page" },
+  "tool.name.todowrite": { "zh-CN": "更新任务列表", en: "Update task list" },
+  "tool.name.websearch": { "zh-CN": "搜索网页", en: "Search web" },
+  "tool.name.skill": { "zh-CN": "加载技能", en: "Load skill" },
+  "tool.name.apply_patch": { "zh-CN": "应用补丁", en: "Apply patch" },
+  "tool.name.get_goal": { "zh-CN": "查看目标", en: "View goal" },
+  "tool.name.create_goal": { "zh-CN": "创建目标", en: "Create goal" },
+  "tool.name.update_goal": { "zh-CN": "更新目标", en: "Update goal" },
+  "tool.name.execute": { "zh-CN": "执行代码", en: "Execute code" },
+  "tool.name.lsp": { "zh-CN": "代码导航", en: "Code navigation" },
+  "tool.name.list_mcp_resources": { "zh-CN": "列出 MCP 资源", en: "List MCP resources" },
+  "tool.name.list_mcp_resource_templates": {
+    "zh-CN": "列出 MCP 资源模板",
+    en: "List MCP resource templates",
+  },
+  "tool.name.read_mcp_resource": { "zh-CN": "读取 MCP 资源", en: "Read MCP resource" },
   "tool.param.goal_objective": {
     "zh-CN": "要持续推进的具体目标",
     en: "The concrete objective to keep pursuing",
@@ -658,6 +684,55 @@ export const messages = {
   "config.tool_output": { "zh-CN": "工具输出截断阈值", en: "Tool output truncation thresholds" },
   "config.mcp": { "zh-CN": "MCP 服务器配置", en: "MCP server configuration" },
   "config.compaction": { "zh-CN": "对话压缩行为", en: "Conversation compaction behavior" },
+  "config.retry": { "zh-CN": "模型请求的 HTTP 与流重试策略", en: "HTTP and stream retry strategy for model requests" },
+  "config.retry.stream_max_retries": {
+    "zh-CN": "流阶段在首次请求之外最多自动重试的次数（默认：5）",
+    en: "Maximum stream retries after the initial request (default: 5)",
+  },
+  "config.retry.stream_initial_delay_ms": {
+    "zh-CN": "流阶段第一次重试的本地退避间隔（毫秒，默认：200）",
+    en: "Local backoff interval for the first stream retry in milliseconds (default: 200)",
+  },
+  "config.retry.stream_backoff_factor": {
+    "zh-CN": "流阶段每次重试的退避倍数（最小值：1，默认：2）",
+    en: "Stream retry backoff multiplier (minimum: 1, default: 2)",
+  },
+  "config.retry.stream_max_delay_ms": {
+    "zh-CN": "流阶段本地指数退避的最大间隔（毫秒，默认：3200）",
+    en: "Maximum local stream backoff interval in milliseconds (default: 3200)",
+  },
+  "config.retry.stream_jitter_percent": {
+    "zh-CN": "流阶段退避的均匀抖动百分比（0 至 100，默认：10）",
+    en: "Uniform jitter percentage for stream backoff (0 to 100, default: 10)",
+  },
+  "config.retry.http_max_retries": {
+    "zh-CN": "HTTP 阶段在首次请求之外最多自动重试的次数（默认：4）",
+    en: "Maximum HTTP retries after the initial request (default: 4)",
+  },
+  "config.retry.http_initial_delay_ms": {
+    "zh-CN": "HTTP 阶段第一次重试的本地退避间隔（毫秒，默认：200）",
+    en: "Local backoff interval for the first HTTP retry in milliseconds (default: 200)",
+  },
+  "config.retry.http_backoff_factor": {
+    "zh-CN": "HTTP 阶段每次重试的退避倍数（最小值：1，默认：2）",
+    en: "HTTP retry backoff multiplier (minimum: 1, default: 2)",
+  },
+  "config.retry.http_max_delay_ms": {
+    "zh-CN": "HTTP 阶段本地指数退避的最大间隔（毫秒，默认：1600）",
+    en: "Maximum local HTTP backoff interval in milliseconds (default: 1600)",
+  },
+  "config.retry.http_jitter_percent": {
+    "zh-CN": "HTTP 阶段退避的均匀抖动百分比（0 至 100，默认：10）",
+    en: "Uniform jitter percentage for HTTP backoff (0 to 100, default: 10)",
+  },
+  "config.retry.respect_retry_after": {
+    "zh-CN": "是否优先使用 Provider 返回的 Retry-After 间隔（默认：true）",
+    en: "Whether to prefer Retry-After intervals returned by the provider (default: true)",
+  },
+  "config.retry.retry_on": {
+    "zh-CN": "启用自动重试的稳定错误类别；未配置时启用全部默认类别",
+    en: "Stable error categories enabled for automatic retry; all default categories are enabled when omitted",
+  },
   "config.skills": { "zh-CN": "用于发现技能的附加路径或 URL", en: "Additional paths or URLs to discover skills from" },
   "config.commands": { "zh-CN": "命名的斜杠命令定义", en: "Named slash command definitions" },
   "config.instructions": {
@@ -1445,7 +1520,6 @@ export const messages = {
   "cli.run.glob_title": { "zh-CN": "匹配 {{pattern}}", en: 'Glob "{{pattern}}"' },
   "cli.run.grep_title": { "zh-CN": "搜索 {{pattern}}", en: 'Grep "{{pattern}}"' },
   "cli.run.list_title": { "zh-CN": "列出 {{dir}}", en: "List {{dir}}" },
-  "cli.run.webfetch_title": { "zh-CN": "WebFetch {{url}}", en: "WebFetch {{url}}" },
   "cli.run.session_create_failed": { "zh-CN": "创建会话失败", en: "Failed to create session" },
   "cli.run.agent_not_found_fallback": {
     "zh-CN": "未找到代理“{{name}}”，将回退到默认代理",
@@ -1525,12 +1599,14 @@ export const messages = {
   "cli.run.invalid_tool": { "zh-CN": "无效工具", en: "Invalid Tool" },
   "cli.run.batch": { "zh-CN": "批处理", en: "Batch" },
   "cli.run.batch_count": { "zh-CN": "批处理 {{count}} 个工具", en: "Batch {{count}} tool(s)" },
-  "cli.run.task_title": { "zh-CN": "{{type}} 任务", en: "{{type}} Task" },
   "cli.run.agent_label": { "zh-CN": "{{type}} 代理", en: "{{type}} Agent" },
-  "cli.run.patch_created": { "zh-CN": "# 创建 {{path}}", en: "# Created {{path}}" },
-  "cli.run.patch_deleted": { "zh-CN": "# 删除 {{path}}", en: "# Deleted {{path}}" },
-  "cli.run.patch_moved": { "zh-CN": "# 移动 {{from}} → {{to}}", en: "# Moved {{from}} -> {{to}}" },
-  "cli.run.patch_applied": { "zh-CN": "# 修改 {{path}}", en: "# Patched {{path}}" },
+  "cli.run.patch_created": { "zh-CN": "{{marker}} 创建 {{path}}", en: "{{marker}} Created {{path}}" },
+  "cli.run.patch_deleted": { "zh-CN": "{{marker}} 删除 {{path}}", en: "{{marker}} Deleted {{path}}" },
+  "cli.run.patch_moved": {
+    "zh-CN": "{{marker}} 移动 {{from}} → {{to}}",
+    en: "{{marker}} Moved {{from}} -> {{to}}",
+  },
+  "cli.run.patch_applied": { "zh-CN": "{{marker}} 修改 {{path}}", en: "{{marker}} Patched {{path}}" },
   "cli.run.wrote_snapshot": { "zh-CN": "# 写入 {{path}}", en: "# Wrote {{path}}" },
   "cli.run.edited_snapshot": { "zh-CN": "# 编辑 {{path}}", en: "# Edited {{path}}" },
   "mcp.servers": { "zh-CN": "MCP 服务器", en: "MCP Servers" },
@@ -2842,6 +2918,10 @@ export const messages = {
   "error.structured_output_missing": {
     "zh-CN": "模型未生成结构化输出",
     en: "Model did not produce structured output",
+  },
+  "error.structured_output_schema_mismatch": {
+    "zh-CN": "结构化输出在 {{path}} 处不符合 Schema：{{detail}}",
+    en: "Structured output does not match the schema at {{path}}: {{detail}}",
   },
   "error.tool_execution_failed": {
     "zh-CN": "工具执行失败{{detail}}",
@@ -6077,6 +6157,12 @@ export const messages = {
 
 export type MessageKey = keyof typeof messages
 export type MessageParameters = Record<string, string | number | undefined>
+
+export function builtinToolDisplayName(language: Language | undefined, tool: string) {
+  const key = `tool.name.${tool}`
+  if (!Object.prototype.hasOwnProperty.call(messages, key)) return undefined
+  return t(language, key as MessageKey)
+}
 
 export function resolveLanguage(input: unknown): Language {
   return input === "en" ? "en" : "zh-CN"

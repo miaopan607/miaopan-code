@@ -16,10 +16,9 @@ import type { Plugin } from "@/plugin"
 import { mergeDeep } from "remeda"
 import { t, type Language } from "@miaopan-code/core/i18n"
 import { ProviderVariant } from "@/provider/variant"
+import { CodexUserAgent } from "@/provider/codex-user-agent"
 
 const USER_AGENT = `miaopan-code/${InstallationVersion}`
-const CODEX_ORIGINATOR = "codex_cli_rs"
-const CODEX_USER_AGENT = `${CODEX_ORIGINATOR}/${InstallationVersion}`
 
 type PrepareInput = {
   readonly user: SessionV1.User
@@ -55,7 +54,7 @@ export type Prepared = {
   readonly headers: Record<string, string>
 }
 
-export function codex(input: {
+export async function codex(input: {
   readonly prepared: Prepared
   readonly messages: ModelMessage[]
   readonly sessionID: string
@@ -75,8 +74,8 @@ export function codex(input: {
     },
     headers: {
       ...input.prepared.headers,
-      originator: CODEX_ORIGINATOR,
-      "User-Agent": CODEX_USER_AGENT,
+      originator: CodexUserAgent.originator,
+      "User-Agent": await CodexUserAgent.get(),
       "session-id": input.sessionID,
       "thread-id": input.sessionID,
       "x-client-request-id": input.sessionID,
@@ -245,10 +244,7 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
 })
 
 function resolveTools(input: Pick<PrepareInput, "tools" | "agent" | "permission" | "user">) {
-  const disabled = Permission.disabled(
-    Object.keys(input.tools),
-    Permission.merge(input.agent.permission, input.permission ?? []),
-  )
+  const disabled = Permission.disabled(Object.keys(input.tools), input.permission ?? input.agent.permission)
   return Record.filter(input.tools, (_, k) => input.user.tools?.[k] !== false && !disabled.has(k))
 }
 

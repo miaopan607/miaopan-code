@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { t } from "@miaopan-code/core/i18n"
 import type { ToolPart } from "@miaopan/sdk/v2"
 import { entryBody, entryCanStream, entryDone } from "@/cli/cmd/run/entry.body"
 import type { StreamCommit, ToolSnapshot } from "@/cli/cmd/run/types"
@@ -186,7 +187,7 @@ describe("run entry body", () => {
         kind: "diff",
         items: [
           {
-            title: UI.t("cli.run.patch_applied", { path: "src/a.ts" }),
+            title: UI.t("cli.run.patch_applied", { marker: "#", path: "src/a.ts" }),
             diff: "@@ -1 +1 @@\n-old\n+new\n",
             file: "src/a.ts",
             deletions: 0,
@@ -277,7 +278,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       kind: "task",
-      title: `# ${UI.t("cli.run.task_title", { type: "Explore" })}`,
+      title: `# ${UI.t("permission.task_title", { type: "Explore" })}`,
       rows: ["Inspect reducer"],
       tail: "",
     })
@@ -451,7 +452,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: "~ Patched src/a.ts",
+      content: t("zh-CN", "cli.run.patch_applied", { marker: "~", path: "src/a.ts" }),
     })
   })
 
@@ -488,7 +489,7 @@ describe("run entry body", () => {
       ),
     ).toEqual({
       type: "text",
-      content: "+ Created README-demo.md",
+      content: t("zh-CN", "cli.run.patch_created", { marker: "+", path: "README-demo.md" }),
     })
   })
 

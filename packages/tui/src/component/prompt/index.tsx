@@ -419,14 +419,20 @@ export function Prompt(props: PromptProps) {
     ),
   )
 
-  // Initialize agent/model/variant from last user message when session changes
+  // Initialize agent/model/variant from session state when the session changes
   let syncedSessionID: string | undefined
   createEffect(() => {
     const sessionID = props.sessionID
     const msg = lastUserMessage()
+    const session = sessionID ? sync.session.get(sessionID) : undefined
+    const model = session
+      ? session.model
+        ? { providerID: session.model.providerID, modelID: session.model.id, variant: session.model.variant }
+        : msg?.model
+      : undefined
 
     if (sessionID !== syncedSessionID) {
-      if (!sessionID || !msg) return
+      if (!sessionID || !msg || !model) return
 
       syncedSessionID = sessionID
 
@@ -435,10 +441,8 @@ export function Prompt(props: PromptProps) {
       if (msg.agent && isPrimaryAgent) {
         // Keep command line --agent if specified.
         if (!args.agent) local.agent.set(msg.agent)
-        if (msg.model) {
-          local.model.set(msg.model)
-          local.model.variant.set(msg.model.variant)
-        }
+        local.model.set({ providerID: model.providerID, modelID: model.modelID })
+        local.model.variant.set(model.variant)
       }
     }
   })

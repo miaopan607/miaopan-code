@@ -19,21 +19,17 @@ export class HeaderTimeoutError extends Error {
 export class ResponseStreamError extends Error {
   public override readonly name = "ProviderResponseStreamError"
 
-  constructor(message: string, options?: ErrorOptions) {
+  constructor(message: string, options?: ErrorOptions & { transport?: "websocket" }) {
     super(message, options)
+    this.transport = options?.transport
   }
-}
 
-function isOpenAiErrorRetryable(e: APICallError) {
-  const status = e.statusCode
-  if (!status) return e.isRetryable
-  // openai sometimes returns 404 for models that are actually available
-  return status === 404 || e.isRetryable
+  readonly transport?: "websocket"
 }
 
 // Providers not reliably handled in this function:
 // - z.ai: can accept overflow silently (needs token-count/context-window checks)
-function message(providerID: ProviderV2.ID, e: APICallError, language?: Language) {
+function message(e: APICallError, language?: Language) {
   return iife(() => {
     const msg = e.message
     if (msg === "") {
@@ -174,7 +170,7 @@ export function parseAPICallError(input: {
   error: APICallError
   language?: Language
 }): ParsedAPICallError {
-  const m = message(input.providerID, input.error, input.language)
+  const m = message(input.error, input.language)
   const body = json(input.error.responseBody)
   if (isContextOverflow(m) || input.error.statusCode === 413 || body?.error?.code === "context_length_exceeded") {
     return {
@@ -185,11 +181,15 @@ export function parseAPICallError(input: {
   }
 
   const metadata = input.error.url ? { url: input.error.url } : undefined
+  const status = input.error.statusCode
+  const statusRetryable = status === 403 || status === 408 || status === 429 || (status !== undefined && status >= 500)
+  const hardStatus = status !== undefined && status >= 400 && status < 500 && !statusRetryable
+  const legacyOpenAiNotFound = status === 404 && input.providerID.startsWith("openai")
   return {
     type: "api_error",
     message: m,
-    statusCode: input.error.statusCode,
-    isRetryable: input.providerID.startsWith("openai") ? isOpenAiErrorRetryable(input.error) : input.error.isRetryable,
+    statusCode: status,
+    isRetryable: hardStatus ? legacyOpenAiNotFound : statusRetryable || input.error.isRetryable,
     responseHeaders: input.error.responseHeaders,
     responseBody: input.error.responseBody,
     metadata,

@@ -19,6 +19,7 @@ import { MessageID, SessionID } from "@/session/schema"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import { ModelV2 } from "@miaopan-code/core/model"
+import { builtinToolDisplayName } from "@miaopan-code/core/i18n"
 import { MCP } from "@/mcp"
 import type { Tool as MCPToolDef } from "@modelcontextprotocol/sdk/types.js"
 
@@ -156,8 +157,10 @@ describe("tool.registry", () => {
   it.instance("exposes persisted goal tools", () =>
     Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service
+      const ids = yield* registry.ids()
 
-      expect(yield* registry.ids()).toEqual(expect.arrayContaining(["get_goal", "create_goal", "update_goal"]))
+      expect(ids).toEqual(expect.arrayContaining(["get_goal", "create_goal", "update_goal"]))
+      expect(ids.filter((id) => !builtinToolDisplayName("zh-CN", id))).toEqual([])
     }),
   )
 

@@ -6,6 +6,7 @@ import { MCP } from "@/mcp"
 import { McpCatalog } from "@/mcp/catalog"
 import { Agent } from "@/agent/agent"
 import { Session } from "@/session/session"
+import { Collaboration } from "@/session/collaboration"
 import { Permission } from "@/permission"
 import { Plugin } from "@/plugin"
 import { t, type Language } from "@miaopan-code/core/i18n"
@@ -211,7 +212,7 @@ export const CodeModeTool = Tool.define(
         }
         const agent = yield* agents.get(ctx.agent)
         const session = yield* sessions.get(ctx.sessionID).pipe(Effect.orDie)
-        const ruleset = Permission.merge(agent.permission, session.permission ?? [])
+        const ruleset = Collaboration.effectivePermission({ agent, session })
         const mcpTools = Permission.visibleTools(yield* mcp.tools(), ruleset)
         const servers = Object.keys(yield* mcp.clients()).map(McpCatalog.sanitize)
         const catalog = [...groupByServer(mcpTools, servers).values()].flat()

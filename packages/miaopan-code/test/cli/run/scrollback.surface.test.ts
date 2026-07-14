@@ -6,6 +6,7 @@ import { MockTreeSitterClient, createTestRenderer, type TestRenderer } from "@op
 import { RunScrollbackStream } from "@/cli/cmd/run/scrollback.surface"
 import { RUN_THEME_FALLBACK, type RunTheme } from "@/cli/cmd/run/theme"
 import type { StreamCommit } from "@/cli/cmd/run/types"
+import { UI } from "@/cli/ui"
 
 type ClaimedCommit = {
   snapshot: {
@@ -20,6 +21,7 @@ const decoder = new TextDecoder()
 const active: TestRenderer[] = []
 
 afterEach(() => {
+  UI.setLanguage("zh-CN")
   for (const renderer of active.splice(0)) {
     renderer.destroy()
   }
@@ -489,7 +491,9 @@ test("inserts spacers for new visible groups", async () => {
     try {
       expect(commits).toHaveLength(2)
       expect(renderCommit(commits[0]!).trim()).toBe("")
-      expect(renderCommit(commits[1]!).replace(/ +/g, " ").trim()).toBe('✱ Glob "**/run.ts"')
+      expect(renderCommit(commits[1]!).replace(/ +/g, " ").trim()).toBe(
+        `✱ ${t("zh-CN", "cli.run.glob_title", { pattern: "**/run.ts" })}`,
+      )
     } finally {
       destroy(commits)
     }
@@ -623,6 +627,7 @@ test("omits the current directory from bash titles", async () => {
 })
 
 test("renders completed bash output with one blank line after the command and before the next group", async () => {
+  UI.setLanguage("en")
   const out = await setup()
 
   try {
@@ -647,7 +652,7 @@ test("renders completed bash output with one blank line after the command and be
           status: "running",
           input: {
             command: "git status",
-            workdir: "/tmp/demo",
+            workdir: "/t",
           },
           time: { start: 1 },
         },
@@ -659,12 +664,12 @@ test("renders completed bash output with one blank line after the command and be
         tool: "bash",
         phase: "progress",
         toolState: "completed",
-        text: ["/tmp/demo", "git status", "On branch demo", "nothing to commit, working tree clean", ""].join("\n"),
+        text: ["/t", "git status", "On branch demo", "nothing to commit, working tree clean", ""].join("\n"),
         state: {
           status: "completed",
           input: {
             command: "git status",
-            workdir: "/tmp/demo",
+            workdir: "/t",
           },
           time: { start: 1, end: 2 },
         },
@@ -676,7 +681,7 @@ test("renders completed bash output with one blank line after the command and be
     take()
 
     const output = lines.join("\n")
-    expect(output).toContain("# Running in /tmp/demo\n$ git status")
+    expect(output).toContain(`${t("en", "cli.run.running_in", { dir: "/t" })}\n$ git status`)
     expect(output).toContain("$ git status\n\nOn branch demo")
     expect(output).toContain("nothing to commit, working tree clean\n\noc-run-dev ahead 1")
     expect(output).not.toContain("nothing to commit, working tree clean\n\n\noc-run-dev ahead 1")
@@ -755,7 +760,9 @@ test("inserts a spacer before the next tool after completed multiline bash outpu
     take()
 
     const output = lines.join("\n")
-    expect(output).toContain('total 4\n\n✱ Glob "**/*tool*" in src/cli/cmd')
+    expect(output).toContain(
+      `total 4\n\n✱ ${t("zh-CN", "cli.run.glob_title", { pattern: "**/*tool*" })} ${t("zh-CN", "tui.in_path", { path: "src/cli/cmd" })}`,
+    )
   } finally {
     out.scrollback.destroy()
   }
@@ -847,8 +854,9 @@ test("does not double-space before completed bash output when inline tool header
     take()
 
     const output = lines.join("\n")
-    expect(output).toContain('✱ Grep "tool" in src/cli/cmd/run\n\ndemo.ts')
-    expect(output).not.toContain('✱ Grep "tool" in src/cli/cmd/run\n\n\ndemo.ts')
+    const title = `✱ ${t("zh-CN", "cli.run.grep_title", { pattern: "tool" })} ${t("zh-CN", "tui.in_path", { path: "src/cli/cmd/run" })}`
+    expect(output).toContain(`${title}\n\ndemo.ts`)
+    expect(output).not.toContain(`${title}\n\n\ndemo.ts`)
   } finally {
     out.scrollback.destroy()
   }
@@ -944,10 +952,11 @@ test("does not emit blank patch snapshots between edit and task", async () => {
     take()
 
     const output = lines.join("\n")
-    expect(output).toContain("+ Created README-demo.md")
-    expect(output).not.toContain("~ Patched src/demo-format.ts")
-    expect(output).toContain(`+ Created README-demo.md\n\n# ${t("zh-CN", "cli.run.task_title", { type: "Explore" })}`)
-    expect(output).not.toContain("+ Created README-demo.md\n\n\n# Explore Task")
+    const created = t("zh-CN", "cli.run.patch_created", { marker: "+", path: "README-demo.md" })
+    expect(output).toContain(created)
+    expect(output).not.toContain(t("zh-CN", "cli.run.patch_applied", { marker: "~", path: "src/demo-format.ts" }))
+    expect(output).toContain(`${created}\n\n# ${t("zh-CN", "permission.task_title", { type: "Explore" })}`)
+    expect(output).not.toContain(`${created}\n\n\n# ${t("zh-CN", "permission.task_title", { type: "Explore" })}`)
   } finally {
     out.scrollback.destroy()
   }

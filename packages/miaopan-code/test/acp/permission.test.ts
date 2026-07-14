@@ -200,6 +200,23 @@ describe("acp permissions", () => {
     ])
   })
 
+  it("uses the requested language for builtin permission tool titles", async () => {
+    const harness = createHarness(undefined, "en")
+    await createSession(harness.session, "ses_en_title")
+
+    harness.subscription.handle(
+      permissionAsked("ses_en_title", "perm_en_title", {
+        permission: "task",
+        metadata: {},
+        tool: { messageID: "msg_en_title", callID: "call_en_title" },
+      }),
+    )
+
+    await pollUntil(() => harness.replies.length === 1, "English permission title was never requested")
+
+    expect(harness.requests[0]?.toolCall).toMatchObject({ title: "Agent task" })
+  })
+
   it("uses permission metadata for non-shell titles", async () => {
     const harness = createHarness()
     await createSession(harness.session, "ses_a")

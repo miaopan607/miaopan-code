@@ -379,6 +379,10 @@ TUI 的主题、按键和 TUI 插件等设置使用单独的 `tui.json` 或 `tui
 
 每个 `keybinds.<action>` 接受按键字符串、按键描述对象、这些值的数组，或 `false`/`"none"` 来禁用。动作覆盖应用、命令、Diff、会话、模型、Agent、消息、输入框、对话框、插件和终端操作；准确的动作 ID 以 [TUI Schema](../schemas/tui.json) 的 `keybinds.properties` 为准，编辑器会基于 `$schema` 自动补全全部动作。
 
+## Codex 请求版本
+
+Codex 模型请求默认使用版本 `0.144.1` 模拟 `codex-tui`。设置 `MIAOPAN_CODE_CODEX_VERSION` 可以覆盖该版本；它会同时出现在 User-Agent 的前缀和末尾客户端信息中。修改后需要重新启动 miaopan-code。
+
 ## 配置损坏时恢复
 
 如果错误配置导致 miaopan-code 无法启动，可以临时使用以下环境变量：
