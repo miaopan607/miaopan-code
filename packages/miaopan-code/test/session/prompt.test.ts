@@ -259,8 +259,7 @@ const withMcpInstructions = testEffect(
 const unix = process.platform !== "win32" ? it.instance : it.instance.skip
 const unixNoLLMServer = process.platform !== "win32" ? noLLMServer.instance : noLLMServer.instance.skip
 
-// Config that registers a custom "test" provider with a "test-model" model
-// so provider model lookup succeeds inside the loop.
+// Config that registers custom test models so provider model lookup succeeds inside the loop.
 const cfg = {
   provider: {
     test: {
@@ -277,6 +276,19 @@ const cfg = {
           temperature: false,
           tool_call: true,
           release_date: "2025-01-01",
+          limit: { context: 100000, output: 10000 },
+          cost: { input: 0, output: 0 },
+          options: {},
+        },
+        "test-model-2": {
+          id: "test-model-2",
+          name: "Test Model 2",
+          attachment: false,
+          reasoning: true,
+          temperature: false,
+          tool_call: true,
+          release_date: "2025-01-01",
+          variants: { high: { reasoningEffort: "high" } },
           limit: { context: 100000, output: 10000 },
           cost: { input: 0, output: 0 },
           options: {},
@@ -965,6 +977,73 @@ it.instance("continue starts another turn without adding a user message", () =>
     expect(yield* llm.calls).toBe(2)
     expect(messages.filter((message) => message.info.role === "user")).toHaveLength(1)
     expect(result.parts.some((part) => part.type === "text" && part.text === "continued response")).toBe(true)
+  }),
+)
+
+it.instance("continue uses the selected model and target default variant", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Continue model" })
+    const model = { providerID: ref.providerID, modelID: ModelV2.ID.make("test-model-2") }
+
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      model: ref,
+      noReply: true,
+      parts: [{ type: "text", text: "finish the task" }],
+    })
+    yield* llm.text("first response")
+    yield* prompt.loop({ sessionID: session.id })
+    yield* llm.text("continued response")
+
+    const selected = yield* prompt.continue({ sessionID: session.id, model })
+    yield* llm.text("continued default persisted response")
+    const persisted = yield* prompt.continue({ sessionID: session.id })
+    yield* llm.text("continued high response")
+    const variantOnly = yield* prompt.continue({ sessionID: session.id, variant: "high" })
+    yield* llm.text("continued high persisted response")
+    const persistedVariant = yield* prompt.continue({ sessionID: session.id })
+    const messages = yield* sessions.messages({ sessionID: session.id })
+    const updated = yield* sessions.get(session.id)
+    const inputs = yield* llm.inputs
+
+    expect(inputs.at(-4)?.model).toBe("test-model-2")
+    expect(inputs.at(-4)?.reasoning_effort).toBeUndefined()
+    expect(inputs.at(-3)?.model).toBe("test-model-2")
+    expect(inputs.at(-3)?.reasoning_effort).toBeUndefined()
+    expect(inputs.at(-2)?.model).toBe("test-model-2")
+    expect(inputs.at(-2)?.reasoning_effort).toBe("high")
+    expect(inputs.at(-1)?.model).toBe("test-model-2")
+    expect(inputs.at(-1)?.reasoning_effort).toBe("high")
+    expect(messages.filter((message) => message.info.role === "user")).toHaveLength(1)
+    expect(updated.model).toEqual({ id: model.modelID, providerID: model.providerID, variant: "high" })
+    expect(selected.info).toMatchObject({
+      role: "assistant",
+      providerID: model.providerID,
+      modelID: model.modelID,
+    })
+    expect(persisted.info).toMatchObject({
+      role: "assistant",
+      providerID: model.providerID,
+      modelID: model.modelID,
+    })
+    expect(variantOnly.info).toMatchObject({
+      role: "assistant",
+      providerID: model.providerID,
+      modelID: model.modelID,
+      variant: "high",
+    })
+    expect(persistedVariant.info).toMatchObject({
+      role: "assistant",
+      providerID: model.providerID,
+      modelID: model.modelID,
+      variant: "high",
+    })
+    if (selected.info.role === "assistant") expect(selected.info.variant).toBeUndefined()
+    if (persisted.info.role === "assistant") expect(persisted.info.variant).toBeUndefined()
   }),
 )
 
