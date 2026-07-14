@@ -10255,7 +10255,13 @@ export type SessionPromptAsyncResponses = {
 export type SessionPromptAsyncResponse = SessionPromptAsyncResponses[keyof SessionPromptAsyncResponses]
 
 export type SessionContinueData = {
-  body?: never
+  body?: {
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    variant?: string
+  }
   path: {
     sessionID: string
   }

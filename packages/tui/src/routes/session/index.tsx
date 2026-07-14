@@ -677,7 +677,11 @@ export function Session() {
         }
         if (!canContinue()) return
         await sdk.client.session
-          .continue({ sessionID: route.sessionID })
+          .continue({
+            sessionID: route.sessionID,
+            model: local.model.current(),
+            variant: local.model.variant.current(),
+          })
           .catch((error) =>
             toast.show({ message: error instanceof Error ? error.message : String(error), variant: "error" }),
           )

@@ -4207,6 +4207,11 @@ export class Session2 extends HeyApiClient {
       sessionID: string
       directory?: string
       workspace?: string
+      model?: {
+        providerID: string
+        modelID: string
+      }
+      variant?: string
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4218,6 +4223,8 @@ export class Session2 extends HeyApiClient {
             { in: "path", key: "sessionID" },
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { in: "body", key: "model" },
+            { in: "body", key: "variant" },
           ],
         },
       ],
@@ -4226,6 +4233,11 @@ export class Session2 extends HeyApiClient {
       url: "/session/{sessionID}/continue",
       ...options,
       ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

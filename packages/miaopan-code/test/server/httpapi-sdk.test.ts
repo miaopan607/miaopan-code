@@ -844,6 +844,72 @@ describe("HttpApi SDK", () => {
     ),
   )
 
+  serverPathParity("continues a session with the selected model and variant", (serverPath) =>
+    withFakeLlm(serverPath, ({ sdk, llm }) =>
+      Effect.gen(function* () {
+        yield* llm.text("first response")
+        yield* llm.text("continued response")
+        const session = yield* capture(() =>
+          sdk.session.create({
+            title: "continue model",
+            permission: [{ permission: "*", pattern: "*", action: "allow" }],
+          }),
+        )
+        const sessionID = String(record(session.data).id)
+        yield* capture(() =>
+          sdk.session.prompt({
+            sessionID,
+            agent: "build",
+            model: { providerID: "test", modelID: "test-model" },
+            parts: [{ type: "text", text: "finish the task" }],
+          }),
+        )
+        const continued = yield* capture(() =>
+          sdk.session.continue({
+            sessionID,
+            model: { providerID: "test", modelID: "test-model-2" },
+            variant: "high",
+          }),
+        )
+        yield* pollWithTimeout(
+          capture(() => sdk.session.messages({ sessionID })).pipe(
+            Effect.map((result) => (JSON.stringify(result.data).includes("continued response") ? result : undefined)),
+          ),
+          "continued response was not persisted",
+        )
+        yield* llm.text("variant-only response")
+        const variantOnly = yield* capture(() => sdk.session.continue({ sessionID, variant: "high" }))
+        const finalMessages = yield* pollWithTimeout(
+          capture(() => sdk.session.messages({ sessionID })).pipe(
+            Effect.map((result) =>
+              JSON.stringify(result.data).includes("variant-only response") ? result : undefined,
+            ),
+          ),
+          "variant-only continuation was not persisted",
+        )
+        const updated = yield* capture(() => sdk.session.get({ sessionID }))
+        const inputs = yield* llm.inputs
+        const assistant = array(finalMessages.data).findLast(
+          (message) => record(record(message).info).role === "assistant",
+        )
+        const assistantInfo = record(record(assistant).info)
+        const model = record(record(updated.data).model)
+
+        expect(continued.status).toBe(204)
+        expect(variantOnly.status).toBe(204)
+        expect(inputs.at(-2)?.model).toBe("test-model-2")
+        expect(inputs.at(-2)?.reasoning_effort).toBe("high")
+        expect(inputs.at(-1)?.model).toBe("test-model-2")
+        expect(inputs.at(-1)?.reasoning_effort).toBe("high")
+        expect(model).toMatchObject({ id: "test-model-2", providerID: "test", variant: "high" })
+        expect(assistantInfo).toMatchObject({ modelID: "test-model-2", providerID: "test", variant: "high" })
+        expect(
+          array(finalMessages.data).filter((message) => record(record(message).info).role === "user"),
+        ).toHaveLength(1)
+      }),
+    ),
+  )
+
   httpapi(
     "includes project skills in REST API prompt context",
     withFakeLlmProject("default", { setup: writeProjectSkill }, ({ sdk, llm }) =>
