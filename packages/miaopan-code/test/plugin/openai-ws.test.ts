@@ -8,22 +8,31 @@ import { t } from "@miaopan-code/core/i18n"
 import { ProviderError } from "../../src/provider/error"
 import { OpenAIWebSocket } from "../../src/plugin/openai/ws"
 import { OpenAIWebSocketPool, TITLE_HEADER } from "../../src/plugin/openai/ws-pool"
+import { CodexUserAgent } from "@/provider/codex-user-agent"
 
 describe("plugin.openai.ws", () => {
   test("derives websocket URLs and sends auth plus protocol headers", async () => {
     let headers: IncomingMessage["headers"] | undefined
+    const userAgent = await CodexUserAgent.get()
     await using server = await createWebSocketServer((_socket, request) => {
       headers = request.headers
     })
 
     const socket = await OpenAIWebSocket.connectResponsesWebSocket({
       url: server.wsUrl,
-      headers: { authorization: "Bearer test", "content-length": "123" },
+      headers: {
+        authorization: "Bearer test",
+        "content-length": "123",
+        originator: CodexUserAgent.originator,
+        "user-agent": userAgent,
+      },
     })
 
     expect(OpenAIWebSocket.toWebSocketUrl("http://example.com/v1/responses")).toBe("ws://example.com/v1/responses")
     expect(OpenAIWebSocket.toWebSocketUrl("https://example.com/v1/responses")).toBe("wss://example.com/v1/responses")
     expect(headers?.authorization).toBe("Bearer test")
+    expect(headers?.originator).toBe("codex-tui")
+    expect(headers?.["user-agent"]).toBe(userAgent)
     expect(headers?.["openai-beta"]).toBe(OpenAIWebSocket.PROTOCOL_HEADER)
     expect(headers?.["content-length"]).toBeUndefined()
     socket.terminate()
@@ -192,6 +201,7 @@ describe("plugin.openai.ws-pool", () => {
 
   test("falls back to HTTP after websocket setup retries are exhausted", async () => {
     const attempts: string[] = []
+    const userAgent = await CodexUserAgent.get()
     await using server = await createRejectingWebSocketServer(() => attempts.push("websocket"))
     const fetch = OpenAIWebSocketPool.createWebSocketFetch({
       url: server.url,
@@ -199,10 +209,15 @@ describe("plugin.openai.ws-pool", () => {
       streamRetries: 1,
     })
 
-    const first = await fetch(server.url, streamRequest({ [TITLE_HEADER]: "false" }))
+    const headers = {
+      [TITLE_HEADER]: "false",
+      originator: CodexUserAgent.originator,
+      "user-agent": userAgent,
+    }
+    const first = await fetch(server.url, streamRequest(headers))
     expect(await readTextError(first.text())).toBeInstanceOf(ProviderError.ResponseStreamError)
-    const second = await fetch(server.url, streamRequest({ [TITLE_HEADER]: "false" }))
-    const third = await fetch(server.url, streamRequest({ [TITLE_HEADER]: "false" }))
+    const second = await fetch(server.url, streamRequest(headers))
+    const third = await fetch(server.url, streamRequest(headers))
 
     expect(await second.text()).toBe("http")
     expect(await third.text()).toBe("http")
@@ -210,6 +225,10 @@ describe("plugin.openai.ws-pool", () => {
     expect(server.httpRequests).toHaveLength(2)
     expect(server.httpRequests[0]?.headers[TITLE_HEADER]).toBeUndefined()
     expect(server.httpRequests[1]?.headers[TITLE_HEADER]).toBeUndefined()
+    expect(server.httpRequests[0]?.headers.originator).toBe("codex-tui")
+    expect(server.httpRequests[0]?.headers["user-agent"]).toBe(userAgent)
+    expect(server.httpRequests[1]?.headers.originator).toBe("codex-tui")
+    expect(server.httpRequests[1]?.headers["user-agent"]).toBe(userAgent)
     fetch.close()
   })
 

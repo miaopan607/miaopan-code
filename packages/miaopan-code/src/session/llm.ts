@@ -284,11 +284,13 @@ const live: Layer.Layer<
         "llm.model": input.model.id,
       })
       const codex = useCodexRequest
-        ? LLMRequestPrep.codex({
-            prepared,
-            messages: input.messages,
-            sessionID: input.sessionID,
-          })
+        ? yield* Effect.promise(() =>
+            LLMRequestPrep.codex({
+              prepared,
+              messages: input.messages,
+              sessionID: input.sessionID,
+            }),
+          )
         : undefined
       const options = codex?.options ?? prepared.params.options
       // Default runtime path: AI SDK owns provider execution and tool dispatch;

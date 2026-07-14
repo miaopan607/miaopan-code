@@ -7,6 +7,7 @@ import {
   renderOAuthError,
   type IdTokenClaims,
 } from "../../src/plugin/openai/codex"
+import { CodexUserAgent } from "@/provider/codex-user-agent"
 
 function createTestJwt(payload: object): string {
   const header = Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url")
@@ -187,7 +188,13 @@ describe("plugin.codex", () => {
       resolveRefresh = resolve
     })
     let refreshRequests = 0
-    const apiRequests: { authorization: string | null; accountId: string | null }[] = []
+    const apiRequests: {
+      authorization: string | null
+      accountId: string | null
+      originator: string | null
+      userAgent: string | null
+    }[] = []
+    const tokenRequests: { originator: string | null; userAgent: string | null }[] = []
 
     using server = Bun.serve({
       port: 0,
@@ -195,6 +202,10 @@ describe("plugin.codex", () => {
         const url = new URL(request.url)
         if (url.pathname === "/oauth/token") {
           expect(await request.text()).toContain("refresh_token=refresh-old")
+          tokenRequests.push({
+            originator: request.headers.get("originator"),
+            userAgent: request.headers.get("user-agent"),
+          })
           refreshRequests += 1
           await refreshReady
           return Response.json({
@@ -209,6 +220,8 @@ describe("plugin.codex", () => {
           apiRequests.push({
             authorization: request.headers.get("authorization"),
             accountId: request.headers.get("ChatGPT-Account-Id"),
+            originator: request.headers.get("originator"),
+            userAgent: request.headers.get("user-agent"),
           })
           return new Response("{}", { status: 200 })
         }
@@ -248,9 +261,18 @@ describe("plugin.codex", () => {
       },
     )
     const loaded = await hooks.auth!.loader!(async () => auth as never, {} as never)
+    const output = { headers: {} }
+    await hooks["chat.headers"]!(
+      {
+        sessionID: "session-oauth",
+        agent: "test",
+        model: { providerID: "openai" },
+      } as never,
+      output,
+    )
 
-    const first = loaded.fetch!("https://api.openai.com/v1/responses")
-    const second = loaded.fetch!("https://api.openai.com/v1/responses")
+    const first = loaded.fetch!("https://api.openai.com/v1/responses", { headers: output.headers })
+    const second = loaded.fetch!("https://api.openai.com/v1/responses", { headers: output.headers })
 
     await waitFor(() => refreshRequests === 1)
     expect(apiRequests).toHaveLength(0)
@@ -263,10 +285,24 @@ describe("plugin.codex", () => {
     expect(authUpdates[0]?.body.refresh).toBe("refresh-new")
     expect(authUpdates[0]?.body.access).toBe("access-new")
     expect(authUpdates[0]?.body.accountId).toBe("acc-123")
+    const userAgent = await CodexUserAgent.get()
     expect(apiRequests).toEqual([
-      { authorization: "Bearer access-new", accountId: "acc-123" },
-      { authorization: "Bearer access-new", accountId: "acc-123" },
+      {
+        authorization: "Bearer access-new",
+        accountId: "acc-123",
+        originator: "codex-tui",
+        userAgent,
+      },
+      {
+        authorization: "Bearer access-new",
+        accountId: "acc-123",
+        originator: "codex-tui",
+        userAgent,
+      },
     ])
+    expect(tokenRequests).toHaveLength(1)
+    expect(tokenRequests[0]?.originator).toBeNull()
+    expect(tokenRequests[0]?.userAgent).not.toBe(userAgent)
   })
 })
 
