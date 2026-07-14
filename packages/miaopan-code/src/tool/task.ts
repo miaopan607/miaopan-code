@@ -11,7 +11,7 @@ import { Agent } from "../agent/agent"
 import { deriveSubagentSessionPermission } from "../agent/subagent-permissions"
 import type { SessionPrompt } from "../session/prompt"
 import { Config } from "@/config/config"
-import { Effect, Exit, Schema, Scope } from "effect"
+import { Effect, Exit, Option, Schema, Scope } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@miaopan-code/core/database/database"
@@ -206,14 +206,14 @@ export const TaskTool = Tool.define(
       const oai = parentMessage.info.role === "user" ? parentMessage.info.oai : undefined
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
-        // If resuming an existing subagent session, check whether it was
-        // interrupted (last assistant message has an error). If so, continue
-        // from where it left off instead of sending a fresh prompt.
-        const isResume = session !== undefined
-        if (isResume) {
-          const childMessages = yield* sessions.messages({ sessionID: nextSession.id }).pipe(Effect.orDie)
-          const lastAssistant = childMessages.findLast((m) => m.info.role === "assistant")
-          const wasInterrupted = lastAssistant?.info.role === "assistant" && lastAssistant.info.error !== undefined
+        if (session) {
+          const lastAssistant = yield* sessions
+            .findMessage(nextSession.id, (message) => message.info.role === "assistant")
+            .pipe(Effect.orDie)
+          const wasInterrupted =
+            Option.isSome(lastAssistant) &&
+            lastAssistant.value.info.role === "assistant" &&
+            lastAssistant.value.info.error?.name === "MessageAbortedError"
           if (wasInterrupted) {
             const result = yield* ops.continue({
               sessionID: nextSession.id,

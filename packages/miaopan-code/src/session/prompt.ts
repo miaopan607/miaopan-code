@@ -425,8 +425,7 @@ const layer = Layer.effect(
       }
 
       if (!result) {
-        const stateMetadata =
-          part.state.status === "pending" ? undefined : part.state.metadata
+        const stateMetadata = part.state.status === "pending" ? undefined : part.state.metadata
         const wasInterrupted = stateMetadata?.interrupted === true
         const sessionId = stateMetadata?.sessionId as string | undefined
         const cfg = yield* config.get()
