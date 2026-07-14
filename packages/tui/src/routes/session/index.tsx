@@ -624,8 +624,6 @@ export function Session() {
       type: "session",
       sessionID,
     })
-    const status = sync.data.session_status[sessionID]
-    if (status?.type === "retry") void DialogAlert.show(dialog, i18n.t("tui.retry_error"), status.message)
   }
 
   function moveFirstChild() {
@@ -3134,8 +3132,6 @@ function Task(props: ToolProps) {
         if (sessionID()) {
           navigate({ type: "session", sessionID: sessionID()! })
         }
-        const status = retry()
-        if (status) void DialogAlert.show(dialog, t(Locale.language(), "tui.retry_error"), status.message)
       }}
     >
       {content()}
