@@ -188,10 +188,12 @@ export function policy(opts: {
   provider: string
   language?: Language
   parse: (error: unknown) => Err
+  shouldRetry?: () => boolean
   set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
 }) {
   return Schedule.fromStepWithMetadata(
     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
+      if (opts.shouldRetry && !opts.shouldRetry()) return Cause.done(meta.attempt)
       const error = opts.parse(meta.input)
       const retry = retryable(error, opts.provider, opts.language)
       if (!retry) return Cause.done(meta.attempt)

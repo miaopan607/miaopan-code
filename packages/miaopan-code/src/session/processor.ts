@@ -118,6 +118,7 @@ const layer = Layer.effect(
         reasoningMap: {},
       }
       let aborted = false
+      let hasNonReplayableProgress = false
 
       const parse = (e: unknown) =>
         MessageV2.fromError(e, {
@@ -333,6 +334,20 @@ const layer = Layer.effect(
       }
 
       const handleEvent = Effect.fnUntraced(function* (value: StreamEvent) {
+        if (
+          value.type === "text-delta" ||
+          value.type === "tool-input-start" ||
+          value.type === "tool-input-delta" ||
+          value.type === "tool-input-end" ||
+          value.type === "tool-call" ||
+          value.type === "tool-result" ||
+          value.type === "tool-error" ||
+          value.type === "step-finish" ||
+          value.type === "finish"
+        ) {
+          hasNonReplayableProgress = true
+        }
+
         switch (value.type) {
           case "reasoning-start":
             if (value.id in ctx.reasoningMap) return
@@ -657,6 +672,7 @@ const layer = Layer.effect(
       })
 
       const process = Effect.fn("SessionProcessor.process")(function* (streamInput: LLM.StreamInput) {
+        hasNonReplayableProgress = false
         yield* Effect.logInfo(t(language, "log.session_process_info"), {
           "session.id": input.sessionID,
           messageID: input.assistantMessage.id,
@@ -696,6 +712,7 @@ const layer = Layer.effect(
                 provider: input.model.providerID,
                 language: cfg.language,
                 parse,
+                shouldRetry: () => !hasNonReplayableProgress,
                 set: (info) => {
                   return status.set(ctx.sessionID, {
                     type: "retry",

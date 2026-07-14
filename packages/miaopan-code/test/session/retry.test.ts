@@ -4,7 +4,7 @@ import { SessionV1 } from "@miaopan-code/core/v1/session"
 import type { NamedError } from "@miaopan-code/core/util/error"
 import { APICallError } from "ai"
 import { setTimeout as sleep } from "node:timers/promises"
-import { Effect, Schedule, Schema } from "effect"
+import { Cause, Effect, Exit, Schedule, Schema } from "effect"
 import { CrossSpawnSpawner } from "@miaopan-code/core/cross-spawn-spawner"
 import { SessionRetry } from "../../src/session/retry"
 import { MessageV2 } from "../../src/session/message-v2"
@@ -113,6 +113,37 @@ describe("session.retry.delay", () => {
         attempt: 2,
         message: "boom",
       })
+    }),
+  )
+
+  it.instance("policy preserves the original failure when retry is disabled", () =>
+    Effect.gen(function* () {
+      const error = apiError({ "retry-after-ms": "0" })
+      let runs = 0
+      let sets = 0
+      const exit = yield* Effect.exit(
+        Effect.sync(() => {
+          runs += 1
+        }).pipe(
+          Effect.flatMap(() => Effect.fail(error)),
+          Effect.retry(
+            SessionRetry.policy({
+              provider: retryProvider,
+              parse: Schema.decodeUnknownSync(SessionV1.APIError.Schema),
+              shouldRetry: () => false,
+              set: () =>
+                Effect.sync(() => {
+                  sets += 1
+                }),
+            }),
+          ),
+        ),
+      )
+
+      expect(runs).toBe(1)
+      expect(sets).toBe(0)
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) expect(Cause.squash(exit.cause)).toBe(error)
     }),
   )
 })
