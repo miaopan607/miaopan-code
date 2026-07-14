@@ -1,0 +1,74 @@
+name: Preview Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Preview version to publish, for example 0.2.4-beta.0"
+        required: true
+        default: "0.2.4-beta.0"
+      channel:
+        description: "npm dist-tag to publish under. Must not be latest."
+        required: true
+        default: "beta"
+      dry_run:
+        description: "Run npm publish with --dry-run"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  preview-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Validate preview release inputs
+        env:
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          channel="$RELEASE_CHANNEL"
+          version="$RELEASE_VERSION"
+
+          if [ "$channel" = "latest" ]; then
+            echo "Preview releases must not use the latest dist-tag."
+            exit 1
+          fi
+
+          if ! [[ "$channel" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "Invalid npm dist-tag: $channel"
+            exit 1
+          fi
+
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z][0-9A-Za-z.-]*$ ]]; then
+            echo "Preview version must be a semver prerelease, for example 0.2.4-beta.0."
+            exit 1
+          fi
+
+          echo "MIAOPAN_CODE_CHANNEL=$channel" >> "$GITHUB_ENV"
+          echo "MIAOPAN_CODE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Configure npm authentication
+        run: npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Build CLI packages
+        run: bun run --cwd packages/miaopan-code build
+      - name: Publish npm packages
+        env:
+          PREVIEW_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          if [ "$PREVIEW_DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+
+          bun run --cwd packages/miaopan-code ./script/publish.ts "${args[@]}"
+      - name: Verify published preview
+        if: ${{ !inputs.dry_run }}
+        run: |
+          npm view "@miaopan/code@$MIAOPAN_CODE_VERSION" version
+          npm view @miaopan/code dist-tags --json
