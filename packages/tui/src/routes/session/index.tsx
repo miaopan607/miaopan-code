@@ -133,6 +133,22 @@ export function implementPlanInCurrentContext(input: {
   setTimeout(submit, 0)
 }
 
+export async function implementPlanInFreshContext(input: {
+  plan: { messageID: string } | undefined
+  create: () => Promise<{ id: string }>
+  promptAsync: (sessionID: string) => Promise<unknown>
+  finish: (messageID: string) => void
+  build: () => void
+  navigate: (sessionID: string) => void
+}) {
+  if (!input.plan) return
+  const created = await input.create()
+  await input.promptAsync(created.id)
+  input.finish(input.plan.messageID)
+  input.build()
+  input.navigate(created.id)
+}
+
 type RetryAction = Extract<SessionStatus, { type: "retry" }>["action"]
 
 function goUpsellKeys(action: RetryAction) {
@@ -530,34 +546,41 @@ export function Session() {
     const model = local.model.current()
     const current = session()
     if (!plan || !model || !current) return
-    const created = await sdk.client.session.create(
-      {
-        directory: current.directory,
-        workspace: current.workspaceID,
-        agent: "build",
-        model: {
-          providerID: model.providerID,
-          id: model.modelID,
-          variant: local.model.variant.current(),
-        },
+    await implementPlanInFreshContext({
+      plan,
+      create: async () => {
+        const created = await sdk.client.session.create(
+          {
+            directory: current.directory,
+            workspace: current.workspaceID,
+            agent: "build",
+            model: {
+              providerID: model.providerID,
+              id: model.modelID,
+              variant: local.model.variant.current(),
+            },
+          },
+          { throwOnError: true },
+        )
+        return created.data
       },
-      { throwOnError: true },
-    )
-    await sdk.client.session.prompt(
-      {
-        sessionID: created.data.id,
-        ...model,
-        agent: "build",
-        model,
-        variant: local.model.variant.current(),
-        ...(kv.get("oai", false) ? { oai: true } : {}),
-        parts: [{ type: "text", text: i18n.t("plan.fresh_message", { plan: plan.text }) }],
-      },
-      { throwOnError: true },
-    )
-    finishPlanPrompt(plan.messageID)
-    local.agent.set("build")
-    navigate({ type: "session", sessionID: created.data.id })
+      promptAsync: (sessionID) =>
+        sdk.client.session.promptAsync(
+          {
+            sessionID,
+            ...model,
+            agent: "build",
+            model,
+            variant: local.model.variant.current(),
+            ...(kv.get("oai", false) ? { oai: true } : {}),
+            parts: [{ type: "text", text: i18n.t("plan.fresh_message", { plan: plan.text }) }],
+          },
+          { throwOnError: true },
+        ),
+      finish: finishPlanPrompt,
+      build: () => local.agent.set("build"),
+      navigate: (sessionID) => navigate({ type: "session", sessionID }),
+    })
   }
 
   function answerPlanQuestion(answers: string[][]) {
