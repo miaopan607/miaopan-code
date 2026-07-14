@@ -70,5 +70,16 @@ jobs:
       - name: Verify published preview
         if: ${{ !inputs.dry_run }}
         run: |
-          npm view "@miaopan/code@$MIAOPAN_CODE_VERSION" version
+          for attempt in {1..10}; do
+            if npm view "@miaopan/code@$MIAOPAN_CODE_VERSION" version; then
+              break
+            fi
+
+            if [ "$attempt" = "10" ]; then
+              exit 1
+            fi
+
+            sleep 15
+          done
+
           npm view @miaopan/code dist-tags --json
