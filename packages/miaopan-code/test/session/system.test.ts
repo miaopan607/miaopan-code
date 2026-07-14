@@ -129,7 +129,10 @@ describe("session.system", () => {
       const delegated = yield* prompt.collaboration({ ...build, name: "general" })
 
       expect(direct).toContain("协作模式：Ask")
-      expect(direct).toContain("不要实施修改")
+      expect(direct).toContain("Ask 模式严格只读")
+      expect(direct).toContain("绝不能实施任何修改")
+      expect(direct).toContain("即使用户明确要求修改")
+      expect(direct).toContain("是否属于修改存在疑问时，一律按禁止处理")
       expect(direct).not.toContain("<proposed_plan>")
       expect(delegated).toBeUndefined()
     }),
