@@ -1021,6 +1021,48 @@ it.instance("continue starts another turn without adding a user message", () =>
   }),
 )
 
+it.instance("continue commits a staged revert before starting another turn", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const revert = yield* SessionRevert.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Continue after revert" })
+    const firstUser = yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "first request" }],
+    })
+    yield* llm.text("first response")
+    yield* prompt.loop({ sessionID: session.id })
+    const revertedUser = yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "reverted request" }],
+    })
+    yield* llm.text("reverted response")
+    const revertedAssistant = yield* prompt.loop({ sessionID: session.id })
+    yield* revert.revert({ sessionID: session.id, messageID: revertedUser.info.id, revertFiles: false })
+    yield* llm.text("continued response")
+
+    const result = yield* prompt.continue({ sessionID: session.id })
+    const messages = yield* sessions.messages({ sessionID: session.id })
+    const updated = yield* sessions.get(session.id)
+    const inputs = yield* llm.inputs
+
+    expect(updated.revert).toBeUndefined()
+    expect(messages.map((message) => message.info.id)).not.toContain(revertedUser.info.id)
+    expect(messages.map((message) => message.info.id)).not.toContain(revertedAssistant.info.id)
+    expect(messages.filter((message) => message.info.role === "user")).toHaveLength(1)
+    expect(result.info).toMatchObject({ role: "assistant", parentID: firstUser.info.id })
+    expect(result.parts.some((part) => part.type === "text" && part.text === "continued response")).toBe(true)
+    expect(JSON.stringify(inputs.at(-1))).not.toContain("reverted request")
+    expect(JSON.stringify(inputs.at(-1))).not.toContain("reverted response")
+  }),
+)
+
 it.instance("continue uses the selected model and target default variant", () =>
   Effect.gen(function* () {
     const { llm } = yield* useServerConfig(providerCfg)

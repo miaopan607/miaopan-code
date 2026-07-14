@@ -1495,6 +1495,8 @@ const layer = Layer.effect(
     const continueSession: (input: ContinueInput) => Effect.Effect<SessionV1.WithParts> = Effect.fn(
       "SessionPrompt.continue",
     )(function* (input: ContinueInput) {
+      const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
+      yield* revert.cleanup(session)
       return yield* state.ensureRunning(
         input.sessionID,
         lastAssistant(input.sessionID),
