@@ -48,6 +48,14 @@ function uniquePermission(ruleset: PermissionV1.Ruleset) {
   )
 }
 
+function assistantErrorMessage(error: { name: string; data: unknown }) {
+  if (typeof error.data === "object" && error.data !== null && "message" in error.data) {
+    const message = error.data.message
+    if (typeof message === "string" && message.length > 0) return message
+  }
+  return error.name
+}
+
 const baseParameterFields = (language?: Language) => ({
   description: Schema.String.annotate({ description: t(language, "tool.param.task_description") }),
   prompt: Schema.String.annotate({ description: t(language, "tool.param.task_prompt") }),
@@ -228,39 +236,45 @@ export const TaskTool = Tool.define(
       const oai = parentMessage.info.role === "user" ? parentMessage.info.oai : undefined
 
       const runTask = Effect.fn("TaskTool.runTask")(function* () {
+        const complete = Effect.fnUntraced(function* (result: SessionV1.WithParts) {
+          if (result.info.role === "assistant" && result.info.error) {
+            return yield* Effect.fail(new Error(assistantErrorMessage(result.info.error)))
+          }
+          const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
+          if (!builtinReview) return text
+          return Review.renderOutput(Review.parseOutput(text), language)
+        })
         if (session) {
           const lastAssistant = yield* sessions
             .findMessage(nextSession.id, (message) => message.info.role === "assistant")
             .pipe(Effect.orDie)
-          const wasInterrupted =
+          if (
             Option.isSome(lastAssistant) &&
             lastAssistant.value.info.role === "assistant" &&
-            lastAssistant.value.info.error?.name === "MessageAbortedError"
-          if (wasInterrupted) {
-            const result = yield* ops.continue({
-              sessionID: nextSession.id,
-            })
-            const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
-            if (!builtinReview) return text
-            return Review.renderOutput(Review.parseOutput(text), language)
+            lastAssistant.value.info.error
+          ) {
+            return yield* complete(
+              yield* ops.continue({
+                sessionID: nextSession.id,
+              }),
+            )
           }
         }
         const parts = yield* ops.resolvePromptParts(params.prompt)
-        const result = yield* ops.prompt({
-          messageID: MessageID.ascending(),
-          sessionID: nextSession.id,
-          model: {
-            modelID: model.modelID,
-            providerID: model.providerID,
-          },
-          variant: next.model ? undefined : variant,
-          agent: next.name,
-          oai,
-          parts,
-        })
-        const text = result.parts.findLast((item) => item.type === "text")?.text ?? ""
-        if (!builtinReview) return text
-        return Review.renderOutput(Review.parseOutput(text), language)
+        return yield* complete(
+          yield* ops.prompt({
+            messageID: MessageID.ascending(),
+            sessionID: nextSession.id,
+            model: {
+              modelID: model.modelID,
+              providerID: model.providerID,
+            },
+            variant: next.model ? undefined : variant,
+            agent: next.name,
+            oai,
+            parts,
+          }),
+        )
       })
 
       const inject = Effect.fn("TaskTool.injectBackgroundResult")(function* (
@@ -299,7 +313,14 @@ export const TaskTool = Tool.define(
         yield* background.wait({ id: jobID }).pipe(
           Effect.flatMap((result) => {
             if (result.info?.status === "completed") return inject("completed", result.info.output ?? "")
-            if (result.info?.status === "error") return inject("error", result.info.error ?? "")
+            if (result.info?.status === "error")
+              return inject(
+                "error",
+                ToolI18n.text(ctx, "tool.error.subagent_failed", {
+                  sessionId: nextSession.id,
+                  detail: result.info.error ?? ToolI18n.text(ctx, "tool.error.task_failed"),
+                }),
+              )
             return Effect.void
           }),
           Effect.forkIn(scope, { startImmediately: true }),

@@ -441,9 +441,14 @@ const layer = Layer.effect(
                     sessionId,
                   })
                 : t(cfg.language, "error.tool_cancelled")
-              : t(cfg.language, "error.tool_execution_failed", {
-                  detail: error ? `: ${error.message}` : "",
-                }),
+              : sessionId
+                ? t(cfg.language, "tool.error.subagent_failed", {
+                    detail: error?.message ?? t(cfg.language, "tool.error.task_failed"),
+                    sessionId,
+                  })
+                : t(cfg.language, "error.tool_execution_failed", {
+                    detail: error ? `: ${error.message}` : "",
+                  }),
             time: {
               start: part.state.status === "running" ? part.state.time.start : Date.now(),
               end: Date.now(),

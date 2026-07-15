@@ -137,7 +137,11 @@ function stubOps(opts?: { onPrompt?: (input: SessionPrompt.PromptInput) => void;
   }
 }
 
-function reply(input: SessionPrompt.PromptInput, text: string): SessionV1.WithParts {
+function reply(
+  input: SessionPrompt.PromptInput,
+  text: string,
+  error?: NonNullable<SessionV1.Assistant["error"]>,
+): SessionV1.WithParts {
   const id = MessageID.ascending()
   return {
     info: {
@@ -154,6 +158,7 @@ function reply(input: SessionPrompt.PromptInput, text: string): SessionV1.WithPa
       providerID: input.model?.providerID ?? ref.providerID,
       time: { created: Date.now() },
       finish: "stop",
+      ...(error ? { error } : {}),
     },
     parts: [
       {
@@ -410,6 +415,52 @@ describe("tool.task", () => {
     }),
   )
 
+  it.instance("execute fails when prompt returns an assistant error and preserves the child id", () =>
+    Effect.gen(function* () {
+      const { chat, assistant } = yield* seed()
+      const tool = yield* TaskTool
+      const def = yield* tool.init()
+      let metadata: Record<string, unknown> | undefined
+      const promptOps: TaskPromptOps = {
+        ...stubOps(),
+        prompt: (input) =>
+          Effect.succeed(
+            reply(input, "ignored", {
+              name: "ProviderAuthError",
+              data: { providerID: ref.providerID, message: "authentication failed" },
+            }),
+          ),
+      }
+
+      const exit = yield* Effect.exit(
+        def.execute(
+          {
+            description: "failed work",
+            prompt: "try the task",
+            subagent_type: "general",
+          },
+          {
+            sessionID: chat.id,
+            messageID: assistant.id,
+            agent: "build",
+            abort: new AbortController().signal,
+            extra: { promptOps },
+            messages: [],
+            metadata: (value) => {
+              metadata = value.metadata
+              return Effect.void
+            },
+            ask: () => Effect.void,
+          },
+        ),
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      expect(metadata?.sessionId).toBeDefined()
+      expect(String(metadata?.sessionId)).toMatch(/^ses_/)
+    }),
+  )
+
   it.instance("execute sends fresh prompt when resuming a non-interrupted session", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
@@ -490,7 +541,7 @@ describe("tool.task", () => {
     }),
   )
 
-  it.instance("execute sends fresh prompt when the previous subagent failed without interruption", () =>
+  it.instance("execute continues when the previous subagent failed without interruption", () =>
     Effect.gen(function* () {
       const sessions = yield* Session.Service
       const { chat, assistant } = yield* seed()
@@ -563,9 +614,9 @@ describe("tool.task", () => {
         },
       )
 
-      expect(continued).toBe(false)
-      expect(prompted).toBe(true)
-      expect(result.output).toContain("fresh")
+      expect(continued).toBe(true)
+      expect(prompted).toBe(false)
+      expect(result.output).toContain("continued")
     }),
   )
 

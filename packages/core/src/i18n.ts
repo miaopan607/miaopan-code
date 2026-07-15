@@ -1276,6 +1276,11 @@ export const messages = {
       "子代理任务被中断。要继续此任务，请使用相同的 subagent_type 并设置 task_id 为 {{sessionId}} 重新调用 task 工具，子代理将从上次中断处继续执行{{detail}}",
     en: "The subagent task was interrupted. To resume, call the task tool again with the same subagent_type and task_id set to {{sessionId}}; the subagent will continue from where it was interrupted{{detail}}",
   },
+  "tool.error.subagent_failed": {
+    "zh-CN":
+      "子代理任务失败：{{detail}}。要继续此任务，请使用相同的 subagent_type 并设置 task_id 为 {{sessionId}} 重新调用 task 工具；系统将原地继续失败的回合。是否继续由主线程根据上下文决定，不会自动重试。",
+    en: "The subagent task failed: {{detail}}. To resume, call the task tool again with the same subagent_type and task_id set to {{sessionId}}; it will continue the failed turn in place. The parent thread decides whether to resume; no automatic retry is performed.",
+  },
   "tool.error.unknown_agent": {
     "zh-CN": "未知代理类型：{{type}} 不是有效的代理类型",
     en: "Unknown agent type: {{type}} is not a valid agent type",
@@ -2478,8 +2483,8 @@ export const messages = {
   },
   "tool.param.task_resume": {
     "zh-CN":
-      "仅在要恢复之前的任务时设置；传入之前的 task_id 可继续同一代理会话，而不是创建新会话。如果子代理被中断，传入此参数可从上次中断处继续执行",
-    en: "Set this only when resuming a previous task; pass a prior task_id to continue the same subagent session instead of creating a fresh one. If the subagent was interrupted, passing this will resume from where it left off",
+      "仅在要恢复之前的任务时设置；传入之前的 task_id 可继续同一代理会话，而不是创建新会话。子代理被中断或以错误结束时，传入此参数可原地继续失败的回合；正常完成的会话则会追加新的任务",
+    en: "Set this only when resuming a previous task; pass a prior task_id to continue the same subagent session instead of creating a fresh one. If the subagent was interrupted or ended with an error, this resumes the failed turn in place; a normally completed session receives a new task",
   },
   "tool.param.task_background": {
     "zh-CN": "在后台运行代理；完成后会收到通知。不要休眠、轮询或主动检查进度",

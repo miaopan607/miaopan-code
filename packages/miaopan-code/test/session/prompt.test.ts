@@ -1267,9 +1267,10 @@ it.instance("failed subtask preserves metadata on error tool state", () =>
     const tool = errorTool(taskMsg.parts)
     if (!tool) return
 
-    expect(tool.state.error).toContain(t("zh-CN", "error.tool_execution_failed"))
+    expect(tool.state.error).toContain("子代理任务失败")
     expect(tool.state.metadata).toBeDefined()
     expect(tool.state.metadata?.sessionId).toBeDefined()
+    expect(tool.state.error).toContain(tool.state.metadata?.sessionId as string)
     expect(tool.state.metadata?.model).toEqual({
       providerID: ProviderV2.ID.make("test"),
       modelID: ModelV2.ID.make("missing-model"),
