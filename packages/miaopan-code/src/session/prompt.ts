@@ -1401,7 +1401,10 @@ const layer = Layer.effect(
             sys.environment(model),
             instruction.system().pipe(Effect.orDie),
             sys.mcp(agent, effectivePermission),
-            MessageV2.toModelMessagesEffect(msgs, model, { language }),
+            MessageV2.toModelMessagesEffect(msgs, model, {
+              language,
+              activeContinuationParentID: force && step === 1 ? lastUser.id : undefined,
+            }),
           ])
           const system = [
             ...env,

@@ -103,6 +103,103 @@ function assistantMessage(
   }
 }
 
+function failedAssistantMessage(
+  id: string,
+  parentID: string,
+  input: { completed?: boolean; reasoning?: boolean } = {},
+): SessionMessages[number] {
+  const info = assistantInfo(id, {
+    parentID,
+    time: {
+      created: 200,
+      completed: 3000,
+    },
+  })
+  return {
+    info: {
+      ...info,
+      error: {
+        name: "MessageAbortedError",
+        data: { message: "request aborted" },
+      },
+    },
+    parts: [
+      ...(input.reasoning
+        ? [
+            {
+              id: `${id}-reasoning`,
+              sessionID: "session-1",
+              messageID: id,
+              type: "reasoning" as const,
+              text: "partial reasoning",
+              time: { start: 200, end: 3000 },
+            },
+          ]
+        : []),
+      {
+        id: `${id}-text`,
+        sessionID: "session-1",
+        messageID: id,
+        type: "text",
+        text: "partial answer",
+        time: {
+          start: 200,
+        },
+      },
+      {
+        id: `${id}-interrupted`,
+        sessionID: "session-1",
+        messageID: id,
+        type: "tool",
+        callID: `${id}-interrupted-call`,
+        tool: "bash",
+        state: {
+          status: "error",
+          input: { command: "sleep 10" },
+          error: "tool execution aborted",
+          metadata: { interrupted: true },
+          time: { start: 200, end: 3000 },
+        },
+      },
+      {
+        id: `${id}-error`,
+        sessionID: "session-1",
+        messageID: id,
+        type: "tool",
+        callID: `${id}-error-call`,
+        tool: "bash",
+        state: {
+          status: "error",
+          input: { command: "false" },
+          error: "command failed",
+          metadata: {},
+          time: { start: 200, end: 3000 },
+        },
+      },
+      ...(input.completed
+        ? [
+            {
+              id: `${id}-completed`,
+              sessionID: "session-1",
+              messageID: id,
+              type: "tool" as const,
+              callID: `${id}-completed-call`,
+              tool: "bash",
+              state: {
+                status: "completed" as const,
+                input: { command: "pwd" },
+                output: "/tmp",
+                title: "",
+                metadata: {},
+                time: { start: 200, end: 3000 },
+              },
+            },
+          ]
+        : []),
+    ],
+  }
+}
+
 const provider = (name: string): RunProvider => ({
   id: "openai",
   name: "OpenAI",
@@ -367,6 +464,83 @@ describe("run session replay", () => {
         phase: "running",
         status: "running bash",
       }),
+    )
+  })
+
+  test("folds superseded failed attempts into the later assistant without replaying interruption artifacts", () => {
+    const out = replaySession({
+      messages: [
+        userMessage("msg-user-1", "Finish the task"),
+        failedAssistantMessage("msg-assistant-1", "msg-user-1", { completed: true }),
+        assistantMessage("msg-assistant-2", "continued answer", { parentID: "msg-user-1" }),
+      ],
+      permissions: [],
+      questions: [],
+      thinking: true,
+      limits: {},
+    })
+    expect(out.commits.filter((commit) => commit.kind === "assistant").map((commit) => commit.text)).toEqual([
+      "partial answer",
+      "continued answer",
+    ])
+    expect(out.commits.some((commit) => commit.text.includes("tool execution aborted"))).toBe(false)
+    expect(out.commits).toContainEqual(expect.objectContaining({ toolState: "completed", text: "/tmp" }))
+    expect(out.commits).toContainEqual(expect.objectContaining({ toolState: "error", toolError: "command failed" }))
+    expect(out.commits.some((commit) => commit.kind === "error")).toBe(false)
+  })
+
+  test("keeps an interrupted latest attempt visible until a continuation exists", () => {
+    const out = replaySession({
+      messages: [userMessage("msg-user-1", "Finish the task"), failedAssistantMessage("msg-failed", "msg-user-1")],
+      permissions: [],
+      questions: [],
+      thinking: true,
+      limits: {},
+    })
+
+    expect(out.commits.some((commit) => commit.kind === "assistant" && commit.text === "partial answer")).toBe(true)
+    expect(out.commits).toContainEqual(
+      expect.objectContaining({ toolState: "error", toolError: "tool execution aborted" }),
+    )
+  })
+
+  test("folds every attempt in a repeated continuation failure chain into the final assistant", () => {
+    const out = replaySession({
+      messages: [
+        userMessage("msg-user-1", "Finish the task"),
+        failedAssistantMessage("msg-assistant-1", "msg-user-1"),
+        failedAssistantMessage("msg-assistant-2", "msg-user-1"),
+        assistantMessage("msg-assistant-3", "continued answer", { parentID: "msg-user-1" }),
+      ],
+      permissions: [],
+      questions: [],
+      thinking: true,
+      limits: {},
+    })
+
+    expect(out.commits.filter((commit) => commit.kind === "assistant").map((commit) => commit.text)).toEqual([
+      "partial answer",
+      "partial answer",
+      "continued answer",
+    ])
+    expect(out.commits.some((commit) => commit.text.includes("tool execution aborted"))).toBe(false)
+  })
+
+  test("preserves reasoning from a superseded attempt when thinking is visible", () => {
+    const out = replaySession({
+      messages: [
+        userMessage("msg-user-1", "Finish the task"),
+        failedAssistantMessage("msg-assistant-1", "msg-user-1", { reasoning: true }),
+        assistantMessage("msg-assistant-2", "continued answer", { parentID: "msg-user-1" }),
+      ],
+      permissions: [],
+      questions: [],
+      thinking: true,
+      limits: {},
+    })
+
+    expect(out.commits.some((commit) => commit.kind === "reasoning" && commit.text.includes("partial reasoning"))).toBe(
+      true,
     )
   })
 

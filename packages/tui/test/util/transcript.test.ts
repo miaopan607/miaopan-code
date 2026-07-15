@@ -437,5 +437,75 @@ describe("transcript", () => {
       expect(result).not.toContain("Build")
       expect(result).not.toContain("claude-sonnet-4-20250514")
     })
+
+    test("hides continued failures by default and includes them for diagnostic export", () => {
+      const session = {
+        id: "ses_abc123",
+        title: "Continued Session",
+        time: { created: 1000000000000, updated: 1000000001000 },
+      }
+      const failed: AssistantMessage = {
+        id: "msg_1",
+        sessionID: session.id,
+        role: "assistant",
+        agent: "build",
+        modelID: "claude-sonnet-4-20250514",
+        providerID: "anthropic",
+        mode: "build",
+        parentID: "msg_user",
+        path: { cwd: "/test", root: "/test" },
+        cost: 0,
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        time: { created: 1, completed: 2 },
+        error: { name: "MessageAbortedError", data: { message: "request aborted" } },
+      }
+      const continued: AssistantMessage = {
+        ...failed,
+        id: "msg_2",
+        time: { created: 3, completed: 4 },
+        error: undefined,
+      }
+      const messages = [
+        {
+          info: failed,
+          parts: [
+            { id: "prt_1", sessionID: session.id, messageID: failed.id, type: "text" as const, text: "partial " },
+            {
+              id: "prt_2",
+              sessionID: session.id,
+              messageID: failed.id,
+              type: "tool" as const,
+              callID: "call_1",
+              tool: "bash",
+              state: {
+                status: "error" as const,
+                input: { command: "sleep 10" },
+                error: "tool aborted",
+                metadata: { interrupted: true },
+                time: { start: 1, end: 2 },
+              },
+            },
+          ],
+        },
+        {
+          info: continued,
+          parts: [
+            { id: "prt_3", sessionID: session.id, messageID: continued.id, type: "text" as const, text: "answer" },
+          ],
+        },
+      ]
+      const options = { thinking: false, toolDetails: false, assistantMetadata: false }
+
+      const normal = formatTranscript(session, messages, options)
+      const diagnostic = formatTranscript(session, messages, { ...options, continuationRecords: true })
+
+      expect(normal.match(/## Assistant/g)).toHaveLength(1)
+      expect(normal).toContain("partial answer")
+      expect(normal).not.toContain("request aborted")
+      expect(normal).not.toContain("tool aborted")
+      expect(diagnostic.match(/## Assistant/g)).toHaveLength(2)
+      expect(diagnostic).toContain("request aborted")
+      expect(diagnostic).toContain("tool aborted")
+    })
   })
 })

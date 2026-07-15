@@ -1054,6 +1054,180 @@ describe("session.message-v2.toModelMessage", () => {
     expect(await MessageV2.toModelMessages(input, model)).toStrictEqual([])
   })
 
+  test("merges partial output from a superseded API error into the continued assistant", async () => {
+    const userID = "msg_user"
+    const failedID = "msg_assistant_1"
+    const continuedID = "msg_assistant_2"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: userInfo(userID),
+        parts: [{ ...basePart(userID, "u1"), type: "text", text: "finish it" }] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(
+          failedID,
+          userID,
+          new SessionV1.APIError({ message: "stream failed", isRetryable: false }).toObject() as SessionV1.APIError,
+        ),
+        parts: [{ ...basePart(failedID, "a1"), type: "text", text: "partial " }] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(continuedID, userID),
+        parts: [{ ...basePart(continuedID, "a2"), type: "text", text: "answer" }] as SessionV1.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model)).toStrictEqual([
+      { role: "user", content: [{ type: "text", text: "finish it" }] },
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "partial " },
+          { type: "text", text: "answer" },
+        ],
+      },
+    ])
+  })
+
+  test("keeps partial output when the failed assistant is actively being continued", async () => {
+    const userID = "msg_user"
+    const assistantID = "msg_assistant"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: userInfo(userID),
+        parts: [{ ...basePart(userID, "u1"), type: "text", text: "finish it" }] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(
+          assistantID,
+          userID,
+          new SessionV1.APIError({ message: "stream failed", isRetryable: false }).toObject() as SessionV1.APIError,
+        ),
+        parts: [{ ...basePart(assistantID, "a1"), type: "text", text: "partial answer" }] as SessionV1.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model, { activeContinuationParentID: userID })).toStrictEqual([
+      { role: "user", content: [{ type: "text", text: "finish it" }] },
+      { role: "assistant", content: [{ type: "text", text: "partial answer" }] },
+    ])
+  })
+
+  test("hides interrupted tools without output from a continued turn", async () => {
+    const userID = "msg_user"
+    const failedID = "msg_assistant_1"
+    const continuedID = "msg_assistant_2"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: userInfo(userID),
+        parts: [{ ...basePart(userID, "u1"), type: "text", text: "edit it" }] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(
+          failedID,
+          userID,
+          new SessionV1.AbortedError({ message: "aborted" }).toObject() as SessionV1.Assistant["error"],
+        ),
+        parts: [
+          {
+            ...basePart(failedID, "a1"),
+            type: "tool",
+            callID: "call-1",
+            tool: "edit",
+            state: {
+              status: "error",
+              input: { path: "file.ts" },
+              error: t("zh-CN", "error.tool_execution_aborted"),
+              metadata: { interrupted: true },
+              time: { start: 0, end: 1 },
+            },
+          },
+        ] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(continuedID, userID),
+        parts: [{ ...basePart(continuedID, "a2"), type: "text", text: "done" }] as SessionV1.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model)).toStrictEqual([
+      { role: "user", content: [{ type: "text", text: "edit it" }] },
+      { role: "assistant", content: [{ type: "text", text: "done" }] },
+    ])
+  })
+
+  test("replays interrupted tool output without abort metadata", async () => {
+    const userID = "msg_user"
+    const failedID = "msg_assistant_1"
+    const continuedID = "msg_assistant_2"
+    const input: SessionV1.WithParts[] = [
+      {
+        info: userInfo(userID),
+        parts: [{ ...basePart(userID, "u1"), type: "text", text: "run it" }] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(
+          failedID,
+          userID,
+          new SessionV1.AbortedError({ message: "aborted" }).toObject() as SessionV1.Assistant["error"],
+        ),
+        parts: [
+          {
+            ...basePart(failedID, "a1"),
+            type: "tool",
+            callID: "call-1",
+            tool: "bash",
+            state: {
+              status: "error",
+              input: { command: "echo ok" },
+              error: t("zh-CN", "error.tool_execution_aborted"),
+              metadata: {
+                interrupted: true,
+                output: `${t("zh-CN", "tool.shell.user_aborted")}\nok\n\n<shell_metadata>\n${t("zh-CN", "tool.shell.user_aborted")}\nother metadata\n</shell_metadata>`,
+              },
+              time: { start: 0, end: 1 },
+            },
+          },
+        ] as SessionV1.Part[],
+      },
+      {
+        info: assistantInfo(continuedID, userID),
+        parts: [{ ...basePart(continuedID, "a2"), type: "text", text: "done" }] as SessionV1.Part[],
+      },
+    ]
+
+    expect(await MessageV2.toModelMessages(input, model)).toStrictEqual([
+      { role: "user", content: [{ type: "text", text: "run it" }] },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool-call",
+            toolCallId: "call-1",
+            toolName: "bash",
+            input: { command: "echo ok" },
+            providerExecuted: undefined,
+          },
+        ],
+      },
+      {
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: "call-1",
+            toolName: "bash",
+            output: {
+              type: "text",
+              value: `${t("zh-CN", "tool.shell.user_aborted")}\nok\n\n<shell_metadata>\nother metadata\n</shell_metadata>`,
+            },
+          },
+        ],
+      },
+      { role: "assistant", content: [{ type: "text", text: "done" }] },
+    ])
+  })
+
   test("includes aborted assistant messages only when they have non-step-start/reasoning content", async () => {
     const assistantID1 = "m-assistant-1"
     const assistantID2 = "m-assistant-2"

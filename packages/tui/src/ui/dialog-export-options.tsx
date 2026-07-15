@@ -6,21 +6,38 @@ import { onMount, Show } from "solid-js"
 import { useBindings } from "../keymap"
 import { useI18n } from "../context/i18n"
 
-export type DialogExportOptionsProps = {
+type DialogExportOptionsValue = {
+  filename: string
+  thinking: boolean
+  toolDetails: boolean
+  assistantMetadata: boolean
+  continuationRecords: boolean
+  openWithoutSaving: boolean
+}
+
+type DialogExportOptionsDefaults = {
   defaultFilename: string
   defaultThinking: boolean
   defaultToolDetails: boolean
   defaultAssistantMetadata: boolean
+  defaultContinuationRecords: boolean
   defaultOpenWithoutSaving: boolean
-  onConfirm?: (options: {
-    filename: string
-    thinking: boolean
-    toolDetails: boolean
-    assistantMetadata: boolean
-    openWithoutSaving: boolean
-  }) => void
+}
+
+export type DialogExportOptionsProps = DialogExportOptionsDefaults & {
+  onConfirm?: (options: DialogExportOptionsValue) => void
   onCancel?: () => void
 }
+
+const optionOrder = [
+  "filename",
+  "thinking",
+  "toolDetails",
+  "assistantMetadata",
+  "continuationRecords",
+  "openWithoutSaving",
+] as const
+type Option = (typeof optionOrder)[number]
 
 export function DialogExportOptions(props: DialogExportOptionsProps) {
   const dialog = useDialog()
@@ -31,8 +48,9 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
     thinking: props.defaultThinking,
     toolDetails: props.defaultToolDetails,
     assistantMetadata: props.defaultAssistantMetadata,
+    continuationRecords: props.defaultContinuationRecords,
     openWithoutSaving: props.defaultOpenWithoutSaving,
-    active: "filename" as "filename" | "thinking" | "toolDetails" | "assistantMetadata" | "openWithoutSaving",
+    active: "filename" as Option,
   })
 
   useBindings(() => ({
@@ -42,16 +60,8 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
         desc: i18n.t("select.next_item"),
         group: i18n.t("tui.category_dialog"),
         cmd: () => {
-          const order: Array<"filename" | "thinking" | "toolDetails" | "assistantMetadata" | "openWithoutSaving"> = [
-            "filename",
-            "thinking",
-            "toolDetails",
-            "assistantMetadata",
-            "openWithoutSaving",
-          ]
-          const currentIndex = order.indexOf(store.active)
-          const nextIndex = (currentIndex + 1) % order.length
-          setStore("active", order[nextIndex])
+          const currentIndex = optionOrder.indexOf(store.active)
+          setStore("active", optionOrder[(currentIndex + 1) % optionOrder.length])
         },
       },
     ],
@@ -68,6 +78,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           if (store.active === "thinking") setStore("thinking", !store.thinking)
           if (store.active === "toolDetails") setStore("toolDetails", !store.toolDetails)
           if (store.active === "assistantMetadata") setStore("assistantMetadata", !store.assistantMetadata)
+          if (store.active === "continuationRecords") setStore("continuationRecords", !store.continuationRecords)
           if (store.active === "openWithoutSaving") setStore("openWithoutSaving", !store.openWithoutSaving)
         },
       },
@@ -104,6 +115,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
               thinking: store.thinking,
               toolDetails: store.toolDetails,
               assistantMetadata: store.assistantMetadata,
+              continuationRecords: store.continuationRecords,
               openWithoutSaving: store.openWithoutSaving,
             })
           }}
@@ -165,6 +177,20 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           flexDirection="row"
           gap={2}
           paddingLeft={1}
+          backgroundColor={store.active === "continuationRecords" ? theme.backgroundElement : undefined}
+          onMouseUp={() => setStore("active", "continuationRecords")}
+        >
+          <text fg={store.active === "continuationRecords" ? theme.primary : theme.textMuted}>
+            {store.continuationRecords ? "[x]" : "[ ]"}
+          </text>
+          <text fg={store.active === "continuationRecords" ? theme.primary : theme.text}>
+            {i18n.t("dialog.include_continuation_records")}
+          </text>
+        </box>
+        <box
+          flexDirection="row"
+          gap={2}
+          paddingLeft={1}
           backgroundColor={store.active === "openWithoutSaving" ? theme.backgroundElement : undefined}
           onMouseUp={() => setStore("active", "openWithoutSaving")}
         >
@@ -190,32 +216,11 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
   )
 }
 
-DialogExportOptions.show = (
-  dialog: DialogContext,
-  defaultFilename: string,
-  defaultThinking: boolean,
-  defaultToolDetails: boolean,
-  defaultAssistantMetadata: boolean,
-  defaultOpenWithoutSaving: boolean,
-) => {
-  return new Promise<{
-    filename: string
-    thinking: boolean
-    toolDetails: boolean
-    assistantMetadata: boolean
-    openWithoutSaving: boolean
-  } | null>((resolve) => {
+DialogExportOptions.show = (dialog: DialogContext, defaults: DialogExportOptionsDefaults) => {
+  return new Promise<DialogExportOptionsValue | null>((resolve) => {
     dialog.replace(
       () => (
-        <DialogExportOptions
-          defaultFilename={defaultFilename}
-          defaultThinking={defaultThinking}
-          defaultToolDetails={defaultToolDetails}
-          defaultAssistantMetadata={defaultAssistantMetadata}
-          defaultOpenWithoutSaving={defaultOpenWithoutSaving}
-          onConfirm={(options) => resolve(options)}
-          onCancel={() => resolve(null)}
-        />
+        <DialogExportOptions {...defaults} onConfirm={(options) => resolve(options)} onCancel={() => resolve(null)} />
       ),
       () => resolve(null),
     )

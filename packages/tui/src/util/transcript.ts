@@ -2,11 +2,14 @@ import type { AssistantMessage, Part, Provider, UserMessage } from "@miaopan/sdk
 import { Locale } from "./locale"
 import * as Model from "./model"
 import { t } from "@miaopan-code/core/i18n"
+import { errorMessage } from "./error"
+import { projectContinuationMessages, type MessageWithParts } from "./session-continuation"
 
 export type TranscriptOptions = {
   thinking: boolean
   toolDetails: boolean
   assistantMetadata: boolean
+  continuationRecords?: boolean
   providers?: Provider[]
 }
 
@@ -19,17 +22,13 @@ export type SessionInfo = {
   }
 }
 
-export type MessageWithParts = {
-  info: UserMessage | AssistantMessage
-  parts: Part[]
-}
-
 export function formatTranscript(
   session: SessionInfo,
   messages: MessageWithParts[],
   options: TranscriptOptions,
 ): string {
   const providers = Model.index(options.providers)
+  messages = options.continuationRecords ? messages : projectContinuationMessages(messages)
   let transcript = `# ${session.title}\n\n`
   transcript += `**${t(Locale.language(), "transcript.session_id")}:** ${session.id}\n`
   transcript += `**${t(Locale.language(), "transcript.created")}:** ${new Date(session.time.created).toLocaleString(Locale.language())}\n`
@@ -60,6 +59,10 @@ export function formatMessage(
 
   for (const part of parts) {
     result += formatPart(part, options)
+  }
+
+  if (msg.role === "assistant" && msg.error && options.continuationRecords) {
+    result += `**${t(Locale.language(), "transcript.error")}:**\n\n${errorMessage(msg.error)}\n\n`
   }
 
   return result
@@ -102,7 +105,7 @@ export function formatPart(part: Part, options: TranscriptOptions): string {
     if (options.toolDetails && part.state.status === "completed" && part.state.output) {
       result += `\n**${t(Locale.language(), "transcript.output")}:**\n\`\`\`\n${part.state.output}\n\`\`\`\n`
     }
-    if (options.toolDetails && part.state.status === "error" && part.state.error) {
+    if ((options.toolDetails || options.continuationRecords) && part.state.status === "error" && part.state.error) {
       result += `\n**${t(Locale.language(), "transcript.error")}:**\n\`\`\`\n${part.state.error}\n\`\`\`\n`
     }
     result += `\n`

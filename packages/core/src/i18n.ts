@@ -3273,6 +3273,10 @@ export const messages = {
   "dialog.enter_filename": { "zh-CN": "输入文件名", en: "Enter filename" },
   "dialog.include_thinking": { "zh-CN": "包含思考过程", en: "Include thinking" },
   "dialog.include_tool_details": { "zh-CN": "包含工具详情", en: "Include tool details" },
+  "dialog.include_continuation_records": {
+    "zh-CN": "包含继续前的错误记录",
+    en: "Include errors from before continuation",
+  },
   "dialog.include_assistant_metadata": { "zh-CN": "包含助手元数据", en: "Include assistant metadata" },
   "dialog.open_without_saving": { "zh-CN": "不保存直接打开", en: "Open without saving" },
   "dialog.press_space_toggle_return_confirm": {

@@ -1021,6 +1021,42 @@ it.instance("continue starts another turn without adding a user message", () =>
   }),
 )
 
+it.instance("continue preserves partial failed output without sending the failure to the model", () =>
+  Effect.gen(function* () {
+    const { llm } = yield* useServerConfig(providerCfg)
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const session = yield* sessions.create({ title: "Continue after failure" })
+    yield* prompt.prompt({
+      sessionID: session.id,
+      agent: "build",
+      noReply: true,
+      parts: [{ type: "text", text: "finish the task" }],
+    })
+    yield* llm.push(reply().text("partial response").contentFilter())
+    const failed = yield* prompt.loop({ sessionID: session.id })
+    yield* llm.text("continued response")
+
+    const result = yield* prompt.continue({ sessionID: session.id })
+    const messages = yield* sessions.messages({ sessionID: session.id })
+    const inputs = yield* llm.inputs
+    const request = JSON.stringify(inputs.at(-1))
+
+    expect(failed.info.role).toBe("assistant")
+    if (failed.info.role === "assistant") expect(failed.info.error?.name).toBe("ContentFilterError")
+    expect(messages.filter((message) => message.info.role === "user")).toHaveLength(1)
+    expect(
+      messages.some(
+        (message) => message.info.role === "assistant" && message.info.error?.name === "ContentFilterError",
+      ),
+    ).toBe(true)
+    expect(request).toContain("partial response")
+    expect(request).not.toContain("ContentFilterError")
+    expect(request).not.toContain(t("zh-CN", "error.content_filter"))
+    expect(result.parts.some((part) => part.type === "text" && part.text === "continued response")).toBe(true)
+  }),
+)
+
 it.instance("continue commits a staged revert before starting another turn", () =>
   Effect.gen(function* () {
     const { llm } = yield* useServerConfig(providerCfg)

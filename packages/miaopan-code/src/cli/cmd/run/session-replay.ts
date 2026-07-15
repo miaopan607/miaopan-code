@@ -1,4 +1,5 @@
 import type { Event, PermissionRequest, QuestionRequest } from "@miaopan/sdk/v2"
+import { projectContinuationMessages } from "@miaopan-code/tui/util/session-continuation"
 import { bootstrapSessionData, createSessionData, reduceSessionData, type SessionData } from "./session-data"
 import { messagePrompt, type SessionMessages } from "./session.shared"
 import { messageTurnSummaryCommit } from "./turn-summary"
@@ -237,16 +238,17 @@ export function replaySession(input: ReplayInput): SessionReplay {
   const data = createSessionData()
   const commits: StreamCommit[] = []
   let patch: FooterPatch | undefined
-  const summaries = summaryMessageIDs(input.messages)
+  const messages = projectContinuationMessages(input.messages)
+  const summaries = summaryMessageIDs(messages)
 
   bootstrapSessionData({
     data,
-    messages: input.messages,
+    messages,
     permissions: input.permissions,
     questions: input.questions,
   })
 
-  for (const message of input.messages) {
+  for (const message of messages) {
     const next = replayMessage(data, message, input.thinking, {
       limits: input.limits,
       providers: input.providers,

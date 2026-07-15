@@ -1,6 +1,7 @@
 import { SessionID, MessageID } from "./schema"
 import { Language, t } from "@miaopan-code/core/i18n"
 import { SessionV1 } from "@miaopan-code/core/v1/session"
+import { SessionContinuation } from "@miaopan-code/core/v1/session-continuation"
 import { ProviderV2 } from "@miaopan-code/core/provider"
 import {
   APIError,
@@ -163,11 +164,119 @@ function providerMeta(metadata: Record<string, any> | undefined) {
   return Object.keys(rest).length > 0 ? rest : undefined
 }
 
+type ModelMessageOptions = {
+  stripMedia?: boolean
+  toolOutputMaxChars?: number
+  language?: Language
+  activeContinuationParentID?: string
+}
+
+const INTERRUPTED_OUTPUT_MARKERS = new Set(
+  Language.flatMap((language) => [
+    t(language, "tool.shell.user_aborted"),
+    t(language, "error.tool_execution_aborted"),
+    t(language, "prompt.tool_execution_interrupted"),
+  ]),
+)
+
+function isInterruptedTool(part: Part) {
+  if (part.type !== "tool") return false
+  if (part.state.status === "pending" || part.state.status === "running") return true
+  return part.state.status === "error" && part.state.metadata?.interrupted === true
+}
+
+function isFailedAssistant(message: WithParts) {
+  if (message.info.role !== "assistant") return false
+  if (message.info.error || message.info.finish === "error") return true
+  return message.parts.some(isInterruptedTool)
+}
+
+function cleanInterruptedOutput(output: string) {
+  const metadata = output.match(/\n*<(shell_metadata|metadata)>\n?([\s\S]*?)\n?<\/\1>\s*$/)
+  if (!metadata || metadata.index === undefined) return output.trimEnd()
+
+  const content = metadata[2]
+    ?.split("\n")
+    .filter((line) => !INTERRUPTED_OUTPUT_MARKERS.has(line.trim()))
+    .join("\n")
+    .trim()
+  const prefix = output.slice(0, metadata.index).trimEnd()
+  if (!content) return prefix
+  return `${prefix}\n\n<${metadata[1]}>\n${content}\n</${metadata[1]}>`
+}
+
+function projectContinuationMessages(input: WithParts[], activeParentID?: string) {
+  const continuation = SessionContinuation.resolve({
+    attempts: input
+      .flatMap((message) =>
+        message.info.role === "assistant"
+          ? [
+              {
+                id: message.info.id,
+                parentID: message.info.parentID,
+                failed: isFailedAssistant(message),
+              },
+            ]
+          : [],
+      )
+      .toSorted((a, b) => a.id.localeCompare(b.id)),
+    activeParentID,
+  })
+  if (continuation.superseded.length === 0) {
+    return { messages: input, targetByAssistantID: continuation.targetByAssistantID }
+  }
+
+  const superseded = new Set(continuation.superseded)
+  const messages = input.flatMap((message) => {
+    if (message.info.role !== "assistant" || !superseded.has(message.info.id)) return [message]
+    const parts = message.parts.flatMap((part): Part[] => {
+      if (part.type !== "tool") return [part]
+      if (part.state.status === "pending" || part.state.status === "running") return []
+      if (part.state.status !== "error" || part.state.metadata?.interrupted !== true) return [part]
+      const output = part.state.metadata.output
+      if (typeof output !== "string") return []
+      const cleaned = cleanInterruptedOutput(output)
+      if (!cleaned) return []
+      return [
+        {
+          ...part,
+          state: {
+            ...part.state,
+            metadata: { ...part.state.metadata, output: cleaned },
+          },
+        },
+      ]
+    })
+    if (!parts.some((part) => part.type === "text" || part.type === "plan" || part.type === "tool")) return []
+    return [{ info: { ...message.info, error: undefined }, parts }]
+  })
+  return { messages, targetByAssistantID: continuation.targetByAssistantID }
+}
+
+function mergeContinuedAssistantMessages(messages: UIMessage[], targetByAssistantID: Record<string, string>) {
+  const targets = Object.entries(targetByAssistantID)
+  if (targets.length === 0) return messages
+
+  const byID = new Map(messages.map((message) => [message.id, message]))
+  const removed = new Set<string>()
+  for (const [sourceID, targetID] of targets) {
+    const source = byID.get(sourceID)
+    const target = byID.get(targetID)
+    if (source?.role !== "assistant" || target?.role !== "assistant") continue
+    if (source.parts.some((part) => part.type.startsWith("tool-"))) continue
+    target.parts = [...source.parts, ...target.parts]
+    removed.add(sourceID)
+  }
+  return messages.filter((message) => !removed.has(message.id))
+}
+
 export const toModelMessagesEffect = Effect.fnUntraced(function* (
   input: WithParts[],
   model: Provider.Model,
-  options?: { stripMedia?: boolean; toolOutputMaxChars?: number; language?: Language },
+  options?: ModelMessageOptions,
 ) {
+  const continuation = projectContinuationMessages(input, options?.activeContinuationParentID)
+  input = continuation.messages
   const result: UIMessage[] = []
   const toolNames = new Set<string>()
   // Track media from tool results that need to be injected as user messages
@@ -450,7 +559,9 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
 
   return yield* Effect.promise(() =>
     convertToModelMessages(
-      result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
+      mergeContinuedAssistantMessages(result, continuation.targetByAssistantID).filter((msg) =>
+        msg.parts.some((part) => part.type !== "step-start"),
+      ),
       {
         //@ts-expect-error (convertToModelMessages expects a ToolSet but only actually needs tools[name]?.toModelOutput)
         tools,
@@ -462,7 +573,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
 export function toModelMessages(
   input: WithParts[],
   model: Provider.Model,
-  options?: { stripMedia?: boolean; toolOutputMaxChars?: number; language?: Language },
+  options?: ModelMessageOptions,
 ): Promise<ModelMessage[]> {
   return Effect.runPromise(toModelMessagesEffect(input, model, options))
 }
