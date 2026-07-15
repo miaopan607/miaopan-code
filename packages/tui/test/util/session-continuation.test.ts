@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { AssistantMessage, Part } from "@miaopan/sdk/v2"
+import { createStore, reconcile } from "solid-js/store"
 import { projectContinuationMessages, type MessageWithParts } from "../../src/util/session-continuation"
 
 function assistant(id: string, parentID: string, error?: AssistantMessage["error"]): AssistantMessage {
@@ -91,6 +92,31 @@ describe("projectContinuationMessages", () => {
 
     expect(projectContinuationMessages(input)[0]?.parts).toEqual([text("prt_1", "msg_2", "partial continued answer")])
     expect(input[1]?.parts).toEqual([text("prt_2", "msg_2", "continued "), text("prt_3", "msg_2", "answer")])
+  })
+
+  test("preserves projected message and part identity while continued output streams", () => {
+    const project = (value: string) =>
+      projectContinuationMessages([
+        {
+          info: assistant("msg_1", "msg_user", {
+            name: "MessageAbortedError",
+            data: { message: "aborted" },
+          }),
+          parts: [text("prt_1", "msg_1", "partial ")],
+        },
+        { info: assistant("msg_2", "msg_user"), parts: [text("prt_2", "msg_2", value)] },
+      ]).map((message) => ({ id: message.info.id, ...message }))
+    const [messages, setMessages] = createStore(project("answer"))
+    const message = messages[0]
+    const part = messages[0]?.parts[0]
+
+    setMessages(reconcile(project("answer continues")))
+
+    expect(messages[0]).toBe(message)
+    expect(messages[0]?.parts[0]).toBe(part)
+    const next = messages[0]?.parts[0]
+    expect(next?.type).toBe("text")
+    if (next?.type === "text") expect(next.text).toBe("partial answer continues")
   })
 
   test("keeps the latest failure visible until another assistant supersedes it", () => {

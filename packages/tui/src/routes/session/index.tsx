@@ -14,6 +14,7 @@ import {
   untrack,
   useContext,
 } from "solid-js"
+import { createStore, reconcile } from "solid-js/store"
 import path from "node:path"
 import { mkdir, writeFile } from "node:fs/promises"
 import { useRoute, useRouteData } from "../../context/route"
@@ -76,7 +77,7 @@ import { DialogExportOptions } from "../../ui/dialog-export-options"
 import * as Model from "../../util/model"
 import { formatTranscript } from "../../util/transcript"
 import { sessionEpilogue } from "../../util/presentation"
-import { projectContinuationMessages } from "../../util/session-continuation"
+import { projectContinuationMessages, type MessageWithParts } from "../../util/session-continuation"
 import { setPreLayoutSiblingMargin } from "../../util/layout"
 import { useTuiConfig } from "../../config"
 import { useClipboard } from "../../context/clipboard"
@@ -269,11 +270,16 @@ export function Session() {
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
-  const displayMessages = createMemo(() =>
-    projectContinuationMessages(
-      messages().map((message) => ({ info: message, parts: sync.data.part[message.id] ?? [] })),
-    ),
-  )
+  const [displayMessages, setDisplayMessages] = createStore<Array<MessageWithParts & { id: string }>>([])
+  createEffect(() => {
+    setDisplayMessages(
+      reconcile(
+        projectContinuationMessages(
+          messages().map((message) => ({ info: message, parts: sync.data.part[message.id] ?? [] })),
+        ).map((message) => ({ id: message.info.id, ...message })),
+      ),
+    )
+  })
   const hasUserMessage = createMemo(() => messages().some((message) => message.role === "user"))
   const canContinue = createMemo(() => {
     const status = sync.data.session_status[route.sessionID]
@@ -1446,7 +1452,7 @@ export function Session() {
                 scrollAcceleration={scrollAcceleration()}
               >
                 <box height={1} />
-                <For each={displayMessages()}>
+                <For each={displayMessages}>
                   {(entry, index) => {
                     const message = entry.info
                     return (
