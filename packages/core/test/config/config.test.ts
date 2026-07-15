@@ -160,6 +160,17 @@ describe("Config", () => {
     }),
   )
 
+  it.effect("decodes the raw request recording setting", () =>
+    Effect.sync(() => {
+      expect(
+        Schema.decodeUnknownSync(ConfigV1.Info)({ experimental: { record_raw_requests: true } }).experimental
+          ?.record_raw_requests,
+      ).toBe(true)
+      expect(Schema.decodeUnknownSync(ConfigV1.Info)({}).experimental?.record_raw_requests).toBeUndefined()
+      expect(() => Schema.decodeUnknownSync(ConfigV1.Info)({ experimental: { record_raw_requests: "true" } })).toThrow()
+    }),
+  )
+
   it.effect("decodes a model-specific compaction model", () =>
     Effect.sync(() => {
       const config = Schema.decodeUnknownSync(ConfigV1.Info)({

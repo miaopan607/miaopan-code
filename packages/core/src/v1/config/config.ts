@@ -188,6 +188,9 @@ export const Info = Schema.Struct({
       openTelemetry: Schema.optional(Schema.Boolean).annotate({
         description: zh("config.v1.telemetry"),
       }),
+      record_raw_requests: Schema.optional(Schema.Boolean).annotate({
+        description: zh("config.v1.record_raw_requests"),
+      }),
       primary_tools: Schema.optional(Schema.mutable(Schema.Array(Schema.String))).annotate({
         description: zh("config.v1.primary_tools"),
       }),

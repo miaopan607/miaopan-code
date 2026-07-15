@@ -33,6 +33,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
 import { resolveLanguage, t, type Language } from "@miaopan-code/core/i18n"
 import { CodexUserAgent } from "./codex-user-agent"
+import { RawRequestRecorder } from "./raw-request-recorder"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
@@ -1197,6 +1198,7 @@ export interface Interface {
 
 interface State {
   language: Language
+  rawRequestRecorder?: RawRequestRecorder.Recorder
   models: Map<string, LanguageModelV3>
   workflowModels: Map<string, Map<string, LanguageModelV3>>
   providers: Record<ProviderV2.ID, Info>
@@ -1703,6 +1705,17 @@ const layer = Layer.effect(
 
         return {
           language: resolveLanguage(cfg.language),
+          rawRequestRecorder:
+            cfg.experimental?.record_raw_requests === true
+              ? RawRequestRecorder.make({
+                  onError: (error) =>
+                    bridge.fork(
+                      Effect.logWarning(t(cfg.language, "log.llm_raw_request_record_failed"), {
+                        error,
+                      }),
+                    ),
+                })
+              : undefined,
           models: languages,
           workflowModels: workflowLanguages,
           providers,
@@ -1813,6 +1826,14 @@ const layer = Layer.effect(
 
           const combined = signals.length === 0 ? null : signals.length === 1 ? signals[0] : AbortSignal.any(signals)
           if (combined) opts.signal = combined
+
+          if (s.rawRequestRecorder)
+            await s.rawRequestRecorder.record({
+              providerID: model.providerID,
+              modelID: model.id,
+              input,
+              init: opts,
+            })
 
           const res = await fetchFn(input, {
             ...opts,

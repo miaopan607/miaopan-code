@@ -2339,6 +2339,10 @@ export const messages = {
     "zh-CN": "为 AI SDK 调用启用 OpenTelemetry span（使用 experimental_telemetry 标志）",
     en: "Enable OpenTelemetry spans for AI SDK calls (using the 'experimental_telemetry' flag)",
   },
+  "config.v1.record_raw_requests": {
+    "zh-CN": "将 AI SDK 发往模型提供商的原始请求记录到日志目录；请求可能包含敏感内容，仅应临时启用（默认：false）",
+    en: "Record raw AI SDK requests sent to model providers in the log directory; requests may contain sensitive data and this should only be enabled temporarily (default: false)",
+  },
   "config.v1.primary_tools": {
     "zh-CN": "仅主代理可用的工具",
     en: "Tools that should only be available to primary agents.",
@@ -5050,6 +5054,10 @@ export const messages = {
     en: "batched checkout failed, falling back to single-file revert",
   },
   "log.llm_runtime_selected": { "zh-CN": "已选择 LLM 运行时", en: "llm runtime selected" },
+  "log.llm_raw_request_record_failed": {
+    "zh-CN": "记录 LLM 原始请求失败",
+    en: "failed to record raw LLM request",
+  },
   "log.llm_native_fallback": {
     "zh-CN": "原生运行时不可用；正在回退到 ai-sdk",
     en: "native runtime unavailable; falling back to ai-sdk",
