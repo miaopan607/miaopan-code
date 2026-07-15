@@ -75,8 +75,14 @@ function wrapSSE(res: Response, ms: number | undefined, ctl: AbortController | u
       }
 
       ctrl.enqueue(part.value)
-      sseTail = (sseTail + decoder.decode(part.value, { stream: true })).slice(-64)
-      if (/(?:^|\r?\n)data:\s*\[DONE\]/.test(sseTail)) {
+      sseTail = (sseTail + decoder.decode(part.value, { stream: true })).slice(-16_384)
+      const done = /(?:^|\r?\n)data:\s*\[DONE\]/.test(sseTail)
+      // OpenAI-compatible providers sometimes send a terminal finish_reason but
+      // keep the HTTP connection open and omit the conventional [DONE] frame.
+      // Closing here lets the AI SDK flush its buffered finish event instead of
+      // waiting indefinitely for the provider to close the response.
+      const finished = /"finish_reason"\s*:\s*"[^"]+"/.test(sseTail)
+      if (done || finished) {
         await reader.cancel()
         ctrl.close()
       }

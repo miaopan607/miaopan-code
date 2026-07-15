@@ -669,30 +669,31 @@ afterAll(() => {
   void state.server?.stop()
 })
 
-function createChatStream(text: string, options: { close?: boolean; splitDone?: boolean } = {}) {
-  const payload =
-    [
-      `data: ${JSON.stringify({
-        id: "chatcmpl-1",
-        object: "chat.completion.chunk",
-        choices: [{ delta: { role: "assistant" } }],
-      })}`,
-      `data: ${JSON.stringify({
-        id: "chatcmpl-1",
-        object: "chat.completion.chunk",
-        choices: [{ delta: { content: text } }],
-      })}`,
-      `data: ${JSON.stringify({
-        id: "chatcmpl-1",
-        object: "chat.completion.chunk",
-        choices: [{ delta: {}, finish_reason: "stop" }],
-      })}`,
-      "data: [DONE]",
-    ].join("\n\n") + "\n\n"
+function createChatStream(text: string, options: { close?: boolean; splitDone?: boolean; done?: boolean } = {}) {
+  const events = [
+    `data: ${JSON.stringify({
+      id: "chatcmpl-1",
+      object: "chat.completion.chunk",
+      choices: [{ delta: { role: "assistant" } }],
+    })}`,
+    `data: ${JSON.stringify({
+      id: "chatcmpl-1",
+      object: "chat.completion.chunk",
+      choices: [{ delta: { content: text } }],
+    })}`,
+    `data: ${JSON.stringify({
+      id: "chatcmpl-1",
+      object: "chat.completion.chunk",
+      choices: [{ delta: {}, finish_reason: "stop" }],
+    })}`,
+  ]
+  if (options.done !== false) events.push("data: [DONE]")
+  const payload = events.join("\n\n") + "\n\n"
 
   const encoder = new TextEncoder()
   const doneIndex = payload.indexOf("[DONE]")
-  const chunks = options.splitDone ? [payload.slice(0, doneIndex + 3), payload.slice(doneIndex + 3)] : [payload]
+  const chunks =
+    options.splitDone && doneIndex >= 0 ? [payload.slice(0, doneIndex + 3), payload.slice(doneIndex + 3)] : [payload]
   return new ReadableStream<Uint8Array>({
     start(controller) {
       for (const chunk of chunks) controller.enqueue(encoder.encode(chunk))
@@ -878,6 +879,65 @@ describe("session.llm.stream", () => {
             tools: {},
           }),
           "AI SDK stream did not stop after provider finish",
+          "1 second",
+        )
+        yield* Effect.promise(() => request)
+      }),
+    {
+      config: () => ({
+        enabled_providers: [vivgridFixture.providerID],
+        provider: {
+          [vivgridFixture.providerID]: {
+            options: { apiKey: "test-key", baseURL: `${state.server!.url.origin}/v1` },
+          },
+        },
+      }),
+    },
+  )
+
+  it.instance(
+    "stops when finish_reason arrives without an SSE DONE frame",
+    () =>
+      Effect.gen(function* () {
+        const fixture = loadFixture(vivgridFixture.providerID, vivgridFixture.modelID)
+        const request = waitRequest(
+          "/chat/completions",
+          new Response(createChatStream("Hello", { close: false, done: false }), {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          }),
+        )
+        const resolved = yield* Provider.use.getModel(
+          ProviderV2.ID.make(vivgridFixture.providerID),
+          ModelV2.ID.make(fixture.model.id),
+        )
+        const sessionID = SessionID.make("session-test-stream-finish-without-done")
+        const agent = {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [{ permission: "*", pattern: "*", action: "allow" }],
+        } satisfies Agent.Info
+        const user = {
+          id: MessageID.make("msg_user-stream-finish-without-done"),
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: agent.name,
+          model: { providerID: ProviderV2.ID.make(vivgridFixture.providerID), modelID: resolved.id },
+        } satisfies SessionV1.User
+
+        yield* awaitWithTimeout(
+          drain({
+            user,
+            sessionID,
+            model: resolved,
+            agent,
+            system: ["You are a helpful assistant."],
+            messages: [{ role: "user", content: "Hello" }],
+            tools: {},
+          }),
+          "AI SDK stream did not stop after finish_reason without DONE",
           "1 second",
         )
         yield* Effect.promise(() => request)
